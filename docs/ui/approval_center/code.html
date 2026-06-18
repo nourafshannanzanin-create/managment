@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed": "#001f26",
+                    "error": "#ba1a1a",
+                    "on-secondary-fixed": "#0a1e24",
+                    "tertiary-container": "#c49a80",
+                    "on-primary-container": "#1f3d46",
+                    "surface-tint": "#45636c",
+                    "on-surface": "#1b1c17",
+                    "surface-bright": "#fbfaf1",
+                    "on-tertiary-container": "#4f321e",
+                    "on-error-container": "#93000a",
+                    "text-primary": "#2D3436",
+                    "surface-container-high": "#e9e8e0",
+                    "primary": "#45636c",
+                    "secondary-fixed": "#d1e6ed",
+                    "on-primary-fixed-variant": "#2d4b54",
+                    "on-tertiary": "#ffffff",
+                    "on-background": "#1b1c17",
+                    "on-secondary-container": "#52666c",
+                    "accent-warning": "#E1A95F",
+                    "text-secondary": "#636E72",
+                    "surface-container": "#efeee6",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface-variant": "#41484a",
+                    "tertiary-fixed": "#ffdcc7",
+                    "primary-fixed-dim": "#acccd6",
+                    "surface-container-low": "#f5f4ec",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed-dim": "#b5cad1",
+                    "background": "#fbfaf1",
+                    "surface-container-highest": "#e4e3db",
+                    "on-tertiary-fixed-variant": "#5f402b",
+                    "on-error": "#ffffff",
+                    "secondary": "#4e6268",
+                    "inverse-on-surface": "#f2f1e9",
+                    "surface-variant": "#e4e3db",
+                    "outline-variant": "#c1c7ca",
+                    "surface-substrate": "#E5E1DA",
+                    "on-primary": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "primary-fixed": "#c8e8f3",
+                    "on-secondary-fixed-variant": "#364a50",
+                    "surface": "#fbfaf1",
+                    "primary-container": "#89a8b2",
+                    "accent-success": "#4FAC9B",
+                    "outline": "#72787a",
+                    "inverse-surface": "#30312c",
+                    "tertiary": "#795740",
+                    "surface-dim": "#dbdad3",
+                    "tertiary-fixed-dim": "#ebbda2",
+                    "inverse-primary": "#acccd6",
+                    "secondary-container": "#cee3ea",
+                    "on-tertiary-fixed": "#2d1505"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-md": "16px",
+                    "stack-lg": "24px",
+                    "section-margin": "64px",
+                    "gutter": "24px",
+                    "container-padding": "32px",
+                    "unit": "4px",
+                    "stack-sm": "8px"
+            },
+            "fontFamily": {
+                    "label-sm": ["Inter"],
+                    "label-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "display-lg": ["Hanken Grotesk"],
+                    "body-md": ["Inter"],
+                    "headline-lg": ["Hanken Grotesk"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "headline-lg-mobile": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+                    "label-sm": ["12px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "label-md": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "display-lg": ["48px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "1.3", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      .glass-card {
+        background: rgba(229, 225, 218, 0.4);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        box-shadow: 0 4px 20px -2px rgba(69, 99, 108, 0.04);
+      }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .fill-icon {
+        font-variation-settings: 'FILL' 1;
+      }
+      body {
+        background-color: #fbfaf1;
+        font-family: 'Inter', sans-serif;
+      }
+      .font-headline {
+        font-family: 'Hanken Grotesk', sans-serif;
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="pb-32 overflow-x-hidden">
+<!-- Top AppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl border-b border-white/20 shadow-sm flex justify-between items-center px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center overflow-hidden border-2 border-white">
+<img class="w-full h-full object-cover" data-alt="A professional corporate headshot of a middle-eastern male executive with a focused expression, wearing a high-quality grey suit. The lighting is soft and professional, set against a clean, minimalist architectural background in light tones. The image projects a high-end, corporate modern aesthetic consistent with the Workflow Hub brand." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9ym8tuXxPX8Sm213vITiUaAOrPH0Sx_rQ3Yo82QD14H4FTAClEbYpfrmg1sedm7j7gXsmmqdupFZL_GiXeA6phsO6AaWE7tROGSvKClDetT5_7eEeA_MFfh3vDMC5pFxx4FZL8n-A3tnn60oswDLuM-bE9uDbWwHcPcsHM1DhPNUg3otTNcJPudHe6FSXQL4vBJX_paOuSjnZMCAyJyYxpwIosDCYZzhpoQsUqXHhUU9uRcxptXtZM9zWt9uk1ZsznPRwKQ_YoLk"/>
+</div>
+<h1 class="font-headline font-headline-md text-headline-md-mobile font-bold text-primary">مرکز تاییدات</h1>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary-container/20 transition-colors">
+<span class="material-symbols-outlined text-primary">notifications</span>
+</button>
+</header>
+<main class="mt-20 px-6 space-y-6">
+<!-- Summary Stats Section -->
+<section class="grid grid-cols-2 gap-4">
+<div class="glass-card p-4 rounded-xl flex flex-col items-center text-center space-y-2">
+<span class="material-symbols-outlined text-primary text-3xl">pending_actions</span>
+<div class="font-headline text-headline-md font-bold text-primary">۱۲</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">صف انتظار</div>
+</div>
+<div class="glass-card p-4 rounded-xl flex flex-col items-center text-center space-y-2">
+<span class="material-symbols-outlined text-accent-success text-3xl">avg_time</span>
+<div class="font-headline text-headline-md font-bold text-primary">۱۸د</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">میانگین زمان تایید</div>
+</div>
+<div class="glass-card p-4 rounded-xl col-span-2 flex justify-around items-center">
+<div class="text-center">
+<div class="font-headline text-headline-md font-bold text-accent-success">۱۴۵</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">تایید شده</div>
+</div>
+<div class="h-8 w-px bg-outline-variant"></div>
+<div class="text-center">
+<div class="font-headline text-headline-md font-bold text-error">۸</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">رد شده</div>
+</div>
+</div>
+</section>
+<!-- Upload Area (Mobile Tap Zone) -->
+<section class="w-full">
+<div class="border-2 border-dashed border-primary-container bg-primary-container/5 rounded-2xl p-8 flex flex-col items-center justify-center space-y-3 cursor-pointer active:scale-95 transition-transform duration-150" onclick="document.getElementById('file-upload').click()">
+<div class="flex gap-2">
+<span class="material-symbols-outlined text-primary text-4xl">picture_as_pdf</span>
+<span class="material-symbols-outlined text-secondary text-4xl">image</span>
+</div>
+<p class="font-label-md text-label-md text-primary font-bold">بارگذاری مستندات جدید</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">فرمت‌های PDF و JPG (حداکثر ۱۰ مگابایت)</p>
+<input class="hidden" id="file-upload" type="file"/>
+</div>
+</section>
+<!-- Approval Feed -->
+<section class="space-y-4">
+<div class="flex justify-between items-end">
+<h2 class="font-headline font-headline-md text-headline-md text-primary">درخواست‌های اخیر</h2>
+<span class="font-label-sm text-label-sm text-on-surface-variant">نمایش همه</span>
+</div>
+<!-- Pending Card 1 -->
+<div class="glass-card rounded-2xl overflow-hidden">
+<div class="p-5 space-y-4">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-secondary-container rounded-lg">
+<span class="material-symbols-outlined text-secondary">contract</span>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-text-primary font-bold">قرارداد پیمانکاری سال ۱۴۰۳</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant">دسته: حقوقی</p>
+</div>
+</div>
+<span class="px-2 py-1 bg-accent-warning/10 text-accent-warning font-label-sm text-[10px] rounded-full">در انتظار</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-dim overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close-up portrait of a professional female engineer wearing a sleek headset, representing team ownership. The setting is a clean, glass-walled office with soft daylight. The aesthetic is modern corporate, emphasizing precision and trust, using a palette of soft teals and neutral whites." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCaBDZRyQO2vh-HlY2jxZwxChwD72_Ui08slPQHMzepZ_36EEo50FkFgMspNoNlM5Fh7NuouEztPkzdTHGshYih65juCzgv2Tjpbvt9aUT6AuxEva_vIpbPryRjGeQGHTbxK-S_op5XmtdYG_JR_NuLHjtit0votY8BJ5S48lLWC7qSp_R5-3F_DSQ4SwTLSOZIFmdKjCQu4yW-yGteqh7Zw8O5lm36855yiJdjOOMBzADrrHK3uPycFN13CK5ckatmk9N9NNvTxeE"/>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">مالک: سارا احمدی</span>
+</div>
+<div class="grid grid-cols-3 gap-2 pt-2">
+<button class="bg-primary text-on-primary font-label-md text-label-md py-3 rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+                            تایید
+                        </button>
+<button class="border-1.5 border-error text-error font-label-md text-label-md py-3 rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-transform" style="border-width: 1.5px">
+<span class="material-symbols-outlined text-sm">cancel</span>
+                            رد
+                        </button>
+<button class="bg-surface-container-high text-on-surface-variant font-label-md text-label-md py-3 rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-sm">visibility</span>
+                            مشاهده
+                        </button>
+</div>
+</div>
+</div>
+<!-- Pending Card 2 -->
+<div class="glass-card rounded-2xl overflow-hidden opacity-90">
+<div class="p-5 space-y-4">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-secondary-container rounded-lg">
+<span class="material-symbols-outlined text-secondary">payments</span>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-text-primary font-bold">فاکتور سرورهای ابری - ماه می</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant">دسته: زیرساخت</p>
+</div>
+</div>
+<span class="px-2 py-1 bg-accent-warning/10 text-accent-warning font-label-sm text-[10px] rounded-full">در انتظار</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-dim overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A portrait of a male technical lead with glasses and a friendly, expert demeanor. The lighting is bright and high-key, highlighting a tech-forward workspace. The visual style follows the corporate modern ethos with soft blur backgrounds and a primary color palette of deep slates and cool greys." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA-CVKVnFslCO1oC_KQOuTDuvT91EDlrO6hlVNVSWxWa8IxiQhq2CjjPIkiEakU7HX0mZ6r4mXOsYx_UuUfftEb4IaYqrOpATZ0PtGAxfU2mpg8Wg_XAMEca90CtS-sAzpEY5BqyH3U68VTiyPPRFQJLyYBiT5P6mq2QQHrAvfzqokcYC8oX9GNs7qTY9mVsZoFrivqzV94jJJHnaIysLnIsNSkrw-9N7B6Mx817M5wNHwqXig7RgVWiV1ct9YqJH-IgQaDw9ZdNlw"/>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">مالک: رامین فرهمند</span>
+</div>
+<div class="grid grid-cols-3 gap-2 pt-2">
+<button class="bg-primary text-on-primary font-label-md text-label-md py-3 rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+                            تایید
+                        </button>
+<button class="border-1.5 border-error text-error font-label-md text-label-md py-3 rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-transform" style="border-width: 1.5px">
+<span class="material-symbols-outlined text-sm">cancel</span>
+                            رد
+                        </button>
+<button class="bg-surface-container-high text-on-surface-variant font-label-md text-label-md py-3 rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-sm">visibility</span>
+                            مشاهده
+                        </button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- FAB for Upload -->
+<button class="fixed bottom-24 left-6 w-14 h-14 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition-transform duration-200 z-40">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'wght' 600">upload_file</span>
+</button>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-4 pt-2 bg-surface/80 backdrop-blur-xl border-t border-white/20 shadow-lg z-50 rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-sm text-label-sm mt-1">پیشخوان</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="font-label-sm text-label-sm mt-1">درخواست‌ها</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-sm text-label-sm mt-1">هزینه‌ها</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-2xl px-4 py-1" href="#">
+<span class="material-symbols-outlined fill-icon">fact_check</span>
+<span class="font-label-sm text-label-sm mt-1">تاییدات</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1" href="#">
+<span class="material-symbols-outlined">more_horiz</span>
+<span class="font-label-sm text-label-sm mt-1">بیشتر</span>
+</a>
+</nav>
+<script>
+        // Micro-interactions
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mousedown', () => {
+                button.classList.add('scale-95');
+            });
+            button.addEventListener('mouseup', () => {
+                button.classList.remove('scale-95');
+            });
+            button.addEventListener('mouseleave', () => {
+                button.classList.remove('scale-95');
+            });
+        });
+    </script>
+</body></html>

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=Inter:wght@400;500;600&amp;family=Vazirmatn:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        :root {
+            font-family: 'Vazirmatn', 'Inter', sans-serif;
+        }
+        .glass-card {
+            background: rgba(229, 225, 218, 0.4);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 20px 40px -10px rgba(69, 99, 108, 0.04);
+        }
+        .chart-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+        .donut-segment {
+            transition: stroke-dasharray 0.3s ease;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #89a8b2;
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-error-container": "#93000a",
+                      "surface-variant": "#e4e3db",
+                      "primary-fixed-dim": "#acccd6",
+                      "on-surface": "#1b1c17",
+                      "surface-container-high": "#e9e8e0",
+                      "on-secondary-container": "#52666c",
+                      "background": "#fbfaf1",
+                      "primary": "#45636c",
+                      "secondary-fixed-dim": "#b5cad1",
+                      "on-tertiary": "#ffffff",
+                      "surface-container": "#efeee6",
+                      "surface-tint": "#45636c",
+                      "on-primary-fixed-variant": "#2d4b54",
+                      "text-secondary": "#636E72",
+                      "tertiary-fixed-dim": "#ebbda2",
+                      "on-primary-fixed": "#001f26",
+                      "on-primary-container": "#1f3d46",
+                      "secondary": "#4e6268",
+                      "outline-variant": "#c1c7ca",
+                      "accent-success": "#4FAC9B",
+                      "accent-warning": "#E1A95F",
+                      "surface": "#fbfaf1",
+                      "on-primary": "#ffffff",
+                      "secondary-container": "#cee3ea",
+                      "on-surface-variant": "#41484a",
+                      "on-secondary-fixed": "#0a1e24",
+                      "on-secondary-fixed-variant": "#364a50",
+                      "surface-substrate": "#E5E1DA",
+                      "tertiary": "#795740",
+                      "error-container": "#ffdad6",
+                      "on-tertiary-fixed": "#2d1505",
+                      "inverse-primary": "#acccd6",
+                      "tertiary-fixed": "#ffdcc7",
+                      "surface-container-low": "#f5f4ec",
+                      "outline": "#72787a",
+                      "on-secondary": "#ffffff",
+                      "primary-fixed": "#c8e8f3",
+                      "on-error": "#ffffff",
+                      "error": "#ba1a1a",
+                      "secondary-fixed": "#d1e6ed",
+                      "inverse-on-surface": "#f2f1e9",
+                      "on-tertiary-container": "#4f321e",
+                      "inverse-surface": "#30312c",
+                      "primary-container": "#89a8b2",
+                      "on-background": "#1b1c17",
+                      "surface-container-highest": "#e4e3db",
+                      "surface-container-lowest": "#ffffff",
+                      "tertiary-container": "#c49a80",
+                      "on-tertiary-fixed-variant": "#5f402b",
+                      "text-primary": "#2D3436",
+                      "surface-dim": "#dbdad3",
+                      "surface-bright": "#fbfaf1"
+              },
+              "spacing": {
+                      "stack-lg": "24px",
+                      "section-margin": "64px",
+                      "container-padding": "32px",
+                      "stack-sm": "8px",
+                      "gutter": "24px",
+                      "unit": "4px",
+                      "stack-md": "16px"
+              },
+              "fontFamily": {
+                      "headline-lg": ["Vazirmatn", "Hanken Grotesk"],
+                      "headline-md": ["Vazirmatn", "Hanken Grotesk"],
+                      "label-md": ["Vazirmatn", "Inter"],
+                      "body-md": ["Vazirmatn", "Inter"]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen pb-24 md:pb-0">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 dark:bg-surface-container/80 backdrop-blur-xl shadow-sm border-b border-white/20 flex justify-between items-center px-container-padding py-stack-md">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-container">
+<img class="w-full h-full object-cover" data-alt="A professional corporate headshot of a Middle Eastern executive in a light-colored business suit, set against a blurred high-end office background with soft bokeh lighting. The aesthetic is clean, expensive, and modern, utilizing the brand's primary teal and cream tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGl37pWBonrjPCDORtmCh07JE2s8pg0kxIBg3LcFh9c6_T6uXdjys13MBQnIRB5yilf9kFGiGB1qw8Lbx75J7kLo7oOSd29RhLcfRM-wDXRbKT0U1ilRvcKnkhu7qfBDCW_ODEPv5Wg3CopzF6KN5eTUt-9-DFEDtj-A4KKv1faH2eINGBgYshS7-QGMt0Z717zAmo3Xavc19oaVhYBoq6IxvdiOV0zrgOo-XvdGyAdokzilUZToFwABcXXcWXdWBSqcjRSgEDzqk"/>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-md text-primary font-bold">Workflow Hub</span>
+<span class="text-label-sm text-on-surface-variant">مدیریت هزینه‌های سازمانی</span>
+</div>
+</div>
+<div class="flex items-center gap-stack-md">
+<button class="p-2 rounded-full hover:bg-primary-container/20 transition-colors text-primary active:scale-95 duration-150 ease-in-out">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 rounded-full hover:bg-primary-container/20 transition-colors text-primary active:scale-95 duration-150 ease-in-out">
+<span class="material-symbols-outlined">search</span>
+</button>
+</div>
+</header>
+<main class="pt-24 px-container-padding max-w-7xl mx-auto">
+<!-- Hero Section & KPI Bento -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-section-margin">
+<!-- Today KPI -->
+<div class="glass-card p-stack-lg rounded-xl flex flex-col justify-between group hover:translate-y-[-4px] transition-all duration-300">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-on-surface-variant">هزینه‌های امروز</span>
+<div class="bg-primary/10 p-2 rounded-lg text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">today</span>
+</div>
+</div>
+<div class="mt-4">
+<div class="font-headline-lg text-primary">۱۲,۴۵۰,۰۰۰ <span class="text-label-sm font-normal text-on-surface-variant">تومان</span></div>
+<div class="flex items-center gap-1 mt-2 text-accent-success font-label-sm">
+<span class="material-symbols-outlined text-[16px]">trending_down</span>
+<span>۱۲٪ کاهش نسبت به دیروز</span>
+</div>
+</div>
+</div>
+<!-- This Week KPI -->
+<div class="glass-card p-stack-lg rounded-xl flex flex-col justify-between group hover:translate-y-[-4px] transition-all duration-300">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-on-surface-variant">هزینه‌های این هفته</span>
+<div class="bg-secondary/10 p-2 rounded-lg text-secondary group-hover:bg-secondary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">date_range</span>
+</div>
+</div>
+<div class="mt-4">
+<div class="font-headline-lg text-primary">۸۴,۲۰۰,۰۰۰ <span class="text-label-sm font-normal text-on-surface-variant">تومان</span></div>
+<div class="flex items-center gap-1 mt-2 text-accent-warning font-label-sm">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span>۸٪ افزایش نسبت به هفته قبل</span>
+</div>
+</div>
+</div>
+<!-- This Month KPI -->
+<div class="glass-card p-stack-lg rounded-xl flex flex-col justify-between group hover:translate-y-[-4px] transition-all duration-300">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-on-surface-variant">مجموع هزینه‌های ماه</span>
+<div class="bg-tertiary/10 p-2 rounded-lg text-tertiary group-hover:bg-tertiary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">calendar_month</span>
+</div>
+</div>
+<div class="mt-4">
+<div class="font-headline-lg text-primary">۳۱۲,۹۰۰,۰۰۰ <span class="text-label-sm font-normal text-on-surface-variant">تومان</span></div>
+<div class="flex items-center gap-1 mt-2 text-accent-success font-label-sm">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+<span>۵٪ زیر بودجه پیش‌بینی شده</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Insights & Category Breakdown -->
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-gutter mb-section-margin">
+<!-- Category Chart Card -->
+<div class="lg:col-span-2 glass-card p-stack-lg rounded-xl flex flex-col items-center">
+<div class="w-full flex justify-between mb-stack-lg">
+<h3 class="font-headline-md text-primary">تفکیک دسته‌بندی</h3>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer">more_vert</span>
+</div>
+<div class="chart-container flex items-center justify-center mb-stack-lg">
+<svg class="w-full h-full transform -rotate-90" viewbox="0 0 36 36">
+<circle cx="18" cy="18" fill="transparent" r="15.915" stroke="#E5E1DA" stroke-width="4"></circle>
+<circle class="donut-segment" cx="18" cy="18" fill="transparent" r="15.915" stroke="#45636c" stroke-dasharray="45 55" stroke-dashoffset="0" stroke-width="4"></circle>
+<circle class="donut-segment" cx="18" cy="18" fill="transparent" r="15.915" stroke="#795740" stroke-dasharray="25 75" stroke-dashoffset="-45" stroke-width="4"></circle>
+<circle class="donut-segment" cx="18" cy="18" fill="transparent" r="15.915" stroke="#4FAC9B" stroke-dasharray="20 80" stroke-dashoffset="-70" stroke-width="4"></circle>
+<circle class="donut-segment" cx="18" cy="18" fill="transparent" r="15.915" stroke="#E1A95F" stroke-dasharray="10 90" stroke-dashoffset="-90" stroke-width="4"></circle>
+</svg>
+<div class="absolute flex flex-col items-center justify-center text-center">
+<span class="text-label-sm text-on-surface-variant">کل هزینه</span>
+<span class="font-headline-md text-primary font-bold">۱۰۰٪</span>
+</div>
+</div>
+<div class="w-full space-y-3">
+<div class="flex justify-between items-center text-label-md">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-primary"></div>
+<span>حقوق و دستمزد</span>
+</div>
+<span class="font-bold">۴۵٪</span>
+</div>
+<div class="flex justify-between items-center text-label-md">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-tertiary"></div>
+<span>تجهیزات و سخت‌افزار</span>
+</div>
+<span class="font-bold">۲۵٪</span>
+</div>
+<div class="flex justify-between items-center text-label-md">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-accent-success"></div>
+<span>بازاریابی و تبلیغات</span>
+</div>
+<span class="font-bold">۲۰٪</span>
+</div>
+<div class="flex justify-between items-center text-label-md">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-accent-warning"></div>
+<span>سایر موارد</span>
+</div>
+<span class="font-bold">۱۰٪</span>
+</div>
+</div>
+</div>
+<!-- Recent Expenses List -->
+<div class="lg:col-span-3 glass-card p-stack-lg rounded-xl overflow-hidden flex flex-col">
+<div class="flex justify-between items-center mb-stack-lg">
+<h3 class="font-headline-md text-primary">تراکنش‌های اخیر</h3>
+<button class="text-primary text-label-md hover:underline">مشاهده همه</button>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1">
+<!-- Transaction Row 1 -->
+<div class="flex items-center justify-between p-4 rounded-xl bg-surface-container/50 hover:bg-surface-container transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 flex items-center justify-center bg-primary-container/20 rounded-xl text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">payments</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md font-bold text-on-surface">پرداخت حقوق ماهانه</span>
+<span class="text-label-sm text-on-surface-variant">بخش مهندسی نرم‌افزار</span>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label-md font-bold text-primary">۱۸۰,۰۰۰,۰۰۰ تومان</span>
+<span class="text-label-sm text-on-surface-variant">۱۴۰۲/۰۷/۱۵</span>
+</div>
+</div>
+<!-- Transaction Row 2 -->
+<div class="flex items-center justify-between p-4 rounded-xl bg-surface-container/50 hover:bg-surface-container transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 flex items-center justify-center bg-tertiary-container/20 rounded-xl text-tertiary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">laptop_mac</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md font-bold text-on-surface">خرید سرورهای ابری</span>
+<span class="text-label-sm text-on-surface-variant">سرویس‌های زیرساختی AWS</span>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label-md font-bold text-primary">۴۲,۵۰۰,۰۰۰ تومان</span>
+<span class="text-label-sm text-on-surface-variant">۱۴۰۲/۰۷/۱۲</span>
+</div>
+</div>
+<!-- Transaction Row 3 -->
+<div class="flex items-center justify-between p-4 rounded-xl bg-surface-container/50 hover:bg-surface-container transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 flex items-center justify-center bg-secondary-container/30 rounded-xl text-secondary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">ads_click</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md font-bold text-on-surface">تبلیغات گوگل ادز</span>
+<span class="text-label-sm text-on-surface-variant">کمپین زمستانه محصولات</span>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label-md font-bold text-primary">۱۵,۷۰۰,۰۰۰ تومان</span>
+<span class="text-label-sm text-on-surface-variant">۱۴۰۲/۰۷/۱۰</span>
+</div>
+</div>
+<!-- Transaction Row 4 -->
+<div class="flex items-center justify-between p-4 rounded-xl bg-surface-container/50 hover:bg-surface-container transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 flex items-center justify-center bg-primary-container/20 rounded-xl text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">apartment</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md font-bold text-on-surface">اجاره دفتر مرکزی</span>
+<span class="text-label-sm text-on-surface-variant">سررسید مهر ماه</span>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label-md font-bold text-primary">۶۵,۰۰۰,۰۰۰ تومان</span>
+<span class="text-label-sm text-on-surface-variant">۱۴۰۲/۰۷/۰۵</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Animated Background Decor -->
+<div class="fixed inset-0 -z-10 pointer-events-none opacity-20">
+
+</div>
+</main>
+<!-- Bottom Navigation Bar (Mobile) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-4 pt-2 bg-surface/80 dark:bg-surface-container-highest/80 backdrop-blur-xl border-t border-white/20 z-50 rounded-t-xl shadow-lg">
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-2xl px-4 py-1 active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-label-sm">داشبورد</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 rounded-2xl px-4 py-1" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="text-label-sm">درخواست‌ها</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 rounded-2xl px-4 py-1" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="text-label-sm">هزینه‌ها</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 rounded-2xl px-4 py-1" href="#">
+<span class="material-symbols-outlined">fact_check</span>
+<span class="text-label-sm">تاییدات</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 rounded-2xl px-4 py-1" href="#">
+<span class="material-symbols-outlined">more_horiz</span>
+<span class="text-label-sm">بیشتر</span>
+</a>
+</nav>
+<!-- Desktop Sidebar Placeholder (Simplified for single-page UX) -->
+<aside class="hidden md:flex fixed top-0 right-0 w-[280px] h-full bg-surface-container-low border-l border-white/20 p-stack-lg flex-col z-40 pt-24">
+<div class="flex flex-col items-center mb-stack-lg text-center">
+<div class="w-20 h-20 rounded-full bg-primary-container p-1 mb-4">
+<div class="w-full h-full rounded-full overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close-up portrait of a high-ranking financial officer with sharp features, wearing a dark blue tailored suit. The lighting is dramatic and directional, echoing a high-end financial app aesthetic. The background is a gradient of muted corporate blues and soft greys." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPgB6hPzFEUa7E9zBlm2qwWZolTPOJawWNI9Cb9jOQVBDgwSvufADyzdO1YWMVUuAtn3rq6qJOfT-2K8WNp0544vH01sxKUU4LbyJAICvABm40WWmh3__7Q9ec8aYPSy3C43R1yB1VcNfOCG59fIXFVQdxk0DyrPY6aBU0fh7cX1Yl2n_tN9c3bX6bycZLOPhAsb2sAmfovVO9x5o02ZxOnZ6TZ7cEbOIWKc9IiOAPHwNar5sMA6zqZlptWgoPv9uHOZS3amH9qEU"/>
+</div>
+</div>
+<h4 class="font-headline-md text-primary">سینا رحمانی</h4>
+<p class="text-label-sm text-on-surface-variant">مدیر عملیات</p>
+<span class="mt-2 inline-block px-2 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-bold">بخش سازمانی</span>
+</div>
+<nav class="flex-1 space-y-2">
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container rounded-full mx-2 transition-all" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-md">پروفایل شخصی</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high mx-2 rounded-full transition-all hover:translate-x-[-4px]" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-label-md">تنظیمات تیم</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high mx-2 rounded-full transition-all hover:translate-x-[-4px]" href="#">
+<span class="material-symbols-outlined">security</span>
+<span class="font-label-md">امنیت</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high mx-2 rounded-full transition-all hover:translate-x-[-4px]" href="#">
+<span class="material-symbols-outlined">history_edu</span>
+<span class="font-label-md">گزارش‌های حسابرسی</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high mx-2 rounded-full transition-all hover:translate-x-[-4px]" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-label-md">مرکز پشتیبانی</span>
+</a>
+</nav>
+<button class="flex items-center gap-3 px-4 py-3 text-error hover:bg-error-container/20 mx-2 rounded-full transition-all mt-auto mb-stack-lg">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-md">خروج از سیستم</span>
+</button>
+</aside>
+<script>
+        // Micro-interaction: Update Chart on Scroll
+        window.addEventListener('scroll', () => {
+            const chart = document.querySelector('.donut-segment');
+            if (chart) {
+                const scrollPos = window.scrollY;
+                const scale = 1 + (scrollPos * 0.0001);
+                chart.parentElement.style.transform = `scale(${Math.min(scale, 1.05)}) rotate(-90deg)`;
+            }
+        });
+
+        // Toggle Active State for Nav (Simulated)
+        const navItems = document.querySelectorAll('nav a, aside a');
+        navItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                navItems.forEach(i => {
+                    i.classList.remove('bg-primary-container', 'text-on-primary-container');
+                    i.classList.add('text-on-surface-variant');
+                });
+                item.classList.add('bg-primary-container', 'text-on-primary-container');
+                item.classList.remove('text-on-surface-variant');
+            });
+        });
+    </script>
+</body></html>

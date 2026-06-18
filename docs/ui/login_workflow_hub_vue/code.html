@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Workflow Hub - Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Hanken+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed": "#001f26",
+                    "error": "#ba1a1a",
+                    "on-secondary-fixed": "#0a1e24",
+                    "tertiary-container": "#c49a80",
+                    "on-primary-container": "#1f3d46",
+                    "surface-tint": "#45636c",
+                    "on-surface": "#1b1c17",
+                    "surface-bright": "#fbfaf1",
+                    "on-tertiary-container": "#4f321e",
+                    "on-error-container": "#93000a",
+                    "text-primary": "#2D3436",
+                    "surface-container-high": "#e9e8e0",
+                    "primary": "#45636c",
+                    "secondary-fixed": "#d1e6ed",
+                    "on-primary-fixed-variant": "#2d4b54",
+                    "on-tertiary": "#ffffff",
+                    "on-background": "#1b1c17",
+                    "on-secondary-container": "#52666c",
+                    "accent-warning": "#E1A95F",
+                    "text-secondary": "#636E72",
+                    "surface-container": "#efeee6",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface-variant": "#41484a",
+                    "tertiary-fixed": "#ffdcc7",
+                    "primary-fixed-dim": "#acccd6",
+                    "surface-container-low": "#f5f4ec",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed-dim": "#b5cad1",
+                    "background": "#fbfaf1",
+                    "surface-container-highest": "#e4e3db",
+                    "on-tertiary-fixed-variant": "#5f402b",
+                    "on-error": "#ffffff",
+                    "secondary": "#4e6268",
+                    "inverse-on-surface": "#f2f1e9",
+                    "surface-variant": "#e4e3db",
+                    "outline-variant": "#c1c7ca",
+                    "surface-substrate": "#E5E1DA",
+                    "on-primary": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "primary-fixed": "#c8e8f3",
+                    "on-secondary-fixed-variant": "#364a50",
+                    "surface": "#fbfaf1",
+                    "primary-container": "#89a8b2",
+                    "accent-success": "#4FAC9B",
+                    "outline": "#72787a",
+                    "inverse-surface": "#30312c",
+                    "tertiary": "#795740",
+                    "surface-dim": "#dbdad3",
+                    "tertiary-fixed-dim": "#ebbda2",
+                    "inverse-primary": "#acccd6",
+                    "secondary-container": "#cee3ea",
+                    "on-tertiary-fixed": "#2d1505"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "12px",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-md": "16px",
+                    "stack-lg": "24px",
+                    "section-margin": "64px",
+                    "gutter": "24px",
+                    "container-padding": "32px",
+                    "unit": "4px",
+                    "stack-sm": "8px"
+            },
+            "fontFamily": {
+                    "label-sm": ["Inter"],
+                    "label-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "display-lg": ["Hanken Grotesk"],
+                    "body-md": ["Inter"],
+                    "headline-lg": ["Hanken Grotesk"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "headline-lg-mobile": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+                    "label-sm": ["12px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "label-md": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "display-lg": ["48px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "1.3", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      .glass-card {
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        box-shadow: 0 8px 32px 0 rgba(137, 168, 178, 0.1);
+      }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .stat-pill {
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+      input::placeholder {
+        text-align: right;
+      }
+      .fade-enter-active, .fade-leave-active {
+        transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+      }
+      .fade-enter-from, .fade-leave-to {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col font-body-md overflow-x-hidden">
+<div id="app" v-cloak="">
+<div class="fixed inset-0 z-0 pointer-events-none"></div>
+<transition appear="" name="fade">
+<main class="relative z-10 flex-grow flex flex-col items-center px-container-padding py-stack-lg max-w-md mx-auto w-full" v-if="isMounted">
+<!-- Top Bar / Logo -->
+<header class="w-full flex justify-center mb-stack-lg">
+<div class="flex items-center gap-2">
+<div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">hub</span>
+</div>
+<h1 class="font-headline-md text-headline-md-mobile text-primary font-bold tracking-tight">Workflow Hub</h1>
+</div>
+</header>
+<!-- Hero Illustration -->
+<section class="w-full mb-section-margin relative h-64">
+<div class="absolute inset-0 glass-card rounded-[32px] overflow-hidden flex flex-col items-center justify-center p-6">
+<div class="absolute -top-10 -right-10 w-32 h-32 bg-primary-container/20 blur-3xl rounded-full"></div>
+<div class="absolute -bottom-10 -left-10 w-32 h-32 bg-secondary-container/30 blur-3xl rounded-full"></div>
+<div class="relative z-10 grid grid-cols-2 gap-3 w-full">
+<!-- Stat 1 -->
+<div class="stat-pill p-3 rounded-2xl flex flex-col items-center justify-center animate-pulse" style="animation-duration: 3s;">
+<span class="text-primary font-bold font-headline-md">1.2k+</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant">کاربران فعال (Users)</span>
+</div>
+<!-- Stat 2 -->
+<div class="stat-pill p-3 rounded-2xl flex flex-col items-center justify-center animate-pulse" style="animation-duration: 4s;">
+<span class="text-primary font-bold font-headline-md">5k+</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant">درخواست‌ها (Requests)</span>
+</div>
+<!-- Stat 3 -->
+<div class="stat-pill col-span-2 p-3 rounded-2xl flex items-center justify-between px-6 animate-pulse" style="animation-duration: 5s;">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">description</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant">مستندات (Documents)</span>
+</div>
+<span class="text-primary font-bold font-headline-md">10k+</span>
+</div>
+</div>
+<div class="mt-6 flex flex-col items-center gap-1">
+<div class="flex items-center gap-2 text-accent-success">
+<span class="w-2 h-2 rounded-full bg-accent-success animate-ping"></span>
+<span class="text-label-md font-label-md">داده‌های لحظه‌ای (Real-Time Metrics)</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Login Form -->
+<section class="w-full">
+<div class="mb-stack-lg">
+<h2 class="font-headline-md text-headline-md-mobile text-on-surface font-bold text-center">ورود به پنل کاربری</h2>
+<p class="text-label-md font-label-md text-on-surface-variant text-center opacity-80 mt-1">Enterprise Authentication</p>
+</div>
+<form @submit.prevent="handleLogin" class="space-y-4">
+<!-- Email Field -->
+<div :class="{ 'scale-[1.01]': focusedField === 'email' }" class="space-y-1.5 transition-transform duration-200">
+<label class="block text-label-sm font-label-sm text-on-surface-variant mr-1">پست الکترونیک (Email)</label>
+<div class="relative">
+<span class="absolute inset-y-0 right-3 flex items-center text-outline">
+<span class="material-symbols-outlined">mail</span>
+</span>
+<input @blur="focusedField = null" @focus="focusedField = 'email'" class="w-full bg-surface-container-low border-none rounded-xl py-3.5 pr-10 pl-4 shadow-inner text-on-surface focus:ring-2 focus:ring-primary-container transition-all" placeholder="name@company.com" required="" type="email" v-model="form.email"/>
+</div>
+</div>
+<!-- Password Field -->
+<div :class="{ 'scale-[1.01]': focusedField === 'password' }" class="space-y-1.5 transition-transform duration-200">
+<label class="block text-label-sm font-label-sm text-on-surface-variant mr-1">رمز عبور (Password)</label>
+<div class="relative">
+<span class="absolute inset-y-0 right-3 flex items-center text-outline">
+<span class="material-symbols-outlined">lock</span>
+</span>
+<input @blur="focusedField = null" @focus="focusedField = 'password'" class="w-full bg-surface-container-low border-none rounded-xl py-3.5 pr-10 pl-4 shadow-inner text-on-surface focus:ring-2 focus:ring-primary-container transition-all" placeholder="••••••••" required="" type="password" v-model="form.password"/>
+</div>
+</div>
+<!-- Forgot Password -->
+<div class="flex justify-start">
+<a class="text-label-md font-label-md text-primary hover:underline" href="#">فراموشی رمز عبور؟ (Forgot Password)</a>
+</div>
+<!-- Login CTA -->
+<button :disabled="isLoading" class="w-full bg-primary text-white font-headline-md py-4 rounded-xl shadow-lg shadow-primary/30 active:scale-95 transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed" type="submit">
+<span v-if="!isLoading">ورود به سیستم (Login)</span>
+<span class="animate-spin material-symbols-outlined" v-else="">progress_activity</span>
+<span class="material-symbols-outlined" v-if="!isLoading">login</span>
+</button>
+</form>
+<!-- Divider -->
+<div class="relative my-8">
+<div class="absolute inset-0 flex items-center"><div class="w-full border-t border-outline-variant"></div></div>
+<div class="relative flex justify-center text-label-sm font-label-sm"><span class="bg-background px-4 text-on-surface-variant">یا از طریق (Or login with)</span></div>
+</div>
+<!-- Social Logins -->
+<div class="space-y-3">
+<button @click="socialLogin('Microsoft')" class="w-full flex items-center justify-center gap-3 py-3 border border-outline-variant rounded-xl bg-surface hover:bg-surface-container-low transition-colors active:scale-[0.98]">
+<img alt="Microsoft" class="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzt1PjH3ylgm7j23ftoWiH35dqcMMqCemPeeUbg3v5ui6we_rW2z9cNHxx83YlU6luvfRgT9mHcRPKxxPn3Xh7gjX6lj1hhV4vOTHRs4E49-IirWecFxrQgo826YWIxEKg6IPN_4iM9ctNzvwm0_u_w7_fYMErtstPsV3I5uVGiGy77sQyXR8_oMCsce5CbLh01ED8G0Fnfh6Y7aT5i-C5yGi-1Wx8Ydj-u1iLuD0fiDsSPWtaKGcdJC3QSO8jm-ywfL32riDxAh0"/>
+<span class="text-label-md font-label-md text-on-surface">Sign in with Microsoft</span>
+</button>
+<button @click="socialLogin('Google')" class="w-full flex items-center justify-center gap-3 py-3 border border-outline-variant rounded-xl bg-surface hover:bg-surface-container-low transition-colors active:scale-[0.98]">
+<img alt="Google" class="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCCtm1OJMxF59ASJagpCOrBRoRPT38cZAR_qKTiT4cfQhn47Kk4jKsIITxuy3jdXhmJ1fofUQ7U1O68wSA8gXyT_yGxprihzkzPPusaVe6QRNeNO9-fh1I7y0IuGRWlM7BF4iuh96hQFfVdhNIkPpGj51D2XcfFo1CE_3wxY50FYvBIm63Xf8YdEDX3pvhfopVnMz1L0oRDMQlbTYhxR-4i8XB3lzYKiveN1hAuBqvyixOCMhWfJ52ZvjKu4SXfA5f9Yho3DTUw_2w"/>
+<span class="text-label-md font-label-md text-on-surface">Sign in with Google</span>
+</button>
+</div>
+</section>
+<!-- Footer Links -->
+<footer class="mt-auto pt-stack-lg w-full flex justify-center gap-6 border-t border-outline-variant/30">
+<a class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1" href="#">
+<span class="material-symbols-outlined text-[18px]">support_agent</span>
+                    تماس با پشتیبانی (Support)
+                </a>
+<a class="text-label-sm font-label-sm text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1" href="#">
+<span class="material-symbols-outlined text-[18px]">policy</span>
+                    قوانین و مقررات
+                </a>
+</footer>
+</main>
+</transition>
+</div>
+<script>
+    const { createApp, ref, reactive, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            const isMounted = ref(false);
+            const isLoading = ref(false);
+            const focusedField = ref(null);
+            
+            const form = reactive({
+                email: '',
+                password: ''
+            });
+
+            onMounted(() => {
+                isMounted.value = true;
+            });
+
+            const handleLogin = async () => {
+                if (isLoading.value) return;
+                
+                isLoading.value = true;
+                // Simulate API call
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                console.log('Logging in with:', form.email);
+                isLoading.value = false;
+                
+                alert('درخواست ورود ارسال شد (Login attempt sent)');
+            };
+
+            const socialLogin = (provider) => {
+                console.log(`Connecting via ${provider}...`);
+                alert(`${provider} authentication initiated.`);
+            };
+
+            return {
+                isMounted,
+                isLoading,
+                focusedField,
+                form,
+                handleLogin,
+                socialLogin
+            };
+        }
+    }).mount('#app');
+</script>
+<style>
+    [v-cloak] {
+        display: none;
+    }
+</style>
+</body></html>

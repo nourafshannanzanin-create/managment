@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed": "#001f26",
+                    "error": "#ba1a1a",
+                    "on-secondary-fixed": "#0a1e24",
+                    "tertiary-container": "#c49a80",
+                    "on-primary-container": "#1f3d46",
+                    "surface-tint": "#45636c",
+                    "on-surface": "#1b1c17",
+                    "surface-bright": "#fbfaf1",
+                    "on-tertiary-container": "#4f321e",
+                    "on-error-container": "#93000a",
+                    "text-primary": "#2D3436",
+                    "surface-container-high": "#e9e8e0",
+                    "primary": "#45636c",
+                    "secondary-fixed": "#d1e6ed",
+                    "on-primary-fixed-variant": "#2d4b54",
+                    "on-tertiary": "#ffffff",
+                    "on-background": "#1b1c17",
+                    "on-secondary-container": "#52666c",
+                    "accent-warning": "#E1A95F",
+                    "text-secondary": "#636E72",
+                    "surface-container": "#efeee6",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface-variant": "#41484a",
+                    "tertiary-fixed": "#ffdcc7",
+                    "primary-fixed-dim": "#acccd6",
+                    "surface-container-low": "#f5f4ec",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed-dim": "#b5cad1",
+                    "background": "#fbfaf1",
+                    "surface-container-highest": "#e4e3db",
+                    "on-tertiary-fixed-variant": "#5f402b",
+                    "on-error": "#ffffff",
+                    "secondary": "#4e6268",
+                    "inverse-on-surface": "#f2f1e9",
+                    "surface-variant": "#e4e3db",
+                    "outline-variant": "#c1c7ca",
+                    "surface-substrate": "#E5E1DA",
+                    "on-primary": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "primary-fixed": "#c8e8f3",
+                    "on-secondary-fixed-variant": "#364a50",
+                    "surface": "#fbfaf1",
+                    "primary-container": "#89a8b2",
+                    "accent-success": "#4FAC9B",
+                    "outline": "#72787a",
+                    "inverse-surface": "#30312c",
+                    "tertiary": "#795740",
+                    "surface-dim": "#dbdad3",
+                    "tertiary-fixed-dim": "#ebbda2",
+                    "inverse-primary": "#acccd6",
+                    "secondary-container": "#cee3ea",
+                    "on-tertiary-fixed": "#2d1505"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-md": "16px",
+                    "stack-lg": "24px",
+                    "section-margin": "64px",
+                    "gutter": "24px",
+                    "container-padding": "32px",
+                    "unit": "4px",
+                    "stack-sm": "8px"
+            },
+            "fontFamily": {
+                    "label-sm": ["Inter"],
+                    "label-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "display-lg": ["Hanken Grotesk"],
+                    "body-md": ["Inter"],
+                    "headline-lg": ["Hanken Grotesk"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "headline-lg-mobile": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+                    "label-sm": ["12px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "label-md": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "display-lg": ["48px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "1.3", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #fbfaf1;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 20px rgba(69, 99, 108, 0.04);
+        }
+        .persian-num {
+            font-feature-settings: "ss01", "cv01";
+        }
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0px); }
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 dark:bg-surface-container/80 backdrop-blur-xl shadow-sm border-b border-white/20">
+<div class="flex justify-between items-center w-full px-container-padding py-stack-md">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-container">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a Middle Eastern executive in a high-tech office setting. The lighting is soft and natural, emphasizing a calm and focused atmosphere. The style is premium corporate photography with a shallow depth of field, using a muted color palette of sage green and soft greys to match the brand identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCCjD7hKTclvXya7Wn9vtO8x4x1-CVzJK8W5DUxtgacJb5iQsnXwicAyirYCc_107ClcyQSrFfwVS5kK2t-f5jDrI11H4tYu7vomndRHtLu76hfqKk9heuPOER6tJkspwzVdDSOyJnaWTinZCyrKiog0ydUgBef5S__mXUEjiL2_43kBAYKMIGEz9WXww4GOTZVBi81Jq6G7Aew6NhUoL95jtzHD59PlFarpinWYri2-F9E5Jo1XlaWWfa79QKLkgAjIQL90bjWD4c"/>
+</div>
+<div class="flex flex-col">
+<span class="font-bold text-primary font-headline-md text-headline-md-mobile">Workflow Hub</span>
+</div>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary-container/20 transition-colors active:scale-95 duration-150 ease-in-out">
+<span class="material-symbols-outlined text-primary">notifications</span>
+</button>
+</div>
+</header>
+<main class="pt-24 px-6 max-w-md mx-auto space-y-stack-lg">
+<!-- Welcome Section -->
+<section class="space-y-unit">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-text-primary">سلام، خوش آمدید</h1>
+<div class="flex justify-between items-center">
+<p class="font-body-md text-body-md text-text-secondary">امروز، ۲۴ مهر ۱۴۰۲</p>
+<div class="bg-accent-success/10 text-accent-success px-3 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">done_all</span>
+<span class="font-label-sm text-label-sm">۳ درخواست جدید</span>
+</div>
+</div>
+</section>
+<!-- KPI Grid -->
+<section class="grid grid-cols-2 gap-4">
+<!-- Large Main KPI -->
+<div class="col-span-2 glass-card rounded-xl p-5 relative overflow-hidden group">
+<div class="flex justify-between items-start mb-4">
+<div>
+<p class="font-label-md text-label-md text-text-secondary">درخواست‌های فعال</p>
+<h3 class="font-display-lg text-display-lg text-primary mt-1">۱۲</h3>
+</div>
+<div class="bg-primary-container/20 p-2 rounded-lg text-primary">
+<span class="material-symbols-outlined">assignment</span>
+</div>
+</div>
+<div class="flex items-center gap-2 text-accent-success">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span class="font-label-sm text-label-sm">۸٪ افزایش نسبت به هفته قبل</span>
+</div>
+<!-- Subtle background element -->
+<div class="absolute -bottom-4 -right-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-all"></div>
+</div>
+<!-- Small KPI 1 -->
+<div class="glass-card rounded-xl p-4 flex flex-col justify-between">
+<div class="bg-accent-warning/10 w-10 h-10 flex items-center justify-center rounded-lg text-accent-warning mb-3">
+<span class="material-symbols-outlined">pending_actions</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-text-secondary">تاییدات در انتظار</p>
+<h4 class="font-headline-md text-headline-md text-text-primary mt-1">۵</h4>
+</div>
+</div>
+<!-- Small KPI 2 -->
+<div class="glass-card rounded-xl p-4 flex flex-col justify-between">
+<div class="bg-secondary-container w-10 h-10 flex items-center justify-center rounded-lg text-secondary mb-3">
+<span class="material-symbols-outlined">payments</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-text-secondary">هزینه‌های ماه</p>
+<h4 class="font-headline-md text-headline-md text-text-primary mt-1">۱۸.۴ <span class="text-label-sm">میلیون</span></h4>
+</div>
+</div>
+</section>
+<!-- Insights Box -->
+<section class="glass-card bg-primary-container/10 border-primary-container/30 rounded-xl p-4 flex gap-4 items-center animate-float">
+<div class="bg-white/80 p-3 rounded-full shadow-sm">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">lightbulb</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-primary-container font-bold">بینش هوشمند</p>
+<p class="font-label-sm text-label-sm text-on-primary-container/80">هزینه‌ها ۱۸٪ بیشتر از ماه گذشته است. بررسی مجدد فاکتورهای زنجیره تامین پیشنهاد می‌شود.</p>
+</div>
+</section>
+<!-- Analytics Chart -->
+<section class="glass-card rounded-xl p-5">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-headline-md text-headline-md text-text-primary">روند هزینه‌ها</h3>
+<span class="material-symbols-outlined text-text-secondary">more_vert</span>
+</div>
+<div class="h-40 w-full relative flex items-end gap-2 px-2">
+<!-- Mock Area Chart using CSS Gradients/Shapes -->
+<div class="absolute inset-0 flex items-end opacity-20 pointer-events-none">
+<svg class="w-full h-32 fill-primary" preserveaspectratio="none" viewbox="0 0 100 40">
+<path d="M0 40 Q 20 10, 40 25 T 80 15 T 100 30 V 40 H 0 Z"></path>
+</svg>
+</div>
+<div class="flex-1 bg-primary/10 rounded-t-sm h-[40%] hover:bg-primary transition-all cursor-pointer"></div>
+<div class="flex-1 bg-primary/10 rounded-t-sm h-[65%] hover:bg-primary transition-all cursor-pointer"></div>
+<div class="flex-1 bg-primary/10 rounded-t-sm h-[50%] hover:bg-primary transition-all cursor-pointer"></div>
+<div class="flex-1 bg-primary/10 rounded-t-sm h-[85%] hover:bg-primary transition-all cursor-pointer"></div>
+<div class="flex-1 bg-primary/10 rounded-t-sm h-[60%] hover:bg-primary transition-all cursor-pointer"></div>
+<div class="flex-1 bg-primary/10 rounded-t-sm h-[75%] hover:bg-primary transition-all cursor-pointer"></div>
+<div class="flex-1 bg-primary/10 rounded-t-sm h-[95%] hover:bg-primary transition-all cursor-pointer"></div>
+</div>
+<div class="flex justify-between mt-4 px-2">
+<span class="font-label-sm text-label-sm text-text-secondary">شنبه</span>
+<span class="font-label-sm text-label-sm text-text-secondary">دوشنبه</span>
+<span class="font-label-sm text-label-sm text-text-secondary">چهارشنبه</span>
+<span class="font-label-sm text-label-sm text-text-secondary">جمعه</span>
+</div>
+</section>
+<!-- Activity Feed -->
+<section class="space-y-4">
+<div class="flex justify-between items-center">
+<h3 class="font-headline-md text-headline-md text-text-primary">فعالیت‌های اخیر</h3>
+<button class="text-primary font-label-md text-label-md">مشاهده همه</button>
+</div>
+<div class="space-y-3">
+<!-- Item 1 -->
+<div class="glass-card rounded-xl p-4 flex items-start gap-4 hover:translate-x-[-4px] transition-transform cursor-pointer">
+<div class="w-10 h-10 rounded-full border border-surface-container-highest overflow-hidden shrink-0">
+<img class="w-full h-full object-cover" data-alt="A clean, minimalist portrait of a female finance executive with glasses, set against a soft blurred office background with warm lighting. Professional and high-end aesthetics, sage and cream tones, emphasizing trust and efficiency." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZZSbOfnRuI-h452K4DMbQ-LikRj0oJ2Om-fQP36zNdxGjwxnSPkoEyLrM5uFxIAyNuJeO-_EJe68hXAfbS8mRyCT60vKmENlCMpK2lzAK-faHav7lHA0adAcWTeDx07hud_dHc6tLOWpbGpF4kajNUFhXTOi2UNqceDiskDK8kdJQ5UrV-WJvzWZM1XI0jxl7zIjwN_4fRtjMK_6v7rLZ4efwy1U3jxWHczKMmINy5h6kynvGPkeqTQl84Ajf0UApi3MHnd_iS9Q"/>
+</div>
+<div class="flex-1">
+<p class="font-label-md text-label-md text-text-primary"><span class="font-bold">سارا علوی</span> درخواست جدید ثبت کرد</p>
+<p class="font-label-sm text-label-sm text-text-secondary mt-1">خرید تجهیزات سخت‌افزاری تیم فنی</p>
+<span class="font-label-sm text-label-sm text-outline mt-2 block">۱۰ دقیقه پیش</span>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="glass-card rounded-xl p-4 flex items-start gap-4 hover:translate-x-[-4px] transition-transform cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-accent-success/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-accent-success">fact_check</span>
+</div>
+<div class="flex-1">
+<p class="font-label-md text-label-md text-text-primary"><span class="font-bold">مدیر مالی</span> سندی را تایید کرد</p>
+<p class="font-label-sm text-label-sm text-text-secondary mt-1">گزارش هزینه‌های سفر نمایشگاه دبی</p>
+<span class="font-label-sm text-label-sm text-outline mt-2 block">۱ ساعت پیش</span>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="glass-card rounded-xl p-4 flex items-start gap-4 hover:translate-x-[-4px] transition-transform cursor-pointer">
+<div class="w-10 h-10 rounded-full border border-surface-container-highest overflow-hidden shrink-0">
+<img class="w-full h-full object-cover" data-alt="A close-up photograph of a professional male employee in a modern coworking space. Sunlight filters through large windows, highlighting a clean, high-velocity work environment. Minimalist corporate style with professional lighting and soft shadows." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBS3lQ0vlwhEvzwCA0VMcusYPOaX7Dlwt1pytt5Kd2UPvPTSP8RetapLE2VUstal3gD8Aq_mCHJqBYgfvuwC8TQM3NrCYKxeFgVx7oILxn8JoBqPShIDZO09dhhaF1wsJYUA54Ty-sT8hnI_2xgzSa-PaA5aUftMS7zHSuX05yefu3aScsTlAFBI4eYtbJYbgnlj6uFnd8NtLM_-2FD_m1obyhMhXXXUsRo4hoYIA03RIpNVYr4Ql5mBLwYVlTds2TWLmDDdIKcp7o"/>
+</div>
+<div class="flex-1">
+<p class="font-label-md text-label-md text-text-primary"><span class="font-bold">علی رضایی</span> پیامی ارسال کرد</p>
+<p class="font-label-sm text-label-sm text-text-secondary mt-1">"لطفاً فاکتورهای مربوط به پروژه آلفا را بررسی کنید"</p>
+<span class="font-label-sm text-label-sm text-outline mt-2 block">۳ ساعت پیش</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-4 pt-2 bg-surface/80 dark:bg-surface-container-highest/80 backdrop-blur-xl z-50 rounded-t-xl border-t border-white/20 shadow-lg">
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-2xl px-4 py-1 scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-label-sm text-label-sm">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 p-2 rounded-xl transition-colors" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="font-label-sm text-label-sm">Requests</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 p-2 rounded-xl transition-colors" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-sm text-label-sm">Expenses</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 p-2 rounded-xl transition-colors" href="#">
+<span class="material-symbols-outlined">fact_check</span>
+<span class="font-label-sm text-label-sm">Approvals</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 p-2 rounded-xl transition-colors" href="#">
+<span class="material-symbols-outlined">more_horiz</span>
+<span class="font-label-sm text-label-sm">More</span>
+</a>
+</nav>
+<script>
+        // Micro-interaction: Active state feedback for nav
+        document.querySelectorAll('nav a').forEach(item => {
+            item.addEventListener('click', function(e) {
+                // This is a mock click handler
+                document.querySelectorAll('nav a').forEach(nav => {
+                    nav.className = "flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 p-2 rounded-xl transition-colors";
+                });
+                this.className = "flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-2xl px-4 py-1 scale-90 duration-200 transition-all";
+            });
+        });
+
+        // Simple scroll effect for Header
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('header');
+            if (window.scrollY > 20) {
+                header.classList.add('shadow-md');
+                header.classList.remove('shadow-sm');
+            } else {
+                header.classList.add('shadow-sm');
+                header.classList.remove('shadow-md');
+            }
+        });
+    </script>
+</body></html>

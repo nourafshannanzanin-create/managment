@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Hanken+Grotesk:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed": "#001f26",
+                    "error": "#ba1a1a",
+                    "on-secondary-fixed": "#0a1e24",
+                    "tertiary-container": "#c49a80",
+                    "on-primary-container": "#1f3d46",
+                    "surface-tint": "#45636c",
+                    "on-surface": "#1b1c17",
+                    "surface-bright": "#fbfaf1",
+                    "on-tertiary-container": "#4f321e",
+                    "on-error-container": "#93000a",
+                    "text-primary": "#2D3436",
+                    "surface-container-high": "#e9e8e0",
+                    "primary": "#45636c",
+                    "secondary-fixed": "#d1e6ed",
+                    "on-primary-fixed-variant": "#2d4b54",
+                    "on-tertiary": "#ffffff",
+                    "on-background": "#1b1c17",
+                    "on-secondary-container": "#52666c",
+                    "accent-warning": "#E1A95F",
+                    "text-secondary": "#636E72",
+                    "surface-container": "#efeee6",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface-variant": "#41484a",
+                    "tertiary-fixed": "#ffdcc7",
+                    "primary-fixed-dim": "#acccd6",
+                    "surface-container-low": "#f5f4ec",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed-dim": "#b5cad1",
+                    "background": "#fbfaf1",
+                    "surface-container-highest": "#e4e3db",
+                    "on-tertiary-fixed-variant": "#5f402b",
+                    "on-error": "#ffffff",
+                    "secondary": "#4e6268",
+                    "inverse-on-surface": "#f2f1e9",
+                    "surface-variant": "#e4e3db",
+                    "outline-variant": "#c1c7ca",
+                    "surface-substrate": "#E5E1DA",
+                    "on-primary": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "primary-fixed": "#c8e8f3",
+                    "on-secondary-fixed-variant": "#364a50",
+                    "surface": "#fbfaf1",
+                    "primary-container": "#89a8b2",
+                    "accent-success": "#4FAC9B",
+                    "outline": "#72787a",
+                    "inverse-surface": "#30312c",
+                    "tertiary": "#795740",
+                    "surface-dim": "#dbdad3",
+                    "tertiary-fixed-dim": "#ebbda2",
+                    "inverse-primary": "#acccd6",
+                    "secondary-container": "#cee3ea",
+                    "on-tertiary-fixed": "#2d1505"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-md": "16px",
+                    "stack-lg": "24px",
+                    "section-margin": "64px",
+                    "gutter": "24px",
+                    "container-padding": "32px",
+                    "unit": "4px",
+                    "stack-sm": "8px"
+            },
+            "fontFamily": {
+                    "label-sm": ["Inter"],
+                    "label-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "display-lg": ["Hanken Grotesk"],
+                    "body-md": ["Inter"],
+                    "headline-lg": ["Hanken Grotesk"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "headline-lg-mobile": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+                    "label-sm": ["12px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "label-md": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "display-lg": ["48px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "1.3", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.04);
+        }
+        .active-pill {
+            background: #89a8b2;
+            color: white;
+        }
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        body {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body-md text-body-md overflow-x-hidden pb-24">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 dark:bg-surface-container/80 backdrop-blur-xl shadow-sm border-b border-white/20 flex justify-between items-center px-container-padding py-stack-md h-16">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center overflow-hidden border border-primary/10">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a Middle Eastern male operations director, Sina Rahmani, looking confident. He is wearing a minimalist charcoal grey blazer over a crisp white shirt. The background is a soft-focus modern office with glass partitions and soft warm lighting, maintaining a clean enterprise aesthetic with a muted corporate palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAiQ_chFQC42Ms-m8vKaPh6olz8pwx-gzO3ShQlFNNe1n-yr2nLXoniR7RfXmE67fJHXppy69ODoymBnnBwNRODPs78fDjgQ3cJQJ4tLxOrr4wku-MUig3n_NdTfqeS8x4zP7aU5LwcFcKLk1hY3tHduHA9jTiTpJbZ0qaPiQ0mBaamJypQ4kDBqgCzClGwPX-bxxrf8IbU1noIA22jNjjprTULF8s_uQuQfmTDgVHBOm9NTgEt2uyJH07Mm3LmT6DriuKyLVH_Cdo"/>
+</div>
+<span class="font-headline-md text-headline-md-mobile font-bold text-primary">Workflow Hub</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 rounded-full hover:bg-primary-container/20 transition-colors active:scale-95 text-primary">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="p-2 rounded-full hover:bg-primary-container/20 transition-colors active:scale-95 text-primary">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<main class="mt-20 px-4 flex flex-col gap-6">
+<!-- Quick Action Section -->
+<section class="mt-4">
+<button class="w-full bg-primary text-on-primary py-4 px-6 rounded-xl shadow-lg flex items-center justify-between group active:scale-[0.98] transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[28px]">add_circle</span>
+<span class="font-headline-md text-lg">ثبت درخواست جدید</span>
+</div>
+<span class="material-symbols-outlined group-hover:-translate-x-1 transition-transform">chevron_left</span>
+</button>
+</section>
+<!-- Advanced Filters Scrollable -->
+<section class="flex flex-col gap-3">
+<div class="flex justify-between items-center px-1">
+<h2 class="font-label-md text-label-md text-on-surface-variant">فیلترهای پیشرفته</h2>
+<div class="flex gap-2 bg-surface-container rounded-lg p-1">
+<button class="p-1.5 rounded-md bg-white shadow-sm text-primary transition-all" id="view-card">
+<span class="material-symbols-outlined text-[20px]">grid_view</span>
+</button>
+<button class="p-1.5 rounded-md text-on-surface-variant hover:bg-white/50 transition-all" id="view-list">
+<span class="material-symbols-outlined text-[20px]">format_list_bulleted</span>
+</button>
+</div>
+</div>
+<div class="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 mask-fade-edges">
+<div class="flex gap-2">
+<button class="whitespace-nowrap px-4 py-2 rounded-full border border-outline-variant bg-white text-label-md text-on-surface-variant active:bg-primary-container active:text-on-primary-container transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">event</span>
+                        تاریخ ثبت
+                    </button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full border border-outline-variant bg-white text-label-md text-on-surface-variant active:bg-primary-container active:text-on-primary-container transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">info</span>
+                        وضعیت
+                    </button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full border border-outline-variant bg-white text-label-md text-on-surface-variant active:bg-primary-container active:text-on-primary-container transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">person</span>
+                        مدیر مسئول
+                    </button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full border border-outline-variant bg-white text-label-md text-on-surface-variant active:bg-primary-container active:text-on-primary-container transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">apartment</span>
+                        دپارتمان
+                    </button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full border border-outline-variant bg-white text-label-md text-on-surface-variant active:bg-primary-container active:text-on-primary-container transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">priority_high</span>
+                        اولویت
+                    </button>
+</div>
+</div>
+</section>
+<!-- Request Feed (Card Layout) -->
+<section class="grid grid-cols-1 gap-4" id="content-area">
+<!-- Request Card 1 -->
+<div class="glass-card rounded-2xl p-4 flex flex-col gap-4 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-1.5 h-full bg-accent-success"></div>
+<div class="flex justify-between items-start">
+<div class="flex flex-col">
+<h3 class="font-headline-md text-[18px] text-on-surface">خرید تجهیزات شبکه لایه ۳</h3>
+<p class="text-on-surface-variant text-label-sm mt-1">شناسه درخواست: #REQ-8402</p>
+</div>
+<span class="bg-accent-success/10 text-accent-success px-3 py-1 rounded-full font-label-sm">تایید شده</span>
+</div>
+<div class="flex flex-col gap-2 border-y border-outline-variant/30 py-3">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-[20px]">person_outline</span>
+<span class="text-label-md">ثبت‌کننده: مریم سعادتی</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-[20px]">supervisor_account</span>
+<span class="text-label-md">مدیر: سینا رحمانی</span>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-2 bg-error/5 text-error px-3 py-1 rounded-full">
+<span class="material-symbols-outlined text-[16px]">priority_high</span>
+<span class="font-label-sm">بحرانی</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant text-label-sm">
+<span class="material-symbols-outlined text-[16px]">calendar_month</span>
+                        ۱۴۰۲/۰۸/۲۳
+                    </div>
+</div>
+</div>
+<!-- Request Card 2 -->
+<div class="glass-card rounded-2xl p-4 flex flex-col gap-4 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-1.5 h-full bg-accent-warning"></div>
+<div class="flex justify-between items-start">
+<div class="flex flex-col">
+<h3 class="font-headline-md text-[18px] text-on-surface">درخواست مرخصی استحقاقی</h3>
+<p class="text-on-surface-variant text-label-sm mt-1">شناسه درخواست: #REQ-8395</p>
+</div>
+<span class="bg-accent-warning/10 text-accent-warning px-3 py-1 rounded-full font-label-sm">در حال بررسی</span>
+</div>
+<div class="flex flex-col gap-2 border-y border-outline-variant/30 py-3">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-[20px]">person_outline</span>
+<span class="text-label-md">ثبت‌کننده: علیرضا محمدی</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-[20px]">supervisor_account</span>
+<span class="text-label-md">مدیر: امیر کریمی</span>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-2 bg-on-surface-variant/10 text-on-surface-variant px-3 py-1 rounded-full">
+<span class="material-symbols-outlined text-[16px]">low_priority</span>
+<span class="font-label-sm">متوسط</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant text-label-sm">
+<span class="material-symbols-outlined text-[16px]">calendar_month</span>
+                        ۱۴۰۲/۰۸/۲۵
+                    </div>
+</div>
+</div>
+<!-- Request Card 3 -->
+<div class="glass-card rounded-2xl p-4 flex flex-col gap-4 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-1.5 h-full bg-primary-container"></div>
+<div class="flex justify-between items-start">
+<div class="flex flex-col">
+<h3 class="font-headline-md text-[18px] text-on-surface">تجدید قرارداد سرورهای ابری</h3>
+<p class="text-on-surface-variant text-label-sm mt-1">شناسه درخواست: #REQ-8312</p>
+</div>
+<span class="bg-primary-container/10 text-primary px-3 py-1 rounded-full font-label-sm">پیش‌نویس</span>
+</div>
+<div class="flex flex-col gap-2 border-y border-outline-variant/30 py-3">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-[20px]">person_outline</span>
+<span class="text-label-md">ثبت‌کننده: زهرا نیک‌زاد</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-[20px]">supervisor_account</span>
+<span class="text-label-md">مدیر: سینا رحمانی</span>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-2 bg-error/5 text-error px-3 py-1 rounded-full">
+<span class="material-symbols-outlined text-[16px]">priority_high</span>
+<span class="font-label-sm">بالا</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant text-label-sm">
+<span class="material-symbols-outlined text-[16px]">calendar_month</span>
+                        ۱۴۰۲/۰۸/۲۸
+                    </div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full bg-surface/80 dark:bg-surface-container-highest/80 backdrop-blur-xl border-t border-white/20 shadow-lg flex justify-around items-center px-4 pb-4 pt-2 z-50 rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 rounded-2xl transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-sm text-label-sm mt-1">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-2xl px-4 py-1 transition-all active:scale-90" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="font-label-sm text-label-sm mt-1">Requests</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 transition-all" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-sm text-label-sm mt-1">Expenses</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 transition-all" href="#">
+<span class="material-symbols-outlined">fact_check</span>
+<span class="font-label-sm text-label-sm mt-1">Approvals</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 transition-all" href="#">
+<span class="material-symbols-outlined">more_horiz</span>
+<span class="font-label-sm text-label-sm mt-1">More</span>
+</a>
+</nav>
+<script>
+        const btnCard = document.getElementById('view-card');
+        const btnList = document.getElementById('view-list');
+        const contentArea = document.getElementById('content-area');
+
+        btnCard.addEventListener('click', () => {
+            btnCard.classList.add('bg-white', 'shadow-sm', 'text-primary');
+            btnCard.classList.remove('text-on-surface-variant');
+            btnList.classList.remove('bg-white', 'shadow-sm', 'text-primary');
+            btnList.classList.add('text-on-surface-variant');
+            contentArea.classList.remove('flex', 'flex-col');
+            contentArea.classList.add('grid', 'grid-cols-1');
+        });
+
+        btnList.addEventListener('click', () => {
+            btnList.classList.add('bg-white', 'shadow-sm', 'text-primary');
+            btnList.classList.remove('text-on-surface-variant');
+            btnCard.classList.remove('bg-white', 'shadow-sm', 'text-primary');
+            btnCard.classList.add('text-on-surface-variant');
+            // Mocking list view by making cards slimmer
+            const cards = contentArea.querySelectorAll('.glass-card');
+            cards.forEach(card => {
+                card.classList.add('p-3');
+            });
+        });
+
+        // Simple vibration simulation for mobile buttons
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('touchstart', () => {
+                btn.style.transform = 'scale(0.97)';
+            });
+            btn.addEventListener('touchend', () => {
+                btn.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+</body></html>

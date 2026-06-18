@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800;900&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        @font-face {
+            font-family: 'Vazirmatn';
+            src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Regular.woff2') format('woff2');
+        }
+        body {
+            font-family: 'Vazirmatn', 'Inter', sans-serif;
+            background-color: #fbfaf1; /* surface */
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 20px rgba(69, 99, 108, 0.04);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #e4e3db;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #45636c; }
+        input:checked + .slider:before { transform: translateX(20px); }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "on-error-container": "#93000a",
+                "surface-variant": "#e4e3db",
+                "primary-fixed-dim": "#acccd6",
+                "on-surface": "#1b1c17",
+                "surface-container-high": "#e9e8e0",
+                "on-secondary-container": "#52666c",
+                "background": "#fbfaf1",
+                "primary": "#45636c",
+                "secondary-fixed-dim": "#b5cad1",
+                "on-tertiary": "#ffffff",
+                "surface-container": "#efeee6",
+                "surface-tint": "#45636c",
+                "on-primary-fixed-variant": "#2d4b54",
+                "text-secondary": "#636E72",
+                "tertiary-fixed-dim": "#ebbda2",
+                "on-primary-fixed": "#001f26",
+                "on-primary-container": "#1f3d46",
+                "secondary": "#4e6268",
+                "outline-variant": "#c1c7ca",
+                "accent-success": "#4FAC9B",
+                "accent-warning": "#E1A95F",
+                "surface": "#fbfaf1",
+                "on-primary": "#ffffff",
+                "secondary-container": "#cee3ea",
+                "on-surface-variant": "#41484a",
+                "on-secondary-fixed": "#0a1e24",
+                "on-secondary-fixed-variant": "#364a50",
+                "surface-substrate": "#E5E1DA",
+                "tertiary": "#795740",
+                "error-container": "#ffdad6",
+                "on-tertiary-fixed": "#2d1505",
+                "inverse-primary": "#acccd6",
+                "tertiary-fixed": "#ffdcc7",
+                "surface-container-low": "#f5f4ec",
+                "outline": "#72787a",
+                "on-secondary": "#ffffff",
+                "primary-fixed": "#c8e8f3",
+                "on-error": "#ffffff",
+                "error": "#ba1a1a",
+                "secondary-fixed": "#d1e6ed",
+                "inverse-on-surface": "#f2f1e9",
+                "on-tertiary-container": "#4f321e",
+                "inverse-surface": "#30312c",
+                "primary-container": "#89a8b2",
+                "on-background": "#1b1c17",
+                "surface-container-highest": "#e4e3db",
+                "surface-container-lowest": "#ffffff",
+                "tertiary-container": "#c49a80",
+                "on-tertiary-fixed-variant": "#5f402b",
+                "text-primary": "#2D3436",
+                "surface-dim": "#dbdad3",
+                "surface-bright": "#fbfaf1"
+            },
+            "spacing": {
+                "stack-lg": "24px",
+                "section-margin": "64px",
+                "container-padding": "32px",
+                "stack-sm": "8px",
+                "gutter": "24px",
+                "unit": "4px",
+                "stack-md": "16px"
+            },
+            "fontFamily": {
+                "headline-lg": ["Hanken Grotesk"],
+                "headline-md": ["Hanken Grotesk"],
+                "label-md": ["Inter"],
+                "body-md": ["Inter"],
+                "label-sm": ["Inter"]
+            },
+            "fontSize": {
+                "headline-lg": ["32px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                "headline-md": ["24px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                "label-md": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                "label-sm": ["12px", {"lineHeight": "1.2", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface overflow-x-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-40 bg-surface/80 backdrop-blur-xl border-b border-white/50 shadow-sm flex justify-between items-center px-container-padding h-16">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional corporate headshot of a female executive with a friendly expression. The lighting is soft and natural, against a minimalist office background with warm wood textures and subtle glass reflections. High-end photography style with shallow depth of field, reflecting a premium enterprise environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDS-obGoVPGdwXgrgs1f7M9mgtOWYpCfxx64zkOcu0EynJz_5gGuARKTVfYg4DYhyp1PJxXJ0QVfQzo1sRlqMq9kd4yFx-K_tNSkezb-gUE9fCeST3g9KY-vKsAHc8M7P4BheOZQjsdF5HrxEEYAuMNpDR4s7GX3dI9CpjexPqiNyH7m-exFQkR-dVI4edDnUfFNUqaeVKB9Wqc2wRkt2pkyoNyyzIC_jm6QV2rmWn20wrSSZn9Zqw60N_8dIQY562XolESJCUYI6k"/>
+</div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Orchestrated Clarity</h1>
+</div>
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary-container/10 active:scale-95 transition-all text-primary">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<!-- NavigationDrawer (Desktop) -->
+<aside class="hidden md:flex fixed right-0 top-0 h-full w-[280px] z-[30] flex-col py-20 space-y-2 bg-surface-container shadow-2xl border-l border-outline-variant/20">
+<div class="px-6 mb-8">
+<h2 class="text-on-surface font-bold text-lg">تنظیمات سیستم</h2>
+<p class="text-on-surface-variant text-sm">مدیریت زیرساخت سازمانی</p>
+</div>
+<nav class="flex flex-col space-y-1">
+<a class="flex items-center gap-4 text-on-surface-variant px-6 py-4 hover:bg-surface-variant/40 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">داشبورد</span>
+</a>
+<a class="flex items-center gap-4 bg-primary-container text-on-primary-container rounded-full px-6 py-4 mx-2" href="#">
+<span class="material-symbols-outlined">person_heart</span>
+<span class="font-body-md text-body-md">تنظیمات پروفایل</span>
+</a>
+<a class="flex items-center gap-4 text-on-surface-variant px-6 py-4 hover:bg-surface-variant/40 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-body-md text-body-md">دسترسی تیم</span>
+</a>
+<a class="flex items-center gap-4 text-on-surface-variant px-6 py-4 hover:bg-surface-variant/40 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">credit_card</span>
+<span class="font-body-md text-body-md">صورتحساب</span>
+</a>
+<a class="flex items-center gap-4 text-on-surface-variant px-6 py-4 hover:bg-surface-variant/40 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">shield</span>
+<span class="font-body-md text-body-md">امنیت</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Area -->
+<main class="pt-24 pb-32 px-container-padding md:mr-[280px] min-h-screen">
+<div class="max-w-4xl mx-auto space-y-stack-lg">
+<!-- Page Header -->
+<div class="mb-8">
+<h2 class="font-headline-lg text-headline-lg text-primary mb-2">تنظیمات سیستم</h2>
+<p class="text-on-surface-variant font-body-md text-body-md">پیکربندی هویت برند، امنیت و اعلان‌های سازمان شما.</p>
+</div>
+<!-- Organization Section -->
+<section class="glass-card rounded-3xl p-stack-lg animate-fade-in">
+<div class="flex items-center gap-3 mb-6 border-b border-outline-variant/20 pb-4">
+<span class="material-symbols-outlined text-primary">business</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">سازمان</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<div class="space-y-unit">
+<label class="font-label-sm text-label-sm text-on-surface-variant block mb-2">نام شرکت</label>
+<input class="w-full h-12 bg-surface-container-low border-none rounded-xl px-4 focus:ring-2 focus:ring-primary-container transition-all text-on-surface font-body-md" type="text" value="فناوری‌های ارکستر"/>
+</div>
+<div class="space-y-unit">
+<label class="font-label-sm text-label-sm text-on-surface-variant block mb-2">شناسه مالیاتی</label>
+<input class="w-full h-12 bg-surface-container-low border-none rounded-xl px-4 focus:ring-2 focus:ring-primary-container transition-all text-on-surface font-body-md" placeholder="۱۲۳-۴۵۶-۷۸۹" type="text"/>
+</div>
+<div class="md:col-span-2 flex items-center gap-6 p-4 bg-surface-container-lowest rounded-2xl border border-outline-variant/10">
+<div class="w-20 h-20 rounded-2xl bg-surface-substrate flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A minimalist architectural logo design featuring clean geometric lines and abstract shapes. The style is modern corporate, using a palette of soft slate blues and muted greys. High-end aesthetic, isolated on a clean white background, conveying clarity and precision in a high-tech engineering environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuARerGxZXkyYluPLn6xkT9jS40vrEnTXrWMdzPmRQlIM7ChROPs8hKsYqo48_6gadCtkij4W8HbEwrA7bvgApkZeoiKaF5zshY6jkx332r56xgn3W0IqPnsAactBvaD1uJa7S53E1qpF0CP45XfWqIRcwFDWyAPxkoSdTioBSj0POs-YtsL3vyIKsOysOlCtSjf8Db8LAK_cYA82NOHTLQRp-uPa9QuKxvTILLIje9wP6a-e1gbvoyDh9kLMllShwVxlKglj1YFnvI"/>
+</div>
+<div class="flex-1">
+<h4 class="font-label-md text-label-md text-on-surface mb-1">لوگوی سازمان</h4>
+<p class="text-xs text-on-surface-variant mb-3">حداقل ابعاد ۵۱۲ در ۵۱۲ پیکسل (PNG, SVG)</p>
+<button class="px-4 py-2 bg-primary-container text-on-primary-container rounded-lg font-label-sm text-label-sm hover:opacity-90 transition-all">بارگذاری تصویر جدید</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Branding Section -->
+<section class="glass-card rounded-3xl p-stack-lg animate-fade-in" style="animation-delay: 0.1s;">
+<div class="flex items-center gap-3 mb-6 border-b border-outline-variant/20 pb-4">
+<span class="material-symbols-outlined text-primary">palette</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">برندینگ</h3>
+</div>
+<div class="space-y-6">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div>
+<h4 class="font-label-md text-label-md text-on-surface">رنگ اصلی</h4>
+<p class="text-sm text-on-surface-variant">رنگ پایه برای دکمه‌ها و المان‌های تعاملی.</p>
+</div>
+<div class="flex items-center gap-3 bg-surface-container-low p-2 rounded-xl border border-outline-variant/20">
+<div class="w-8 h-8 rounded-lg bg-primary"></div>
+<span class="font-mono text-sm text-on-surface">#45636C</span>
+<button class="material-symbols-outlined text-on-surface-variant text-lg">edit</button>
+</div>
+</div>
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-4 border-t border-outline-variant/10">
+<div>
+<h4 class="font-label-md text-label-md text-on-surface">فونت سیستم</h4>
+<p class="text-sm text-on-surface-variant">تایپوگرافی مورد استفاده در رابط کاربری.</p>
+</div>
+<select class="bg-surface-container-low border-none rounded-xl px-4 py-2 font-body-md text-on-surface min-w-[180px]">
+<option>Vazirmatn (Standard)</option>
+<option>Inter (Modern)</option>
+<option>Hanken Grotesk</option>
+</select>
+</div>
+</div>
+</section>
+<!-- Security Section -->
+<section class="glass-card rounded-3xl p-stack-lg animate-fade-in" style="animation-delay: 0.2s;">
+<div class="flex items-center gap-3 mb-6 border-b border-outline-variant/20 pb-4">
+<span class="material-symbols-outlined text-primary">security</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">امنیت</h3>
+</div>
+<div class="space-y-2">
+<!-- Security Item 1 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-low/50 rounded-2xl transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary-container/30 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined">authenticator</span>
+</div>
+<div>
+<h4 class="font-label-md text-label-md text-on-surface">تایید هویت دو مرحله‌ای (2FA)</h4>
+<p class="text-sm text-on-surface-variant">یک لایه امنیتی اضافی برای ورود به سیستم اضافه کنید.</p>
+</div>
+</div>
+<label class="switch">
+<input checked="" type="checkbox"/>
+<span class="slider"></span>
+</label>
+</div>
+<!-- Security Item 2 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-low/50 rounded-2xl transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary-container/30 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined">timer</span>
+</div>
+<div>
+<h4 class="font-label-md text-label-md text-on-surface">مدیریت نشست‌ها</h4>
+<p class="text-sm text-on-surface-variant">پایان خودکار نشست‌ها پس از ۳۰ دقیقه عدم فعالیت.</p>
+</div>
+</div>
+<label class="switch">
+<input type="checkbox"/>
+<span class="slider"></span>
+</label>
+</div>
+<!-- Security Item 3 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-low/50 rounded-2xl transition-colors group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary-container/30 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined">passkey</span>
+</div>
+<div>
+<h4 class="font-label-md text-label-md text-on-surface">تغییر کلمه عبور</h4>
+<p class="text-sm text-on-surface-variant">آخرین تغییر کلمه عبور: ۳ ماه پیش.</p>
+</div>
+</div>
+<button class="text-primary hover:underline font-label-md text-label-md">به‌روزرسانی</button>
+</div>
+</div>
+</section>
+<!-- Notifications Section -->
+<section class="glass-card rounded-3xl p-stack-lg animate-fade-in" style="animation-delay: 0.3s;">
+<div class="flex items-center gap-3 mb-6 border-b border-outline-variant/20 pb-4">
+<span class="material-symbols-outlined text-primary">notifications_active</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">اعلان‌ها</h3>
+</div>
+<div class="space-y-4">
+<div class="flex items-start gap-4 p-4 rounded-2xl bg-surface-container-lowest border border-outline-variant/5">
+<div class="pt-1">
+<span class="material-symbols-outlined text-on-surface-variant">mail</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center justify-between mb-1">
+<h4 class="font-label-md text-label-md text-on-surface">اعلان‌های ایمیلی</h4>
+<label class="switch">
+<input checked="" type="checkbox"/>
+<span class="slider"></span>
+</label>
+</div>
+<p class="text-sm text-on-surface-variant">دریافت گزارش‌های هفتگی و هشدارهای مهم امنیتی از طریق ایمیل.</p>
+</div>
+</div>
+<div class="flex items-start gap-4 p-4 rounded-2xl bg-surface-container-lowest border border-outline-variant/5">
+<div class="pt-1">
+<span class="material-symbols-outlined text-on-surface-variant">smartphone</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center justify-between mb-1">
+<h4 class="font-label-md text-label-md text-on-surface">اعلان‌های موبایل (Push)</h4>
+<label class="switch">
+<input checked="" type="checkbox"/>
+<span class="slider"></span>
+</label>
+</div>
+<p class="text-sm text-on-surface-variant">اطلاع‌رسانی فوری در مورد تایید درخواست‌ها و تغییرات وضعیت.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Action Buttons -->
+<div class="flex items-center justify-end gap-4 pt-8">
+<button class="px-8 py-3 rounded-2xl border-1.5 border-primary text-primary hover:bg-primary/5 transition-all font-label-md text-label-md">لغو تغییرات</button>
+<button class="px-8 py-3 rounded-2xl bg-primary text-white shadow-lg hover:shadow-xl hover:opacity-90 active:scale-95 transition-all font-label-md text-label-md">ذخیره تمامی تنظیمات</button>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 bg-surface/90 backdrop-blur-lg border-t border-white/50 shadow-[0_-4px_20px_rgba(69,99,108,0.04)] rounded-t-3xl flex justify-around items-center h-20 pb-safe px-2">
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1.5 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-sm text-label-sm mt-1">داشبورد</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1.5 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="font-label-sm text-label-sm mt-1">درخواست‌ها</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-2xl px-4 py-1.5 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person_heart</span>
+<span class="font-label-sm text-label-sm mt-1">تنظیمات</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1.5 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-sm text-label-sm mt-1">هزینه‌ها</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1.5 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">more_horiz</span>
+<span class="font-label-sm text-label-sm mt-1">بیشتر</span>
+</a>
+</nav>
+<script>
+        // Simple micro-interaction for input fields
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('focus', () => {
+                input.parentElement.classList.add('scale-[1.01]');
+            });
+            input.addEventListener('blur', () => {
+                input.parentElement.classList.remove('scale-[1.01]');
+            });
+        });
+
+        // Add fade-in animation logic
+        const observerOptions = {
+            threshold: 0.1
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('opacity-100', 'translate-y-0');
+                    entry.target.classList.remove('opacity-0', 'translate-y-4');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.animate-fade-in').forEach(el => {
+            el.classList.add('transition-all', 'duration-700', 'ease-out', 'opacity-0', 'translate-y-4');
+            observer.observe(el);
+        });
+    </script>
+</body></html>
