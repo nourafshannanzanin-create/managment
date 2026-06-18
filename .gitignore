@@ -1,0 +1,51 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs
+*.log
+backend/uvicorn.out.log
+backend/uvicorn.err.log
+frontend/vite.log
+frontend/vite.err.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# Node
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+frontend/.vite/
+
+# Frontend build output
+dist/
+frontend/dist/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+backend/.venv/
+
+# Local runtime / uploads
+backend/uploads/
+
+# Coverage / temp
+coverage/
+.coverage
+htmlcov/
+tmp/
+temp/
