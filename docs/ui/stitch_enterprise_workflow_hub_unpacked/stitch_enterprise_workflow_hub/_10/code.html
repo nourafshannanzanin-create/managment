@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed-dim": "#b5cad1",
+                    "on-surface-variant": "#41484a",
+                    "surface-container-high": "#e9e8e0",
+                    "on-surface": "#1b1c17",
+                    "background": "#fbfaf1",
+                    "primary-container": "#89a8b2",
+                    "on-tertiary-fixed": "#1c1c17",
+                    "tertiary-fixed": "#e6e2db",
+                    "on-secondary": "#ffffff",
+                    "primary": "#45636c",
+                    "on-tertiary-fixed-variant": "#484742",
+                    "surface": "#fbfaf1",
+                    "on-error": "#ffffff",
+                    "primary-fixed": "#c8e8f3",
+                    "inverse-on-surface": "#f2f1e9",
+                    "surface-container-low": "#f5f4ec",
+                    "on-secondary-fixed-variant": "#364a50",
+                    "surface-container-highest": "#e4e3db",
+                    "inverse-primary": "#acccd6",
+                    "error-container": "#ffdad6",
+                    "outline-variant": "#c1c7ca",
+                    "tertiary": "#605e59",
+                    "on-primary-fixed": "#001f26",
+                    "tertiary-fixed-dim": "#cac6bf",
+                    "tertiary-container": "#a6a39d",
+                    "on-background": "#1b1c17",
+                    "inverse-surface": "#30312c",
+                    "surface-tint": "#45636c",
+                    "secondary": "#4e6268",
+                    "on-primary": "#ffffff",
+                    "on-secondary-container": "#52666c",
+                    "secondary-fixed": "#d1e6ed",
+                    "surface-variant": "#e4e3db",
+                    "surface-container": "#efeee6",
+                    "on-primary-fixed-variant": "#2d4b54",
+                    "on-error-container": "#93000a",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-bright": "#fbfaf1",
+                    "on-secondary-fixed": "#0a1e24",
+                    "on-tertiary": "#ffffff",
+                    "on-tertiary-container": "#3b3935",
+                    "on-primary-container": "#1f3d46",
+                    "secondary-container": "#cee3ea",
+                    "error": "#ba1a1a",
+                    "primary-fixed-dim": "#acccd6",
+                    "surface-dim": "#dbdad3",
+                    "outline": "#72787a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "16px",
+                    "xl": "24px",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "24px",
+                    "gap-md": "16px",
+                    "unit": "4px",
+                    "header-height": "72px",
+                    "gap-lg": "24px",
+                    "container-padding": "32px",
+                    "sidebar-width": "280px"
+            },
+            "fontFamily": {
+                    "caption": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "body-md": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "label-md": ["Inter"],
+                    "headline-lg-mobile": ["Inter"],
+                    "display-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "caption": ["12px", {"lineHeight": "1.2", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "label-md": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "display-lg": ["48px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #fbfaf1;
+            font-family: 'Inter', sans-serif;
+            color: #1b1c17;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #fbfaf1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #e4e3db;
+            border-radius: 10px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface overflow-x-hidden">
+<!-- TopAppBar Shell -->
+<header class="fixed top-0 w-full z-50 bg-surface flex justify-between items-center px-gutter h-header-height border-none">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-primary cursor-pointer active:scale-95 duration-150" data-icon="grid_view">grid_view</span>
+<h1 class="text-headline-md font-headline-md font-bold text-primary">مدیریت سازمانی</h1>
+</div>
+<div class="flex items-center gap-md">
+<div class="hidden md:flex items-center gap-md ml-gutter">
+<span class="text-on-surface-variant font-label-md text-label-md cursor-pointer hover:bg-surface-container transition-colors px-3 py-2 rounded-lg">راهنما</span>
+<span class="text-on-surface-variant font-label-md text-label-md cursor-pointer hover:bg-surface-container transition-colors px-3 py-2 rounded-lg">اعلان‌ها</span>
+</div>
+<div class="w-10 h-10 rounded-full bg-primary-fixed overflow-hidden cursor-pointer active:scale-95 duration-150">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a corporate executive with a warm, confident expression. The lighting is soft and studio-quality, emphasizing a minimalist and clean aesthetic. The background is a soft neutral grey, matching the enterprise's high-end professional design language." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAuc5OO3IUfJSlLMxyqaKv9f-E0DuZc6PJ5IXZASUkCEfKLjI80GCqCKP0QFxDq3HWT1Wd_mKQBVAS-mTR796vxUXxlJgiEmb_9i88IcmEvXkMWsh0rfRe6iq9Bkkh2SLx0w4f4g9JiFwLPzAGhEU8WFR_ExF9rOvJA5KXizflUgK2HsG77BWOixn1C4iqqH9l_Sv1vFf2DjblG2yuaHGaZAEI3Va0Lg0cs-QWFIRSZ-XHg8Mvo-h7sVYsAiQBJteci74G3zGQ8Ndoh"/>
+</div>
+</div>
+</header>
+<!-- NavigationDrawer (Right Aligned per RTL & Brand Anchors) -->
+<aside class="fixed right-0 top-0 h-full w-sidebar-width bg-surface-container flex flex-col py-container-padding space-y-gap-md z-40">
+<div class="px-6 mb-8 mt-16 text-right">
+<div class="text-headline-md font-headline-md text-primary font-bold">Alex Rivers</div>
+<div class="text-on-surface-variant font-body-md text-body-md">مدیریت عملیات مالی</div>
+</div>
+<nav class="flex flex-col gap-1 px-4">
+<a class="flex items-center justify-between p-3 text-on-surface-variant font-label-md text-label-md hover:bg-secondary-container transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="flex-grow text-right mr-3">داشبورد</span>
+</a>
+<a class="flex items-center justify-between p-3 bg-primary-container text-on-primary-container font-label-md text-label-md rounded-lg active:opacity-80 transition-opacity" href="#">
+<span class="material-symbols-outlined" data-icon="pending_actions">pending_actions</span>
+<span class="flex-grow text-right mr-3">درخواست‌ها</span>
+</a>
+<a class="flex items-center justify-between p-3 text-on-surface-variant font-label-md text-label-md hover:bg-secondary-container transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="flex-grow text-right mr-3">هزینه‌ها</span>
+</a>
+<a class="flex items-center justify-between p-3 text-on-surface-variant font-label-md text-label-md hover:bg-secondary-container transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="flex-grow text-right mr-3">اسناد</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Canvas -->
+<main class="mr-sidebar-width pt-header-height min-h-screen">
+<div class="p-container-padding max-w-6xl mx-auto">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between mb-gap-lg gap-md">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">لیست درخواست‌ها</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-2">مدیریت و بررسی تمامی درخواست‌های جاری سیستم</p>
+</div>
+<div class="flex gap-md">
+<button class="bg-primary text-on-primary px-6 py-3 rounded-lg font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+                        درخواست جدید
+                    </button>
+</div>
+</div>
+<!-- Filters & Search Bar (Bento-style layout) -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gap-md mb-gap-lg">
+<!-- Search -->
+<div class="md:col-span-7 bg-surface-container-low p-4 rounded-xl flex items-center gap-3">
+<span class="material-symbols-outlined text-outline" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 w-full font-body-md text-body-md text-on-surface placeholder:text-outline-variant" placeholder="جستجو بر اساس عنوان یا درخواست‌کننده..." type="text"/>
+</div>
+<!-- Filters -->
+<div class="md:col-span-5 flex gap-2 overflow-x-auto no-scrollbar">
+<button class="flex-1 whitespace-nowrap bg-primary-container text-on-primary-container px-4 py-3 rounded-lg font-label-md text-label-md transition-all">همه</button>
+<button class="flex-1 whitespace-nowrap bg-surface-container-highest text-on-surface-variant px-4 py-3 rounded-lg font-label-md text-label-md hover:bg-secondary-container transition-all">در انتظار</button>
+<button class="flex-1 whitespace-nowrap bg-surface-container-highest text-on-surface-variant px-4 py-3 rounded-lg font-label-md text-label-md hover:bg-secondary-container transition-all">تایید شده</button>
+<button class="flex-1 whitespace-nowrap bg-surface-container-highest text-on-surface-variant px-4 py-3 rounded-lg font-label-md text-label-md hover:bg-secondary-container transition-all">رد شده</button>
+</div>
+</div>
+<!-- Request Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gap-lg">
+<!-- Card 1: Pending -->
+<div class="bg-surface-container border-none p-container-padding rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-6">
+<div class="w-12 h-12 rounded-lg bg-tertiary-container flex items-center justify-center text-on-tertiary">
+<span class="material-symbols-outlined" data-icon="laptop_mac">laptop_mac</span>
+</div>
+<span class="px-3 py-1 bg-secondary-container text-on-secondary-container rounded-full font-label-md text-caption">اولویت بالا</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2">درخواست تجهیزات جدید</h3>
+<div class="flex items-center gap-2 mb-6">
+<div class="w-6 h-6 rounded-full bg-outline-variant overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A small circular avatar of a young professional man with glasses, smiling softly. The style is consistent with the minimalist enterprise design, featuring clean lines and a soft focus on a light cream background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVCo7Ke18pwvYkCW-HTcTLK8PAzgHagNlPo-eqOoTtvIN8SSchk1YW00wCcFPL2AZkTdBY0G8uYqBjyDGLY7grpzKdITQqjQSq-Iozs7ZDwZbO7YfT9mKcHjaQbLacFKdTaykTZQbWWLUQrC-VmcFMAcQ1ZJ7ISk8K5GSF-GGreF6SKO4e38cbpI1gfJMtHPj26-H7Yhcv0E6REicFmUGY2r4iAydVNIT_HYTBWL6rO9P18egbf_00e-CInpklBZL95YJOtLexS7SM"/>
+</div>
+<span class="font-body-md text-body-md text-on-surface-variant">نیما احمدی</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant border-opacity-20 pt-4">
+<span class="flex items-center gap-1 text-tertiary font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px]" data-icon="schedule">schedule</span>
+                            ۲ ساعت پیش
+                        </span>
+<div class="flex items-center gap-1 text-primary font-semibold font-label-md text-label-md">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                            در انتظار تایید
+                        </div>
+</div>
+</div>
+<!-- Card 2: Approved -->
+<div class="bg-surface-container border-none p-container-padding rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer">
+<div class="flex justify-between items-start mb-6">
+<div class="w-12 h-12 rounded-lg bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined" data-icon="flight_takeoff">flight_takeoff</span>
+</div>
+<span class="px-3 py-1 bg-tertiary-fixed-dim text-on-tertiary-fixed-variant rounded-full font-label-md text-caption">معمولی</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2">هزینه سفر کاری شیراز</h3>
+<div class="flex items-center gap-2 mb-6">
+<div class="w-6 h-6 rounded-full bg-outline-variant overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A small circular avatar of a professional woman with dark hair tied back, looking toward the camera with a neutral, professional expression. Soft lighting and a warm beige background to match the application's color scheme." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDqoEADGKkfBFBtYhvtWICGimInB6NKULaWzqYQQ0e9TO-d2cabJ7L9Nk5iCxJBR1OaCYiw9dzdUJnwKjrF6gKkKNkcUwIWdEir0B_ZzXsLvXy-J_BpliBKWUAhrrg4CrxUHTAEhBg_lc_6r8qpw8onX1TnAhg-ha-AlXfvjfN1jw2E_5nSw-GvEVH4fcnBAqHVh6DwPk-j0zwTHI0CRFnoFiw9QEDY0KoyujNIdEFycH6E3RgVn-HKdjNAN-Sl3m-AbkIMl1Y1GQgV"/>
+</div>
+<span class="font-body-md text-body-md text-on-surface-variant">سارا محمدی</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant border-opacity-20 pt-4">
+<span class="flex items-center gap-1 text-tertiary font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px]" data-icon="calendar_today">calendar_today</span>
+                            دیروز
+                        </span>
+<div class="flex items-center gap-1 text-secondary font-semibold font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px] text-primary" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                            تایید شده
+                        </div>
+</div>
+</div>
+<!-- Card 3: Rejected -->
+<div class="bg-surface-container border-none p-container-padding rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer">
+<div class="flex justify-between items-start mb-6">
+<div class="w-12 h-12 rounded-lg bg-surface-container-highest flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="history_edu">history_edu</span>
+</div>
+<span class="px-3 py-1 bg-error-container text-on-error-container rounded-full font-label-md text-caption">فوری</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2">درخواست مرخصی سالانه</h3>
+<div class="flex items-center gap-2 mb-6">
+<div class="w-6 h-6 rounded-full bg-outline-variant overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A small circular avatar of an older executive man with grey hair and a friendly smile. The lighting is bright and even, capturing a professional and trustworthy persona. Background is a muted light green tone." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-sj8CH5Ni4GKOQ6y11JZTd04qgYfCtHB2l-pBUyincz1JNpLG8JWWd9GLHtWvobXZYykE2suaqAzLt6FiekIAQvIUkiJvJTdTCxQzikCyeLuxezTgBYUFI6I37lmEFOXCaSTpMSj1rea6v17ZPsRE2-V9scZY5bbiFny0HDHDP5Kw8uNkdH2V1Y9G8TDAXzDfjB0YjlsTAGi3vDb06YYVjQQZJV0my9YERqFkZzDl6OmPCcvYBUUHb94JHSsy3QS520Muov6KX91s"/>
+</div>
+<span class="font-body-md text-body-md text-on-surface-variant">رضا علوی</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant border-opacity-20 pt-4">
+<span class="flex items-center gap-1 text-tertiary font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px]" data-icon="calendar_today">calendar_today</span>
+                            ۳ روز پیش
+                        </span>
+<div class="flex items-center gap-1 text-error font-semibold font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px]" data-icon="cancel" style="font-variation-settings: 'FILL' 1;">cancel</span>
+                            رد شده
+                        </div>
+</div>
+</div>
+<!-- Card 4: Pending -->
+<div class="bg-surface-container border-none p-container-padding rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-6">
+<div class="w-12 h-12 rounded-lg bg-secondary-fixed-dim flex items-center justify-center text-on-secondary-fixed-variant">
+<span class="material-symbols-outlined" data-icon="vpn_key">vpn_key</span>
+</div>
+<span class="px-3 py-1 bg-tertiary-fixed-dim text-on-tertiary-fixed-variant rounded-full font-label-md text-caption">متوسط</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2">دسترسی به سرور تست</h3>
+<div class="flex items-center gap-2 mb-6">
+<div class="w-6 h-6 rounded-full bg-outline-variant overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A small circular avatar of a modern female developer in a neutral-colored hoodie, focused and professional. The image maintains the brand's aesthetic with high-key lighting and a pristine background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuApkxnGx20D0SIWS_JsaWg_hKatBGDf79jLOlNjVCi45pY-KWm6XDZbK9tS-s95TUrjv_PdaHuuZnBIYngMMVNCQ8IfVkKMFhwnFJMxbxs7H1r7Gg-sZNMWUJIxVXIEjVK_610jsWLGg5sxmSWHJJDaT4N_KnIlKFRmvJP6V4_tfCnJpV0aoeDxDlMXEauKU1HO4N-aS0jVOwg3eRdnSa3A6m93rSRvQPBq_oz-I0pNWnWmOABju8f4eXnqENrVqqny4RXSyceqkm8y"/>
+</div>
+<span class="font-body-md text-body-md text-on-surface-variant">مریم اسدی</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant border-opacity-20 pt-4">
+<span class="flex items-center gap-1 text-tertiary font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px]" data-icon="schedule">schedule</span>
+                            ۵ ساعت پیش
+                        </span>
+<div class="flex items-center gap-1 text-primary font-semibold font-label-md text-label-md">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                            در انتظار تایید
+                        </div>
+</div>
+</div>
+</div>
+<!-- Empty State Illustration (Subtle) -->
+<div class="mt-gap-lg flex flex-col items-center justify-center py-20 opacity-30">
+<span class="material-symbols-outlined text-[64px]" data-icon="folder_open">folder_open</span>
+<p class="font-body-md text-body-md mt-4">درخواست دیگری برای نمایش وجود ندارد</p>
+</div>
+</div>
+</main>
+<!-- Interactive micro-interactions script -->
+<script>
+        document.querySelectorAll('.cursor-pointer').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                // Potential for subtle sound or haptic feedback in a real app
+            });
+        });
+
+        // Filter toggle logic
+        const filterButtons = document.querySelectorAll('button.whitespace-nowrap');
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterButtons.forEach(b => {
+                    b.classList.remove('bg-primary-container', 'text-on-primary-container');
+                    b.classList.add('bg-surface-container-highest', 'text-on-surface-variant');
+                });
+                btn.classList.add('bg-primary-container', 'text-on-primary-container');
+                btn.classList.remove('bg-surface-container-highest', 'text-on-surface-variant');
+            });
+        });
+    </script>
+</body></html>

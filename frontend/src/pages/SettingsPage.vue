@@ -7,27 +7,51 @@ const { state, toggleSidebar } = useWorkflowHub()
 
 <template>
   <section class="page-shell">
-    <PageHeader
-      eyebrow="تنظیمات"
-      title="تنظیمات سازمان"
-      description="آیتم‌های اصلی به‌صورت سبک، خوانا و یکپارچه با بقیه تجربه."
-      @menu="toggleSidebar"
-    />
+    <PageHeader eyebrow="تنظیمات" title="تنظیمات سیستم" description="" @menu="toggleSidebar" />
 
-    <section class="surface-block">
-      <div class="section-label-row">
-        <h2>ماژول‌های تنظیمات</h2>
-        <small>{{ state.settingsCards.length }} بخش</small>
-      </div>
+    <div class="settings-grid">
+      <section class="surface-block">
+        <div class="section-label-row">
+          <h2>هویت سازمان</h2>
+        </div>
+        <label class="field-shell">
+          <span>نام سازمان</span>
+          <input type="text" value="کارومند" />
+        </label>
+      </section>
 
-      <div class="stack-list">
-        <article v-for="item in state.settingsCards" :key="item.title" class="list-row">
-          <div class="list-row-main">
-            <strong>{{ item.title }}</strong>
-            <p>{{ item.description }}</p>
+      <section class="surface-block">
+        <div class="section-label-row">
+          <h2>امنیت</h2>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <strong>احراز هویت دومرحله‌ای</strong>
+            <p></p>
           </div>
-        </article>
-      </div>
-    </section>
+          <div class="toggle-pill"><span></span></div>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <strong>تاریخچه نشست‌ها</strong>
+            <p></p>
+          </div>
+          <span class="material-symbols-outlined">chevron_left</span>
+        </div>
+      </section>
+
+      <section class="surface-block">
+        <div class="section-label-row">
+          <h2>بخش‌ها</h2>
+        </div>
+        <div class="stack-list">
+          <article v-for="item in state.settingsCards" :key="item.title" class="list-row">
+            <div class="list-row-main">
+              <strong>{{ item.title }}</strong>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
   </section>
 </template>

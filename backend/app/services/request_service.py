@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
-from pathlib import Path
+from datetime import date
 from uuid import uuid4
 
 from fastapi import UploadFile
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
@@ -14,8 +13,9 @@ from app.models.enums import RequestPriority, RequestStatus
 
 
 def next_request_code(session: Session) -> str:
-    count = session.scalar(select(func.count(Request.id))) or 0
-    return f"REQ-{2409 + count}"
+    del session
+    alpha_code = ''.join(char for char in uuid4().hex if char.isalpha())[:8].upper()
+    return f"REQ-{alpha_code or 'LOCALREQ'}"
 
 
 def save_upload(file: UploadFile) -> tuple[str, int]:
@@ -42,13 +42,13 @@ def create_request(
 
     request = Request(
         code=next_request_code(session),
-        title=title or "درخواست بدون عنوان",
-        description=description or "توضیحی ثبت نشده است.",
+        title=title or "",
+        description=description or "",
         priority=priority,
         status=RequestStatus.SUBMITTED,
-        department_id=getattr(department, "id", None),
+        department_id=getattr(department, 'id', None),
         requester_id=requester.id,
-        manager_id=getattr(manager, "id", None),
+        manager_id=getattr(manager, 'id', None),
         deadline=deadline,
     )
     session.add(request)
@@ -58,13 +58,13 @@ def create_request(
         RequestTimeline(
             request_id=request.id,
             action="created",
-            note="ثبت اولیه توسط کاربر",
+            note="",
             actor_name=requester.full_name,
         ),
         RequestTimeline(
             request_id=request.id,
             action="submitted",
-            note="درخواست ثبت و برای بررسی ارسال شد",
+            note="",
             actor_name=requester.full_name,
         ),
     ]

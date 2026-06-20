@@ -1,36 +1,47 @@
 <script setup>
+import PageFilters from '../components/PageFilters.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const {
   state,
   filteredRequests,
+  navigateTo,
   openRequestDetail,
-  openComposer,
+  requestPeople,
+  resetPageFilters,
   toggleSidebar,
+  updatePageFilter,
 } = useWorkflowHub()
 </script>
 
 <template>
-  <section class="page-shell">
+  <section class="page-shell requests-page">
     <PageHeader
       eyebrow="درخواست‌ها"
-      title="همه درخواست‌ها"
-      description="لیست فشرده درخواست‌ها با جست‌وجوی سریع و ورود مستقیم به جزئیات."
-      :show-search="true"
-      :search-value="state.searchQuery"
-      search-placeholder="جست‌وجو در عنوان، واحد، مدیر یا کد درخواست"
+      title="مدیریت درخواست‌ها"
       action-label="درخواست جدید"
       action-icon="add"
-      @update:search-value="state.searchQuery = $event"
-      @action="openComposer"
+      @action="navigateTo('/requests/new')"
       @menu="toggleSidebar"
+    />
+
+    <PageFilters
+      :query="state.filters.requests.query"
+      :person="state.filters.requests.person"
+      :start-date="state.filters.requests.startDate"
+      :end-date="state.filters.requests.endDate"
+      :people="requestPeople"
+      @update:query="updatePageFilter('requests', 'query', $event)"
+      @update:person="updatePageFilter('requests', 'person', $event)"
+      @update:start-date="updatePageFilter('requests', 'startDate', $event)"
+      @update:end-date="updatePageFilter('requests', 'endDate', $event)"
+      @reset="resetPageFilters('requests')"
     />
 
     <section class="surface-block">
       <div class="section-label-row">
         <h2>{{ filteredRequests.length }} درخواست</h2>
-        <small>برای دیدن جزئیات روی هر ردیف کلیک کنید</small>
       </div>
 
       <div class="stack-list">
@@ -42,7 +53,7 @@ const {
         >
           <div class="list-row-main">
             <strong>{{ item.title }}</strong>
-            <p>{{ item.id }} · {{ item.owner }} · {{ item.department }}</p>
+            <p>{{ item.id }} · {{ item.owner }} · {{ item.department }} · {{ item.manager }}</p>
           </div>
           <div class="list-row-meta">
             <span class="meta-pill">{{ item.priority }}</span>

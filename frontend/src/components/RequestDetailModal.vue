@@ -17,7 +17,6 @@ defineEmits(['close'])
       <div class="modal-headline">
         <p class="page-eyebrow">جزئیات درخواست</p>
         <h2>{{ request.title }}</h2>
-        <p>{{ request.description }}</p>
       </div>
 
       <section class="detail-meta-grid">
@@ -42,7 +41,7 @@ defineEmits(['close'])
           <strong>{{ request.priority }}</strong>
         </div>
         <div class="detail-meta-item">
-          <span>مهلت</span>
+          <span>تاریخ</span>
           <strong>{{ request.deadline }}</strong>
         </div>
       </section>
@@ -53,11 +52,7 @@ defineEmits(['close'])
           <small v-if="loading">در حال بارگذاری...</small>
         </div>
         <div class="timeline-rail">
-          <article
-            v-for="item in timeline.length ? timeline : [{ step: 1, title: 'ثبت اولیه', note: 'اطلاعات درخواست ثبت شده است.' }]"
-            :key="`${item.step}-${item.title}`"
-            class="timeline-node"
-          >
+          <article v-for="item in timeline" :key="`${item.step}-${item.title}`" class="timeline-node">
             <div class="timeline-index">{{ item.step }}</div>
             <div>
               <strong>{{ item.title }}</strong>

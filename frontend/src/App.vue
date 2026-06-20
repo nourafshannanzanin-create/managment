@@ -26,13 +26,13 @@ const {
 } = hub
 
 const layoutClass = computed(() => ({
+  'is-auth-route': route.path === '/login',
   'mobile-nav-hidden': modalState.composer || modalState.requestDetail || modalState.approvalDetail,
 }))
 
 watch(
   () => route.fullPath,
   () => {
-    state.searchQuery = ''
     state.mobileMenuOpen = false
   },
 )
@@ -45,7 +45,7 @@ onMounted(() => {
 <template>
   <div class="app-shell" :class="layoutClass">
     <AppSidebar
-      :current-user="state.currentUser"
+      v-if="route.path !== '/login'"
       :mobile-menu-open="state.mobileMenuOpen"
       :toggle-sidebar="toggleSidebar"
     />

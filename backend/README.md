@@ -6,7 +6,7 @@ FastAPI backend for the existing `frontend/` UI with:
 - JWT authentication
 - role-based access control
 - local file uploads for request attachments
-- seeded demo data for dashboard, requests, expenses, approvals, reports, users, and settings
+- minimal seed data for initial access
 
 ## Stack
 
@@ -33,12 +33,12 @@ py -m venv .venv
 .\.venv\Scripts\python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-If `WORKFLOW_AUTO_INIT_DB=true`, the app will create tables and seed demo data on startup.
+If `WORKFLOW_AUTO_INIT_DB=true`, the app will create tables and seed the initial admin account on startup.
 
-## Demo Login
+## Initial Login
 
-- Email: `admin@workflow.local`
-- Password: `Admin123!`
+- Email: `admin@karomand.local`
+- Password: `AdminSecret!`
 
 ## Docker MySQL
 

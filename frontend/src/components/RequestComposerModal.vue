@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import BaseModal from './BaseModal.vue'
+import ShamsiDatePicker from './ShamsiDatePicker.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const props = defineProps({
@@ -14,7 +15,6 @@ const props = defineProps({
 defineEmits(['close'])
 
 const {
-  requestCompletion,
   nextComposerStep,
   prevComposerStep,
   setRequestFiles,
@@ -28,8 +28,8 @@ const {
 const stepTitle = computed(() => {
   return {
     1: 'اطلاعات اصلی',
-    2: 'مسیر تأیید',
-    3: 'ضمیمه و جمع‌بندی',
+    2: 'تأیید',
+    3: 'ضمیمه',
   }[props.step]
 })
 </script>
@@ -40,7 +40,6 @@ const stepTitle = computed(() => {
       <div class="modal-headline compact">
         <p class="page-eyebrow">درخواست جدید</p>
         <h2>{{ stepTitle }}</h2>
-        <p>{{ requestCompletion }}% از فرم تکمیل شده است.</p>
       </div>
 
       <div class="step-dots">
@@ -51,13 +50,13 @@ const stepTitle = computed(() => {
 
       <div v-if="step === 1" class="form-stack">
         <label class="field-shell">
-          <span>عنوان درخواست</span>
-          <input v-model="form.title" type="text" placeholder="عنوان کوتاه و شفاف" />
+          <span>عنوان</span>
+          <input v-model="form.title" type="text" placeholder="" />
         </label>
         <label class="field-shell">
           <span>واحد</span>
           <select v-model="form.department">
-            <option value="">انتخاب کنید</option>
+            <option value="">انتخاب</option>
             <option value="it">فناوری اطلاعات</option>
             <option value="finance">امور مالی</option>
             <option value="hr">منابع انسانی</option>
@@ -67,15 +66,15 @@ const stepTitle = computed(() => {
         </label>
         <label class="field-shell">
           <span>توضیحات</span>
-          <textarea v-model="form.description" rows="6" placeholder="شرح خلاصه، هدف و نیازمندی‌ها"></textarea>
+          <textarea v-model="form.description" rows="6" placeholder=""></textarea>
         </label>
       </div>
 
       <div v-else-if="step === 2" class="form-stack">
         <label class="field-shell">
-          <span>مدیر تأییدکننده</span>
+          <span>مدیر</span>
           <select v-model="form.manager">
-            <option value="">انتخاب مدیر</option>
+            <option value="">انتخاب</option>
             <option value="sara-ahmadi">سارا احمدی</option>
             <option value="hamid-rezaei">حمید رضایی</option>
             <option value="navid-farhadi">نوید فرهادی</option>
@@ -83,8 +82,8 @@ const stepTitle = computed(() => {
           </select>
         </label>
         <label class="field-shell">
-          <span>مهلت انجام</span>
-          <input v-model="form.deadline" type="date" />
+          <span>تاریخ</span>
+          <ShamsiDatePicker v-model="form.deadline" model-type="jalali" placeholder="" />
         </label>
 
         <div class="priority-strip">
@@ -99,7 +98,7 @@ const stepTitle = computed(() => {
         <label class="upload-pad">
           <input type="file" multiple @change="setRequestFiles($event.target.files)" />
           <span class="material-symbols-outlined">cloud_upload</span>
-          <strong>فایل‌ها را انتخاب کنید</strong>
+          <strong>افزودن فایل</strong>
           <small>PDF, Word, Excel, JPG, PNG</small>
         </label>
 
@@ -118,7 +117,7 @@ const stepTitle = computed(() => {
         <section class="summary-block">
           <div>
             <span>عنوان</span>
-            <strong>{{ form.title || '---' }}</strong>
+            <strong>{{ form.title || '' }}</strong>
           </div>
           <div>
             <span>واحد</span>
@@ -138,19 +137,19 @@ const stepTitle = computed(() => {
       <div class="action-group split">
         <button v-if="step > 1" class="action-btn tone-soft" @click="prevComposerStep">
           <span class="material-symbols-outlined">arrow_forward</span>
-          <span>مرحله قبل</span>
+          <span>قبل</span>
         </button>
         <button class="action-btn tone-soft" @click="$emit('close')">
           <span class="material-symbols-outlined">close</span>
-          <span>انصراف</span>
+          <span>بستن</span>
         </button>
         <button v-if="step < 3" class="action-btn tone-primary" @click="nextComposerStep">
           <span class="material-symbols-outlined">arrow_back</span>
-          <span>مرحله بعد</span>
+          <span>بعد</span>
         </button>
         <button v-else class="action-btn tone-primary" :disabled="submitting" @click="submitRequest">
           <span class="material-symbols-outlined">send</span>
-          <span>{{ submitting ? 'در حال ارسال...' : 'ثبت و ارسال' }}</span>
+          <span>{{ submitting ? 'در حال ارسال...' : 'ثبت' }}</span>
         </button>
       </div>
     </div>

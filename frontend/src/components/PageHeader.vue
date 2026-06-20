@@ -23,6 +23,10 @@ const emit = defineEmits(['update:searchValue', 'action', 'menu'])
     </div>
 
     <div class="page-header-tools">
+      <button class="icon-btn mobile-menu-trigger" @click="emit('menu')">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+
       <label v-if="showSearch" class="search-shell">
         <span class="material-symbols-outlined">search</span>
         <input
@@ -32,10 +36,6 @@ const emit = defineEmits(['update:searchValue', 'action', 'menu'])
           @input="emit('update:searchValue', $event.target.value)"
         />
       </label>
-
-      <button class="icon-btn mobile-menu-trigger" @click="emit('menu')">
-        <span class="material-symbols-outlined">menu</span>
-      </button>
 
       <button v-if="actionLabel" :class="['action-btn', `tone-${actionTone}`]" @click="emit('action')">
         <span class="material-symbols-outlined">{{ actionIcon }}</span>

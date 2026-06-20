@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>مدیریت کاربران | Enterprise Manager</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed-dim": "#b5cad1",
+                    "on-surface-variant": "#41484a",
+                    "surface-container-high": "#e9e8e0",
+                    "on-surface": "#1b1c17",
+                    "background": "#fbfaf1",
+                    "primary-container": "#89a8b2",
+                    "on-tertiary-fixed": "#1c1c17",
+                    "tertiary-fixed": "#e6e2db",
+                    "on-secondary": "#ffffff",
+                    "primary": "#45636c",
+                    "on-tertiary-fixed-variant": "#484742",
+                    "surface": "#fbfaf1",
+                    "on-error": "#ffffff",
+                    "primary-fixed": "#c8e8f3",
+                    "inverse-on-surface": "#f2f1e9",
+                    "surface-container-low": "#f5f4ec",
+                    "on-secondary-fixed-variant": "#364a50",
+                    "surface-container-highest": "#e4e3db",
+                    "inverse-primary": "#acccd6",
+                    "error-container": "#ffdad6",
+                    "outline-variant": "#c1c7ca",
+                    "tertiary": "#605e59",
+                    "on-primary-fixed": "#001f26",
+                    "tertiary-fixed-dim": "#cac6bf",
+                    "tertiary-container": "#a6a39d",
+                    "on-background": "#1b1c17",
+                    "inverse-surface": "#30312c",
+                    "surface-tint": "#45636c",
+                    "secondary": "#4e6268",
+                    "on-primary": "#ffffff",
+                    "on-secondary-container": "#52666c",
+                    "secondary-fixed": "#d1e6ed",
+                    "surface-variant": "#e4e3db",
+                    "surface-container": "#efeee6",
+                    "on-primary-fixed-variant": "#2d4b54",
+                    "on-error-container": "#93000a",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-bright": "#fbfaf1",
+                    "on-secondary-fixed": "#0a1e24",
+                    "on-tertiary": "#ffffff",
+                    "on-tertiary-container": "#3b3935",
+                    "on-primary-container": "#1f3d46",
+                    "secondary-container": "#cee3ea",
+                    "error": "#ba1a1a",
+                    "primary-fixed-dim": "#acccd6",
+                    "surface-dim": "#dbdad3",
+                    "outline": "#72787a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "16px",
+                    "xl": "24px",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "24px",
+                    "gap-md": "16px",
+                    "unit": "4px",
+                    "header-height": "72px",
+                    "gap-lg": "24px",
+                    "container-padding": "32px",
+                    "sidebar-width": "280px"
+            },
+            "fontFamily": {
+                    "caption": ["Inter", "sans-serif"],
+                    "body-lg": ["Inter", "sans-serif"],
+                    "headline-md": ["Inter", "sans-serif"],
+                    "body-md": ["Inter", "sans-serif"],
+                    "headline-lg": ["Inter", "sans-serif"],
+                    "label-md": ["Inter", "sans-serif"],
+                    "display-lg": ["Inter", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #fbfaf1;
+            font-family: 'Inter', sans-serif;
+            color: #1b1c17;
+            margin: 0;
+            overflow-x: hidden;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #89a8b2;
+            border-radius: 10px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-gutter h-header-height w-full bg-surface border-none">
+<div class="flex items-center gap-md">
+<div class="cursor-pointer active:scale-95 duration-150 p-2 hover:bg-surface-container transition-colors rounded-full">
+<span class="material-symbols-outlined text-primary text-headline-md">grid_view</span>
+</div>
+<h1 class="text-headline-md font-headline-md font-bold text-primary">Enterprise Manager</h1>
+</div>
+<div class="flex items-center gap-md">
+<div class="hidden md:flex items-center bg-surface-container px-4 py-2 rounded-full gap-2">
+<span class="material-symbols-outlined text-on-surface-variant">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-label-md font-label-md w-64" placeholder="جستجو..." type="text"/>
+</div>
+<div class="cursor-pointer active:scale-95 duration-150">
+<img class="w-10 h-10 rounded-full border-2 border-primary-container object-cover" data-alt="A professional headshot of a middle-aged male executive with a calm and confident expression. He is wearing a minimalist charcoal grey suit against a soft, neutral-toned office background. The lighting is soft and even, highlighting the clean, modern aesthetic of a high-end corporate environment. The overall mood is sophisticated and trustworthy, adhering to the light-mode UI color palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQRk8txB8FSF39XoLXcvKp4aOinKscoKXwfP2IxFj67jzp24VTvSnh8PAAeD4dpgq4rrVttqD6FLKnid2zGsvUDBcejw6gGR5dmB_EcPBo8ILxAH4mWOlrGY76UGOA7zoOaQQJVGOxHNFzIcTsh_RW4a_teya7_-YU0JWAAa1xbsuNlQzfMchIOhBwFYBDj069HFKfCrTQQLK0uD1awAG_DjRLAUIm3TTdVqdnKu9aTPvlz2gQ4wig-iizVZfgdx4mxcf85Qw2eXz5"/>
+</div>
+</div>
+</header>
+<!-- NavigationDrawer (Right Aligned) -->
+<aside class="fixed right-0 top-0 h-full w-sidebar-width bg-surface-container pt-[72px] flex flex-col py-container-padding space-y-gap-md z-40">
+<div class="px-gutter mb-6 text-right">
+<h2 class="font-headline-md text-headline-md text-primary">الکس ریورز</h2>
+<p class="font-label-md text-label-md text-on-surface-variant">مدیریت مالی</p>
+</div>
+<nav class="flex flex-col px-4 gap-2">
+<div class="flex items-center justify-between p-3 cursor-pointer active:opacity-80 transition-opacity text-on-surface-variant hover:bg-secondary-container rounded-lg">
+<span class="font-label-md text-label-md">داشبورد</span>
+<span class="material-symbols-outlined">dashboard</span>
+</div>
+<!-- Active State: Requests corresponds most closely to User Management in this schema -->
+<div class="flex items-center justify-between p-3 cursor-pointer active:opacity-80 transition-opacity bg-primary-container text-on-primary-container rounded-lg">
+<span class="font-label-md text-label-md font-semibold">کاربران</span>
+<span class="material-symbols-outlined">pending_actions</span>
+</div>
+<div class="flex items-center justify-between p-3 cursor-pointer active:opacity-80 transition-opacity text-on-surface-variant hover:bg-secondary-container rounded-lg">
+<span class="font-label-md text-label-md">هزینه‌ها</span>
+<span class="material-symbols-outlined">payments</span>
+</div>
+<div class="flex items-center justify-between p-3 cursor-pointer active:opacity-80 transition-opacity text-on-surface-variant hover:bg-secondary-container rounded-lg">
+<span class="font-label-md text-label-md">اسناد</span>
+<span class="material-symbols-outlined">description</span>
+</div>
+</nav>
+<div class="mt-auto px-gutter pb-8">
+<div class="p-4 bg-surface-container-highest rounded-xl">
+<p class="text-caption font-caption text-on-surface-variant mb-2">فضای ذخیره‌سازی</p>
+<div class="w-full bg-surface-dim h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary w-3/4 h-full"></div>
+</div>
+<p class="text-right text-caption font-caption mt-1 text-primary">۷۵٪ استفاده شده</p>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="mr-sidebar-width pt-header-height min-h-screen">
+<div class="p-container-padding max-w-7xl mx-auto">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-gap-lg gap-md">
+<div>
+<h2 class="text-headline-lg font-headline-lg text-on-surface">مدیریت اعضای تیم</h2>
+<p class="text-body-md font-body-md text-on-surface-variant">لیست تمامی کارمندان و سطوح دسترسی آن‌ها را در اینجا مدیریت کنید.</p>
+</div>
+<button class="flex items-center justify-center gap-2 bg-primary-container text-on-primary-container px-6 py-3 rounded-lg font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined">person_add</span>
+                    دعوت کاربر جدید
+                </button>
+</div>
+<!-- Bento Stats Grid -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gap-md mb-gap-lg">
+<div class="bg-surface-container p-6 rounded-xl flex flex-col">
+<span class="text-on-surface-variant font-label-md text-label-md">کل کاربران</span>
+<span class="text-headline-lg font-headline-lg text-primary mt-2">۱,۲۸۴</span>
+</div>
+<div class="bg-surface-container p-6 rounded-xl flex flex-col">
+<span class="text-on-surface-variant font-label-md text-label-md">کاربران فعال</span>
+<span class="text-headline-lg font-headline-lg text-primary mt-2">۱,۱۵۰</span>
+</div>
+<div class="bg-surface-container p-6 rounded-xl flex flex-col">
+<span class="text-on-surface-variant font-label-md text-label-md">مدیران اجرایی</span>
+<span class="text-headline-lg font-headline-lg text-primary mt-2">۱۲</span>
+</div>
+<div class="bg-surface-container p-6 rounded-xl flex flex-col">
+<span class="text-on-surface-variant font-label-md text-label-md">در انتظار تایید</span>
+<span class="text-headline-lg font-headline-lg text-error mt-2">۸</span>
+</div>
+</div>
+<!-- Users Table Container -->
+<div class="bg-surface-container rounded-xl overflow-hidden">
+<div class="p-6 flex items-center justify-between border-b border-surface-dim/30">
+<div class="flex gap-md">
+<div class="bg-surface-container-high px-4 py-2 rounded-full text-label-md font-label-md text-on-surface-variant flex items-center gap-2 cursor-pointer hover:bg-tertiary-fixed transition-colors">
+<span>بخش</span>
+<span class="material-symbols-outlined text-[18px]">expand_more</span>
+</div>
+<div class="bg-surface-container-high px-4 py-2 rounded-full text-label-md font-label-md text-on-surface-variant flex items-center gap-2 cursor-pointer hover:bg-tertiary-fixed transition-colors">
+<span>نقش کاربری</span>
+<span class="material-symbols-outlined text-[18px]">expand_more</span>
+</div>
+</div>
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined cursor-pointer hover:text-primary transition-colors">filter_list</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-primary transition-colors">download</span>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-right border-collapse">
+<thead>
+<tr class="bg-surface-container-low">
+<th class="p-4 font-label-md text-label-md text-on-surface-variant">نام کاربر</th>
+<th class="p-4 font-label-md text-label-md text-on-surface-variant">دپارتمان</th>
+<th class="p-4 font-label-md text-label-md text-on-surface-variant">نقش</th>
+<th class="p-4 font-label-md text-label-md text-on-surface-variant">وضعیت</th>
+<th class="p-4 font-label-md text-label-md text-on-surface-variant">آخرین فعالیت</th>
+<th class="p-4"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-dim/20">
+<!-- User Row 1 -->
+<tr class="hover:bg-surface-container-high/50 transition-colors cursor-pointer group">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="A close-up high-quality portrait of a female professional in her late 20s. She has a minimalist, clean-cut appearance and is wearing a cream-colored silk blouse. The background is a soft, out-of-focus modern office with warm light filtering through. The style is professional and minimalist, aligning with the light-mode corporate aesthetic of the interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDTWS30KsQLsCfgXk3Z31XzgMhq0JbzeSReq4WyJf2i6ESpGJ3yrTNSfy1LRyVRVmmOs2PIY_qym4Sbv3wTALj079TwOJfI8_vXtNiBMf4hfXaSXOy-hIlm_4U5LSCD_H2R7MllpRByOfHiPZALEJLytkDItqRMhEc2FUtjn9VVDBdON_-94uoqDk5d_nDYBTHQE1q2UmJhBsHCHLHmwpsEjcU6zhq_KfuK7jwqzyXXnGCMjmDMXYPcsh257yf_UUq5QmOhpYrmutcO"/>
+<div>
+<p class="font-label-md text-label-md text-on-surface">سارا احمدی</p>
+<p class="text-caption font-caption text-on-surface-variant">sara.a@enterprise.com</p>
+</div>
+</div>
+</td>
+<td class="p-4 text-body-md font-body-md text-on-surface-variant">توسعه محصول</td>
+<td class="p-4">
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-caption font-caption">Manager</span>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<span class="text-label-md font-label-md text-on-surface">فعال</span>
+</div>
+</td>
+<td class="p-4 text-body-md font-body-md text-on-surface-variant">۲ ساعت پیش</td>
+<td class="p-4 text-left">
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">more_vert</span>
+</td>
+</tr>
+<!-- User Row 2 -->
+<tr class="hover:bg-surface-container-high/50 transition-colors cursor-pointer group">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="A portrait of a young male professional with glasses, wearing a light blue oxford shirt. He has a friendly but focused expression. The background is a minimalist, airy studio environment with soft architectural shadows. The lighting is clean and bright, maintaining the sophisticated enterprise UI style with high-key illumination." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZm1HhwLIlSGiDyUaL5vX4BDOThYN8ZhNuWFTF0RIkwL57cNw7vrKNEUtvyutOyYb-s9QQwlEQuRMz5_3CW2cqezN0t4HtizYsfHE_LWg3lDMQ8eGQcM4DtzgvOToRQm0WyAiElUjdF0uchFa7g3IMiZiJXVBLRL4s1Em2lOj2Ex9mw7VjECiqQ_Ydgdg3v5sxzaSA4VbkyEUV-4VNoFEWMeuFDIOVDdaV5rYtYAqGpxFgZkky0sHo0IR806p1WDJ6es7Q86lyF00z"/>
+<div>
+<p class="font-label-md text-label-md text-on-surface">امیرحسین رضایی</p>
+<p class="text-caption font-caption text-on-surface-variant">a.rezaei@enterprise.com</p>
+</div>
+</div>
+</td>
+<td class="p-4 text-body-md font-body-md text-on-surface-variant">فروش و بازاریابی</td>
+<td class="p-4">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed-variant px-3 py-1 rounded-full text-caption font-caption">Employee</span>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<span class="text-label-md font-label-md text-on-surface">فعال</span>
+</div>
+</td>
+<td class="p-4 text-body-md font-body-md text-on-surface-variant">دیروز</td>
+<td class="p-4 text-left">
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">more_vert</span>
+</td>
+</tr>
+<!-- User Row 3 -->
+<tr class="hover:bg-surface-container-high/50 transition-colors cursor-pointer group">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="A professional headshot of a mature woman in a leadership role, wearing a minimalist black blazer. She has an authoritative and elegant presence. The setting is a brightly lit, high-end executive lounge with subtle reflections on glass surfaces. The lighting is soft and flattering, emphasizing a calm and professional corporate atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCgRbXCyxU8QjRUh5m9Mr7mQFDzs-WTmlCwbk_Qef_r-l8riyKywQl8i61a_3LTS-t6qTvWXo4IriC4zCt09SmpPLdIdZ_cM5kCcVNomPzOA9ZM78KiFD_dpr9wu-xa4Cap46YCdn8RON2dX_6rPC2AoBJE_wUi5cETN4ynJ2DfdGVY-7uJuzik3-3XKQ-hs1JlnRVDlEQlY6euY67yohJpy5hyQEVbTPb4dwuBFAYtlVUzdzofUie9MRrlfjtUj1gy1UvIQtytY60X"/>
+<div>
+<p class="font-label-md text-label-md text-on-surface">مریم کاظمی</p>
+<p class="text-caption font-caption text-on-surface-variant">m.kazemi@enterprise.com</p>
+</div>
+</div>
+</td>
+<td class="p-4 text-body-md font-body-md text-on-surface-variant">منابع انسانی</td>
+<td class="p-4">
+<span class="bg-primary-container text-on-primary-container px-3 py-1 rounded-full text-caption font-caption">Executive</span>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-outline"></div>
+<span class="text-label-md font-label-md text-on-surface-variant">غیرفعال</span>
+</div>
+</td>
+<td class="p-4 text-body-md font-body-md text-on-surface-variant">۱ هفته پیش</td>
+<td class="p-4 text-left">
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">more_vert</span>
+</td>
+</tr>
+<!-- User Row 4 -->
+<tr class="hover:bg-surface-container-high/50 transition-colors cursor-pointer group">
+<td class="p-4">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="A professional portrait of a tech-focused male employee in a minimal grey turtleneck. He has a creative and smart appearance. The background is a modern workspace with minimal furniture and soft morning light. The color palette is consistent with the primary blue-grey tones of the design system, evoking a sense of calm productivity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuATFaswPaYlUOnUTgWNZMjHtXqaCzM7_wVcdKhRPJnMYCANDF_txG8Cs6DY5o2Ya4BG1bumCHWVrPkRxfubmNwYVg5dZSXu-h_HTk7YIeewfpTVZH1D9lE0tSEynXDD8XyKytidnDGiBZKisGcCF52k9v1xh1VbNOxGN_EuPVkNOvrce9yfwa_CFs54RQtdyYKo758NpVgBE07HosvfDqeGgbL2Ei9PorFQiu6Ybp9QgkSsDfydhN5PL2x8q4L2ZmU9BNNvD2KoGeHn"/>
+<div>
+<p class="font-label-md text-label-md text-on-surface">نیما نوری</p>
+<p class="text-caption font-caption text-on-surface-variant">n.nouri@enterprise.com</p>
+</div>
+</div>
+</td>
+<td class="p-4 text-body-md font-body-md text-on-surface-variant">تدارکات</td>
+<td class="p-4">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed-variant px-3 py-1 rounded-full text-caption font-caption">Employee</span>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<span class="text-label-md font-label-md text-on-surface">فعال</span>
+</div>
+</td>
+<td class="p-4 text-body-md font-body-md text-on-surface-variant">۱۰ دقیقه پیش</td>
+<td class="p-4 text-left">
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">more_vert</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="p-6 flex items-center justify-between border-t border-surface-dim/30">
+<p class="text-caption font-caption text-on-surface-variant">نمایش ۱ تا ۴ از ۸ کاربر</p>
+<div class="flex gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg bg-primary text-on-primary font-label-md text-label-md">۱</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition-colors font-label-md text-label-md text-on-surface-variant">۲</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Micro-interactions for table rows
+        document.querySelectorAll('tbody tr').forEach(row => {
+            row.addEventListener('mouseenter', () => {
+                row.style.transform = 'translateX(-4px)';
+                row.style.transition = 'transform 0.2s ease-out';
+            });
+            row.addEventListener('mouseleave', () => {
+                row.style.transform = 'translateX(0)';
+            });
+        });
+
+        // Search input focus effect
+        const searchInput = document.querySelector('input[type="text"]');
+        if(searchInput) {
+            searchInput.addEventListener('focus', () => {
+                searchInput.parentElement.classList.add('ring-2', 'ring-primary-container');
+            });
+            searchInput.addEventListener('blur', () => {
+                searchInput.parentElement.classList.remove('ring-2', 'ring-primary-container');
+            });
+        }
+    </script>
+</body></html>

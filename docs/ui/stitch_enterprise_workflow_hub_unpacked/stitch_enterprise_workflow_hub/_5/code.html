@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+
+<html class="light" dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Enterprise Workflow Hub - Executive Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-high": "#e9e8e0",
+                    "on-secondary-fixed": "#0a1e24",
+                    "surface": "#fbfaf1",
+                    "on-secondary-fixed-variant": "#364a50",
+                    "on-error": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "on-surface": "#1b1c17",
+                    "tertiary-fixed": "#e6e2db",
+                    "on-tertiary-fixed-variant": "#484742",
+                    "outline-variant": "#c1c7ca",
+                    "on-primary-container": "#1f3d46",
+                    "error-container": "#ffdad6",
+                    "tertiary": "#605e59",
+                    "secondary-container": "#cee3ea",
+                    "surface-container-highest": "#e4e3db",
+                    "tertiary-fixed-dim": "#cac6bf",
+                    "tertiary-container": "#a6a39d",
+                    "on-background": "#1b1c17",
+                    "inverse-primary": "#acccd6",
+                    "surface-container-low": "#f5f4ec",
+                    "primary-fixed": "#c8e8f3",
+                    "primary-container": "#89a8b2",
+                    "surface-container": "#efeee6",
+                    "outline": "#72787a",
+                    "on-secondary-container": "#52666c",
+                    "on-tertiary-container": "#3b3935",
+                    "secondary-fixed": "#d1e6ed",
+                    "inverse-surface": "#30312c",
+                    "on-error-container": "#93000a",
+                    "surface-bright": "#fbfaf1",
+                    "secondary-fixed-dim": "#b5cad1",
+                    "surface-variant": "#e4e3db",
+                    "surface-dim": "#dbdad3",
+                    "inverse-on-surface": "#f2f1e9",
+                    "surface-tint": "#45636c",
+                    "primary-fixed-dim": "#acccd6",
+                    "error": "#ba1a1a",
+                    "on-surface-variant": "#41484a",
+                    "on-secondary": "#ffffff",
+                    "secondary": "#4e6268",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed": "#001f26",
+                    "background": "#fbfaf1",
+                    "primary": "#45636c",
+                    "on-primary": "#ffffff",
+                    "on-primary-fixed-variant": "#2d4b54",
+                    "on-tertiary-fixed": "#1c1c17"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "24px",
+                    "sidebar-width": "280px",
+                    "gap-md": "16px",
+                    "container-padding": "32px",
+                    "header-height": "72px",
+                    "gap-lg": "24px",
+                    "unit": "4px"
+            },
+            "fontFamily": {
+                    "label-md": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "headline-lg-mobile": ["Inter"],
+                    "caption": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "label-md": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "display-lg": ["48px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-md": ["24px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "caption": ["12px", {"lineHeight": "1.2", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #fbfaf1; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e4e3db; border-radius: 10px; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface overflow-x-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-40 bg-surface dark:bg-surface-dim flex flex-row-reverse justify-between items-center h-header-height px-container-padding">
+<div class="flex items-center gap-md flex-row-reverse">
+<div class="w-10 h-10 rounded-full overflow-hidden border border-outline-variant cursor-pointer active:scale-95 duration-150 transition-colors">
+<img class="w-full h-full object-cover" data-alt="A professional corporate headshot of a Middle Eastern executive in a modern business environment. The lighting is soft and natural, emphasizing a minimalist and clean aesthetic. The background is a blurred office space with neutral tones of cream and blue-grey, matching the Enterprise Workflow Hub's brand identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVFi0QoKEQJgX6iMMz0xptd18kjML5QJAZrK5jkY-a33FH9DuvuxxfKk2qAwLRSLshZaCyZjZ07b8fdyJCQhZcJvbgO5dYGYYEVEuGSpOD8M6L7yVXg1M2UUJDspbrfh7hBw7pm2d7coGq_c3ltjBwX1k6_wZJq13-L15YUzqbhH4AfwSYbiYbf-d_DGQQUBn-WziaCn4n_elVvoQ9YEC-PhTzcDbA6yROW4ofQxxmMmRYdkTElyFC5fpvUCdIseb_hlWd3SHbpCdB"/>
+</div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">مرکز مدیریت سازمانی</h1>
+</div>
+<div class="flex items-center gap-lg">
+<div class="cursor-pointer active:scale-95 duration-150 p-2 hover:bg-secondary-container rounded-full transition-colors text-primary">
+<span class="material-symbols-outlined">search</span>
+</div>
+<div class="hidden md:flex gap-md">
+<span class="text-primary dark:text-primary-fixed-dim font-bold font-label-md text-label-md cursor-pointer">داشبورد</span>
+<span class="text-on-surface-variant dark:text-on-surface-variant font-label-md text-label-md cursor-pointer hover:bg-secondary-container transition-colors rounded px-2">درخواست‌ها</span>
+</div>
+</div>
+</header>
+<!-- NavigationDrawer -->
+<aside class="fixed right-0 top-0 h-full w-sidebar-width bg-surface-container dark:bg-surface-container-high flex flex-col p-gutter z-50 text-right hidden md:flex">
+<div class="mb-8 pt-4">
+<h2 class="font-headline-md text-headline-md text-primary">منوی سیستم</h2>
+</div>
+<nav class="flex-1 space-y-2">
+<!-- Active Navigation -->
+<a class="bg-primary-container dark:bg-on-primary-fixed-variant text-on-primary-container dark:text-primary-fixed rounded-xl flex flex-row-reverse items-center p-gap-md transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined ml-3" data-icon="dashboard">dashboard</span>
+<span class="font-label-md text-label-md">داشبورد</span>
+</a>
+<!-- Inactive Navigations -->
+<a class="text-on-secondary-fixed-variant dark:text-on-secondary-fixed flex flex-row-reverse items-center p-gap-md hover:bg-secondary-container dark:hover:bg-on-secondary-fixed-variant rounded-xl transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined ml-3" data-icon="list_alt">list_alt</span>
+<span class="font-label-md text-label-md">درخواست‌ها</span>
+</a>
+<a class="text-on-secondary-fixed-variant dark:text-on-secondary-fixed flex flex-row-reverse items-center p-gap-md hover:bg-secondary-container dark:hover:bg-on-secondary-fixed-variant rounded-xl transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined ml-3" data-icon="payments">payments</span>
+<span class="font-label-md text-label-md">هزینه‌ها</span>
+</a>
+<a class="text-on-secondary-fixed-variant dark:text-on-secondary-fixed flex flex-row-reverse items-center p-gap-md hover:bg-secondary-container dark:hover:bg-on-secondary-fixed-variant rounded-xl transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined ml-3" data-icon="fact_check">fact_check</span>
+<span class="font-label-md text-label-md">تاییدیه ها</span>
+</a>
+<a class="text-on-secondary-fixed-variant dark:text-on-secondary-fixed flex flex-row-reverse items-center p-gap-md hover:bg-secondary-container dark:hover:bg-on-secondary-fixed-variant rounded-xl transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined ml-3" data-icon="analytics">analytics</span>
+<span class="font-label-md text-label-md">گزارش‌ها</span>
+</a>
+<a class="text-on-secondary-fixed-variant dark:text-on-secondary-fixed flex flex-row-reverse items-center p-gap-md hover:bg-secondary-container dark:hover:bg-on-secondary-fixed-variant rounded-xl transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined ml-3" data-icon="group">group</span>
+<span class="font-label-md text-label-md">کاربران</span>
+</a>
+<a class="text-on-secondary-fixed-variant dark:text-on-secondary-fixed flex flex-row-reverse items-center p-gap-md hover:bg-secondary-container dark:hover:bg-on-secondary-fixed-variant rounded-xl transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined ml-3" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">تنظیمات</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Canvas -->
+<main class="mr-0 md:mr-sidebar-width pt-header-height min-h-screen transition-all duration-300">
+<div class="px-container-padding py-gutter max-w-7xl mx-auto space-y-gutter">
+<!-- Hero Header -->
+<section class="mb-gutter relative overflow-hidden rounded-[24px] bg-primary-container p-12 text-on-primary-container">
+<div class="relative z-10">
+<h2 class="font-display-lg text-display-lg mb-2">سلام، خوش آمدید.</h2>
+<p class="font-headline-md text-headline-md opacity-90">امروز ۳ درخواست جدید دارید.</p>
+</div>
+<div class="absolute inset-0 z-0 opacity-10">
+
+</div>
+</section>
+<!-- KPI Cards Row (Bento Grid Style) -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gap-lg">
+<div class="bg-surface-container rounded-[24px] p-6 flex flex-col justify-between h-32 hover:bg-surface-container-high transition-colors cursor-default">
+<span class="font-label-md text-label-md text-on-surface-variant">درخواست‌های فعال</span>
+<div class="flex justify-between items-baseline">
+<span class="font-headline-lg text-headline-lg text-on-surface">۲۴</span>
+<span class="material-symbols-outlined text-primary" data-icon="bolt">bolt</span>
+</div>
+</div>
+<div class="bg-surface-container rounded-[24px] p-6 flex flex-col justify-between h-32 hover:bg-surface-container-high transition-colors cursor-default">
+<span class="font-label-md text-label-md text-on-surface-variant">تاییدیه‌های معلق</span>
+<div class="flex justify-between items-baseline">
+<span class="font-headline-lg text-headline-lg text-on-surface">۸</span>
+<span class="material-symbols-outlined text-primary" data-icon="hourglass_empty">hourglass_empty</span>
+</div>
+</div>
+<div class="bg-surface-container rounded-[24px] p-6 flex flex-col justify-between h-32 hover:bg-surface-container-high transition-colors cursor-default">
+<span class="font-label-md text-label-md text-on-surface-variant">هزینه‌های ماه</span>
+<div class="flex justify-between items-baseline">
+<span class="font-headline-lg text-headline-lg text-on-surface">۴۵۰م</span>
+<span class="material-symbols-outlined text-primary" data-icon="account_balance_wallet">account_balance_wallet</span>
+</div>
+</div>
+<div class="bg-surface-container rounded-[24px] p-6 flex flex-col justify-between h-32 hover:bg-surface-container-high transition-colors cursor-default">
+<span class="font-label-md text-label-md text-on-surface-variant">وضعیت اسناد</span>
+<div class="flex justify-between items-baseline">
+<span class="font-headline-lg text-headline-lg text-primary">عالی</span>
+<span class="material-symbols-outlined text-primary" data-icon="verified">verified</span>
+</div>
+</div>
+</section>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gap-lg">
+<!-- Analytics Section -->
+<section class="lg:col-span-2 bg-surface-container rounded-[24px] p-gutter relative overflow-hidden h-[400px]">
+<div class="flex justify-between items-center mb-gutter">
+<h3 class="font-headline-md text-headline-md text-on-surface">روند هزینه‌ها</h3>
+<div class="flex gap-2">
+<span class="bg-primary-container/20 text-primary px-3 py-1 rounded-full text-caption font-label-md">ماهانه</span>
+</div>
+</div>
+<!-- Area Chart Visual Representation -->
+<div class="w-full h-64 flex items-end justify-between px-2 gap-2">
+<div class="flex-1 bg-primary-container rounded-t-lg transition-all hover:bg-primary" style="height: 40%"></div>
+<div class="flex-1 bg-primary-container rounded-t-lg transition-all hover:bg-primary" style="height: 60%"></div>
+<div class="flex-1 bg-primary-container rounded-t-lg transition-all hover:bg-primary" style="height: 45%"></div>
+<div class="flex-1 bg-primary-container rounded-t-lg transition-all hover:bg-primary" style="height: 80%"></div>
+<div class="flex-1 bg-primary-container rounded-t-lg transition-all hover:bg-primary" style="height: 55%"></div>
+<div class="flex-1 bg-primary-container rounded-t-lg transition-all hover:bg-primary" style="height: 70%"></div>
+<div class="flex-1 bg-primary-container rounded-t-lg transition-all hover:bg-primary" style="height: 90%"></div>
+</div>
+<div class="flex justify-between mt-4 px-2 text-on-surface-variant font-label-md text-label-md">
+<span>فروردین</span>
+<span>اردیبهشت</span>
+<span>خرداد</span>
+<span>تیر</span>
+<span>مرداد</span>
+<span>شهریور</span>
+<span>مهر</span>
+</div>
+</section>
+<!-- Activity Feed -->
+<section class="bg-surface-container rounded-[24px] p-gutter space-y-gap-lg">
+<h3 class="font-headline-md text-headline-md text-on-surface border-b border-outline-variant pb-2">فعالیت‌های اخیر</h3>
+<div class="space-y-6">
+<div class="flex flex-row-reverse gap-4 items-start">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="person">person</span>
+</div>
+<div class="flex-1 text-right">
+<p class="font-body-md text-body-md text-on-surface"><span class="font-bold">علی</span> یک درخواست ثبت کرد</p>
+<span class="font-caption text-caption text-on-surface-variant">۱۰ دقیقه پیش</span>
+</div>
+</div>
+<div class="flex flex-row-reverse gap-4 items-start">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-white" data-icon="check_circle">check_circle</span>
+</div>
+<div class="flex-1 text-right">
+<p class="font-body-md text-body-md text-on-surface"><span class="font-bold">مدیر مالی</span> سند را تایید کرد</p>
+<span class="font-caption text-caption text-on-surface-variant">۱ ساعت پیش</span>
+</div>
+</div>
+<div class="flex flex-row-reverse gap-4 items-start">
+<div class="w-10 h-10 rounded-full bg-tertiary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-tertiary-container" data-icon="receipt">receipt</span>
+</div>
+<div class="flex-1 text-right">
+<p class="font-body-md text-body-md text-on-surface">هزینه جدید ثبت شد</p>
+<span class="font-caption text-caption text-on-surface-variant">۳ ساعت پیش</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Smart Insights Box -->
+<section class="bg-secondary-container rounded-[24px] p-gutter flex flex-row-reverse items-center justify-between border-r-8 border-primary transition-all hover:bg-secondary-fixed">
+<div class="flex flex-row-reverse items-center gap-gap-md">
+<span class="material-symbols-outlined text-primary text-4xl" data-icon="lightbulb" style="font-variation-settings: 'FILL' 1;">lightbulb</span>
+<p class="font-body-lg text-body-lg text-on-secondary-container">هزینه‌های این ماه ۱۸٪ بیشتر از ماه قبل است.</p>
+</div>
+<button class="bg-primary text-white font-label-md text-label-md px-6 py-2 rounded-xl active:scale-95 transition-transform">
+                    بررسی جزئیات
+                </button>
+</section>
+</div>
+</main>
+<!-- Bottom Navigation for Mobile -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full h-16 bg-surface-container-highest flex justify-around items-center px-4 z-50">
+<div class="flex flex-col items-center text-primary">
+<span class="material-symbols-outlined" data-icon="dashboard" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="text-[10px] font-label-md">داشبورد</span>
+</div>
+<div class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="list_alt">list_alt</span>
+<span class="text-[10px] font-label-md">درخواست‌ها</span>
+</div>
+<div class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="text-[10px] font-label-md">گزارش‌ها</span>
+</div>
+<div class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-[10px] font-label-md">تنظیمات</span>
+</div>
+</nav>
+<script>
+        // Micro-interactions and effects
+        document.querySelectorAll('.active\\:scale-95').forEach(el => {
+            el.addEventListener('mousedown', () => el.classList.add('scale-95'));
+            el.addEventListener('mouseup', () => el.classList.remove('scale-95'));
+            el.addEventListener('mouseleave', () => el.classList.remove('scale-95'));
+        });
+        
+        // Simple chart interaction
+        const chartBars = document.querySelectorAll('.flex-1.bg-primary-container');
+        chartBars.forEach(bar => {
+            bar.addEventListener('mouseenter', () => {
+                bar.style.opacity = '1';
+            });
+            bar.addEventListener('mouseleave', () => {
+                bar.style.opacity = '0.8';
+            });
+        });
+    </script>
+</body></html>

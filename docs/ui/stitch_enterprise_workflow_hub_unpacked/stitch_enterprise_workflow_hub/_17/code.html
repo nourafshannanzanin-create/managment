@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>مدیریت کاربران | سامانه سازمانی</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        @font-face {
+            font-family: 'Vazirmatn';
+            src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Light.woff2') format('woff2');
+            font-weight: 300;
+        }
+        @font-face {
+            font-family: 'Vazirmatn';
+            src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Regular.woff2') format('woff2');
+            font-weight: 400;
+        }
+        @font-face {
+            font-family: 'Vazirmatn';
+            src: url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/webfonts/Vazirmatn-Bold.woff2') format('woff2');
+            font-weight: 700;
+        }
+
+        body {
+            font-family: 'Vazirmatn', 'Inter', sans-serif;
+            background-color: #fbfaf1;
+            overflow-x: hidden;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .user-card:hover {
+            transform: translateY(-4px);
+        }
+
+        /* Hide scrollbar but keep functionality */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-variant": "#e4e3db",
+                        "on-primary-fixed-variant": "#2d4b54",
+                        "on-error": "#ffffff",
+                        "on-surface": "#1b1c17",
+                        "on-tertiary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "secondary-container": "#cee3ea",
+                        "on-secondary": "#ffffff",
+                        "tertiary-fixed": "#e6e2db",
+                        "secondary": "#4e6268",
+                        "on-tertiary-fixed-variant": "#484742",
+                        "surface": "#fbfaf1",
+                        "inverse-primary": "#acccd6",
+                        "surface-container": "#efeee6",
+                        "secondary-fixed": "#d1e6ed",
+                        "on-primary": "#ffffff",
+                        "tertiary": "#605e59",
+                        "primary-fixed": "#c8e8f3",
+                        "surface-dim": "#dbdad3",
+                        "primary-container": "#89a8b2",
+                        "tertiary-container": "#a6a39d",
+                        "error": "#ba1a1a",
+                        "on-primary-container": "#1f3d46",
+                        "tertiary-fixed-dim": "#cac6bf",
+                        "on-secondary-fixed": "#001e24",
+                        "inverse-surface": "#30312c",
+                        "outline-variant": "#c1c7ca",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed": "#1c1c17",
+                        "on-background": "#1b1c17",
+                        "primary-fixed-dim": "#acccd6",
+                        "surface-tint": "#45636c",
+                        "on-secondary-fixed-variant": "#364a50",
+                        "inverse-on-surface": "#f2f1e9",
+                        "secondary-fixed-dim": "#b5cad1",
+                        "on-tertiary-container": "#3b3935",
+                        "background": "#fbfaf1",
+                        "surface-container-lowest": "#ffffff",
+                        "primary": "#45636c",
+                        "outline": "#72787a",
+                        "on-primary-fixed": "#001f26",
+                        "surface-container-low": "#f5f4ec",
+                        "on-secondary-container": "#52666c",
+                        "surface-bright": "#fbfaf1",
+                        "surface-container-highest": "#e4e3db",
+                        "surface-container-high": "#e9e8e0",
+                        "on-surface-variant": "#41484a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "sidebar-width": "280px",
+                        "header-height": "72px",
+                        "gap-lg": "24px",
+                        "gutter": "24px",
+                        "gap-md": "16px",
+                        "container-padding": "32px"
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen">
+<!-- Top AppBar -->
+<header class="fixed top-0 w-full z-40 bg-surface flex flex-row-reverse justify-between items-center h-header-height px-container-padding">
+<div class="flex items-center gap-md">
+<h1 class="font-bold text-headline-md text-primary">مرکز مدیریت سازمانی</h1>
+<button class="md:hidden p-2 text-primary">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+<div class="flex flex-row-reverse items-center gap-gap-md">
+<div class="cursor-pointer active:scale-95 duration-150 transition-colors hover:bg-secondary-container p-2 rounded-full">
+<span class="material-symbols-outlined text-primary">search</span>
+</div>
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center overflow-hidden border-2 border-surface-variant">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a middle-aged Iranian male executive wearing a dark charcoal suit and a light blue shirt. He has a friendly, confident expression, positioned against a minimalist, bright architectural background with soft natural light. The overall aesthetic is clean, corporate, and high-end, matching the professional management interface design." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKRSh0kzHTjOMwPXGWO1DaVD03T5bW6nexEsMPNLKN59QaDZN6uWgfrtJ8jmAEhNQXc_9Yr8zf34yH-tUyPsKLoFHAGfAUpPXY8pJOlIcz1OO8emItBiFOBvWxyDczroqOyuoz9jqrRCHzTTgoybvifMOENZzQowBnII0vdkdGPBaW7cVUGPtR_JKdbpsbiAgzhzMjSQxpiV8l26cc-j2V35LfPlnHmIvUgDAvbYYFlyGg5n4_umDeGCNHYbP6yX5_p2iHZNEtDEns"/>
+</div>
+</div>
+</header>
+<!-- Navigation Drawer (Right Side) -->
+<aside class="fixed right-0 top-0 h-full w-sidebar-width bg-surface-container flex flex-col p-gutter z-50 text-right hidden md:flex pt-24">
+<div class="mb-8 pr-2">
+<span class="font-bold text-headline-md text-primary">منوی سیستم</span>
+</div>
+<nav class="flex flex-col flex-1">
+<a class="text-on-secondary-fixed-variant flex flex-row-reverse items-center p-gap-md mb-2 hover:bg-secondary-container rounded-xl transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined ml-3">dashboard</span>
+<span class="text-label-md">داشبورد</span>
+</a>
+<a class="text-on-secondary-fixed-variant flex flex-row-reverse items-center p-gap-md mb-2 hover:bg-secondary-container rounded-xl transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined ml-3">list_alt</span>
+<span class="text-label-md">درخواست‌ها</span>
+</a>
+<a class="text-on-secondary-fixed-variant flex flex-row-reverse items-center p-gap-md mb-2 hover:bg-secondary-container rounded-xl transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined ml-3">payments</span>
+<span class="text-label-md">هزینه‌ها</span>
+</a>
+<a class="text-on-secondary-fixed-variant flex flex-row-reverse items-center p-gap-md mb-2 hover:bg-secondary-container rounded-xl transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined ml-3">fact_check</span>
+<span class="text-label-md">تاییدیه ها</span>
+</a>
+<a class="bg-primary-container text-on-primary-container rounded-xl flex flex-row-reverse items-center p-gap-md mb-2 font-bold transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined ml-3" style="font-variation-settings: 'FILL' 1;">group</span>
+<span class="text-label-md">کاربران</span>
+</a>
+<a class="text-on-secondary-fixed-variant flex flex-row-reverse items-center p-gap-md mb-2 hover:bg-secondary-container rounded-xl transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined ml-3">analytics</span>
+<span class="text-label-md">گزارش‌ها</span>
+</a>
+<div class="mt-auto">
+<a class="text-on-secondary-fixed-variant flex flex-row-reverse items-center p-gap-md mb-2 hover:bg-secondary-container rounded-xl transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined ml-3">settings</span>
+<span class="text-label-md">تنظیمات</span>
+</a>
+</div>
+</nav>
+</aside>
+<!-- Main Content Area -->
+<main class="md:mr-sidebar-width pt-24 pb-12 px-container-padding">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row-reverse justify-between items-start md:items-center gap-gap-md mb-10">
+<div>
+<h2 class="text-3xl font-bold text-primary mb-2">مدیریت کاربران</h2>
+<p class="text-on-surface-variant">لیست پرسنل، سطوح دسترسی و تنظیمات حساب کاربری</p>
+</div>
+<button class="bg-primary-container text-on-primary-container px-6 py-3 rounded-2xl flex items-center gap-2 hover:opacity-90 transition-all active:scale-95">
+<span class="material-symbols-outlined">person_add</span>
+<span class="font-bold">افزودن کاربر جدید</span>
+</button>
+</div>
+<!-- Filter & Search Bar -->
+<div class="bg-surface-container p-6 rounded-3xl mb-8 flex flex-col lg:flex-row-reverse gap-gap-md items-center shadow-sm">
+<div class="w-full lg:flex-1 relative">
+<input class="w-full bg-surface-container-high border-none rounded-2xl py-3 px-12 text-on-surface focus:ring-2 focus:ring-primary transition-all text-right" placeholder="جستجوی نام، کدملی یا دپارتمان..." type="text"/>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-outline">search</span>
+</div>
+<div class="flex flex-row-reverse gap-3 w-full lg:w-auto">
+<div class="relative group w-full lg:w-48">
+<select class="w-full appearance-none bg-surface-container-high border-none rounded-2xl py-3 px-4 pr-10 text-on-surface focus:ring-2 focus:ring-primary text-right cursor-pointer">
+<option value="">همه نقش‌ها</option>
+<option value="manager">مدیر</option>
+<option value="employee">کارمند</option>
+<option value="hr">منابع انسانی</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-outline">filter_list</span>
+</div>
+<div class="relative group w-full lg:w-48">
+<select class="w-full appearance-none bg-surface-container-high border-none rounded-2xl py-3 px-4 pr-10 text-on-surface focus:ring-2 focus:ring-primary text-right cursor-pointer">
+<option value="">همه دپارتمان‌ها</option>
+<option value="tech">فناوری اطلاعات</option>
+<option value="sales">فروش و بازاریابی</option>
+<option value="finance">مالی</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-outline">business</span>
+</div>
+</div>
+</div>
+<!-- Users Grid (Bento Style) -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-gap-lg">
+<!-- User Card 1 -->
+<div class="user-card bg-surface-container-low p-6 rounded-[24px] flex flex-col transition-all duration-300 group">
+<div class="flex flex-row-reverse justify-between items-start mb-6">
+<div class="w-16 h-16 rounded-2xl overflow-hidden shadow-inner">
+<img class="w-full h-full object-cover" data-alt="A close-up professional portrait of a woman in her late 20s with a sharp, intelligent look. She has minimalist glasses and is wearing a sleek professional cream blouse. The background is a soft, out-of-focus modern office setting with warm wood tones and professional lighting, maintaining a premium minimalist aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBF5E9LYfHzrirJ6iuxgD_mlxa3aHTK6effHGNOBRHjn6ooUbsuJnouFqXsBC_M8i74_UXcCp3hk_i1Bi8QwEhIu5hh5JVbGBstzEN_Ql6rPyZjHq2P4dwT8E61CAKpF8KkcQYiuwrfsK4yuUVHraDzjBjXF20QTrx6ZBW4NZ-HXp__iMh-pkq4mcuB5Ek1ZxuFk_iEWQucldeMofJ4qPC2FXJTG-YPeyxMN3usaGs1Y2NgbUlZK1rdgBffu_4p7fq-2DVEqlxGEPyo"/>
+</div>
+<div class="flex gap-1">
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">مدیر</span>
+<button class="p-2 text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+<div>
+<h3 class="text-xl font-bold text-on-surface mb-1">سارا احمدی</h3>
+<p class="text-primary font-medium text-sm mb-4">مدیر ارشد محصول (CPO)</p>
+<div class="flex flex-row-reverse items-center gap-2 text-on-surface-variant text-sm mb-2">
+<span class="material-symbols-outlined text-sm">corporate_fare</span>
+<span>دپارتمان محصول و طراحی</span>
+</div>
+<div class="flex flex-row-reverse items-center gap-2 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-sm">mail</span>
+<span class="font-mono">sara.ahmadi@company.com</span>
+</div>
+</div>
+<div class="mt-6 pt-6 border-t border-surface-variant flex flex-row-reverse justify-between items-center">
+<div class="flex -space-x-reverse space-x-2">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-[10px] font-bold text-on-secondary-container border-2 border-surface-container-low">IT</div>
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-[10px] font-bold text-on-primary-container border-2 border-surface-container-low">HR</div>
+</div>
+<button class="text-primary hover:underline text-sm font-bold flex items-center gap-1">
+<span>مشاهده پروفایل</span>
+<span class="material-symbols-outlined text-sm">arrow_back</span>
+</button>
+</div>
+</div>
+<!-- User Card 2 -->
+<div class="user-card bg-surface-container-low p-6 rounded-[24px] flex flex-col transition-all duration-300 group">
+<div class="flex flex-row-reverse justify-between items-start mb-6">
+<div class="w-16 h-16 rounded-2xl overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A high-resolution professional headshot of a young Persian man in a modern black polo shirt. He has a neatly groomed beard and is smiling slightly. The background is a clean, bright gray studio backdrop with subtle gradients. The lighting is soft and flat, emphasizing clarity and a professional corporate look for a team member profile." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAef_s1YbHyWFsGPK21AT13NdRifkoeVTWOwLCbtvXO-6OADVNc2wPnds7nHdx6OfhmN3n2ZvYGyC6PvXte-0KYQXsnA1nwuy82K2kLbPqbCVwCet7F32OQZD9l57PjyMxlWiEh8joDBbjWyLygPOPj6c-4hJrFH8kBOvwM84tJ8bAchwQkUCSUXixi3MF3ZI_ob_hHCSED6GGEUrN8yQ5n_h_J8Qr2Bn92uABDiWNO7XmfalBa5GSFivhCCCampM1RhpIgEHZXet09"/>
+</div>
+<div class="flex gap-1">
+<span class="bg-surface-variant text-on-surface-variant px-3 py-1 rounded-full text-xs font-bold">کارمند</span>
+<button class="p-2 text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+<div>
+<h3 class="text-xl font-bold text-on-surface mb-1">امیررضا علوی</h3>
+<p class="text-primary font-medium text-sm mb-4">توسعه‌دهنده ارشد فرانت‌اند</p>
+<div class="flex flex-row-reverse items-center gap-2 text-on-surface-variant text-sm mb-2">
+<span class="material-symbols-outlined text-sm">corporate_fare</span>
+<span>فناوری اطلاعات و توسعه</span>
+</div>
+<div class="flex flex-row-reverse items-center gap-2 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-sm">mail</span>
+<span class="font-mono">alavi.a@company.com</span>
+</div>
+</div>
+<div class="mt-6 pt-6 border-t border-surface-variant flex flex-row-reverse justify-between items-center">
+<div class="flex -space-x-reverse space-x-2">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-[10px] font-bold text-on-secondary-container border-2 border-surface-container-low">JS</div>
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-[10px] font-bold text-on-primary-container border-2 border-surface-container-low">WEB</div>
+</div>
+<button class="text-primary hover:underline text-sm font-bold flex items-center gap-1">
+<span>مشاهده پروفایل</span>
+<span class="material-symbols-outlined text-sm">arrow_back</span>
+</button>
+</div>
+</div>
+<!-- User Card 3 -->
+<div class="user-card bg-surface-container-low p-6 rounded-[24px] flex flex-col transition-all duration-300 group border-2 border-dashed border-primary/20 hover:border-primary/40 cursor-pointer items-center justify-center min-h-[320px]">
+<div class="w-16 h-16 rounded-full bg-primary-fixed-dim flex items-center justify-center mb-4 text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-4xl">add</span>
+</div>
+<h3 class="text-lg font-bold text-primary">استخدام نفر جدید</h3>
+<p class="text-on-surface-variant text-sm text-center mt-2">برای این دپارتمان یک جایگاه شغلی خالی وجود دارد</p>
+</div>
+<!-- User Card 4 -->
+<div class="user-card bg-surface-container-low p-6 rounded-[24px] flex flex-col transition-all duration-300 group">
+<div class="flex flex-row-reverse justify-between items-start mb-6">
+<div class="w-16 h-16 rounded-2xl overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Portrait of a mature professional woman in her 40s with an air of authority and experience. She is wearing a structured navy blue blazer and a simple silk scarf. The lighting is dramatic but soft, highlighting her features against a dark, minimalist office background. Professional, high-end corporate photography style consistent with an enterprise management system." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPVuceyWDnrwEO986A20_B7Eo9kHYx9RCj7kcbR0oXJOcrmDFlfJM8ysH1TfP4wt1CGIOveg2UD6Lt85a2DR2Q46Q0serWSYbhPPukVwofu7juiq7bbVBcvg-fXB9otBKfZMGK1pRnOy1xT6fCY8RgsGyH9QBxHpsNyXg4IWS7v9hIZFUUpXNXlIq1nLjK7EkfboHf6FQCF7ujNILalwhinF12w9DfL2X6S7kuHdlmsX2xgf6vVn2l-PgaG_ZYaX_QC9qTlYMX5Shb"/>
+</div>
+<div class="flex gap-1">
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">مدیر</span>
+<button class="p-2 text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+<div>
+<h3 class="text-xl font-bold text-on-surface mb-1">مریم کریمی</h3>
+<p class="text-primary font-medium text-sm mb-4">مدیر منابع انسانی (HRM)</p>
+<div class="flex flex-row-reverse items-center gap-2 text-on-surface-variant text-sm mb-2">
+<span class="material-symbols-outlined text-sm">corporate_fare</span>
+<span>سرمایه‌های انسانی</span>
+</div>
+<div class="flex flex-row-reverse items-center gap-2 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-sm">mail</span>
+<span class="font-mono">karimi.m@company.com</span>
+</div>
+</div>
+<div class="mt-6 pt-6 border-t border-surface-variant flex flex-row-reverse justify-between items-center">
+<div class="flex -space-x-reverse space-x-2">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-[10px] font-bold text-on-secondary-container border-2 border-surface-container-low">P</div>
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-[10px] font-bold text-on-primary-container border-2 border-surface-container-low">H</div>
+</div>
+<button class="text-primary hover:underline text-sm font-bold flex items-center gap-1">
+<span>مشاهده پروفایل</span>
+<span class="material-symbols-outlined text-sm">arrow_back</span>
+</button>
+</div>
+</div>
+<!-- User Card 5 -->
+<div class="user-card bg-surface-container-low p-6 rounded-[24px] flex flex-col transition-all duration-300 group">
+<div class="flex flex-row-reverse justify-between items-start mb-6">
+<div class="w-16 h-16 rounded-2xl overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Clean professional headshot of a smiling man in his early 30s. He is wearing a minimalist grey sweater over a white collared shirt. He looks approachable and modern. The background is a light-colored wall with soft daylight. The image is crisp, professional, and optimized for a modern digital workspace employee list." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDuJz0dGbwDrYU-21d_FDnAtB39PbpoWhELJABxBxbxx76M2AcA29kFjE22n3idhKHqaq9LIFVWgUbBBSbaJuEYXiPBm1i5aYi5Hqz_86riVUCbw8DnaLDAaszD6uQzv3o28mUIo4LnPh4Wh6EvRXmdLJiwSCAMITTToRZ1FXwcwI-eceTSlbY_vyDeDAzcz6PJ5up7IBoOf6MEpwLffHp2U9RErusfDUWNTXz-8huBZoERGiAOorPhGs3F4VEGyT1MiaM4NfaXSc6"/>
+</div>
+<div class="flex gap-1">
+<span class="bg-surface-variant text-on-surface-variant px-3 py-1 rounded-full text-xs font-bold">کارمند</span>
+<button class="p-2 text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+<div>
+<h3 class="text-xl font-bold text-on-surface mb-1">محمد حسینی</h3>
+<p class="text-primary font-medium text-sm mb-4">کارشناس ارشد فروش</p>
+<div class="flex flex-row-reverse items-center gap-2 text-on-surface-variant text-sm mb-2">
+<span class="material-symbols-outlined text-sm">corporate_fare</span>
+<span>فروش و توسعه بازار</span>
+</div>
+<div class="flex flex-row-reverse items-center gap-2 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-sm">mail</span>
+<span class="font-mono">hosseini.m@company.com</span>
+</div>
+</div>
+<div class="mt-6 pt-6 border-t border-surface-variant flex flex-row-reverse justify-between items-center">
+<div class="flex -space-x-reverse space-x-2">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-[10px] font-bold text-on-secondary-container border-2 border-surface-container-low">SL</div>
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-[10px] font-bold text-on-primary-container border-2 border-surface-container-low">MK</div>
+</div>
+<button class="text-primary hover:underline text-sm font-bold flex items-center gap-1">
+<span>مشاهده پروفایل</span>
+<span class="material-symbols-outlined text-sm">arrow_back</span>
+</button>
+</div>
+</div>
+<!-- User Card 6 -->
+<div class="user-card bg-surface-container-low p-6 rounded-[24px] flex flex-col transition-all duration-300 group">
+<div class="flex flex-row-reverse justify-between items-start mb-6">
+<div class="w-16 h-16 rounded-2xl overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Corporate portrait of a young woman with a sharp, professional appearance. She is wearing a light gray tailored blazer. Her hair is neatly styled, and she has a calm, determined expression. The background is a minimalist corporate interior with glass and soft blue-grey tones. High-end professional aesthetic for a business user management UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDXPjxiQaZo1P1gEkUWYIx_ylo1kEmbKMnbor29zBFhp26vqAZ6PN7jXMp6n314446G2NeVd7LXNAJNHytAWYQes6zMAqitTb8rF9YnmW95riEb082Hu3qMWyQtagsRKbGXlpUf3nSG0FW_-XDeKrHbZ41RqjzrWK19hVNyKbP8HPrNbOAKo-VslRUqSm7UngMGq8L82wBFHStatHJEZFzV7JY9v_HQP4kItF-hiSf1-XVBcpu6QjzABSpU1gvfPcgAVi0Cws52qiLe"/>
+</div>
+<div class="flex gap-1">
+<span class="bg-surface-variant text-on-surface-variant px-3 py-1 rounded-full text-xs font-bold">کارمند</span>
+<button class="p-2 text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+<div>
+<h3 class="text-xl font-bold text-on-surface mb-1">نیلوفر باقری</h3>
+<p class="text-primary font-medium text-sm mb-4">تحلیل‌گر داده‌های مالی</p>
+<div class="flex flex-row-reverse items-center gap-2 text-on-surface-variant text-sm mb-2">
+<span class="material-symbols-outlined text-sm">corporate_fare</span>
+<span>امور مالی و حسابداری</span>
+</div>
+<div class="flex flex-row-reverse items-center gap-2 text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-sm">mail</span>
+<span class="font-mono">bagheri.n@company.com</span>
+</div>
+</div>
+<div class="mt-6 pt-6 border-t border-surface-variant flex flex-row-reverse justify-between items-center">
+<div class="flex -space-x-reverse space-x-2">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-[10px] font-bold text-on-secondary-container border-2 border-surface-container-low">FN</div>
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-[10px] font-bold text-on-primary-container border-2 border-surface-container-low">DA</div>
+</div>
+<button class="text-primary hover:underline text-sm font-bold flex items-center gap-1">
+<span>مشاهده پروفایل</span>
+<span class="material-symbols-outlined text-sm">arrow_back</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Pagination -->
+<div class="mt-12 flex flex-row-reverse justify-center items-center gap-4">
+<button class="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-outline hover:bg-primary-container hover:text-on-primary-container transition-all">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+<button class="w-10 h-10 rounded-xl bg-primary-container text-on-primary-container font-bold">۱</button>
+<button class="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-variant transition-all font-bold">۲</button>
+<button class="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-variant transition-all font-bold">۳</button>
+<button class="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-outline hover:bg-primary-container hover:text-on-primary-container transition-all">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+</div>
+</main>
+<!-- FAB for Mobile -->
+<button class="fixed bottom-8 left-8 w-14 h-14 rounded-2xl bg-primary-container text-on-primary-container shadow-lg flex md:hidden items-center justify-center z-50 active:scale-90 transition-transform">
+<span class="material-symbols-outlined">person_add</span>
+</button>
+<script>
+        // Micro-interaction for user cards
+        document.querySelectorAll('.user-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.classList.add('shadow-md');
+            });
+            card.addEventListener('mouseleave', () => {
+                card.classList.remove('shadow-md');
+            });
+        });
+
+        // Simple search animation simulation
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('focus', () => {
+            searchInput.parentElement.classList.add('scale-[1.02]');
+            searchInput.parentElement.style.transition = 'transform 0.3s ease';
+        });
+        searchInput.addEventListener('blur', () => {
+            searchInput.parentElement.classList.remove('scale-[1.02]');
+        });
+    </script>
+</body></html>

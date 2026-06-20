@@ -11,7 +11,7 @@ defineProps({
 
 defineEmits(['close'])
 
-const rejectReason = ref('نیازمند بازبینی')
+const rejectReason = ref('')
 const { approveSelectedDocument, rejectSelectedDocument } = useWorkflowHub()
 
 async function handleReject() {
@@ -25,7 +25,6 @@ async function handleReject() {
       <div class="modal-headline">
         <p class="page-eyebrow">جزئیات تأییدیه</p>
         <h2>{{ approval.title }}</h2>
-        <p>{{ approval.summary }}</p>
       </div>
 
       <section class="detail-meta-grid">
@@ -38,7 +37,7 @@ async function handleReject() {
           <strong>{{ approval.owner }}</strong>
         </div>
         <div class="detail-meta-item">
-          <span>نوع سند</span>
+          <span>نوع</span>
           <strong>{{ approval.type }}</strong>
         </div>
         <div class="detail-meta-item">
@@ -58,16 +57,15 @@ async function handleReject() {
       <section class="modal-section viewer-panel">
         <span class="material-symbols-outlined">description</span>
         <div>
-          <h3>پیش‌نمایش سند</h3>
-          <p>در این نسخه، نمایشگر سند به‌صورت خلاصه و سبک نگه داشته شده است.</p>
+          <h3>سند</h3>
         </div>
       </section>
 
       <section class="modal-section">
         <div class="section-label-row">
-          <h3>اقدام سریع</h3>
+          <h3>اقدام</h3>
         </div>
-        <textarea v-model="rejectReason" rows="3" placeholder="دلیل رد سند را وارد کنید"></textarea>
+        <textarea v-model="rejectReason" rows="3" placeholder=""></textarea>
         <div class="action-group">
           <button class="action-btn tone-soft" @click="$emit('close')">
             <span class="material-symbols-outlined">visibility</span>

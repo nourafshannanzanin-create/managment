@@ -1,35 +1,44 @@
 <script setup>
+import PageFilters from '../components/PageFilters.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const { state, toggleSidebar } = useWorkflowHub()
+const { filteredReports, reportPeople, resetPageFilters, state, toggleSidebar, updatePageFilter } = useWorkflowHub()
 </script>
 
 <template>
   <section class="page-shell">
-    <PageHeader
-      eyebrow="گزارشات"
-      title="خروجی‌های مدیریتی"
-      description="ساختار تمیز برای گزارش‌های کلیدی، بدون cardهای شلوغ و تکراری."
-      @menu="toggleSidebar"
+    <PageHeader eyebrow="گزارشات" title="گزارشات" @menu="toggleSidebar" />
+
+    <PageFilters
+      :query="state.filters.reports.query"
+      :person="state.filters.reports.person"
+      :start-date="state.filters.reports.startDate"
+      :end-date="state.filters.reports.endDate"
+      :people="reportPeople"
+      @update:query="updatePageFilter('reports', 'query', $event)"
+      @update:person="updatePageFilter('reports', 'person', $event)"
+      @update:start-date="updatePageFilter('reports', 'startDate', $event)"
+      @update:end-date="updatePageFilter('reports', 'endDate', $event)"
+      @reset="resetPageFilters('reports')"
     />
 
-    <section class="surface-block">
-      <div class="section-label-row">
-        <h2>لیست گزارش‌ها</h2>
-        <small>{{ state.reports.length }} خروجی آماده</small>
-      </div>
+    <div class="reports-grid">
+      <article v-for="item in filteredReports" :key="item.title" class="report-card">
+        <div class="section-label-row">
+          <h3>{{ item.title }}</h3>
+          <span class="meta-pill">{{ item.export }}</span>
+        </div>
+        <div class="report-actions">
+          <span class="filter-chip">{{ item.owner }}</span>
+          <span class="filter-chip">{{ item.generatedAt }}</span>
+        </div>
+      </article>
+    </div>
 
-      <div class="stack-list">
-        <article v-for="item in state.reports" :key="item.title" class="list-row">
-          <div class="list-row-main">
-            <strong>{{ item.title }}</strong>
-            <p>{{ item.description }}</p>
-          </div>
-          <div class="list-row-meta">
-            <span class="meta-pill">{{ item.export }}</span>
-          </div>
-        </article>
+    <section class="surface-block report-hero">
+      <div class="section-label-row">
+        <h2>خروجی‌ها</h2>
       </div>
     </section>
   </section>

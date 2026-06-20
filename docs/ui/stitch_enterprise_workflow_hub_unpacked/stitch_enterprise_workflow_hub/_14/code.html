@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>مدیریت هزینه‌ها | مرکز مدیریت سازمانی</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-variant": "#e4e3db",
+                    "on-primary-fixed-variant": "#2d4b54",
+                    "on-error": "#ffffff",
+                    "on-surface": "#1b1c17",
+                    "on-tertiary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "secondary-container": "#cee3ea",
+                    "on-secondary": "#ffffff",
+                    "tertiary-fixed": "#e6e2db",
+                    "secondary": "#4e6268",
+                    "on-tertiary-fixed-variant": "#484742",
+                    "surface": "#fbfaf1",
+                    "inverse-primary": "#acccd6",
+                    "surface-container": "#efeee6",
+                    "secondary-fixed": "#d1e6ed",
+                    "on-primary": "#ffffff",
+                    "tertiary": "#605e59",
+                    "primary-fixed": "#c8e8f3",
+                    "surface-dim": "#dbdad3",
+                    "primary-container": "#89a8b2",
+                    "tertiary-container": "#a6a39d",
+                    "error": "#ba1a1a",
+                    "on-primary-container": "#1f3d46",
+                    "tertiary-fixed-dim": "#cac6bf",
+                    "on-secondary-fixed": "#0a1e24",
+                    "inverse-surface": "#30312c",
+                    "outline-variant": "#c1c7ca",
+                    "error-container": "#ffdad6",
+                    "on-tertiary-fixed": "#1c1c17",
+                    "on-background": "#1b1c17",
+                    "primary-fixed-dim": "#acccd6",
+                    "surface-tint": "#45636c",
+                    "on-secondary-fixed-variant": "#364a50",
+                    "inverse-on-surface": "#f2f1e9",
+                    "secondary-fixed-dim": "#b5cad1",
+                    "on-tertiary-container": "#3b3935",
+                    "background": "#fbfaf1",
+                    "surface-container-lowest": "#ffffff",
+                    "primary": "#45636c",
+                    "outline": "#72787a",
+                    "on-primary-fixed": "#001f26",
+                    "surface-container-low": "#f5f4ec",
+                    "on-secondary-container": "#52666c",
+                    "surface-bright": "#fbfaf1",
+                    "surface-container-highest": "#e4e3db",
+                    "surface-container-high": "#e9e8e0",
+                    "on-surface-variant": "#41484a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "unit": "4px",
+                    "sidebar-width": "280px",
+                    "header-height": "72px",
+                    "gap-lg": "24px",
+                    "gutter": "24px",
+                    "gap-md": "16px",
+                    "container-padding": "32px"
+            },
+            "fontFamily": {
+                    "body-md": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "label-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-lg-mobile": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "caption": ["Inter"]
+            },
+            "fontSize": {
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "display-lg": ["48px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-md": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "caption": ["12px", {"lineHeight": "1.2", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #fbfaf1; /* surface */
+            font-family: 'Inter', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .flat-card {
+            background-color: #efeee6; /* surface-container */
+            border-radius: 24px;
+            transition: all 0.2s ease;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #fbfaf1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #acccd6;
+            border-radius: 10px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-surface">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-40 bg-surface dark:bg-surface-dim flex flex-row-reverse justify-between items-center h-header-height px-container-padding">
+<div class="flex items-center gap-md flex-row-reverse">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-secondary-container">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a corporate manager in a high-key minimalist setting. The lighting is soft and even, highlighting a clean, modern aesthetic. The background is a blurred office interior with neutral tones of grey and white, perfectly matching a professional enterprise UI design." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUzu-Oo4fJyD8vnhRgTNh5S0NxEm5ZjgwqAyeJ0GNNMmjgnjTxQqzUY5VILLoBputpXo06fH-m35GAI0_EKTcjEo2DmJHyjsFhUeGBHq3dyrsDwWOMWEa1BakbAtEYd-X93qCJA27RQsBlJSSJWH5_7GXoSjMFBrtbvt8_SiCMuoySMIsj5LCdqweOfmf-SEGq1ZZ_VP-9Y1wg90GLTDix77gi0sJ0OiWJG0TsMJPtQlxQZ9zzEg-sDDXugqS_gJVbx1S1tiYVgClH"/>
+</div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim">مرکز مدیریت سازمانی</h1>
+</div>
+<div class="flex items-center gap-md">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-secondary-container transition-colors cursor-pointer active:scale-95">
+<span class="material-symbols-outlined text-primary">search</span>
+</button>
+</div>
+</header>
+<!-- NavigationDrawer -->
+<aside class="fixed right-0 top-0 h-full w-sidebar-width bg-surface-container dark:bg-surface-container-high flex flex-col p-gutter z-50 text-right">
+<div class="mb-10 mt-4">
+<span class="font-headline-md text-headline-md text-primary font-bold">منوی سیستم</span>
+</div>
+<nav class="flex flex-col gap-1">
+<!-- Dashboard Item (Inactive) -->
+<a class="text-on-secondary-fixed-variant flex flex-row-reverse items-center p-gap-md mb-2 hover:bg-secondary-container rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined ml-3">dashboard</span>
+<span class="font-label-md text-label-md">داشبورد</span>
+</a>
+<!-- Requests Item (Inactive) -->
+<a class="text-on-secondary-fixed-variant flex flex-row-reverse items-center p-gap-md mb-2 hover:bg-secondary-container rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined ml-3">list_alt</span>
+<span class="font-label-md text-label-md">درخواست‌ها</span>
+</a>
+<!-- Expenses Item (Active) -->
+<a class="bg-primary-container text-on-primary-container rounded-xl flex flex-row-reverse items-center p-gap-md mb-2 transition-all duration-200" href="#">
+<span class="material-symbols-outlined ml-3">payments</span>
+<span class="font-label-md text-label-md">هزینه‌ها</span>
+</a>
+<!-- Approvals Item (Inactive) -->
+<a class="text-on-secondary-fixed-variant flex flex-row-reverse items-center p-gap-md mb-2 hover:bg-secondary-container rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined ml-3">fact_check</span>
+<span class="font-label-md text-label-md">تاییدیه ها</span>
+</a>
+<!-- Reports Item (Inactive) -->
+<a class="text-on-secondary-fixed-variant flex flex-row-reverse items-center p-gap-md mb-2 hover:bg-secondary-container rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined ml-3">analytics</span>
+<span class="font-label-md text-label-md">گزارش‌ها</span>
+</a>
+<!-- Users Item (Inactive) -->
+<a class="text-on-secondary-fixed-variant flex flex-row-reverse items-center p-gap-md mb-2 hover:bg-secondary-container rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined ml-3">group</span>
+<span class="font-label-md text-label-md">کاربران</span>
+</a>
+<!-- Settings Item (Inactive) -->
+<a class="text-on-secondary-fixed-variant flex flex-row-reverse items-center p-gap-md mb-2 hover:bg-secondary-container rounded-xl transition-all duration-200 mt-auto" href="#">
+<span class="material-symbols-outlined ml-3">settings</span>
+<span class="font-label-md text-label-md">تنظیمات</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content -->
+<main class="mr-sidebar-width mt-header-height p-gutter min-h-screen">
+<div class="max-w-6xl mx-auto space-y-gap-lg">
+<!-- Header Section -->
+<div class="flex justify-between items-end mb-8">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary">داشبورد هزینه‌ها</h2>
+<p class="font-body-md text-on-surface-variant">گزارش وضعیت مالی و هزینه‌های جاری سازمان</p>
+</div>
+<button class="bg-primary text-on-primary px-gap-lg py-gap-md rounded-xl font-label-md flex items-center gap-2 transition-all hover:opacity-90 active:scale-95">
+<span class="material-symbols-outlined">add</span>
+                    ثبت هزینه جدید
+                </button>
+</div>
+<!-- KPI Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gap-lg">
+<div class="flat-card p-gap-lg flex flex-col">
+<span class="font-label-md text-on-surface-variant mb-2">هزینه‌های امروز</span>
+<div class="flex justify-between items-center">
+<span class="font-headline-md text-headline-md text-on-surface">۱۲,۴۰۰,۰۰۰ <small class="text-caption">تومان</small></span>
+<div class="w-12 h-12 rounded-full bg-secondary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">today</span>
+</div>
+</div>
+<div class="mt-4 flex items-center text-error font-caption">
+<span class="material-symbols-outlined text-[16px] ml-1">trending_up</span>
+                        ۸٪ افزایش نسبت به دیروز
+                    </div>
+</div>
+<div class="flat-card p-gap-lg flex flex-col">
+<span class="font-label-md text-on-surface-variant mb-2">هزینه‌های این ماه</span>
+<div class="flex justify-between items-center">
+<span class="font-headline-md text-headline-md text-on-surface">۳۴۵,۰۰۰,۰۰۰ <small class="text-caption">تومان</small></span>
+<div class="w-12 h-12 rounded-full bg-secondary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">calendar_month</span>
+</div>
+</div>
+<div class="mt-4 flex items-center text-primary font-caption">
+<span class="material-symbols-outlined text-[16px] ml-1">trending_down</span>
+                        ۳٪ کاهش نسبت به ماه قبل
+                    </div>
+</div>
+<div class="flat-card p-gap-lg flex flex-col border-r-4 border-primary">
+<span class="font-label-md text-on-surface-variant mb-2">بودجه باقی‌مانده سال</span>
+<div class="flex justify-between items-center">
+<span class="font-headline-md text-headline-md text-on-surface">۱,۲۰۰,۰۰۰,۰۰۰ <small class="text-caption">تومان</small></span>
+<div class="w-12 h-12 rounded-full bg-primary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">account_balance_wallet</span>
+</div>
+</div>
+<div class="mt-4 w-full bg-surface-variant h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full" style="width: 65%;"></div>
+</div>
+</div>
+</div>
+<!-- Chart & Categories -->
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-gap-lg">
+<!-- Expenses Chart (Simulated with CSS) -->
+<div class="lg:col-span-3 flat-card p-gap-lg relative overflow-hidden h-[400px] flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-label-md text-headline-md text-on-surface">توزیع هزینه‌ها</h3>
+<div class="flex gap-2">
+<span class="px-3 py-1 rounded-full bg-surface text-caption text-on-surface-variant">فصلی</span>
+<span class="px-3 py-1 rounded-full bg-primary-container text-caption text-on-primary-container">ماهانه</span>
+</div>
+</div>
+<!-- Simplified Visual Chart Area -->
+<div class="flex-grow flex items-end justify-around px-4 pb-4">
+<div class="w-16 bg-primary-container rounded-t-xl relative group h-[40%]" title="حقوق">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-on-surface text-surface text-caption py-1 px-2 rounded">۴۰٪</div>
+</div>
+<div class="w-16 bg-secondary-fixed-dim rounded-t-xl relative group h-[25%]" title="تجهیزات">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-on-surface text-surface text-caption py-1 px-2 rounded">۲۵٪</div>
+</div>
+<div class="w-16 bg-primary rounded-t-xl relative group h-[20%]" title="تبلیغات">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-on-surface text-surface text-caption py-1 px-2 rounded">۲۰٪</div>
+</div>
+<div class="w-16 bg-tertiary-fixed-dim rounded-t-xl relative group h-[15%]" title="سایر">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-on-surface text-surface text-caption py-1 px-2 rounded">۱۵٪</div>
+</div>
+</div>
+<div class="mt-4 grid grid-cols-4 gap-2 text-center text-caption text-on-surface-variant">
+<span>حقوق</span>
+<span>تجهیزات</span>
+<span>تبلیغات</span>
+<span>سایر</span>
+</div>
+</div>
+<!-- Category Breakdown -->
+<div class="lg:col-span-2 flat-card p-gap-lg">
+<h3 class="font-label-md text-headline-md text-on-surface mb-6">جزئیات دسته‌بندی</h3>
+<div class="space-y-6">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-primary-container"></div>
+<span class="font-body-md">حقوق و دستمزد</span>
+</div>
+<span class="font-label-md">۱۳۸.۰ م</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-secondary-fixed-dim"></div>
+<span class="font-body-md">تجهیزات فنی</span>
+</div>
+<span class="font-label-md">۸۶.۲ م</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-primary"></div>
+<span class="font-body-md">تبلیغات و مارکتینگ</span>
+</div>
+<span class="font-label-md">۶۹.۰ م</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-tertiary-fixed-dim"></div>
+<span class="font-body-md">هزینه‌های اداری</span>
+</div>
+<span class="font-label-md">۵۱.۸ م</span>
+</div>
+</div>
+<div class="mt-10 p-gap-md bg-surface rounded-2xl flex items-center gap-4">
+<div class="w-12 h-12 flex items-center justify-center rounded-xl bg-error-container text-on-error-container">
+<span class="material-symbols-outlined">warning</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-on-error-container">هشدار بودجه</span>
+<span class="text-caption opacity-80">بخش تبلیغات ۸۰٪ بودجه را مصرف کرده است.</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Recent Expenses Table -->
+<div class="flat-card p-gap-lg overflow-hidden">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-label-md text-headline-md text-on-surface">آخرین هزینه‌های ثبت شده</h3>
+<button class="text-primary font-label-md hover:underline">مشاهده همه</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-right">
+<thead>
+<tr class="border-b border-surface-variant text-on-surface-variant font-label-md">
+<th class="pb-4 pr-4">عنوان هزینه</th>
+<th class="pb-4">دسته‌بندی</th>
+<th class="pb-4">تاریخ</th>
+<th class="pb-4">مبلغ</th>
+<th class="pb-4 pl-4 text-left">وضعیت</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-variant">
+<tr class="hover:bg-surface-variant/30 transition-colors">
+<td class="py-4 pr-4 font-body-md">خرید لایسنس نرم‌افزار مدیریت</td>
+<td class="py-4">
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-caption">تجهیزات</span>
+</td>
+<td class="py-4 text-on-surface-variant font-caption">۱۴۰۲/۰۸/۲۴</td>
+<td class="py-4 font-label-md">۴,۵۰۰,۰۰۰ تومان</td>
+<td class="py-4 pl-4 text-left">
+<span class="text-primary font-label-md">تایید شده</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-variant/30 transition-colors">
+<td class="py-4 pr-4 font-body-md">پرداخت فاکتور کمپین گوگل ادز</td>
+<td class="py-4">
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-caption">تبلیغات</span>
+</td>
+<td class="py-4 text-on-surface-variant font-caption">۱۴۰۲/۰۸/۲۲</td>
+<td class="py-4 font-label-md">۱۲,۰۰۰,۰۰۰ تومان</td>
+<td class="py-4 pl-4 text-left">
+<span class="text-primary font-label-md">تایید شده</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-variant/30 transition-colors">
+<td class="py-4 pr-4 font-body-md">هزینه نوسازی دفتر مرکزی</td>
+<td class="py-4">
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-caption">اداری</span>
+</td>
+<td class="py-4 text-on-surface-variant font-caption">۱۴۰۲/۰۸/۲۰</td>
+<td class="py-4 font-label-md">۳۵,۸۰۰,۰۰۰ تومان</td>
+<td class="py-4 pl-4 text-left">
+<span class="text-on-surface-variant font-label-md">در انتظار تایید</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-variant/30 transition-colors">
+<td class="py-4 pr-4 font-body-md">شارژ اینترنت و زیرساخت شبکه</td>
+<td class="py-4">
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-caption">تجهیزات</span>
+</td>
+<td class="py-4 text-on-surface-variant font-caption">۱۴۰۲/۰۸/۱۸</td>
+<td class="py-4 font-label-md">۱,۲۰۰,۰۰۰ تومان</td>
+<td class="py-4 pl-4 text-left">
+<span class="text-primary font-label-md">تایید شده</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Micro-interactions and subtle effects
+        document.addEventListener('DOMContentLoaded', () => {
+            const cards = document.querySelectorAll('.flat-card');
+            cards.forEach(card => {
+                card.addEventListener('mouseenter', () => {
+                    card.style.transform = 'translateY(-4px)';
+                    card.style.backgroundColor = '#e4e3db'; // surface-container-highest
+                });
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = 'translateY(0)';
+                    card.style.backgroundColor = '#efeee6'; // surface-container
+                });
+            });
+        });
+    </script>
+</body></html>
