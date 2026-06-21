@@ -1,19 +1,19 @@
 # Workflow Hub Backend
 
-FastAPI backend for the existing `frontend/` UI with:
+Django backend for the existing `frontend/` UI with:
 
 - MySQL persistence
 - JWT authentication
 - role-based access control
-- local file uploads for request attachments
-- minimal seed data for initial access
+- local file uploads for requests, expenses, and approval documents
+- automatic migration and demo seed support
 
 ## Stack
 
-- FastAPI
-- SQLAlchemy 2
+- Django 4.2
 - PyMySQL
-- Uvicorn
+- PyJWT
+- Passlib
 
 ## Local Setup
 
@@ -27,18 +27,26 @@ py -m venv .venv
 .\.venv\Scripts\python -m pip install -r requirements.txt
 ```
 
-5. Start the API:
+## Run Backend
+
+Use the Django command below from `backend/`:
 
 ```powershell
-.\.venv\Scripts\python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+.\.venv\Scripts\python manage.py runworkflowserver 127.0.0.1:8000
 ```
 
-If `WORKFLOW_AUTO_INIT_DB=true`, the app will create tables and seed the initial admin account on startup.
+This command applies migrations, seeds demo data if needed, and runs the API.
+
+If you run plain `runserver`, the login/bootstrap flow can still auto-initialize the schema when `WORKFLOW_AUTO_INIT_DB=true`.
 
 ## Initial Login
 
 - Email: `admin@karomand.local`
 - Password: `AdminSecret!`
+
+Other seeded users use:
+
+- Password: `UserSecret123!`
 
 ## Docker MySQL
 

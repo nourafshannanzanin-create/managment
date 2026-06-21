@@ -4,8 +4,12 @@ import { RouterView, useRoute } from 'vue-router'
 
 import AppSidebar from './components/AppSidebar.vue'
 import ApprovalDetailModal from './components/ApprovalDetailModal.vue'
+import DocumentComposerModal from './components/DocumentComposerModal.vue'
+import ExpenseComposerModal from './components/ExpenseComposerModal.vue'
 import RequestComposerModal from './components/RequestComposerModal.vue'
 import RequestDetailModal from './components/RequestDetailModal.vue'
+import SignatureComposerModal from './components/SignatureComposerModal.vue'
+import UserComposerModal from './components/UserComposerModal.vue'
 import { useWorkflowHub } from './stores/workflowHub'
 
 const route = useRoute()
@@ -15,19 +19,24 @@ const {
   state,
   modalState,
   requestDetailState,
+  approvalDetailState,
   selectedRequest,
   selectedApproval,
   selectedRequestTimeline,
-  loadBootstrapData,
+  restoreSession,
   closeRequestDetail,
   closeApprovalDetail,
-  closeComposer,
+  closeRequestComposer,
+  closeExpenseComposer,
+  closeUserComposer,
+  closeDocumentComposer,
+  closeSignatureComposer,
   toggleSidebar,
 } = hub
 
+const isAuthRoute = computed(() => route.path === '/login')
 const layoutClass = computed(() => ({
-  'is-auth-route': route.path === '/login',
-  'mobile-nav-hidden': modalState.composer || modalState.requestDetail || modalState.approvalDetail,
+  'is-auth-route': isAuthRoute.value,
 }))
 
 watch(
@@ -38,14 +47,14 @@ watch(
 )
 
 onMounted(() => {
-  loadBootstrapData()
+  restoreSession()
 })
 </script>
 
 <template>
   <div class="app-shell" :class="layoutClass">
     <AppSidebar
-      v-if="route.path !== '/login'"
+      v-if="!isAuthRoute"
       :mobile-menu-open="state.mobileMenuOpen"
       :toggle-sidebar="toggleSidebar"
     />
@@ -71,15 +80,41 @@ onMounted(() => {
     <ApprovalDetailModal
       :open="modalState.approvalDetail"
       :approval="selectedApproval"
+      :loading="approvalDetailState.loading"
       @close="closeApprovalDetail"
     />
 
     <RequestComposerModal
-      :open="modalState.composer"
+      :open="modalState.requestComposer"
       :form="state.requestForm"
-      :step="state.composerStep"
       :submitting="state.requestSubmitting"
-      @close="closeComposer"
+      @close="closeRequestComposer"
+    />
+
+    <ExpenseComposerModal
+      :open="modalState.expenseComposer"
+      :form="state.expenseForm"
+      :submitting="state.expenseSubmitting"
+      @close="closeExpenseComposer"
+    />
+
+    <UserComposerModal
+      :open="modalState.userComposer"
+      :form="state.userForm"
+      :submitting="state.userSubmitting"
+      @close="closeUserComposer"
+    />
+
+    <DocumentComposerModal
+      :open="modalState.documentComposer"
+      :form="state.documentForm"
+      :submitting="state.documentSubmitting"
+      @close="closeDocumentComposer"
+    />
+
+    <SignatureComposerModal
+      :open="modalState.signatureComposer"
+      @close="closeSignatureComposer"
     />
   </div>
 </template>

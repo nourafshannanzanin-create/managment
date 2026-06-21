@@ -3,12 +3,28 @@ import PageFilters from '../components/PageFilters.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const { state, expensePeople, filteredExpenses, resetPageFilters, toggleSidebar, updatePageFilter } = useWorkflowHub()
+const {
+  state,
+  expensePeople,
+  filteredExpenses,
+  openExpenseComposer,
+  resetPageFilters,
+  toggleSidebar,
+  updatePageFilter,
+} = useWorkflowHub()
 </script>
 
 <template>
   <section class="page-shell expenses-page">
-    <PageHeader eyebrow="هزینه‌ها" title="مدیریت هزینه‌ها" @menu="toggleSidebar" />
+    <PageHeader
+      eyebrow="هزینه ها"
+      title="ثبت و پیگیری هزینه"
+      description="کارمندان فقط هزینه های خودشان را می بینند و مدیرها به کل سازمان دسترسی دارند."
+      action-label="ثبت هزینه"
+      action-icon="add"
+      @action="openExpenseComposer"
+      @menu="toggleSidebar"
+    />
 
     <PageFilters
       :query="state.filters.expenses.query"
@@ -23,52 +39,45 @@ const { state, expensePeople, filteredExpenses, resetPageFilters, toggleSidebar,
       @reset="resetPageFilters('expenses')"
     />
 
-    <div class="content-grid expense-chart-grid">
-      <section class="surface-block expense-chart-block">
-        <div class="section-label-row">
-          <h2>هزینه‌ها</h2>
-        </div>
-        <div class="mini-chart">
-          <div v-for="bar in state.chartData" :key="bar.day" class="mini-chart-column">
-            <span :style="{ height: `${bar.value}%` }"></span>
-            <small>{{ bar.day }}</small>
-          </div>
-        </div>
-      </section>
-    </div>
-
     <section class="surface-block">
       <div class="section-label-row">
-        <h2>فهرست</h2>
-        <small>{{ filteredExpenses.length }}</small>
+        <h2>فهرست هزینه ها</h2>
+        <small>{{ filteredExpenses.length }} ردیف</small>
       </div>
 
-      <div class="stack-list">
-        <article v-for="item in filteredExpenses" :key="item.id" class="list-row expense-row">
-          <div class="list-row-main">
-            <strong>{{ item.title }}</strong>
-            <p>{{ item.category }} · {{ item.owner }} · {{ item.id }}</p>
-            <div class="progress-shell">
-              <span :style="{ width: `${item.progress}%` }"></span>
-            </div>
-          </div>
-          <div class="list-row-meta">
-            <span class="meta-pill strong">{{ item.amount }}</span>
-            <span>{{ item.status }}</span>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <section class="spotlight-card expense-summary-card">
-      <div class="section-label-row">
-        <h3>جمع</h3>
-      </div>
-      <div class="spotlight-metrics">
-        <article v-for="item in state.expenseSummary" :key="item.label">
-          <span>{{ item.label }}</span>
-          <strong>{{ item.value }}</strong>
-        </article>
+      <div class="table-shell">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>کد</th>
+              <th>شرح</th>
+              <th>ثبت کننده</th>
+              <th>بخش</th>
+              <th>تاریخ</th>
+              <th>مبلغ</th>
+              <th>وضعیت</th>
+              <th>فاکتور</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in filteredExpenses" :key="item.id">
+              <td>{{ item.id }}</td>
+              <td>
+                <strong>{{ item.title }}</strong>
+                <small>{{ item.description }}</small>
+              </td>
+              <td>{{ item.owner }}</td>
+              <td>{{ item.department }}</td>
+              <td>{{ item.submittedAt }}</td>
+              <td>{{ item.amount }}</td>
+              <td><span class="meta-pill">{{ item.status }}</span></td>
+              <td>
+                <a v-if="item.invoiceUrl" :href="item.invoiceUrl" target="_blank" class="table-link">مشاهده</a>
+                <span v-else>ندارد</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
   </section>

@@ -3,12 +3,20 @@ import PageFilters from '../components/PageFilters.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const { filteredUsers, resetPageFilters, state, toggleSidebar, updatePageFilter, userPeople } = useWorkflowHub()
+const { filteredUsers, openUserComposer, resetPageFilters, state, toggleSidebar, updatePageFilter, userPeople } = useWorkflowHub()
 </script>
 
 <template>
-  <section class="page-shell">
-    <PageHeader eyebrow="کاربران" title="مدیریت کاربران" description="" @menu="toggleSidebar" />
+  <section v-if="state.currentUser.canManageUsers" class="page-shell">
+    <PageHeader
+      eyebrow="کاربران"
+      title="مدیریت کاربران سازمان"
+      description="مدیرعامل می تواند مدیرها و کارمندان را تعریف کند و دسترسی آن ها را کنترل کند."
+      action-label="کاربر جدید"
+      action-icon="person_add"
+      @action="openUserComposer"
+      @menu="toggleSidebar"
+    />
 
     <PageFilters
       :query="state.filters.users.query"
@@ -23,42 +31,41 @@ const { filteredUsers, resetPageFilters, state, toggleSidebar, updatePageFilter,
       @reset="resetPageFilters('users')"
     />
 
-    <div class="users-grid">
-      <article v-for="item in filteredUsers" :key="item.name" class="user-card">
-        <div class="user-head">
-          <div class="user-inline">
-            <div class="avatar-pill subtle">{{ item.name.slice(0, 1) }}</div>
-            <div>
-              <strong>{{ item.name }}</strong>
-              <p>{{ item.role }}</p>
-            </div>
-          </div>
-          <span class="meta-pill">{{ item.department }}</span>
-        </div>
-        <p>{{ item.kpi }} · {{ item.joinedAt }}</p>
-      </article>
-    </div>
-
     <section class="surface-block">
       <div class="section-label-row">
         <h2>فهرست کاربران</h2>
-        <small>{{ filteredUsers.length }}</small>
+        <small>{{ filteredUsers.length }} ردیف</small>
       </div>
 
-      <div class="stack-list">
-        <article v-for="item in filteredUsers" :key="item.name" class="list-row">
-          <div class="list-row-main user-inline">
-            <div class="avatar-pill subtle">{{ item.name.slice(0, 1) }}</div>
-            <div>
-              <strong>{{ item.name }}</strong>
-              <p>{{ item.role }} · {{ item.department }} · {{ item.manager }}</p>
-            </div>
-          </div>
-          <div class="list-row-meta">
-            <small>{{ item.joinedAt }}</small>
-          </div>
-        </article>
+      <div class="table-shell">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>نام</th>
+              <th>ایمیل</th>
+              <th>نقش</th>
+              <th>بخش</th>
+              <th>مدیر مستقیم</th>
+              <th>عنوان</th>
+              <th>تاریخ عضویت</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in filteredUsers" :key="item.id">
+              <td>{{ item.name }}</td>
+              <td>{{ item.email }}</td>
+              <td><span class="meta-pill">{{ item.role }}</span></td>
+              <td>{{ item.department }}</td>
+              <td>{{ item.manager }}</td>
+              <td>{{ item.kpi }}</td>
+              <td>{{ item.joinedAt }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
+  </section>
+  <section v-else class="page-shell">
+    <PageHeader eyebrow="کاربران" title="دسترسی محدود" description="این بخش فقط برای مدیرعامل فعال است." @menu="toggleSidebar" />
   </section>
 </template>

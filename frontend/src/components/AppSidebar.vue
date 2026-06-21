@@ -1,6 +1,7 @@
 <script setup>
-import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+
+import { useWorkflowHub } from '../stores/workflowHub'
 
 defineProps({
   mobileMenuOpen: { type: Boolean, required: true },
@@ -8,35 +9,35 @@ defineProps({
 })
 
 const route = useRoute()
-
-const navItems = computed(() => [
-  { to: '/dashboard', label: 'داشبورد', icon: 'dashboard' },
-  { to: '/requests', label: 'درخواست‌ها', icon: 'assignment' },
-  { to: '/expenses', label: 'هزینه‌ها', icon: 'payments' },
-  { to: '/approvals', label: 'تاییدها', icon: 'fact_check' },
-  { to: '/reports', label: 'گزارشات', icon: 'monitoring' },
-  { to: '/users', label: 'کاربران', icon: 'group' },
-  { to: '/settings', label: 'تنظیمات', icon: 'settings' },
-])
+const { state, visibleNavItems, logout } = useWorkflowHub()
 </script>
 
 <template>
   <aside :class="['shell-sidebar', mobileMenuOpen && 'is-open']">
     <div class="brand-strip">
       <div class="brand-mark">
-        <span class="material-symbols-outlined">grid_view</span>
+        <span class="material-symbols-outlined">stacked_line_chart</span>
       </div>
-      <div>
+      <div class="brand-copy">
         <strong>کارومند</strong>
+        <small>{{ state.currentUser.organization || 'سازمان' }}</small>
       </div>
       <button class="icon-btn mobile-toggle" @click="toggleSidebar">
         <span class="material-symbols-outlined">close</span>
       </button>
     </div>
 
+    <div class="profile-strip">
+      <div class="avatar-pill">{{ state.currentUser.avatar || 'U' }}</div>
+      <div class="profile-copy">
+        <strong>{{ state.currentUser.name || 'کاربر' }}</strong>
+        <p>{{ state.currentUser.role || state.currentUser.department }}</p>
+      </div>
+    </div>
+
     <nav class="sidebar-nav">
       <RouterLink
-        v-for="item in navItems"
+        v-for="item in visibleNavItems"
         :key="item.to"
         :to="item.to"
         :class="['nav-link', route.path === item.to && 'is-active']"
@@ -46,5 +47,10 @@ const navItems = computed(() => [
         <span>{{ item.label }}</span>
       </RouterLink>
     </nav>
+
+    <button class="action-btn tone-soft sidebar-logout" @click="logout">
+      <span class="material-symbols-outlined">logout</span>
+      <span>خروج</span>
+    </button>
   </aside>
 </template>

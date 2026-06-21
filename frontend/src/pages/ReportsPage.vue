@@ -1,14 +1,20 @@
 <script setup>
+import { onMounted } from 'vue'
+
 import PageFilters from '../components/PageFilters.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const { filteredReports, reportPeople, resetPageFilters, state, toggleSidebar, updatePageFilter } = useWorkflowHub()
+const { filteredReports, loadReports, reportPeople, resetPageFilters, state, toggleSidebar, updatePageFilter } = useWorkflowHub()
+
+onMounted(() => {
+  loadReports(true)
+})
 </script>
 
 <template>
-  <section class="page-shell">
-    <PageHeader eyebrow="گزارشات" title="گزارشات" @menu="toggleSidebar" />
+  <section v-if="state.currentUser.canViewReports" class="page-shell">
+    <PageHeader eyebrow="گزارشات" title="گزارشات مدیریتی" description="این بخش فقط برای مدیرعامل فعال است." @menu="toggleSidebar" />
 
     <PageFilters
       :query="state.filters.reports.query"
@@ -23,23 +29,60 @@ const { filteredReports, reportPeople, resetPageFilters, state, toggleSidebar, u
       @reset="resetPageFilters('reports')"
     />
 
-    <div class="reports-grid">
-      <article v-for="item in filteredReports" :key="item.title" class="report-card">
-        <div class="section-label-row">
-          <h3>{{ item.title }}</h3>
-          <span class="meta-pill">{{ item.export }}</span>
-        </div>
-        <div class="report-actions">
-          <span class="filter-chip">{{ item.owner }}</span>
-          <span class="filter-chip">{{ item.generatedAt }}</span>
-        </div>
+    <div class="metric-grid">
+      <article class="metric-card">
+        <span>کاربران</span>
+        <strong>{{ state.reportSummary?.users || 0 }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>درخواست ها</span>
+        <strong>{{ state.reportSummary?.requests || 0 }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>هزینه ها</span>
+        <strong>{{ state.reportSummary?.expenses || 0 }}</strong>
+      </article>
+      <article class="metric-card">
+        <span>جمع هزینه</span>
+        <strong>{{ state.reportSummary?.expenseTotal || '0' }}</strong>
       </article>
     </div>
 
-    <section class="surface-block report-hero">
-      <div class="section-label-row">
-        <h2>خروجی‌ها</h2>
-      </div>
-    </section>
+    <div class="dashboard-grid">
+      <section class="surface-block">
+        <div class="section-label-row">
+          <h2>کارت های گزارش</h2>
+        </div>
+        <div class="reports-grid compact-reports">
+          <article v-for="item in filteredReports" :key="item.title" class="report-card">
+            <div class="section-label-row">
+              <h3>{{ item.title }}</h3>
+              <span class="meta-pill">{{ item.export }}</span>
+            </div>
+            <p>{{ item.description }}</p>
+            <small>{{ item.generatedAt }}</small>
+          </article>
+        </div>
+      </section>
+
+      <section class="surface-block">
+        <div class="section-label-row">
+          <h2>بیشترین ثبت کننده هزینه</h2>
+        </div>
+        <div class="stack-list">
+          <article v-for="item in state.topSubmitters" :key="item.name" class="list-row">
+            <div class="list-row-main">
+              <strong>{{ item.name }}</strong>
+            </div>
+            <div class="list-row-meta">
+              <span class="meta-pill strong">{{ item.count }}</span>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+  </section>
+  <section v-else class="page-shell">
+    <PageHeader eyebrow="گزارشات" title="دسترسی محدود" description="این بخش فقط برای مدیرعامل فعال است." @menu="toggleSidebar" />
   </section>
 </template>

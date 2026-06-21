@@ -1,30 +1,35 @@
 <script setup>
-import { computed } from 'vue'
-
 import PageFilters from '../components/PageFilters.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const {
+  approvalHistory,
+  approvalInbox,
   approvalPeople,
-  state,
-  filteredApprovals,
+  canApproveDocuments,
   openApprovalDetail,
+  openDocumentComposer,
+  openSignatureComposer,
   resetPageFilters,
+  signatureState,
+  state,
   toggleSidebar,
   updatePageFilter,
 } = useWorkflowHub()
-
-const approvalColumns = computed(() => ({
-  pending: filteredApprovals.value.filter((item) => item.status.includes('انتظار') || item.status.includes('بررسی')),
-  approved: filteredApprovals.value.filter((item) => item.status.includes('تأیید') || item.status.includes('تایید')),
-  flagged: filteredApprovals.value.filter((item) => item.risk === 'بالا' || item.status.includes('رد')),
-}))
 </script>
 
 <template>
-  <section class="page-shell">
-    <PageHeader eyebrow="تأییدیه‌ها" title="تأیید اسناد" @menu="toggleSidebar" />
+  <section v-if="state.currentUser.canApproveDocuments" class="page-shell">
+    <PageHeader
+      eyebrow="تاییدها"
+      title="گردش تایید اسناد"
+      description="هر مدیر فقط سندهای ارجاع شده به خودش را بررسی می کند و امضا به صورت دیجیتال روی سند ذخیره می شود."
+      :action-label="state.currentUser.accessRole === 'admin' ? 'ثبت سند' : ''"
+      action-icon="note_add"
+      @action="openDocumentComposer"
+      @menu="toggleSidebar"
+    />
 
     <PageFilters
       :query="state.filters.approvals.query"
@@ -39,99 +44,83 @@ const approvalColumns = computed(() => ({
       @reset="resetPageFilters('approvals')"
     />
 
-    <section class="surface-block signature-block">
-      <div class="section-label-row">
-        <h2>امضا</h2>
-      </div>
-
-      <div class="signature-grid">
-        <article class="signature-card">
-          <div class="signature-head">
-            <strong>سارا احمدی</strong>
-            <span class="meta-pill">فعال</span>
-          </div>
-          <div class="signature-actions">
-            <button class="action-btn tone-primary">
-              <span class="material-symbols-outlined">draw</span>
-              <span>ثبت امضا</span>
-            </button>
-          </div>
-        </article>
-
-        <article class="signature-card">
-          <div class="signature-head">
-            <strong>حمید رضایی</strong>
-            <span class="meta-pill">در انتظار</span>
-          </div>
-          <div class="signature-actions">
-            <button class="action-btn tone-soft">
-              <span class="material-symbols-outlined">shield_lock</span>
-              <span>ارسال</span>
-            </button>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <section class="approval-columns">
-      <div class="kanban-column">
-        <div class="section-label-row">
-          <h3>آماده اقدام</h3>
-          <span class="kanban-tag">{{ approvalColumns.pending.length }}</span>
-        </div>
-        <article v-for="item in approvalColumns.pending" :key="item.id" class="kanban-card" @click="openApprovalDetail(item.id)">
-          <strong>{{ item.title }}</strong>
-          <p>{{ item.type }} · {{ item.department }}</p>
-        </article>
-      </div>
-
-      <div class="kanban-column">
-        <div class="section-label-row">
-          <h3>تأییدشده</h3>
-          <span class="kanban-tag">{{ approvalColumns.approved.length }}</span>
-        </div>
-        <article v-for="item in approvalColumns.approved" :key="item.id" class="kanban-card" @click="openApprovalDetail(item.id)">
-          <strong>{{ item.title }}</strong>
-          <p>{{ item.owner }} · {{ item.uploadedAt }}</p>
-        </article>
-      </div>
-
-      <div class="kanban-column">
-        <div class="section-label-row">
-          <h3>حساس</h3>
-          <span class="kanban-tag">{{ approvalColumns.flagged.length }}</span>
-        </div>
-        <article v-for="item in approvalColumns.flagged" :key="item.id" class="kanban-card" @click="openApprovalDetail(item.id)">
-          <strong>{{ item.title }}</strong>
-          <p>{{ item.risk }} · {{ item.status }}</p>
-        </article>
-      </div>
-    </section>
-
     <section class="surface-block">
-      <div class="section-label-row">
-        <h2>اسناد</h2>
-        <small>{{ filteredApprovals.length }}</small>
-      </div>
-
-      <div class="stack-list">
-        <button
-          v-for="item in filteredApprovals"
-          :key="item.id"
-          class="list-row interactive-row"
-          @click="openApprovalDetail(item.id)"
-        >
-          <div class="list-row-main">
-            <strong>{{ item.title }}</strong>
-            <p>{{ item.id }} · {{ item.type }} · {{ item.department }} · {{ item.owner }}</p>
-          </div>
-          <div class="list-row-meta">
-            <span class="meta-pill">{{ item.status }}</span>
-            <span>{{ item.risk }}</span>
-            <small>{{ item.uploadedAt }}</small>
-          </div>
+      <div class="signature-banner">
+        <div>
+          <strong>امضای دیجیتال</strong>
+          <p>{{ signatureState.hasSignature ? 'امضای شما ذخیره شده است.' : 'برای تایید اسناد ابتدا امضای خود را ثبت کنید.' }}</p>
+        </div>
+        <button class="action-btn tone-primary" @click="openSignatureComposer">
+          <span class="material-symbols-outlined">draw</span>
+          <span>{{ signatureState.hasSignature ? 'ویرایش امضا' : 'ثبت امضا' }}</span>
         </button>
       </div>
     </section>
+
+    <div class="dashboard-grid">
+      <section class="surface-block">
+        <div class="section-label-row">
+          <h2>در انتظار اقدام</h2>
+          <small>{{ approvalInbox.length }}</small>
+        </div>
+        <div class="table-shell">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>کد</th>
+                <th>عنوان</th>
+                <th>ثبت کننده</th>
+                <th>نوع</th>
+                <th>تاریخ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in approvalInbox" :key="item.id" class="clickable-row" @click="openApprovalDetail(item.id)">
+                <td>{{ item.id }}</td>
+                <td>
+                  <strong>{{ item.title }}</strong>
+                  <small>{{ item.summary }}</small>
+                </td>
+                <td>{{ item.owner }}</td>
+                <td>{{ item.type }}</td>
+                <td>{{ item.uploadedAt }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="surface-block">
+        <div class="section-label-row">
+          <h2>تاریخچه</h2>
+          <small>{{ approvalHistory.length }}</small>
+        </div>
+        <div class="table-shell">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>کد</th>
+                <th>عنوان</th>
+                <th>وضعیت</th>
+                <th>ریسک</th>
+                <th>تاریخ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in approvalHistory" :key="item.id" class="clickable-row" @click="openApprovalDetail(item.id)">
+                <td>{{ item.id }}</td>
+                <td>{{ item.title }}</td>
+                <td><span class="meta-pill">{{ item.status }}</span></td>
+                <td>{{ item.risk }}</td>
+                <td>{{ item.uploadedAt }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </section>
+  <section v-else class="page-shell">
+    <PageHeader eyebrow="تاییدها" title="دسترسی محدود" description="این بخش فقط برای مدیرها فعال است." @menu="toggleSidebar" />
   </section>
 </template>

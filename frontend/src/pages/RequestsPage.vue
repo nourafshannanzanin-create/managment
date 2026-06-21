@@ -6,7 +6,7 @@ import { useWorkflowHub } from '../stores/workflowHub'
 const {
   state,
   filteredRequests,
-  navigateTo,
+  openRequestComposer,
   openRequestDetail,
   requestPeople,
   resetPageFilters,
@@ -18,11 +18,12 @@ const {
 <template>
   <section class="page-shell requests-page">
     <PageHeader
-      eyebrow="درخواست‌ها"
-      title="مدیریت درخواست‌ها"
+      eyebrow="درخواست ها"
+      title="مدیریت درخواست ها"
+      description="کارمندان فقط درخواست های خودشان را می بینند و مدیرها می توانند همه درخواست های سازمان را بررسی کنند."
       action-label="درخواست جدید"
-      action-icon="add"
-      @action="navigateTo('/requests/new')"
+      action-icon="edit_square"
+      @action="openRequestComposer"
       @menu="toggleSidebar"
     />
 
@@ -41,26 +42,40 @@ const {
 
     <section class="surface-block">
       <div class="section-label-row">
-        <h2>{{ filteredRequests.length }} درخواست</h2>
+        <h2>فهرست درخواست ها</h2>
+        <small>{{ filteredRequests.length }} ردیف</small>
       </div>
 
-      <div class="stack-list">
-        <button
-          v-for="item in filteredRequests"
-          :key="item.id"
-          class="list-row interactive-row"
-          @click="openRequestDetail(item.id)"
-        >
-          <div class="list-row-main">
-            <strong>{{ item.title }}</strong>
-            <p>{{ item.id }} · {{ item.owner }} · {{ item.department }} · {{ item.manager }}</p>
-          </div>
-          <div class="list-row-meta">
-            <span class="meta-pill">{{ item.priority }}</span>
-            <span>{{ item.status }}</span>
-            <small>{{ item.deadline }}</small>
-          </div>
-        </button>
+      <div class="table-shell">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>کد</th>
+              <th>عنوان</th>
+              <th>ثبت کننده</th>
+              <th>ارجاع به</th>
+              <th>بخش</th>
+              <th>اولویت</th>
+              <th>تاریخ</th>
+              <th>وضعیت</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in filteredRequests" :key="item.id" class="clickable-row" @click="openRequestDetail(item.id)">
+              <td>{{ item.id }}</td>
+              <td>
+                <strong>{{ item.title }}</strong>
+                <small>{{ item.description }}</small>
+              </td>
+              <td>{{ item.owner }}</td>
+              <td>{{ item.manager }}</td>
+              <td>{{ item.department }}</td>
+              <td><span class="meta-pill">{{ item.priority }}</span></td>
+              <td>{{ item.deadline || item.createdAt }}</td>
+              <td><span class="meta-pill">{{ item.status }}</span></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
   </section>
