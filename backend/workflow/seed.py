@@ -24,6 +24,7 @@ from workflow.models import (
     RequestStatus,
     RequestTimeline,
     User,
+    UserSignature,
     UserRole,
 )
 from workflow.security import get_password_hash
@@ -38,6 +39,7 @@ def seed_demo_data(reset: bool = False) -> None:
         RequestTimeline.objects.all().delete()
         Request.objects.all().delete()
         AuditLog.objects.all().delete()
+        UserSignature.objects.all().delete()
         OrganizationMembership.objects.all().delete()
         User.objects.all().delete()
         Department.objects.all().delete()
@@ -61,7 +63,7 @@ def seed_demo_data(reset: bool = False) -> None:
 
     users = {}
     for payload in [
-        ("arman-karimi", "آرمان کریمی", "admin@karomand.local", UserRole.ADMIN, "مدیرعامل", "AK", "hq", None),
+        ("arman-karimi", "امید کریمی", "admin@karomand.local", UserRole.ADMIN, "مدیرعامل", "AK", "hq", None),
         ("sara-ahmadi", "سارا احمدی", "sara@karomand.local", UserRole.MANAGER, "مدیر فنی", "SA", "it", None),
         ("hamid-rezaei", "حمید رضایی", "hamid@karomand.local", UserRole.MANAGER, "مدیر مالی", "HR", "finance", None),
         ("navid-farhadi", "نوید فرهادی", "navid@karomand.local", UserRole.EXECUTIVE_MANAGER, "مدیر ارشد عملیات", "NF", "ops", None),
@@ -92,6 +94,10 @@ def seed_demo_data(reset: bool = False) -> None:
             organization=organization,
             user=user,
             display_title=job_title,
+        )
+        UserSignature.objects.create(
+            user=user,
+            signature_data="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==",
         )
         users[slug] = user
 
@@ -154,3 +160,4 @@ def seed_demo_data(reset: bool = False) -> None:
     AuditLog.objects.create(actor=users["arman-karimi"], actor_name=users["arman-karimi"].full_name, action="login", entity_type="user", detail="ورود به سیستم", icon="login")
     AuditLog.objects.create(actor=users["mahdi-amiri"], actor_name=users["mahdi-amiri"].full_name, action="request_created", entity_type="request", detail="ثبت درخواست جدید", icon="assignment")
     AuditLog.objects.create(actor=users["elham-rostami"], actor_name=users["elham-rostami"].full_name, action="expense_created", entity_type="expense", detail="ثبت هزینه جدید", icon="payments")
+

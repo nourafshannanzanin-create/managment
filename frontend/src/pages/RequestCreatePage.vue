@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import PageHeader from '../components/PageHeader.vue'
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -8,6 +8,9 @@ const {
   priorityLabel,
   departmentLabel,
   managerLabel,
+  requestManagerAssigneeNames,
+  requestManagerAssigneeOptions,
+  setRequestManager,
   setRequestFiles,
   removeAttachment,
   submitRequest,
@@ -35,11 +38,7 @@ const {
             <span>واحد</span>
             <select v-model="state.requestForm.department">
               <option value="">انتخاب</option>
-              <option value="it">فناوری اطلاعات</option>
-              <option value="finance">امور مالی</option>
-              <option value="hr">منابع انسانی</option>
-              <option value="ops">عملیات</option>
-              <option value="marketing">بازاریابی</option>
+              <option v-for="item in state.directories.departments" :key="item.code" :value="item.code">{{ item.name }}</option>
             </select>
           </label>
 
@@ -57,13 +56,17 @@ const {
 
         <div class="form-stack">
           <label class="field-shell">
-            <span>مدیر</span>
-            <select v-model="state.requestForm.manager">
+            <span>ارجاع به مدیر</span>
+            <select :value="state.requestForm.manager" @change="setRequestManager($event.target.value)">
               <option value="">انتخاب</option>
-              <option value="sara-ahmadi">سارا احمدی</option>
-              <option value="hamid-rezaei">حمید رضایی</option>
-              <option value="navid-farhadi">نوید فرهادی</option>
-              <option value="niloufar-farahmand">نیلوفر فرهمند</option>
+              <option v-for="item in state.directories.managers" :key="item.slug" :value="item.slug">{{ item.name }}</option>
+            </select>
+          </label>
+
+          <label class="field-shell">
+            <span>ارجاع به مدیران</span>
+            <select v-model="state.requestForm.managerAssigneeIds" multiple :disabled="!state.requestForm.manager">
+              <option v-for="item in requestManagerAssigneeOptions" :key="item.id" :value="item.id">{{ item.name }}</option>
             </select>
           </label>
 
@@ -123,6 +126,10 @@ const {
           <div>
             <span>مدیر</span>
             <strong>{{ managerLabel(state.requestForm.manager) }}</strong>
+          </div>
+          <div>
+            <span>مدیران</span>
+            <strong>{{ requestManagerAssigneeNames() }}</strong>
           </div>
           <div>
             <span>اولویت</span>

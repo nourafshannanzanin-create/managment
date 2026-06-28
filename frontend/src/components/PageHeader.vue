@@ -19,7 +19,6 @@ const emit = defineEmits(['update:searchValue', 'action', 'menu'])
     <div class="page-header-copy">
       <p v-if="eyebrow" class="page-eyebrow">{{ eyebrow }}</p>
       <h1>{{ title }}</h1>
-      <p v-if="description">{{ description }}</p>
     </div>
 
     <div class="page-header-tools">
@@ -44,3 +43,6 @@ const emit = defineEmits(['update:searchValue', 'action', 'menu'])
     </div>
   </header>
 </template>
+
+
+

@@ -1,71 +1,116 @@
 <script setup>
-import PageFilters from '../components/PageFilters.vue'
-import PageHeader from '../components/PageHeader.vue'
-import { useWorkflowHub } from '../stores/workflowHub'
+import { computed, ref, watch } from 'vue'
 
-const { filteredUsers, openUserComposer, resetPageFilters, state, toggleSidebar, updatePageFilter, userPeople } = useWorkflowHub()
+import FilterDialog from '../components/FilterDialog.vue'
+import StitchRuntimePage from '../components/StitchRuntimePage.vue'
+import { useWorkflowHub } from '../stores/workflowHub'
+import { escapeHtml, wirePageNavigation } from '../utils/stitch'
+
+const runtime = ref(null)
+const filterOpen = ref(false)
+const { filteredUsers, navigateTo, openUserComposer, resetPageFilters, state, updatePageFilter, userPeople, visibleNavItems } = useWorkflowHub()
+const userFilters = computed(() => state.filters.users)
+
+function renderUserCard(item) {
+  const initial = escapeHtml((item.name || '?').slice(0, 1))
+
+  return `
+    <div class="bg-surface-container-lowest p-card-padding rounded-2xl card-shadow border border-outline-variant/5">
+      <div class="flex items-start justify-between mb-4">
+        <div class="flex items-center gap-4">
+          <div class="relative w-16 h-16 rounded-2xl bg-primary/10 overflow-hidden border border-outline-variant/10">
+            <div class="w-full h-full flex items-center justify-center text-primary font-bold text-xl">
+              ${initial}
+            </div>
+            <div class="absolute -top-2 -right-2 w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-headline-md shadow-md">
+              <span>${initial}</span>
+            </div>
+          </div>
+          <div>
+            <h4 class="font-headline-md text-body-lg text-on-surface font-bold">${escapeHtml(item.name)}</h4>
+            <span class="inline-block px-2 py-0.5 mt-1 bg-primary/10 text-primary rounded font-label-sm text-label-sm">${escapeHtml(item.role)}</span>
+          </div>
+        </div>
+        <button class="material-symbols-outlined text-on-surface-variant">more_vert</button>
+      </div>
+      <div class="space-y-2 border-t border-secondary/5 pt-4">
+        <div class="flex items-center gap-3 text-on-surface-variant">
+          <span class="material-symbols-outlined text-[20px]">mail</span>
+          <span class="font-label-sm text-label-sm">${escapeHtml(item.email)}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3 text-on-surface-variant">
+            <span class="material-symbols-outlined text-[20px]">hub</span>
+            <span class="font-label-sm text-label-sm">${escapeHtml(item.department)}</span>
+          </div>
+          <span class="text-outline text-[11px] font-label-sm">عضویت: ${escapeHtml(item.joinedAt)}</span>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function filterSummary() {
+  const parts = []
+  if (userFilters.value.query) parts.push(`جستجو: ${userFilters.value.query}`)
+  if (userFilters.value.person) parts.push(`شخص: ${userFilters.value.person}`)
+  if (userFilters.value.startDate) parts.push(`از: ${userFilters.value.startDate}`)
+  if (userFilters.value.endDate) parts.push(`تا: ${userFilters.value.endDate}`)
+  return parts.join(' | ') || 'برای فیلتر کلیک کنید'
+}
+
+function applyFilters(filters) {
+  Object.entries(filters).forEach(([key, value]) => updatePageFilter('users', key, value))
+  filterOpen.value = false
+}
+
+function resetFilters() {
+  resetPageFilters('users')
+}
+
+function hydrate(root) {
+  const searchInput = root.querySelector('input[type="text"]')
+  if (searchInput) {
+    searchInput.readOnly = true
+    searchInput.value = filterSummary()
+    searchInput.placeholder = 'برای فیلتر کلیک کنید'
+    searchInput.onclick = () => { filterOpen.value = true }
+  }
+
+  const filterSection = root.querySelector('section.mb-6')
+  if (filterSection) filterSection.onclick = () => { filterOpen.value = true }
+
+  const stats = root.querySelectorAll('.grid.grid-cols-2 .font-stat-value')
+  if (stats[0]) stats[0].textContent = String(state.users.length)
+  if (stats[1]) stats[1].textContent = String(filteredUsers.value.filter((item) => item.status === 'فعال').length)
+
+  const heading = root.querySelector('h2.font-headline-md')
+  if (heading) heading.onclick = () => openUserComposer()
+
+  const cardGroups = root.querySelectorAll('.space-y-4')
+  const usersContainer = cardGroups[cardGroups.length - 1]
+  if (usersContainer) usersContainer.innerHTML = filteredUsers.value.map(renderUserCard).join('') || '<div class="bg-surface-container-lowest p-card-padding rounded-2xl text-on-surface-variant">کاربری یافت نشد.</div>'
+
+  wirePageNavigation(root, navigateTo, '/users', visibleNavItems.value)
+}
+
+function rehydrate() {
+  const root = runtime.value?.getRoot?.()
+  if (root) hydrate(root)
+}
+
+watch(() => [filteredUsers.value, state.filters.users, state.users.length], rehydrate, { deep: true })
 </script>
 
 <template>
-  <section v-if="state.currentUser.canManageUsers" class="page-shell">
-    <PageHeader
-      eyebrow="کاربران"
-      title="مدیریت کاربران سازمان"
-      description="مدیرعامل می تواند مدیرها و کارمندان را تعریف کند و دسترسی آن ها را کنترل کند."
-      action-label="کاربر جدید"
-      action-icon="person_add"
-      @action="openUserComposer"
-      @menu="toggleSidebar"
-    />
-
-    <PageFilters
-      :query="state.filters.users.query"
-      :person="state.filters.users.person"
-      :start-date="state.filters.users.startDate"
-      :end-date="state.filters.users.endDate"
-      :people="userPeople"
-      @update:query="updatePageFilter('users', 'query', $event)"
-      @update:person="updatePageFilter('users', 'person', $event)"
-      @update:start-date="updatePageFilter('users', 'startDate', $event)"
-      @update:end-date="updatePageFilter('users', 'endDate', $event)"
-      @reset="resetPageFilters('users')"
-    />
-
-    <section class="surface-block">
-      <div class="section-label-row">
-        <h2>فهرست کاربران</h2>
-        <small>{{ filteredUsers.length }} ردیف</small>
-      </div>
-
-      <div class="table-shell">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>نام</th>
-              <th>ایمیل</th>
-              <th>نقش</th>
-              <th>بخش</th>
-              <th>مدیر مستقیم</th>
-              <th>عنوان</th>
-              <th>تاریخ عضویت</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in filteredUsers" :key="item.id">
-              <td>{{ item.name }}</td>
-              <td>{{ item.email }}</td>
-              <td><span class="meta-pill">{{ item.role }}</span></td>
-              <td>{{ item.department }}</td>
-              <td>{{ item.manager }}</td>
-              <td>{{ item.kpi }}</td>
-              <td>{{ item.joinedAt }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </section>
-  <section v-else class="page-shell">
-    <PageHeader eyebrow="کاربران" title="دسترسی محدود" description="این بخش فقط برای مدیرعامل فعال است." @menu="toggleSidebar" />
-  </section>
+  <StitchRuntimePage ref="runtime" stitch-id="_2" @ready="hydrate" />
+  <FilterDialog
+    :open="filterOpen"
+    title="فیلتر کاربران"
+    :filters="userFilters"
+    :people="userPeople"
+    @close="filterOpen = false"
+    @apply="applyFilters"
+    @reset="resetFilters"
+  />
 </template>

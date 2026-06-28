@@ -65,6 +65,7 @@ from workflow.services import (
 )
 
 JSON_KWARGS = {"ensure_ascii": False}
+DEFAULT_SIGNATURE_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg=="
 
 
 def json_response(payload, status=200, safe=True):
@@ -80,6 +81,18 @@ def parse_json(request: HttpRequest) -> dict:
         return json.loads(request.body.decode("utf-8") or "{}")
     except json.JSONDecodeError:
         return {}
+
+
+def ensure_signature(user: User) -> UserSignature:
+    signature, _ = UserSignature.objects.get_or_create(
+        user=user,
+        defaults={"signature_data": DEFAULT_SIGNATURE_DATA},
+    )
+    if not signature.signature_data:
+        signature.signature_data = DEFAULT_SIGNATURE_DATA
+        signature.updated_at = timezone.now()
+        signature.save(update_fields=["signature_data", "updated_at"])
+    return signature
 
 
 def env_bool(name: str, default: bool) -> bool:
@@ -157,6 +170,7 @@ def login_view(request: HttpRequest):
     user = User.objects.select_related("department").filter(email=email).first()
     if user is None or not verify_password(password, user.password_hash):
         return json_error("ایمیل یا رمز عبور نادرست است.", status=401)
+    ensure_signature(user)
     user.last_login_at = timezone.now()
     user.save(update_fields=["last_login_at"])
     AuditLog.objects.create(actor=user, actor_name=user.full_name, action="login", entity_type="user", detail="ورود به سیستم", icon="login")
@@ -174,6 +188,7 @@ def me_view(request: HttpRequest):
 @methods("GET")
 def bootstrap_view(request: HttpRequest):
     startup_ready()
+    ensure_signature(request.current_user)
     return json_response(build_bootstrap_payload(request.current_user))
 
 
@@ -188,12 +203,22 @@ def requests_view(request: HttpRequest):
     description = request.POST.get("description", "").strip()
     department_code = request.POST.get("department", "").strip()
     manager_slug = request.POST.get("manager", "").strip()
+    manager_assignee_ids = [int(item) for item in request.POST.get("managerAssigneeIds", "").split(",") if item.strip()]
     priority = request.POST.get("priority", RequestPriority.MEDIUM)
     deadline_raw = request.POST.get("deadline", "").strip()
     deadline = date.fromisoformat(deadline_raw) if deadline_raw else None
+    if deadline and deadline > date.today():
+        return json_error("انتخاب تاریخ های آینده مجاز نیست.", status=422)
     department = Department.objects.filter(code=department_code).first()
     manager = User.objects.filter(slug=manager_slug).first() if manager_slug else None
+    assigned_managers = list(User.objects.filter(pk__in=manager_assignee_ids)) if manager_assignee_ids else []
 
+    if manager_assignee_ids and manager is None:
+        return json_error("مدیر اصلی باید به درخواست ارجاع شود.", status=422)
+    if manager_assignee_ids and (len(assigned_managers) != len(manager_assignee_ids) or any(not is_manager(item) for item in assigned_managers)):
+        return json_error("مدیران ارجاعی باید از مدیران مجاز انتخاب شوند.", status=422)
+    if manager and any(item.slug == manager.slug for item in assigned_managers):
+        return json_error("مدیر اصلی نباید در فهرست مدیران ارجاعی تکرار شود.", status=422)
     request_obj = Request.objects.create(
         code=next_code("REQ"),
         title=title or "درخواست جدید",
@@ -206,9 +231,18 @@ def requests_view(request: HttpRequest):
         deadline=deadline,
         updated_at=timezone.now(),
     )
+    if assigned_managers:
+        request_obj.assigned_managers.set(assigned_managers)
+
     RequestTimeline.objects.create(request=request_obj, action="created", note="ایجاد درخواست", actor_name=request.current_user.full_name)
     RequestTimeline.objects.create(request=request_obj, action="submitted", note="ثبت درخواست", actor_name=request.current_user.full_name)
-
+    if assigned_managers:
+        RequestTimeline.objects.create(
+            request=request_obj,
+            action="manager_referrals",
+            note=f"ارجاع به مدیران: {', '.join(item.full_name for item in assigned_managers)}",
+            actor_name=request.current_user.full_name,
+        )
     for file_obj in request.FILES.getlist("attachments"):
         stored_name = save_uploaded_file(file_obj)
         request_obj.attachments.create(
@@ -218,7 +252,7 @@ def requests_view(request: HttpRequest):
             size_bytes=file_obj.size,
         )
 
-    request_obj = Request.objects.select_related("requester", "manager", "department").prefetch_related("attachments").get(pk=request_obj.pk)
+    request_obj = Request.objects.select_related("requester", "manager", "department").prefetch_related("assigned_managers", "attachments").get(pk=request_obj.pk)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="request_created", entity_type="request", entity_code=request_obj.code, detail=request_obj.title, icon="assignment")
     return json_response(serialize_request(request_obj), status=201)
 
@@ -255,6 +289,8 @@ def expenses_view(request: HttpRequest):
     department_code = request.POST.get("department", "").strip()
     invoice = request.FILES.get("invoice")
     expense_date = date.fromisoformat(expense_date_raw)
+    if expense_date > date.today():
+        return json_error("انتخاب تاریخ های آینده مجاز نیست.", status=422)
     department = Department.objects.filter(code=department_code).first() or request.current_user.department
     invoice_name = save_uploaded_file(invoice) if invoice else None
 
@@ -364,18 +400,15 @@ def approvals_metrics_view(request: HttpRequest):
 def approvals_signature_view(request: HttpRequest):
     if not can_approve_documents(request.current_user):
         return json_error("دسترسی کافی ندارید.", status=403)
-    signature = UserSignature.objects.filter(user=request.current_user).first()
+    signature = ensure_signature(request.current_user)
     if request.method == "GET":
-        return json_response({"hasSignature": signature is not None, "signatureData": signature.signature_data if signature else ""})
+        return json_response({"hasSignature": True, "signatureData": signature.signature_data})
 
     payload = parse_json(request)
     signature_data = payload.get("signatureData", "")
-    if signature is None:
-        signature = UserSignature.objects.create(user=request.current_user, signature_data=signature_data)
-    else:
-        signature.signature_data = signature_data
-        signature.updated_at = timezone.now()
-        signature.save(update_fields=["signature_data", "updated_at"])
+    signature.signature_data = signature_data
+    signature.updated_at = timezone.now()
+    signature.save(update_fields=["signature_data", "updated_at"])
     return json_response({"hasSignature": True, "signatureData": signature.signature_data})
 
 
@@ -443,9 +476,7 @@ def approval_approve_view(request: HttpRequest, document_code: str):
         return json_error("این سند به شما ارجاع نشده است.", status=403)
     if assignment.status == ApprovalAssignmentStatus.APPROVED:
         return json_response({"status": "approved", "document": document.code})
-    signature = UserSignature.objects.filter(user=request.current_user).first()
-    if signature is None:
-        return json_error("ابتدا امضای خود را ثبت کنید.", status=400)
+    signature = ensure_signature(request.current_user)
 
     try:
         with transaction.atomic():
@@ -503,3 +534,6 @@ def settings_view(request: HttpRequest):
         ],
         safe=False,
     )
+
+
+

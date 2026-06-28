@@ -1,84 +1,119 @@
 <script setup>
-import PageFilters from '../components/PageFilters.vue'
-import PageHeader from '../components/PageHeader.vue'
-import { useWorkflowHub } from '../stores/workflowHub'
+import { computed, ref, watch } from 'vue'
 
+import FilterDialog from '../components/FilterDialog.vue'
+import StitchRuntimePage from '../components/StitchRuntimePage.vue'
+import { useWorkflowHub } from '../stores/workflowHub'
+import { escapeHtml, statusTone, wirePageNavigation } from '../utils/stitch'
+
+const runtime = ref(null)
+const filterOpen = ref(false)
 const {
-  state,
   expensePeople,
   filteredExpenses,
+  navigateTo,
   openExpenseComposer,
   resetPageFilters,
-  toggleSidebar,
+  state,
   updatePageFilter,
+  visibleNavItems,
 } = useWorkflowHub()
+
+const expenseFilters = computed(() => state.filters.expenses)
+
+function renderExpenseCard(item) {
+  const invoiceLabel = item.invoiceUrl ? 'مشاهده فاکتور' : 'بدون فاکتور'
+  return `
+    <div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.04)] border border-outline-variant/10 overflow-hidden">
+      <div class="p-card-padding flex flex-col gap-4">
+        <div class="flex justify-between items-start">
+          <div>
+            <span class="text-primary font-label-sm text-label-sm tracking-widest block mb-1">${escapeHtml(item.id)}</span>
+            <h3 class="font-headline-md text-headline-md text-on-surface">${escapeHtml(item.title || item.description)}</h3>
+          </div>
+          <span class="${statusTone(item.status)} px-3 py-1 rounded-full font-label-sm text-label-sm">${escapeHtml(item.status)}</span>
+        </div>
+        <div class="grid grid-cols-2 gap-y-4 py-4 border-y border-outline-variant/10">
+          <div><p class="text-on-surface-variant font-label-sm text-label-sm">- ثبت‌کننده -</p><p class="font-body-md text-on-surface mt-1">${escapeHtml(item.owner)}</p></div>
+          <div><p class="text-on-surface-variant font-label-sm text-label-sm">بخش</p><p class="font-body-md text-on-surface mt-1">${escapeHtml(item.department)}</p></div>
+          <div><p class="text-on-surface-variant font-label-sm text-label-sm">تاریخ</p><p class="font-body-md text-on-surface mt-1">${escapeHtml(item.createdAt)}</p></div>
+          <div><p class="text-on-surface-variant font-label-sm text-label-sm">مبلغ</p><p class="font-headline-md text-headline-md text-primary mt-1">${escapeHtml(item.amount)}</p></div>
+        </div>
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-2 text-on-surface-variant">
+            <span class="material-symbols-outlined text-sm">description</span>
+            ${item.invoiceUrl ? `<a class="font-label-sm text-label-sm text-primary" href="${escapeHtml(item.invoiceUrl)}" target="_blank" rel="noreferrer">${invoiceLabel}</a>` : `<span class="font-label-sm text-label-sm">${invoiceLabel}</span>`}
+          </div>
+          <span class="text-primary font-label-sm text-label-sm">${escapeHtml(item.category || '')}</span>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function filterSummary() {
+  const parts = []
+  if (expenseFilters.value.query) parts.push(`جستجو: ${expenseFilters.value.query}`)
+  if (expenseFilters.value.person) parts.push(`شخص: ${expenseFilters.value.person}`)
+  if (expenseFilters.value.startDate) parts.push(`از: ${expenseFilters.value.startDate}`)
+  if (expenseFilters.value.endDate) parts.push(`تا: ${expenseFilters.value.endDate}`)
+  return parts.join(' | ') || 'برای فیلتر کلیک کنید'
+}
+
+function applyFilters(filters) {
+  Object.entries(filters).forEach(([key, value]) => updatePageFilter('expenses', key, value))
+  filterOpen.value = false
+}
+
+function resetFilters() {
+  resetPageFilters('expenses')
+}
+
+function hydrate(root) {
+  const addButton = root.querySelector('section button.luxury-gradient')
+  if (addButton) addButton.onclick = () => openExpenseComposer()
+
+  const filterSection = root.querySelector('section.space-y-4')
+  if (filterSection) filterSection.onclick = () => { filterOpen.value = true }
+
+  const searchInput = root.querySelector('input[type="text"]')
+  if (searchInput) {
+    searchInput.readOnly = true
+    searchInput.value = filterSummary()
+    searchInput.placeholder = 'برای فیلتر کلیک کنید'
+    searchInput.onclick = () => { filterOpen.value = true }
+  }
+
+  const countBadge = root.querySelector('section.space-y-4 span.bg-surface-container-high')
+  if (countBadge) countBadge.textContent = `${filteredExpenses.value.length} ردیف`
+
+  const sections = root.querySelectorAll('main > section')
+  const listSection = sections[2]
+  if (listSection) {
+    const header = listSection.firstElementChild?.outerHTML || ''
+    listSection.innerHTML = `${header}<div class="space-y-4">${filteredExpenses.value.map(renderExpenseCard).join('') || '<div class="bg-surface-container-lowest rounded-2xl p-card-padding text-on-surface-variant">هزینه‌ای یافت نشد.</div>'}</div>`
+  }
+
+  wirePageNavigation(root, navigateTo, '/expenses', visibleNavItems.value)
+}
+
+function rehydrate() {
+  const root = runtime.value?.getRoot?.()
+  if (root) hydrate(root)
+}
+
+watch(() => [filteredExpenses.value, state.filters.expenses], rehydrate, { deep: true })
 </script>
 
 <template>
-  <section class="page-shell expenses-page">
-    <PageHeader
-      eyebrow="هزینه ها"
-      title="ثبت و پیگیری هزینه"
-      description="کارمندان فقط هزینه های خودشان را می بینند و مدیرها به کل سازمان دسترسی دارند."
-      action-label="ثبت هزینه"
-      action-icon="add"
-      @action="openExpenseComposer"
-      @menu="toggleSidebar"
-    />
-
-    <PageFilters
-      :query="state.filters.expenses.query"
-      :person="state.filters.expenses.person"
-      :start-date="state.filters.expenses.startDate"
-      :end-date="state.filters.expenses.endDate"
-      :people="expensePeople"
-      @update:query="updatePageFilter('expenses', 'query', $event)"
-      @update:person="updatePageFilter('expenses', 'person', $event)"
-      @update:start-date="updatePageFilter('expenses', 'startDate', $event)"
-      @update:end-date="updatePageFilter('expenses', 'endDate', $event)"
-      @reset="resetPageFilters('expenses')"
-    />
-
-    <section class="surface-block">
-      <div class="section-label-row">
-        <h2>فهرست هزینه ها</h2>
-        <small>{{ filteredExpenses.length }} ردیف</small>
-      </div>
-
-      <div class="table-shell">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>کد</th>
-              <th>شرح</th>
-              <th>ثبت کننده</th>
-              <th>بخش</th>
-              <th>تاریخ</th>
-              <th>مبلغ</th>
-              <th>وضعیت</th>
-              <th>فاکتور</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in filteredExpenses" :key="item.id">
-              <td>{{ item.id }}</td>
-              <td>
-                <strong>{{ item.title }}</strong>
-                <small>{{ item.description }}</small>
-              </td>
-              <td>{{ item.owner }}</td>
-              <td>{{ item.department }}</td>
-              <td>{{ item.submittedAt }}</td>
-              <td>{{ item.amount }}</td>
-              <td><span class="meta-pill">{{ item.status }}</span></td>
-              <td>
-                <a v-if="item.invoiceUrl" :href="item.invoiceUrl" target="_blank" class="table-link">مشاهده</a>
-                <span v-else>ندارد</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </section>
+  <StitchRuntimePage ref="runtime" stitch-id="_4" @ready="hydrate" />
+  <FilterDialog
+    :open="filterOpen"
+    title="فیلتر هزینه‌ها"
+    :filters="expenseFilters"
+    :people="expensePeople"
+    @close="filterOpen = false"
+    @apply="applyFilters"
+    @reset="resetFilters"
+  />
 </template>

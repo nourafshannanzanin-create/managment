@@ -40,7 +40,7 @@ async function handleReject() {
           <strong>{{ approval.id }}</strong>
         </div>
         <div class="detail-meta-item">
-          <span>ثبت کننده</span>
+          <span>- ثبت‌کننده -</span>
           <strong>{{ approval.owner }}</strong>
         </div>
         <div class="detail-meta-item">

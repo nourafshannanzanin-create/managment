@@ -9,7 +9,9 @@ defineProps({
     <article v-for="item in items" :key="item.id || item.label" class="stat-tile">
       <span>{{ item.label }}</span>
       <strong>{{ item.value }}</strong>
-      <small v-if="item.detail">{{ item.detail }}</small>
     </article>
   </section>
 </template>
+
+
+

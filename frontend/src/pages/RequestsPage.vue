@@ -1,82 +1,136 @@
 <script setup>
-import PageFilters from '../components/PageFilters.vue'
-import PageHeader from '../components/PageHeader.vue'
-import { useWorkflowHub } from '../stores/workflowHub'
+import { computed, ref, watch } from 'vue'
 
+import FilterDialog from '../components/FilterDialog.vue'
+import StitchRuntimePage from '../components/StitchRuntimePage.vue'
+import { useWorkflowHub } from '../stores/workflowHub'
+import { escapeHtml, priorityTone, statusTone, wirePageNavigation } from '../utils/stitch'
+
+const runtime = ref(null)
+const filterOpen = ref(false)
 const {
-  state,
   filteredRequests,
+  navigateTo,
   openRequestComposer,
   openRequestDetail,
   requestPeople,
   resetPageFilters,
-  toggleSidebar,
+  state,
   updatePageFilter,
+  visibleNavItems,
 } = useWorkflowHub()
+
+const requestFilters = computed(() => state.filters.requests)
+
+function renderRequestCard(item) {
+  return `
+    <div class="glass-card rounded-2xl p-card-padding space-y-4">
+      <div class="flex justify-between items-start">
+        <div class="space-y-1">
+          <span class="text-label-sm font-label-sm text-primary tracking-wider">${escapeHtml(item.id)}</span>
+          <h3 class="font-headline-md text-[18px] text-on-surface">${escapeHtml(item.title)}</h3>
+        </div>
+        <span class="${statusTone(item.status)} px-3 py-1 rounded-lg text-label-sm font-label-sm">${escapeHtml(item.status)}</span>
+      </div>
+      <div class="grid grid-cols-2 gap-4 pt-2 border-t border-outline-variant/10">
+        <div class="space-y-1">
+          <p class="text-on-surface-variant text-[11px] font-label-sm">- ثبت‌کننده -</p>
+          <p class="text-on-surface text-label-sm font-label-sm">${escapeHtml(item.owner)}</p>
+        </div>
+        <div class="space-y-1">
+          <p class="text-on-surface-variant text-[11px] font-label-sm">اولویت</p>
+          <span class="text-on-surface-variant text-label-sm font-label-sm flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full ${priorityTone(item.priority)}"></span>
+            ${escapeHtml(item.priority)}
+          </span>
+        </div>
+        <div class="space-y-1">
+          <p class="text-on-surface-variant text-[11px] font-label-sm">تاریخ</p>
+          <p class="text-on-surface text-label-sm font-label-sm">${escapeHtml(item.createdAt || item.deadline || '-')}</p>
+        </div>
+        <div class="space-y-1">
+          <p class="text-on-surface-variant text-[11px] font-label-sm">بخش</p>
+          <p class="text-on-surface text-label-sm font-label-sm">${escapeHtml(item.department)}</p>
+        </div>
+      </div>
+      <button class="text-primary font-label-sm text-label-sm flex items-center gap-1 request-detail-btn" data-request-id="${escapeHtml(item.id)}">
+        مشاهده جزئیات
+        <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+      </button>
+    </div>
+  `
+}
+
+function filterSummary() {
+  const parts = []
+  if (requestFilters.value.query) parts.push(`جستجو: ${requestFilters.value.query}`)
+  if (requestFilters.value.person) parts.push(`شخص: ${requestFilters.value.person}`)
+  if (requestFilters.value.startDate) parts.push(`از: ${requestFilters.value.startDate}`)
+  if (requestFilters.value.endDate) parts.push(`تا: ${requestFilters.value.endDate}`)
+  return parts.join(' | ') || 'برای فیلتر کلیک کنید'
+}
+
+function openFilterModal() {
+  filterOpen.value = true
+}
+
+function applyFilters(filters) {
+  Object.entries(filters).forEach(([key, value]) => updatePageFilter('requests', key, value))
+  filterOpen.value = false
+}
+
+function resetFilters() {
+  resetPageFilters('requests')
+}
+
+function hydrate(root) {
+  const addButton = root.querySelector('section button.bg-primary')
+  if (addButton) addButton.onclick = () => openRequestComposer()
+
+  const searchInput = root.querySelector('input[type="text"]')
+  if (searchInput) {
+    searchInput.readOnly = true
+    searchInput.value = filterSummary()
+    searchInput.placeholder = 'برای فیلتر کلیک کنید'
+    searchInput.onclick = () => openFilterModal()
+  }
+
+  const filterArea = root.querySelector('section.space-y-3')
+  if (filterArea) filterArea.onclick = () => openFilterModal()
+
+  const countLabel = root.querySelector('section.space-y-4 .text-on-surface-variant.font-label-sm')
+  if (countLabel) countLabel.textContent = `${filteredRequests.value.length} ردیف یافت شد`
+
+  const sections = root.querySelectorAll('main > section')
+  const listSection = sections[2]
+  if (listSection) {
+    const header = listSection.firstElementChild?.outerHTML || ''
+    listSection.innerHTML = `${header}${filteredRequests.value.map(renderRequestCard).join('') || '<div class="glass-card rounded-2xl p-card-padding text-on-surface-variant">درخواستی یافت نشد.</div>'}`
+    listSection.querySelectorAll('.request-detail-btn').forEach((button) => {
+      button.onclick = () => openRequestDetail(button.dataset.requestId)
+    })
+  }
+
+  wirePageNavigation(root, navigateTo, '/requests', visibleNavItems.value)
+}
+
+function rehydrate() {
+  const root = runtime.value?.getRoot?.()
+  if (root) hydrate(root)
+}
+
+watch(() => [filteredRequests.value, state.filters.requests], rehydrate, { deep: true })
 </script>
 
 <template>
-  <section class="page-shell requests-page">
-    <PageHeader
-      eyebrow="درخواست ها"
-      title="مدیریت درخواست ها"
-      description="کارمندان فقط درخواست های خودشان را می بینند و مدیرها می توانند همه درخواست های سازمان را بررسی کنند."
-      action-label="درخواست جدید"
-      action-icon="edit_square"
-      @action="openRequestComposer"
-      @menu="toggleSidebar"
-    />
-
-    <PageFilters
-      :query="state.filters.requests.query"
-      :person="state.filters.requests.person"
-      :start-date="state.filters.requests.startDate"
-      :end-date="state.filters.requests.endDate"
-      :people="requestPeople"
-      @update:query="updatePageFilter('requests', 'query', $event)"
-      @update:person="updatePageFilter('requests', 'person', $event)"
-      @update:start-date="updatePageFilter('requests', 'startDate', $event)"
-      @update:end-date="updatePageFilter('requests', 'endDate', $event)"
-      @reset="resetPageFilters('requests')"
-    />
-
-    <section class="surface-block">
-      <div class="section-label-row">
-        <h2>فهرست درخواست ها</h2>
-        <small>{{ filteredRequests.length }} ردیف</small>
-      </div>
-
-      <div class="table-shell">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>کد</th>
-              <th>عنوان</th>
-              <th>ثبت کننده</th>
-              <th>ارجاع به</th>
-              <th>بخش</th>
-              <th>اولویت</th>
-              <th>تاریخ</th>
-              <th>وضعیت</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in filteredRequests" :key="item.id" class="clickable-row" @click="openRequestDetail(item.id)">
-              <td>{{ item.id }}</td>
-              <td>
-                <strong>{{ item.title }}</strong>
-                <small>{{ item.description }}</small>
-              </td>
-              <td>{{ item.owner }}</td>
-              <td>{{ item.manager }}</td>
-              <td>{{ item.department }}</td>
-              <td><span class="meta-pill">{{ item.priority }}</span></td>
-              <td>{{ item.deadline || item.createdAt }}</td>
-              <td><span class="meta-pill">{{ item.status }}</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </section>
+  <StitchRuntimePage ref="runtime" stitch-id="_7" @ready="hydrate" />
+  <FilterDialog
+    :open="filterOpen"
+    title="فیلتر درخواست‌ها"
+    :filters="requestFilters"
+    :people="requestPeople"
+    @close="filterOpen = false"
+    @apply="applyFilters"
+    @reset="resetFilters"
+  />
 </template>

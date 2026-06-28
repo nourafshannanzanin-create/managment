@@ -9,7 +9,6 @@ import {
   jalaliToIso,
   normalizeDigits,
   parseJalali,
-  shiftJalaliMonth,
 } from '../utils/jalali'
 
 const props = defineProps({
@@ -23,20 +22,33 @@ const emit = defineEmits(['update:modelValue'])
 const root = ref(null)
 const open = ref(false)
 const inputValue = ref('')
+const todayJalali = getTodayJalali()
+const currentMonth = { jy: todayJalali.jy, jm: todayJalali.jm }
+
+function compareJalali(a, b) {
+  if (a.jy !== b.jy) return a.jy - b.jy
+  if (a.jm !== b.jm) return a.jm - b.jm
+  return a.jd - b.jd
+}
+
+function isFutureJalali(value) {
+  return compareJalali(value, todayJalali) > 0
+}
+
+function isBeforeCurrentMonth(value) {
+  return value.jy < todayJalali.jy || (value.jy === todayJalali.jy && value.jm < todayJalali.jm)
+}
+
+function isAfterCurrentMonth(value) {
+  return value.jy > todayJalali.jy || (value.jy === todayJalali.jy && value.jm > todayJalali.jm)
+}
+
+function isOutsideCurrentMonth(value) {
+  return isBeforeCurrentMonth(value) || isAfterCurrentMonth(value)
+}
 
 function getInitialMonth() {
-  if (props.modelValue) {
-    if (props.modelType === 'jalali') {
-      const parsed = parseJalali(props.modelValue)
-      if (parsed) return { jy: parsed.jy, jm: parsed.jm }
-    } else {
-      const jalali = parseJalali(isoToJalali(props.modelValue))
-      if (jalali) return { jy: jalali.jy, jm: jalali.jm }
-    }
-  }
-
-  const today = getTodayJalali()
-  return { jy: today.jy, jm: today.jm }
+  return { ...currentMonth }
 }
 
 const viewMonth = ref(getInitialMonth())
@@ -47,7 +59,11 @@ const selectedJalali = computed(() => {
   return parseJalali(isoToJalali(props.modelValue))
 })
 
-const weeks = computed(() => getMonthMatrix(viewMonth.value.jy, viewMonth.value.jm))
+const weeks = computed(() =>
+  getMonthMatrix(viewMonth.value.jy, viewMonth.value.jm).map((week) =>
+    week.map((day) => (day ? { ...day, disabled: isFutureJalali(day.jalali) || isOutsideCurrentMonth(day.jalali) } : null)),
+  ),
+)
 const weekdays = getPersianWeekdays()
 const monthLabel = computed(() => getJalaliMonthLabel(viewMonth.value.jy, viewMonth.value.jm))
 
@@ -55,10 +71,7 @@ watch(
   () => props.modelValue,
   (value) => {
     inputValue.value = props.modelType === 'jalali' ? normalizeDigits(value) : isoToJalali(value)
-    const parsed = parseJalali(inputValue.value)
-    if (parsed) {
-      viewMonth.value = { jy: parsed.jy, jm: parsed.jm }
-    }
+    viewMonth.value = { ...currentMonth }
   },
   { immediate: true },
 )
@@ -76,6 +89,7 @@ function close() {
 }
 
 function selectDay(day) {
+  if (day.disabled) return
   emitValue(day.formatted)
   inputValue.value = day.formatted
   close()
@@ -88,11 +102,11 @@ function clearValue() {
 }
 
 function prevMonth() {
-  viewMonth.value = shiftJalaliMonth(viewMonth.value.jy, viewMonth.value.jm, -1)
+  viewMonth.value = { ...currentMonth }
 }
 
 function nextMonth() {
-  viewMonth.value = shiftJalaliMonth(viewMonth.value.jy, viewMonth.value.jm, 1)
+  viewMonth.value = { ...currentMonth }
 }
 
 function applyTypedValue() {
@@ -101,10 +115,14 @@ function applyTypedValue() {
     inputValue.value = props.modelType === 'jalali' ? normalizeDigits(props.modelValue) : isoToJalali(props.modelValue)
     return
   }
+  if (isFutureJalali(parsed) || isOutsideCurrentMonth(parsed)) {
+    inputValue.value = props.modelType === 'jalali' ? normalizeDigits(props.modelValue) : isoToJalali(props.modelValue)
+    return
+  }
 
   const normalized = `${parsed.jy}/${String(parsed.jm).padStart(2, '0')}/${String(parsed.jd).padStart(2, '0')}`
   inputValue.value = normalized
-  viewMonth.value = { jy: parsed.jy, jm: parsed.jm }
+  viewMonth.value = { ...currentMonth }
   emitValue(normalized)
 }
 
@@ -143,11 +161,11 @@ onBeforeUnmount(() => {
 
     <div v-if="open" class="shamsi-picker-panel">
       <div class="shamsi-picker-head">
-        <button type="button" class="icon-btn" @click="nextMonth">
+        <button type="button" class="icon-btn" disabled @click="nextMonth">
           <span class="material-symbols-outlined">chevron_right</span>
         </button>
         <strong>{{ monthLabel }}</strong>
-        <button type="button" class="icon-btn" @click="prevMonth">
+        <button type="button" class="icon-btn" disabled @click="prevMonth">
           <span class="material-symbols-outlined">chevron_left</span>
         </button>
       </div>
@@ -166,6 +184,7 @@ onBeforeUnmount(() => {
             :class="[
               'shamsi-picker-day',
               day && selectedJalali && selectedJalali.jy === day.jalali.jy && selectedJalali.jm === day.jalali.jm && selectedJalali.jd === day.jalali.jd && 'is-selected',
+              day?.disabled && 'is-disabled',
               !day && 'is-empty',
             ]"
             @click="day && selectDay(day)"

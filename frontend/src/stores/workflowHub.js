@@ -2,6 +2,7 @@ import { computed, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { jalaliToIso } from '../utils/jalali'
+import { repairPayload } from '../utils/stitch'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 const API_ORIGIN = API_BASE_URL.replace(/\/api\/v1\/?$/, '')
@@ -31,6 +32,7 @@ function createRequestForm() {
     description: '',
     department: '',
     manager: '',
+    managerAssigneeIds: [],
     priority: 'medium',
     deadline: '',
     attachments: [],
@@ -265,8 +267,7 @@ const visibleNavItems = computed(() => {
     { to: '/requests', label: 'درخواست ها', icon: 'assignment' },
     { to: '/expenses', label: 'هزینه ها', icon: 'payments' },
   ]
-
-  if (canApproveDocuments.value) items.push({ to: '/approvals', label: 'تاییدها', icon: 'fact_check' })
+  if (canApproveDocuments.value) items.push({ to: '/approvals', label: 'تاییدیه ها', icon: 'fact_check' })
   if (canViewReports.value) items.push({ to: '/reports', label: 'گزارشات', icon: 'monitoring' })
   if (canManageUsers.value) items.push({ to: '/users', label: 'کاربران', icon: 'group' })
 
@@ -327,7 +328,7 @@ const filteredUsers = computed(() => {
   )
 })
 
-const requestPeople = computed(() => [...new Set(state.requests.flatMap((item) => [item.owner, item.manager]).filter(Boolean))])
+const requestPeople = computed(() => [...new Set(state.requests.flatMap((item) => [item.owner, item.manager, ...(item.managerAssignees || [])]).filter(Boolean))])
 const expensePeople = computed(() => [...new Set(state.expenses.map((item) => item.owner).filter(Boolean))])
 const approvalPeople = computed(() => [...new Set(state.approvals.map((item) => item.owner).filter(Boolean))])
 const reportPeople = computed(() => [...new Set(state.reports.map((item) => item.owner).filter(Boolean))])
@@ -350,6 +351,32 @@ function managerLabel(value) {
   return state.directories.managers.find((item) => item.slug === value)?.name || 'تعیین نشده'
 }
 
+const requestManagerAssigneeOptions = computed(() => {
+  if (!state.requestForm.manager) return []
+  return state.directories.managers.filter((item) => item.slug !== state.requestForm.manager)
+})
+
+function requestManagerAssigneeNames(ids = state.requestForm.managerAssigneeIds) {
+  const normalizedIds = (ids || []).map((item) => Number(item))
+  const names = state.directories.managers
+    .filter((item) => normalizedIds.includes(item.id))
+    .map((item) => item.name)
+  return names.length ? names.join('، ') : 'تعیین نشده'
+}
+
+function setRequestManager(value) {
+  state.requestForm.manager = value
+  if (!value) {
+    state.requestForm.managerAssigneeIds = []
+    return
+  }
+
+  const allowedIds = requestManagerAssigneeOptions.value.map((item) => item.id)
+  state.requestForm.managerAssigneeIds = state.requestForm.managerAssigneeIds
+    .map((item) => Number(item))
+    .filter((item) => allowedIds.includes(item))
+}
+
 async function authorizedFetch(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -367,7 +394,7 @@ async function authorizedFetch(path, options = {}) {
   if (!response.ok) {
     let detail = `Request failed: ${response.status}`
     try {
-      const payload = await response.json()
+      const payload = repairPayload(await response.json())
       detail = payload.detail || detail
     } catch {
       // ignore parse failure
@@ -414,7 +441,7 @@ async function loadBootstrapData(force = false) {
   state.lastError = ''
   try {
     const response = await authorizedFetch('/bootstrap')
-    const payload = await response.json()
+    const payload = repairPayload(await response.json())
     hydrateBootstrap(payload)
     state.bootstrapLoaded = true
   } catch (error) {
@@ -430,7 +457,7 @@ async function loadReports(force = false) {
   if (!state.authToken || !canViewReports.value) return
   if (state.reportSummary && !force) return
   const response = await authorizedFetch('/reports')
-  const payload = await response.json()
+  const payload = repairPayload(await response.json())
   state.reportSummary = payload.summary
   state.reportStatus = payload.requestStatus
   state.topSubmitters = payload.topSubmitters
@@ -463,10 +490,10 @@ async function login(email, password) {
       body: JSON.stringify({ email, password }),
     })
     if (!response.ok) {
-      const payload = await response.json()
+      const payload = repairPayload(await response.json())
       throw new Error(payload.detail || 'ورود ناموفق بود.')
     }
-    const payload = await response.json()
+    const payload = repairPayload(await response.json())
     state.authToken = payload.access_token
     localStorage.setItem(TOKEN_KEY, payload.access_token)
     state.bootstrapLoaded = false
@@ -519,7 +546,7 @@ export function useWorkflowHub() {
     requestDetailState.loading = true
     try {
       const response = await authorizedFetch(`/requests/${requestId}`)
-      requestDetailState.items[requestId] = await response.json()
+      requestDetailState.items[requestId] = repairPayload(await response.json())
     } finally {
       requestDetailState.loading = false
     }
@@ -539,7 +566,7 @@ export function useWorkflowHub() {
     approvalDetailState.loading = true
     try {
       const response = await authorizedFetch(`/approvals/${id}`)
-      approvalDetailState.item = normalizeApproval(await response.json())
+      approvalDetailState.item = normalizeApproval(repairPayload(await response.json()))
       selectedState.approvalId = id
     } finally {
       approvalDetailState.loading = false
@@ -601,7 +628,7 @@ export function useWorkflowHub() {
     signatureState.loading = true
     try {
       const response = await authorizedFetch('/approvals/signature')
-      const payload = await response.json()
+      const payload = repairPayload(await response.json())
       signatureState.hasSignature = payload.hasSignature
       signatureState.signatureData = payload.signatureData || ''
     } finally {
@@ -643,6 +670,7 @@ export function useWorkflowHub() {
       formData.append('description', state.requestForm.description)
       formData.append('department', state.requestForm.department)
       formData.append('manager', state.requestForm.manager)
+      formData.append('managerAssigneeIds', state.requestForm.managerAssigneeIds.join(','))
       formData.append('priority', state.requestForm.priority)
       if (state.requestForm.deadline) formData.append('deadline', jalaliToIso(state.requestForm.deadline))
       state.requestForm.attachments.forEach((file) => formData.append('attachments', file))
@@ -732,7 +760,7 @@ export function useWorkflowHub() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ signatureData }),
       })
-      const payload = await response.json()
+      const payload = repairPayload(await response.json())
       signatureState.hasSignature = payload.hasSignature
       signatureState.signatureData = payload.signatureData
       closeSignatureComposer()
@@ -780,6 +808,7 @@ export function useWorkflowHub() {
     filteredReports,
     filteredUsers,
     requestPeople,
+    requestManagerAssigneeOptions,
     expensePeople,
     approvalPeople,
     reportPeople,
@@ -791,6 +820,8 @@ export function useWorkflowHub() {
     priorityLabel,
     departmentLabel,
     managerLabel,
+    requestManagerAssigneeNames,
+    setRequestManager,
     navigateTo,
     toggleSidebar,
     updatePageFilter,
@@ -831,3 +862,8 @@ export function useWorkflowHub() {
 
   return singleton
 }
+
+
+
+
+

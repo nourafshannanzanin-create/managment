@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import BaseModal from './BaseModal.vue'
 
 defineProps({
@@ -25,12 +25,16 @@ defineEmits(['close'])
           <strong>{{ request.id }}</strong>
         </div>
         <div class="detail-meta-item">
-          <span>ثبت‌کننده</span>
+          <span>- ثبت‌کننده -</span>
           <strong>{{ request.owner }}</strong>
         </div>
         <div class="detail-meta-item">
           <span>مدیر</span>
           <strong>{{ request.manager }}</strong>
+        </div>
+        <div class="detail-meta-item">
+          <span>مدیران</span>
+          <strong>{{ request.managerAssignees?.length ? request.managerAssignees.join('، ') : 'تعیین نشده' }}</strong>
         </div>
         <div class="detail-meta-item">
           <span>وضعیت</span>

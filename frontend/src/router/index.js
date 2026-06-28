@@ -12,14 +12,14 @@ import UsersPage from '../pages/UsersPage.vue'
 const routes = [
   { path: '/', redirect: '/dashboard' },
   { path: '/login', name: 'login', component: LoginPage, meta: { public: true } },
-  { path: '/dashboard', name: 'dashboard', component: DashboardPage },
-  { path: '/requests', name: 'requests', component: RequestsPage },
+  { path: '/dashboard', name: 'dashboard', component: DashboardPage, meta: { fullCanvas: true } },
+  { path: '/requests', name: 'requests', component: RequestsPage, meta: { fullCanvas: true } },
   { path: '/requests/new', redirect: '/requests' },
-  { path: '/expenses', name: 'expenses', component: ExpensesPage },
-  { path: '/approvals', name: 'approvals', component: ApprovalsPage },
-  { path: '/reports', name: 'reports', component: ReportsPage },
-  { path: '/users', name: 'users', component: UsersPage },
-  { path: '/settings', name: 'settings', component: SettingsPage },
+  { path: '/expenses', name: 'expenses', component: ExpensesPage, meta: { fullCanvas: true } },
+  { path: '/approvals', name: 'approvals', component: ApprovalsPage, meta: { fullCanvas: true } },
+  { path: '/reports', name: 'reports', component: ReportsPage, meta: { fullCanvas: true } },
+  { path: '/users', name: 'users', component: UsersPage, meta: { fullCanvas: true } },
+  { path: '/settings', name: 'settings', component: SettingsPage, meta: { fullCanvas: true } },
 ]
 
 const router = createRouter({

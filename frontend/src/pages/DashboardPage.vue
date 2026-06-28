@@ -1,88 +1,37 @@
 <script setup>
-import CompactStatRow from '../components/CompactStatRow.vue'
-import PageHeader from '../components/PageHeader.vue'
-import { useWorkflowHub } from '../stores/workflowHub'
+import { ref, watch } from 'vue'
 
-const { state, toggleSidebar } = useWorkflowHub()
+import StitchRuntimePage from '../components/StitchRuntimePage.vue'
+import { useWorkflowHub } from '../stores/workflowHub'
+import { formatMetric, wirePageNavigation } from '../utils/stitch'
+
+const runtime = ref(null)
+const { navigateTo, state, visibleNavItems } = useWorkflowHub()
+
+function hydrate(root) {
+  const monthly = state.stats.find((item) => item.id === 'monthly')?.value || state.expenseSummary[2]?.value || '0'
+  const summaryValues = root.querySelectorAll('.text-primary.font-stat-value, .text-on-surface.font-headline-md.text-headline-md')
+  if (summaryValues[0]) summaryValues[0].textContent = formatMetric(monthly)
+  if (summaryValues[1]) summaryValues[1].textContent = String(state.requests.length)
+  if (summaryValues[2]) summaryValues[2].textContent = String(state.approvalMetrics.pending || 0)
+
+  const welcome = root.querySelector('main section p')
+  if (welcome) welcome.textContent = 'کارنومند'
+
+  const dashboardCards = root.querySelectorAll('main > div')
+  if (dashboardCards[2]) dashboardCards[2].remove()
+
+  wirePageNavigation(root, navigateTo, '/dashboard', visibleNavItems.value)
+}
+
+function rehydrate() {
+  const root = runtime.value?.getRoot?.()
+  if (root) hydrate(root)
+}
+
+watch(() => [state.stats, state.requests.length, state.approvalMetrics.pending, state.expenseSummary, state.currentUser.name], rehydrate, { deep: true })
 </script>
 
 <template>
-  <section class="page-shell dashboard-page">
-    <PageHeader
-      eyebrow="داشبورد"
-      title="نمای کلی عملیات"
-      :description="`نمای ${state.currentUser.organization || 'سازمان'} برای ${state.currentUser.name || 'کاربر'}`"
-      @menu="toggleSidebar"
-    />
-
-    <section class="hero-panel compact-hero">
-      <div>
-        <h2>گردش کار سازمان</h2>
-        <p>وضعیت جاری درخواست ها، هزینه ها و تاییدها در یک نگاه.</p>
-      </div>
-      <div class="hero-badges">
-        <span>{{ state.currentUser.department || 'بدون واحد' }}</span>
-        <span>{{ state.currentUser.role || 'کاربر' }}</span>
-      </div>
-    </section>
-
-    <CompactStatRow :items="state.stats" />
-
-    <div class="dashboard-grid">
-      <section class="surface-block">
-        <div class="section-label-row">
-          <h2>روند هزینه ها</h2>
-        </div>
-        <div class="mini-chart">
-          <div v-for="bar in state.chartData" :key="bar.day" class="mini-chart-column">
-            <span :style="{ height: `${Math.max(bar.value, 10)}%` }"></span>
-            <small>{{ bar.day }}</small>
-          </div>
-        </div>
-      </section>
-
-      <section class="surface-block">
-        <div class="section-label-row">
-          <h2>وضعیت درخواست ها</h2>
-        </div>
-        <div class="pipeline-grid">
-          <article v-for="stage in state.pipeline" :key="stage.label" class="pipeline-card">
-            <strong>{{ stage.count }}</strong>
-            <p>{{ stage.label }}</p>
-          </article>
-        </div>
-      </section>
-    </div>
-
-    <div class="dashboard-grid">
-      <section class="surface-block">
-        <div class="section-label-row">
-          <h2>آخرین فعالیت ها</h2>
-        </div>
-        <div class="stack-list">
-          <article v-for="item in state.activities" :key="item.id" class="list-row">
-            <div class="list-row-main">
-              <strong>{{ item.user }}</strong>
-              <p>{{ item.action }}</p>
-            </div>
-            <div class="list-row-meta">
-              <small>{{ item.time }}</small>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section class="surface-block">
-        <div class="section-label-row">
-          <h2>جمع هزینه</h2>
-        </div>
-        <div class="spotlight-metrics summary-metrics">
-          <article v-for="item in state.expenseSummary" :key="item.label">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-          </article>
-        </div>
-      </section>
-    </div>
-  </section>
+  <StitchRuntimePage ref="runtime" stitch-id="_5" @ready="hydrate" />
 </template>

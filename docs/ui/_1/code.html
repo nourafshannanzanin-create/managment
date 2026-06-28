@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&family=Be+Vietnam+Pro:wght@400;500&family=JetBrains+Mono:wght@500&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@100..900&family=Hanken+Grotesk:wght@100..900&family=JetBrains+Mono:wght@100..900&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-on-surface": "#eaf1ff",
+                    "on-surface-variant": "#3f4949",
+                    "inverse-primary": "#8ad3d8",
+                    "on-primary-fixed-variant": "#004f53",
+                    "on-tertiary-container": "#f1f4f3",
+                    "primary": "#026166",
+                    "primary-fixed-dim": "#8ad3d8",
+                    "secondary": "#4d6169",
+                    "on-tertiary": "#ffffff",
+                    "surface-dim": "#cbdbf5",
+                    "primary-container": "#2d7a7f",
+                    "on-secondary": "#ffffff",
+                    "tertiary-fixed-dim": "#c4c7c6",
+                    "surface-tint": "#14686d",
+                    "tertiary-fixed": "#e0e3e2",
+                    "error": "#ba1a1a",
+                    "on-primary-container": "#d2fcff",
+                    "on-primary": "#ffffff",
+                    "primary-fixed": "#a6eff4",
+                    "error-container": "#ffdad6",
+                    "surface-container-high": "#dce9ff",
+                    "background": "#f8f9ff",
+                    "outline": "#6f797a",
+                    "surface-container": "#e5eeff",
+                    "surface": "#f8f9ff",
+                    "on-primary-fixed": "#002022",
+                    "outline-variant": "#bec8c9",
+                    "on-error-container": "#93000a",
+                    "on-secondary-fixed": "#091e25",
+                    "on-surface": "#0b1c30",
+                    "surface-variant": "#d3e4fe",
+                    "secondary-container": "#d0e6ef",
+                    "surface-bright": "#f8f9ff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed": "#181c1c",
+                    "surface-container-low": "#eff4ff",
+                    "on-error": "#ffffff",
+                    "on-tertiary-fixed-variant": "#434847",
+                    "secondary-fixed": "#d0e6ef",
+                    "tertiary": "#545857",
+                    "tertiary-container": "#6c706f",
+                    "inverse-surface": "#213145",
+                    "on-secondary-fixed-variant": "#364a51",
+                    "on-secondary-container": "#53676f",
+                    "on-background": "#0b1c30",
+                    "secondary-fixed-dim": "#b4cad3",
+                    "surface-container-highest": "#d3e4fe"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "card-padding": "1.5rem",
+                    "sidebar-width": "280px",
+                    "container-padding": "2rem",
+                    "section-gap": "3rem",
+                    "gutter": "1.5rem"
+            },
+            "fontFamily": {
+                    "headline-lg-mobile": ["Hanken Grotesk"],
+                    "stat-value": ["Hanken Grotesk"],
+                    "label-sm": ["JetBrains Mono"],
+                    "headline-lg": ["Hanken Grotesk"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "body-lg": ["Be Vietnam Pro"],
+                    "body-md": ["Be Vietnam Pro"]
+            },
+            "fontSize": {
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "stat-value": ["36px", {"lineHeight": "44px", "fontWeight": "700"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #f8f9ff;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .luxury-card {
+            background: #ffffff;
+            box-shadow: 0px 4px 20px rgba(0,0,0,0.04);
+            transition: transform 0.2s ease;
+        }
+        .luxury-card:active {
+            transform: scale(0.98);
+        }
+        .ghost-input {
+            background-color: #eff4ff;
+            border: none;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .ghost-input:focus {
+            border-bottom-color: #026166;
+            background-color: #ffffff;
+            box-shadow: none;
+            outline: none;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 28px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #bec8c9;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #026166;
+        }
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+        .safe-pb {
+            padding-bottom: env(safe-area-inset-bottom, 16px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body-md text-on-surface">
+<!-- Top AppBar (Mobile) -->
+<header class="fixed top-0 left-0 right-0 z-40 bg-surface dark:bg-surface-dim shadow-sm dark:shadow-none flex flex-row-reverse justify-between items-center w-full px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" data-icon="notifications">notifications</span>
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-label-sm text-label-sm">
+                م س
+            </div>
+</div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-inverse-primary">تنظیمات سیستم</h1>
+<button class="material-symbols-outlined text-on-surface-variant">menu</button>
+</header>
+<main class="pt-24 pb-24 px-6 max-w-lg mx-auto space-y-8">
+<!-- Header Section -->
+<section class="space-y-1">
+<span class="font-label-sm text-label-sm text-on-surface-variant opacity-70">تنظیمات</span>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-primary">مدیریت عملیات</h2>
+</section>
+<!-- Org Identity Section -->
+<section class="space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-md text-headline-md text-on-surface">هویت سازمان</h3>
+<span class="material-symbols-outlined text-outline" data-icon="corporate_fare">corporate_fare</span>
+</div>
+<div class="luxury-card rounded-xl p-card-padding space-y-6">
+<div class="relative">
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">نام سازمان</label>
+<input class="ghost-input w-full rounded-lg px-4 py-3 font-body-md text-body-md text-on-surface" placeholder="نام را وارد کنید" type="text" value="کارومند"/>
+</div>
+<div class="relative">
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">شناسه سیستمی</label>
+<div class="ghost-input w-full rounded-lg px-4 py-3 font-body-md text-body-md text-on-surface flex items-center justify-between">
+<span>KARO-7729</span>
+<span class="material-symbols-outlined text-primary text-sm" data-icon="content_copy">content_copy</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Security Section -->
+<section class="space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-md text-headline-md text-on-surface">امنیت</h3>
+<span class="material-symbols-outlined text-outline" data-icon="shield">shield</span>
+</div>
+<div class="luxury-card rounded-xl p-card-padding divide-y divide-outline-variant/10">
+<div class="pb-4 flex items-center justify-between">
+<div>
+<p class="font-body-md text-body-md font-semibold">احراز هویت دو مرحله‌ای</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">افزایش امنیت ورود به پنل</p>
+</div>
+<label class="toggle-switch">
+<input checked="" type="checkbox"/>
+<span class="slider"></span>
+</label>
+</div>
+<button class="pt-4 w-full flex items-center justify-between group">
+<div class="text-right">
+<p class="font-body-md text-body-md font-semibold">تاریخچه نشست‌ها</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">۳ دستگاه فعال شناسایی شد</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-active:-translate-x-1 transition-transform" data-icon="chevron_left">chevron_left</span>
+</button>
+</div>
+</section>
+<!-- Departments / Sections -->
+<section class="space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-md text-headline-md text-on-surface">بخش‌ها</h3>
+<span class="material-symbols-outlined text-outline" data-icon="grid_view">grid_view</span>
+</div>
+<div class="grid grid-cols-1 gap-3">
+<div class="luxury-card rounded-xl p-4 flex flex-row-reverse items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="flex flex-row-reverse items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="person">person</span>
+</div>
+<span class="font-body-md text-body-md font-medium">حساب کاربری</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant" data-icon="chevron_left">chevron_left</span>
+</div>
+<div class="luxury-card rounded-xl p-4 flex flex-row-reverse items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="flex flex-row-reverse items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="description">description</span>
+</div>
+<span class="font-body-md text-body-md font-medium">اسناد</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant" data-icon="chevron_left">chevron_left</span>
+</div>
+<div class="luxury-card rounded-xl p-4 flex flex-row-reverse items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="flex flex-row-reverse items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="payments">payments</span>
+</div>
+<span class="font-body-md text-body-md font-medium">هزینه‌ها</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant" data-icon="chevron_left">chevron_left</span>
+</div>
+<div class="luxury-card rounded-xl p-4 flex flex-row-reverse items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="flex flex-row-reverse items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="analytics">analytics</span>
+</div>
+<span class="font-body-md text-body-md font-medium">گزارشات</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant" data-icon="chevron_left">chevron_left</span>
+</div>
+</div>
+</section>
+<!-- Logout CTA -->
+<button class="w-full py-4 border-2 border-error/20 text-error font-headline-md text-headline-md rounded-xl flex items-center justify-center gap-3 active:bg-error/5 transition-colors mt-8 mb-4">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+            خروج از حساب
+        </button>
+</main>
+<!-- Bottom Navigation Bar (Mobile) -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-xl bg-surface-container-highest dark:bg-surface-container shadow-[0_-4px_10px_rgba(0,0,0,0.05)] flex flex-row-reverse justify-around items-center h-16 md:hidden px-4 safe-pb">
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-sm text-label-sm">خانه</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="list_alt">list_alt</span>
+<span class="font-label-sm text-label-sm">درخواست</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span class="font-label-sm text-label-sm">هزینه</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="verified">verified</span>
+<span class="font-label-sm text-label-sm">تایید</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full p-2 w-14 h-14 -translate-y-4 shadow-md scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="settings_applications">settings_applications</span>
+<span class="font-label-sm text-label-sm">تنظیمات</span>
+</a>
+</nav>
+<script>
+        // Micro-interactions
+        document.querySelectorAll('.luxury-card').forEach(card => {
+            card.addEventListener('touchstart', () => {
+                card.style.transform = 'scale(0.98)';
+            });
+            card.addEventListener('touchend', () => {
+                card.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+</body></html>

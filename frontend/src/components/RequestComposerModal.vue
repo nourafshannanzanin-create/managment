@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import BaseModal from './BaseModal.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -11,7 +11,14 @@ defineProps({
 
 defineEmits(['close'])
 
-const { state, setRequestFiles, removeAttachment, submitRequest } = useWorkflowHub()
+const {
+  state,
+  requestManagerAssigneeOptions,
+  setRequestManager,
+  setRequestFiles,
+  removeAttachment,
+  submitRequest,
+} = useWorkflowHub()
 </script>
 
 <template>
@@ -37,10 +44,17 @@ const { state, setRequestFiles, removeAttachment, submitRequest } = useWorkflowH
         </label>
 
         <label class="field-shell">
-          <span>ارجاع به</span>
-          <select v-model="form.manager">
+          <span>ارجاع به مدیر</span>
+          <select :value="form.manager" @change="setRequestManager($event.target.value)">
             <option value="">انتخاب مدیر</option>
             <option v-for="item in state.directories.managers" :key="item.slug" :value="item.slug">{{ item.name }}</option>
+          </select>
+        </label>
+
+        <label class="field-shell">
+          <span>ارجاع به مدیران</span>
+          <select v-model="form.managerAssigneeIds" multiple :disabled="!form.manager">
+            <option v-for="item in requestManagerAssigneeOptions" :key="item.id" :value="item.id">{{ item.name }}</option>
           </select>
         </label>
 

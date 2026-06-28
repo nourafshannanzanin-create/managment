@@ -72,6 +72,12 @@ def access_role_label(role: str) -> str:
     }[role]
 
 
+def normalize_person_name(value: str | None) -> str:
+    if not value:
+        return ""
+    return value.replace("آرمان کریمی", "امید کریمی")
+
+
 def priority_label(value: str) -> str:
     return dict(RequestPriority.choices).get(value, value)
 
@@ -132,7 +138,7 @@ def serialize_current_user(user: User) -> dict:
     return {
         "id": user.id,
         "slug": user.slug,
-        "name": user.full_name,
+        "name": normalize_person_name(user.full_name),
         "role": user.job_title,
         "accessRole": user.role,
         "department": user.department.name if user.department else "",
@@ -149,12 +155,12 @@ def serialize_current_user(user: User) -> dict:
 def serialize_user(user: User) -> dict:
     return {
         "id": user.id,
-        "name": user.full_name,
+        "name": normalize_person_name(user.full_name),
         "email": user.email,
         "role": access_role_label(user.role),
         "accessRole": user.role,
         "department": user.department.name if user.department else "بدون واحد",
-        "manager": user.manager.full_name if user.manager else "تعیین نشده",
+        "manager": normalize_person_name(user.manager.full_name) if user.manager else "تعیین نشده",
         "kpi": user.job_title,
         "joinedAt": format_date(user.created_at.date()),
         "joinedAtIso": format_date(user.created_at.date()),
@@ -166,8 +172,10 @@ def serialize_request(request_obj: Request) -> dict:
     return {
         "id": request_obj.code,
         "title": request_obj.title,
-        "owner": request_obj.requester.full_name if request_obj.requester else "نامشخص",
-        "manager": request_obj.manager.full_name if request_obj.manager else "تعیین نشده",
+        "owner": normalize_person_name(request_obj.requester.full_name) if request_obj.requester else "نامشخص",
+        "manager": normalize_person_name(request_obj.manager.full_name) if request_obj.manager else "تعیین نشده",
+        "managerAssignees": [normalize_person_name(item.full_name) for item in request_obj.assigned_managers.all()],
+        "managerAssigneeIds": [item.id for item in request_obj.assigned_managers.all()],
         "priority": priority_label(request_obj.priority),
         "status": request_status_label(request_obj.status),
         "department": request_obj.department.name if request_obj.department else "بدون واحد",
@@ -188,7 +196,7 @@ def serialize_expense(expense: Expense) -> dict:
         "amount": format_money(expense.amount),
         "amountRaw": float(expense.amount),
         "category": expense_category_label(expense.category),
-        "owner": expense.owner.full_name if expense.owner else "نامشخص",
+        "owner": normalize_person_name(expense.owner.full_name) if expense.owner else "نامشخص",
         "status": expense_status_label(expense.status),
         "progress": expense.progress,
         "department": expense.department.name if expense.department else "بدون واحد",
@@ -209,7 +217,7 @@ def serialize_approval(document: Document, current_user: User | None = None) -> 
     return {
         "id": document.code,
         "title": document.title,
-        "owner": document.owner.full_name if document.owner else "نامشخص",
+        "owner": normalize_person_name(document.owner.full_name) if document.owner else "نامشخص",
         "type": document.document_type,
         "status": document_status_label(document.status),
         "department": document.department.name if document.department else "بدون واحد",
@@ -217,7 +225,7 @@ def serialize_approval(document: Document, current_user: User | None = None) -> 
         "uploadedAtIso": format_date(document.uploaded_at.date()),
         "risk": document_risk_label(document.risk),
         "summary": document.description or "",
-        "assignees": [assignment.approver.full_name for assignment in document.approval_assignments.all()],
+        "assignees": [normalize_person_name(assignment.approver.full_name) for assignment in document.approval_assignments.all()],
         "previewUrl": media_url(document.file_name),
         "downloadUrl": media_url(document.file_name),
         "previewKind": preview_kind_for_file(document.file_name),
@@ -233,7 +241,7 @@ def visible_requests(user: User):
     return (
         Request.objects.filter(requester_id__in=user_ids)
         .select_related("requester", "manager", "department")
-        .prefetch_related("attachments", "timeline_items")
+        .prefetch_related("assigned_managers", "attachments", "timeline_items")
         .order_by("-created_at")
     )
 
@@ -270,7 +278,7 @@ def visible_reports_payload(user: User) -> dict:
     expenses_qs = list(visible_expenses(user))
     expense_total = sum(Decimal(item.amount) for item in expenses_qs)
     request_status = Counter(item.status for item in requests_qs)
-    top_submitters = Counter(item.owner.full_name for item in expenses_qs if item.owner)
+    top_submitters = Counter(normalize_person_name(item.owner.full_name) for item in expenses_qs if item.owner)
     return {
         "summary": {
             "users": users_qs.count(),
@@ -378,7 +386,7 @@ def build_bootstrap_payload(user: User) -> dict:
         "activities": [
             {
                 "id": item.id,
-                "user": item.actor_name,
+                "user": normalize_person_name(item.actor_name),
                 "action": item.action,
                 "detail": item.detail,
                 "time": relative_time(item.created_at),
@@ -403,10 +411,10 @@ def build_bootstrap_payload(user: User) -> dict:
         "directories": {
             "departments": [{"code": item.code, "name": item.name} for item in departments],
             "managers": [
-                {"id": item.id, "slug": item.slug, "name": item.full_name, "role": access_role_label(item.role)}
+                {"id": item.id, "slug": item.slug, "name": normalize_person_name(item.full_name), "role": access_role_label(item.role)}
                 for item in users_qs
                 if item.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER, UserRole.MANAGER}
             ],
-            "users": [{"id": item.id, "name": item.full_name} for item in users_qs],
+            "users": [{"id": item.id, "name": normalize_person_name(item.full_name)} for item in users_qs],
         },
     }

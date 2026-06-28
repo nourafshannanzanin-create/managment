@@ -143,6 +143,7 @@ class Request(models.Model):
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, blank=True, null=True, related_name="requests")
     requester = models.ForeignKey(User, on_delete=models.CASCADE, related_name="created_requests")
     manager = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="managed_requests")
+    assigned_managers = models.ManyToManyField(User, blank=True, related_name="assigned_requests")
     deadline = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
@@ -236,3 +237,7 @@ class AuditLog(TimeStampedModel):
 
     class Meta:
         db_table = "audit_logs"
+
+
+
+

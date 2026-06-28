@@ -2,8 +2,8 @@
 import { computed, onMounted, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 
-import AppSidebar from './components/AppSidebar.vue'
 import ApprovalDetailModal from './components/ApprovalDetailModal.vue'
+import AppTopNav from './components/AppTopNav.vue'
 import DocumentComposerModal from './components/DocumentComposerModal.vue'
 import ExpenseComposerModal from './components/ExpenseComposerModal.vue'
 import RequestComposerModal from './components/RequestComposerModal.vue'
@@ -31,7 +31,6 @@ const {
   closeUserComposer,
   closeDocumentComposer,
   closeSignatureComposer,
-  toggleSidebar,
 } = hub
 
 const isAuthRoute = computed(() => route.path === '/login')
@@ -53,18 +52,12 @@ onMounted(() => {
 
 <template>
   <div class="app-shell" :class="layoutClass">
-    <AppSidebar
-      v-if="!isAuthRoute"
-      :mobile-menu-open="state.mobileMenuOpen"
-      :toggle-sidebar="toggleSidebar"
-    />
+    <AppTopNav v-if="!isAuthRoute" />
 
     <main class="shell-main">
       <div class="shell-content">
         <RouterView v-slot="{ Component }">
-          <Transition name="route-fade" mode="out-in">
-            <component :is="Component" />
-          </Transition>
+          <component :is="Component" :key="route.fullPath" />
         </RouterView>
       </div>
     </main>
