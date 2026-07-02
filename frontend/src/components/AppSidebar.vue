@@ -10,11 +10,24 @@ defineProps({
 })
 
 const route = useRoute()
-const { state, visibleNavItems, logout } = useWorkflowHub()
+const { state, logout } = useWorkflowHub()
 
 const displayName = computed(() => {
   const name = state.currentUser.name || 'کاربر'
   return name === 'آرمان کریمی' ? 'امید کریمی' : name
+})
+
+const navItems = computed(() => {
+  const items = [
+    { to: '/dashboard', label: 'داشبورد', icon: 'dashboard' },
+    { to: '/requests', label: 'درخواست‌ها', icon: 'assignment' },
+  ]
+  if (state.currentUser.canAccessExpenses !== false) items.push({ to: '/expenses', label: 'هزینه‌ها', icon: 'payments' })
+  if (state.currentUser.canApproveDocuments) items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check' })
+  if (state.currentUser.canViewReports) items.push({ to: '/reports', label: 'گزارشات', icon: 'monitoring' })
+  if (state.currentUser.canAccessUsers || state.currentUser.canManageUsers) items.push({ to: '/users', label: 'کاربران', icon: 'group' })
+  items.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
+  return items
 })
 </script>
 
@@ -43,7 +56,7 @@ const displayName = computed(() => {
 
     <nav class="sidebar-nav">
       <RouterLink
-        v-for="item in visibleNavItems"
+        v-for="item in navItems"
         :key="item.to"
         :to="item.to"
         :class="['nav-link', route.path === item.to && 'is-active']"

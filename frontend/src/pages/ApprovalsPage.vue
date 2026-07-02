@@ -26,21 +26,29 @@ const {
 const approvalFilters = computed(() => state.filters.approvals)
 
 function renderApprovalCard(item, history = false) {
+  const status = String(item.status || '')
+  const isApproved = status.includes('تایید')
+  const isRejected = status.includes('رد')
+  const accentClass = isApproved ? 'bg-emerald-500' : (isRejected ? 'bg-rose-500' : (history ? 'bg-primary' : 'bg-error'))
+  const shellClass = isApproved
+    ? 'bg-emerald-50 border-emerald-200'
+    : (isRejected ? 'bg-rose-50 border-rose-200' : 'bg-surface-container-lowest border-outline-variant/10')
+
   return `
-    <div class="bg-surface-container-lowest p-card-padding rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.04)] border border-outline-variant/10 relative overflow-hidden group">
-      <div class="absolute top-0 right-0 w-1.5 h-full ${history ? 'bg-primary' : 'bg-error'}"></div>
-      <div class="flex justify-between items-start mb-4">
+    <div class="${shellClass} rounded-xl shadow-[0_4px_18px_rgba(0,0,0,0.04)] border relative overflow-hidden group p-4 min-h-[148px]">
+      <div class="absolute top-0 right-0 w-1.5 h-full ${accentClass}"></div>
+      <div class="flex justify-between items-start mb-3">
         <div class="space-y-1">
           <span class="font-label-sm text-label-sm text-on-surface-variant/70 block">شناسه سند</span>
           <code class="font-label-sm text-label-sm font-bold text-primary tracking-wider">${escapeHtml(item.id)}</code>
         </div>
         <div class="${statusTone(item.status)} px-3 py-1 rounded-full font-label-sm text-label-sm">${escapeHtml(item.status)}</div>
       </div>
-      <div class="space-y-1">
+      <div class="space-y-1 min-h-[52px]">
         <span class="font-label-sm text-label-sm text-on-surface-variant/70 block">عنوان سند</span>
-        <p class="font-body-md text-body-md text-on-surface font-semibold">${escapeHtml(item.title)}</p>
+        <p class="font-body-md text-body-md text-on-surface font-semibold line-clamp-2">${escapeHtml(item.title)}</p>
       </div>
-      <div class="mt-6 pt-4 border-t border-outline-variant/10 flex justify-between items-center">
+      <div class="mt-4 pt-3 border-t border-outline-variant/10 flex justify-between items-center">
         <span class="font-label-sm text-label-sm text-on-surface-variant">${escapeHtml(item.owner)} · ${escapeHtml(item.department)}</span>
         <button class="text-primary font-label-sm text-label-sm flex items-center gap-1 approval-detail-btn" data-approval-id="${escapeHtml(item.id)}">
           مشاهده جزئیات
@@ -72,7 +80,11 @@ function resetFilters() {
 function hydrate(root) {
   const buttons = root.querySelectorAll('section.grid button')
   if (buttons[0]) buttons[0].onclick = () => openDocumentComposer()
-  if (buttons[1]) buttons[1].onclick = () => openSignatureComposer()
+  if (buttons[1]) {
+    buttons[1].onclick = () => openSignatureComposer()
+    const label = buttons[1].querySelector('span:last-child')
+    if (label) label.textContent = signatureState.hasSignature ? 'ویرایش امضا' : 'ثبت امضا'
+  }
 
   const searchInput = root.querySelector('input[type="text"]')
   if (searchInput) {
@@ -86,7 +98,11 @@ function hydrate(root) {
   if (filterSection) filterSection.onclick = () => { filterOpen.value = true }
 
   const warning = root.querySelector('.bg-primary\\/5 p.font-label-sm')
-  if (warning) warning.textContent = signatureState.hasSignature ? 'امضای دیجیتال شما ثبت شده و آماده استفاده است.' : 'برای تایید اسناد ابتدا امضای خود را در پنل کاربری ثبت کنید.'
+  if (warning) {
+    warning.textContent = signatureState.hasSignature
+      ? 'امضای دیجیتال شما ثبت شده و روی فایل نهایی اعمال می‌شود.'
+      : 'برای تایید اسناد ابتدا امضای خود را در پنل کاربری ثبت کنید.'
+  }
 
   const sections = root.querySelectorAll('main > section')
   const pendingSection = sections[3]
@@ -117,8 +133,12 @@ watch(() => [approvalInbox.value, approvalHistory.value, signatureState.hasSigna
 </script>
 
 <template>
-  <StitchRuntimePage ref="runtime" stitch-id="_6" @ready="hydrate" />
+  <StitchRuntimePage v-if="state.currentUser.canApproveDocuments" ref="runtime" stitch-id="_6" @ready="hydrate" />
+  <section v-else class="page-shell" style="padding: 32px;">
+    دسترسی به صفحه تاییدیه ها برای شما فعال نیست.
+  </section>
   <FilterDialog
+    v-if="state.currentUser.canApproveDocuments"
     :open="filterOpen"
     title="فیلتر تاییدها"
     :filters="approvalFilters"

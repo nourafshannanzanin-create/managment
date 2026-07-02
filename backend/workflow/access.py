@@ -5,11 +5,15 @@ from typing import Callable
 
 from django.http import HttpRequest
 
-from workflow.models import Organization, OrganizationMembership, User, UserRole
+from workflow.models import Organization, OrganizationMembership, SectionAccessGrant, User, UserRole
 
 MANAGER_ROLES = {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER, UserRole.MANAGER}
 DEFAULT_ORGANIZATION_CODE = "default-workflow"
 DEFAULT_ORGANIZATION_NAME = "سازمان پیش فرض"
+SECTION_USERS = "users"
+SECTION_REPORTS = "reports"
+SECTION_APPROVALS = "approvals"
+SECTION_EXPENSES = "expenses"
 
 
 def is_manager(user: User) -> bool:
@@ -51,16 +55,44 @@ def visible_users(user: User):
     return User.objects.filter(pk=user.pk)
 
 
+def has_section_access(user: User, section_key: str) -> bool:
+    if user.role == UserRole.ADMIN:
+        return True
+
+    organization = get_user_organization(user)
+    grants = SectionAccessGrant.objects.filter(organization=organization, section_key=section_key)
+    if grants.exists():
+        return grants.filter(user=user).exists()
+
+    if section_key == SECTION_USERS:
+        return False
+    if section_key == SECTION_REPORTS:
+        return False
+    if section_key == SECTION_APPROVALS:
+        return is_manager(user)
+    if section_key == SECTION_EXPENSES:
+        return True
+    return True
+
+
+def can_access_users(user: User) -> bool:
+    return has_section_access(user, SECTION_USERS)
+
+
 def can_manage_users(user: User) -> bool:
     return user.role == UserRole.ADMIN
 
 
 def can_view_reports(user: User) -> bool:
-    return user.role == UserRole.ADMIN
+    return has_section_access(user, SECTION_REPORTS)
 
 
 def can_approve_documents(user: User) -> bool:
-    return is_manager(user)
+    return has_section_access(user, SECTION_APPROVALS)
+
+
+def can_access_expenses(user: User) -> bool:
+    return has_section_access(user, SECTION_EXPENSES)
 
 
 def attach_user(request: HttpRequest, user: User) -> None:

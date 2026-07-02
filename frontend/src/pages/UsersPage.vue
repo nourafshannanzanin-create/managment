@@ -1,15 +1,39 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 
-import FilterDialog from '../components/FilterDialog.vue'
 import StitchRuntimePage from '../components/StitchRuntimePage.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { escapeHtml, wirePageNavigation } from '../utils/stitch'
 
 const runtime = ref(null)
-const filterOpen = ref(false)
-const { filteredUsers, navigateTo, openUserComposer, resetPageFilters, state, updatePageFilter, userPeople, visibleNavItems } = useWorkflowHub()
-const userFilters = computed(() => state.filters.users)
+const searchQuery = ref('')
+const activeCategory = ref('all')
+const { navigateTo, openUserComposer, state, visibleNavItems } = useWorkflowHub()
+
+const categoryButtons = computed(() => [
+  { key: 'all', label: 'همه افراد' },
+  { key: 'managers', label: 'مدیران' },
+  { key: 'experts', label: 'کارشناسان' },
+  { key: 'it', label: 'فناوری اطلاعات' },
+])
+
+const filteredUsers = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+
+  return state.users.filter((item) => {
+    const matchesCategory =
+      activeCategory.value === 'all' ||
+      (activeCategory.value === 'managers' && ['admin', 'executive_manager', 'manager'].includes(item.accessRole)) ||
+      (activeCategory.value === 'experts' && item.accessRole === 'employee') ||
+      (activeCategory.value === 'it' && String(item.department || '').includes('فناوری اطلاعات'))
+
+    if (!matchesCategory) return false
+    if (!query) return true
+
+    return ['name', 'email', 'role', 'department', 'manager', 'status']
+      .some((field) => String(item[field] || '').toLowerCase().includes(query))
+  })
+})
 
 function renderUserCard(item) {
   const initial = escapeHtml((item.name || '?').slice(0, 1))
@@ -43,45 +67,51 @@ function renderUserCard(item) {
             <span class="material-symbols-outlined text-[20px]">hub</span>
             <span class="font-label-sm text-label-sm">${escapeHtml(item.department)}</span>
           </div>
-          <span class="text-outline text-[11px] font-label-sm">عضویت: ${escapeHtml(item.joinedAt)}</span>
+          <span class="inline-block px-2 py-0.5 bg-surface-variant text-on-surface-variant rounded font-label-sm text-label-sm">${escapeHtml(item.status)}</span>
         </div>
       </div>
     </div>
   `
 }
 
-function filterSummary() {
-  const parts = []
-  if (userFilters.value.query) parts.push(`جستجو: ${userFilters.value.query}`)
-  if (userFilters.value.person) parts.push(`شخص: ${userFilters.value.person}`)
-  if (userFilters.value.startDate) parts.push(`از: ${userFilters.value.startDate}`)
-  if (userFilters.value.endDate) parts.push(`تا: ${userFilters.value.endDate}`)
-  return parts.join(' | ') || 'برای فیلتر کلیک کنید'
-}
-
-function applyFilters(filters) {
-  Object.entries(filters).forEach(([key, value]) => updatePageFilter('users', key, value))
-  filterOpen.value = false
-}
-
-function resetFilters() {
-  resetPageFilters('users')
-}
-
 function hydrate(root) {
   const searchInput = root.querySelector('input[type="text"]')
   if (searchInput) {
-    searchInput.readOnly = true
-    searchInput.value = filterSummary()
-    searchInput.placeholder = 'برای فیلتر کلیک کنید'
-    searchInput.onclick = () => { filterOpen.value = true }
+    searchInput.readOnly = false
+    searchInput.value = searchQuery.value
+    searchInput.placeholder = 'جستجو در کاربران'
+    searchInput.oninput = (event) => {
+      searchQuery.value = event.target.value || ''
+    }
   }
 
-  const filterSection = root.querySelector('section.mb-6')
-  if (filterSection) filterSection.onclick = () => { filterOpen.value = true }
+  const tuneButton = root.querySelector('button.material-symbols-outlined.absolute')
+  if (tuneButton) tuneButton.remove()
+
+  const filterSection = root.querySelector('.flex.gap-2.overflow-x-auto')
+  if (filterSection) {
+    filterSection.innerHTML = categoryButtons.value.map((item) => {
+      const isActive = activeCategory.value === item.key
+      return `
+        <button
+          type="button"
+          data-user-category="${item.key}"
+          class="whitespace-nowrap px-4 py-2 rounded-full font-label-sm text-label-sm ${isActive ? 'bg-primary text-on-primary shadow-md' : 'bg-surface-container-highest text-on-surface-variant'}"
+        >
+          ${escapeHtml(item.label)}
+        </button>
+      `
+    }).join('')
+
+    filterSection.querySelectorAll('[data-user-category]').forEach((button) => {
+      button.onclick = () => {
+        activeCategory.value = button.getAttribute('data-user-category') || 'all'
+      }
+    })
+  }
 
   const stats = root.querySelectorAll('.grid.grid-cols-2 .font-stat-value')
-  if (stats[0]) stats[0].textContent = String(state.users.length)
+  if (stats[0]) stats[0].textContent = String(filteredUsers.value.length)
   if (stats[1]) stats[1].textContent = String(filteredUsers.value.filter((item) => item.status === 'فعال').length)
 
   const heading = root.querySelector('h2.font-headline-md')
@@ -89,7 +119,9 @@ function hydrate(root) {
 
   const cardGroups = root.querySelectorAll('.space-y-4')
   const usersContainer = cardGroups[cardGroups.length - 1]
-  if (usersContainer) usersContainer.innerHTML = filteredUsers.value.map(renderUserCard).join('') || '<div class="bg-surface-container-lowest p-card-padding rounded-2xl text-on-surface-variant">کاربری یافت نشد.</div>'
+  if (usersContainer) {
+    usersContainer.innerHTML = filteredUsers.value.map(renderUserCard).join('') || '<div class="bg-surface-container-lowest p-card-padding rounded-2xl text-on-surface-variant">کاربری یافت نشد.</div>'
+  }
 
   wirePageNavigation(root, navigateTo, '/users', visibleNavItems.value)
 }
@@ -99,18 +131,12 @@ function rehydrate() {
   if (root) hydrate(root)
 }
 
-watch(() => [filteredUsers.value, state.filters.users, state.users.length], rehydrate, { deep: true })
+watch(() => [filteredUsers.value, activeCategory.value, searchQuery.value, state.users.length], rehydrate, { deep: true })
 </script>
 
 <template>
-  <StitchRuntimePage ref="runtime" stitch-id="_2" @ready="hydrate" />
-  <FilterDialog
-    :open="filterOpen"
-    title="فیلتر کاربران"
-    :filters="userFilters"
-    :people="userPeople"
-    @close="filterOpen = false"
-    @apply="applyFilters"
-    @reset="resetFilters"
-  />
+  <StitchRuntimePage v-if="state.currentUser.canAccessUsers || state.currentUser.canManageUsers" ref="runtime" stitch-id="_2" @ready="hydrate" />
+  <section v-else class="page-shell" style="padding: 32px;">
+    دسترسی به صفحه کاربران برای شما فعال نیست.
+  </section>
 </template>

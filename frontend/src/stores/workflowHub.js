@@ -20,6 +20,8 @@ function createCurrentUser() {
     email: '',
     organization: '',
     canManageUsers: false,
+    canAccessUsers: false,
+    canAccessExpenses: true,
     canViewReports: false,
     canApproveDocuments: false,
     isManager: false,
@@ -73,6 +75,21 @@ function createDocumentForm() {
   }
 }
 
+function createSettingsState() {
+  return {
+    organizationName: '',
+    systemId: '',
+    security: {
+      twoFactorRequired: true,
+      recentSessionCount: 0,
+      recentSessionLabel: '',
+    },
+    sections: [],
+    organizationUsers: [],
+    canEdit: false,
+  }
+}
+
 const state = reactive({
   authToken: localStorage.getItem(TOKEN_KEY) || '',
   sessionReady: false,
@@ -97,6 +114,7 @@ const state = reactive({
   insights: [],
   expenseSummary: [],
   approvalMetrics: { pending: 0, approved: 0, rejected: 0 },
+  settings: createSettingsState(),
   settingsCards: [],
   directories: {
     departments: [],
@@ -171,6 +189,10 @@ function resetDocumentForm() {
   Object.assign(state.documentForm, createDocumentForm())
 }
 
+function resetSettingsState() {
+  Object.assign(state.settings, createSettingsState())
+}
+
 function replaceItems(target, items) {
   target.splice(0, target.length, ...(items || []))
 }
@@ -214,6 +236,7 @@ function clearSessionState() {
   replaceItems(state.activities, [])
   replaceItems(state.expenseSummary, [])
   replaceItems(state.settingsCards, [])
+  resetSettingsState()
   state.directories.departments = []
   state.directories.managers = []
   state.directories.users = []
@@ -258,16 +281,16 @@ const selectedApproval = computed(
 const selectedRequestTimeline = computed(() => requestDetailState.items[selectedState.requestId]?.timeline ?? [])
 
 const canManageUsers = computed(() => state.currentUser.canManageUsers)
+const canAccessUsers = computed(() => state.currentUser.canAccessUsers || canManageUsers.value)
 const canViewReports = computed(() => state.currentUser.canViewReports)
 const canApproveDocuments = computed(() => state.currentUser.canApproveDocuments)
 
 const visibleNavItems = computed(() => {
   const items = [
     { to: '/dashboard', label: 'داشبورد', icon: 'dashboard' },
-    { to: '/requests', label: 'درخواست ها', icon: 'assignment' },
-    { to: '/expenses', label: 'هزینه ها', icon: 'payments' },
+    { to: '/requests', label: 'درخواست‌ها', icon: 'assignment' },
   ]
-  if (canApproveDocuments.value) items.push({ to: '/approvals', label: 'تاییدیه ها', icon: 'fact_check' })
+  if (canApproveDocuments.value) items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check' })
   if (canViewReports.value) items.push({ to: '/reports', label: 'گزارشات', icon: 'monitoring' })
   if (canManageUsers.value) items.push({ to: '/users', label: 'کاربران', icon: 'group' })
 
@@ -421,6 +444,7 @@ function hydrateBootstrap(payload) {
   replaceItems(state.insights, payload.insights)
   replaceItems(state.expenseSummary, payload.expenseSummary)
   replaceItems(state.settingsCards, payload.settingsCards)
+  if (payload.settings) Object.assign(state.settings, createSettingsState(), payload.settings)
   Object.assign(state.approvalMetrics, payload.approvalMetrics || {})
   state.directories.departments = payload.directories?.departments || []
   state.directories.managers = payload.directories?.managers || []
@@ -461,7 +485,48 @@ async function loadReports(force = false) {
   state.reportSummary = payload.summary
   state.reportStatus = payload.requestStatus
   state.topSubmitters = payload.topSubmitters
-  replaceItems(state.reports, payload.requests?.length ? state.reports : state.reports)
+  replaceItems(state.reports, payload.reports || [])
+}
+
+async function loadSettings(force = false) {
+  if (!state.authToken) return
+  if (state.settings.systemId && !force) return
+  const response = await authorizedFetch('/settings/profile')
+  const payload = repairPayload(await response.json())
+  Object.assign(state.settings, createSettingsState(), payload)
+  replaceItems(state.settingsCards, payload.sections || [])
+  state.settings.organizationUsers = payload.organizationUsers || []
+  state.currentUser.organization = payload.organizationName || state.currentUser.organization
+}
+
+async function exportReport(reportId, format = 'csv') {
+  if (!reportId) return
+  const response = await authorizedFetch(`/reports/${reportId}/export?format=${encodeURIComponent(format)}`)
+  const blob = await response.blob()
+  const disposition = response.headers.get('Content-Disposition') || ''
+  const match = disposition.match(/filename="([^"]+)"/i)
+  const fileName = match?.[1] || `${reportId}-report.${format === 'csv' ? 'csv' : 'xlsx'}`
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(objectUrl)
+}
+
+async function saveSettings(nextSettings) {
+  const response = await authorizedFetch('/settings/profile', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(nextSettings),
+  })
+  const payload = repairPayload(await response.json())
+  Object.assign(state.settings, createSettingsState(), payload)
+  replaceItems(state.settingsCards, payload.sections || [])
+  state.settings.organizationUsers = payload.organizationUsers || []
+  state.currentUser.organization = payload.organizationName || state.currentUser.organization
 }
 
 async function restoreSession() {
@@ -615,6 +680,12 @@ export function useWorkflowHub() {
 
   function openDocumentComposer() {
     resetDocumentForm()
+    if (state.directories.managers.length === 1) {
+      state.documentForm.assigneeIds = [state.directories.managers[0].id]
+    }
+    if (!state.documentForm.department && state.directories.departments.length === 1) {
+      state.documentForm.department = state.directories.departments[0].code
+    }
     modalState.documentComposer = true
   }
 
@@ -661,10 +732,14 @@ export function useWorkflowHub() {
     state.documentForm.file = file || null
   }
 
-  async function submitRequest() {
+  async function submitRequest(action = 'refer') {
     state.requestSubmitting = true
     state.lastError = ''
     try {
+      if (!state.requestForm.manager) {
+        throw new Error('انتخاب مدیر الزامی است.')
+      }
+
       const formData = new FormData()
       formData.append('title', state.requestForm.title)
       formData.append('description', state.requestForm.description)
@@ -672,6 +747,7 @@ export function useWorkflowHub() {
       formData.append('manager', state.requestForm.manager)
       formData.append('managerAssigneeIds', state.requestForm.managerAssigneeIds.join(','))
       formData.append('priority', state.requestForm.priority)
+      formData.append('action', action)
       if (state.requestForm.deadline) formData.append('deadline', jalaliToIso(state.requestForm.deadline))
       state.requestForm.attachments.forEach((file) => formData.append('attachments', file))
       await authorizedFetch('/requests', { method: 'POST', body: formData })
@@ -685,7 +761,7 @@ export function useWorkflowHub() {
     }
   }
 
-  async function submitExpense() {
+  async function submitExpense(action = 'refer') {
     state.expenseSubmitting = true
     state.lastError = ''
     try {
@@ -694,6 +770,7 @@ export function useWorkflowHub() {
       formData.append('amount', state.expenseForm.amount)
       formData.append('expenseDate', jalaliToIso(state.expenseForm.expenseDate))
       formData.append('department', state.expenseForm.department)
+      formData.append('action', action)
       if (state.expenseForm.invoice) formData.append('invoice', state.expenseForm.invoice)
       await authorizedFetch('/expenses', { method: 'POST', body: formData })
       await loadBootstrapData(true)
@@ -732,6 +809,13 @@ export function useWorkflowHub() {
     state.documentSubmitting = true
     state.lastError = ''
     try {
+      if (!state.documentForm.assigneeIds.length) {
+        throw new Error('حداقل یک مدیر دریافت کننده را انتخاب کنید.')
+      }
+      if (!state.documentForm.file) {
+        throw new Error('فایل سند الزامی است.')
+      }
+
       const formData = new FormData()
       formData.append('title', state.documentForm.title)
       formData.append('description', state.documentForm.description)
@@ -832,6 +916,9 @@ export function useWorkflowHub() {
     ensureAuthenticatedRedirect,
     loadBootstrapData,
     loadReports,
+    loadSettings,
+    saveSettings,
+    exportReport,
     openRequestDetail,
     closeRequestDetail,
     openApprovalDetail,

@@ -106,8 +106,12 @@ watch(() => [filteredExpenses.value, state.filters.expenses], rehydrate, { deep:
 </script>
 
 <template>
-  <StitchRuntimePage ref="runtime" stitch-id="_4" @ready="hydrate" />
+  <StitchRuntimePage v-if="state.currentUser.canAccessExpenses !== false" ref="runtime" stitch-id="_4" @ready="hydrate" />
+  <section v-else class="page-shell" style="padding: 32px;">
+    دسترسی به صفحه هزینه ها برای شما فعال نیست.
+  </section>
   <FilterDialog
+    v-if="state.currentUser.canAccessExpenses !== false"
     :open="filterOpen"
     title="فیلتر هزینه‌ها"
     :filters="expenseFilters"

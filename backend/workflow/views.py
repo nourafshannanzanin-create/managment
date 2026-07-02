@@ -1,23 +1,29 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 import os
 from datetime import date, timedelta
 from functools import wraps
+from pathlib import Path
 
+from django.conf import settings
 from django.core.management import call_command
 from django.db import connection, transaction
 from django.db.utils import OperationalError, ProgrammingError
-from django.http import HttpRequest, HttpResponseNotAllowed, JsonResponse
+from django.http import FileResponse, HttpRequest, HttpResponse, HttpResponseNotAllowed, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
 from workflow.access import (
     attach_user,
+    can_access_expenses,
+    can_access_users,
     can_approve_documents,
     can_manage_users,
     can_view_reports,
     ensure_user_memberships,
+    get_user_organization,
     is_manager,
     require_roles,
     visible_users,
@@ -36,10 +42,12 @@ from workflow.models import (
     ExpenseCategory,
     ExpenseStatus,
     OrganizationMembership,
+    OrganizationPreference,
     Request,
     RequestPriority,
     RequestStatus,
     RequestTimeline,
+    SectionAccessGrant,
     User,
     UserRole,
     UserSignature,
@@ -51,6 +59,7 @@ from workflow.services import (
     build_bootstrap_payload,
     format_money,
     next_code,
+    render_report_export,
     save_uploaded_file,
     serialize_approval,
     serialize_current_user,
@@ -81,6 +90,59 @@ def parse_json(request: HttpRequest) -> dict:
         return json.loads(request.body.decode("utf-8") or "{}")
     except json.JSONDecodeError:
         return {}
+
+
+def build_settings_profile_payload(user: User) -> dict:
+    organization = get_user_organization(user)
+    preference, _ = OrganizationPreference.objects.get_or_create(organization=organization)
+    organization_users_qs = visible_users(user).select_related("department", "manager").order_by("full_name")
+    recent_logins = list(
+        AuditLog.objects.filter(actor_id__in=organization_users_qs.values_list("id", flat=True), action="login").order_by("-created_at")[:3]
+    )
+    recent_session_label = "بدون نشست اخیر"
+    if recent_logins:
+        recent_session_label = f"{len(recent_logins)} دستگاه فعال شناسایی شد"
+
+    sections = [
+        {"key": "users", "title": "حساب کاربری", "description": "مدیریت نقش ها و دسترسی", "route": "/users"},
+        {"key": "approvals", "title": "اسناد", "description": "گردش کار امضای دیجیتال", "route": "/approvals"},
+        {"key": "expenses", "title": "هزینه ها", "description": "ثبت، پیگیری و کنترل هزینه", "route": "/expenses"},
+        {"key": "reports", "title": "گزارشات", "description": "نمای مدیریتی و تحلیل عملکرد", "route": "/reports"},
+    ]
+    section_payload = []
+    for section in sections:
+        grants = SectionAccessGrant.objects.filter(organization=organization, section_key=section["key"]).select_related("user", "user__department")
+        allowed_users = [
+            {
+                "id": grant.user.id,
+                "name": grant.user.full_name,
+                "role": grant.user.job_title,
+                "department": grant.user.department.name if grant.user.department else "بدون واحد",
+            }
+            for grant in grants
+        ]
+        section_payload.append({**section, "allowedUserIds": [item["id"] for item in allowed_users], "allowedUsers": allowed_users})
+
+    return {
+        "organizationName": organization.name,
+        "systemId": f"KARO-{str(user.id or 0).zfill(4)}",
+        "security": {
+            "twoFactorRequired": preference.two_factor_required,
+            "recentSessionCount": len(recent_logins),
+            "recentSessionLabel": recent_session_label,
+        },
+        "sections": section_payload,
+        "organizationUsers": [
+            {
+                "id": item.id,
+                "name": item.full_name,
+                "role": item.job_title,
+                "department": item.department.name if item.department else "بدون واحد",
+            }
+            for item in organization_users_qs
+        ],
+        "canEdit": can_manage_users(user),
+    }
 
 
 def ensure_signature(user: User) -> UserSignature:
@@ -205,13 +267,32 @@ def requests_view(request: HttpRequest):
     manager_slug = request.POST.get("manager", "").strip()
     manager_assignee_ids = [int(item) for item in request.POST.get("managerAssigneeIds", "").split(",") if item.strip()]
     priority = request.POST.get("priority", RequestPriority.MEDIUM)
+    request_action = request.POST.get("action", "refer").strip().lower()
     deadline_raw = request.POST.get("deadline", "").strip()
     deadline = date.fromisoformat(deadline_raw) if deadline_raw else None
+    if request_action not in {"approve", "reject", "refer"}:
+        return json_error("Ø§Ù‚Ø¯Ø§Ù… Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", status=422)
     if deadline and deadline > date.today():
         return json_error("انتخاب تاریخ های آینده مجاز نیست.", status=422)
     department = Department.objects.filter(code=department_code).first()
     manager = User.objects.filter(slug=manager_slug).first() if manager_slug else None
     assigned_managers = list(User.objects.filter(pk__in=manager_assignee_ids)) if manager_assignee_ids else []
+    status_by_action = {
+        "approve": RequestStatus.APPROVED,
+        "reject": RequestStatus.REJECTED,
+        "refer": RequestStatus.UNDER_REVIEW,
+    }
+    timeline_by_action = {
+        "approve": ("approved", "ØªØ§ÛŒÛŒØ¯ Ø¯Ø±Ø®ÙˆØ§Ø³Øª"),
+        "reject": ("rejected", "Ø±Ø¯ Ø¯Ø±Ø®ÙˆØ§Ø³Øª"),
+        "refer": ("referred", "Ø§Ø±Ø¬Ø§Ø¹ Ø¯Ø±Ø®ÙˆØ§Ø³Øª"),
+    }
+
+    timeline_by_action = {
+        "approve": ("approved", "\u062a\u0627\u06cc\u06cc\u062f \u062f\u0631\u062e\u0648\u0627\u0633\u062a"),
+        "reject": ("rejected", "\u0631\u062f \u062f\u0631\u062e\u0648\u0627\u0633\u062a"),
+        "refer": ("referred", "\u0627\u0631\u062c\u0627\u0639 \u062f\u0631\u062e\u0648\u0627\u0633\u062a"),
+    }
 
     if manager_assignee_ids and manager is None:
         return json_error("مدیر اصلی باید به درخواست ارجاع شود.", status=422)
@@ -224,7 +305,7 @@ def requests_view(request: HttpRequest):
         title=title or "درخواست جدید",
         description=description or "",
         priority=priority,
-        status=RequestStatus.SUBMITTED,
+        status=status_by_action[request_action],
         department=department,
         requester=request.current_user,
         manager=manager,
@@ -236,6 +317,8 @@ def requests_view(request: HttpRequest):
 
     RequestTimeline.objects.create(request=request_obj, action="created", note="ایجاد درخواست", actor_name=request.current_user.full_name)
     RequestTimeline.objects.create(request=request_obj, action="submitted", note="ثبت درخواست", actor_name=request.current_user.full_name)
+    action_name, action_note = timeline_by_action[request_action]
+    RequestTimeline.objects.create(request=request_obj, action=action_name, note=action_note, actor_name=request.current_user.full_name)
     if assigned_managers:
         RequestTimeline.objects.create(
             request=request_obj,
@@ -278,29 +361,44 @@ def request_detail_view(request: HttpRequest, request_code: str):
 @csrf_exempt
 @methods("GET", "POST")
 def expenses_view(request: HttpRequest):
+    if not can_access_expenses(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
     if request.method == "GET":
         return json_response([serialize_expense(item) for item in visible_expenses(request.current_user)], safe=False)
 
     description = request.POST.get("description", "").strip()
     amount = request.POST.get("amount", "0")
+    expense_action = request.POST.get("action", "refer").strip().lower()
     expense_date_raw = request.POST.get("expenseDate", "").strip()
     if not expense_date_raw:
         return json_error("تاریخ هزینه الزامی است.", status=422)
     department_code = request.POST.get("department", "").strip()
     invoice = request.FILES.get("invoice")
     expense_date = date.fromisoformat(expense_date_raw)
+    if expense_action not in {"approve", "reject", "refer"}:
+        return json_error("Ø§Ù‚Ø¯Ø§Ù… Ù‡Ø²ÛŒÙ†Ù‡ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", status=422)
     if expense_date > date.today():
         return json_error("انتخاب تاریخ های آینده مجاز نیست.", status=422)
     department = Department.objects.filter(code=department_code).first() or request.current_user.department
     invoice_name = save_uploaded_file(invoice) if invoice else None
+    status_by_action = {
+        "approve": ExpenseStatus.APPROVED,
+        "reject": ExpenseStatus.REJECTED,
+        "refer": ExpenseStatus.UNDER_REVIEW,
+    }
+    progress_by_action = {
+        "approve": 100,
+        "reject": 100,
+        "refer": 50,
+    }
 
     expense = Expense.objects.create(
         code=next_code("EXP"),
         title=(description[:180] or "هزینه جدید"),
         amount=amount,
         category=ExpenseCategory.MISCELLANEOUS,
-        status=ExpenseStatus.PENDING,
-        progress=25,
+        status=status_by_action[expense_action],
+        progress=progress_by_action[expense_action],
         expense_date=expense_date,
         notes=description,
         department=department,
@@ -315,6 +413,8 @@ def expenses_view(request: HttpRequest):
 @require_auth
 @methods("GET")
 def expenses_summary_view(request: HttpRequest):
+    if not can_access_expenses(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
     items = list(visible_expenses(request.current_user))
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
@@ -333,11 +433,14 @@ def expenses_summary_view(request: HttpRequest):
 @csrf_exempt
 @methods("GET", "POST")
 def users_view(request: HttpRequest):
-    if not can_manage_users(request.current_user):
-        return json_error("دسترسی کافی ندارید.", status=403)
     if request.method == "GET":
+        if not can_access_users(request.current_user):
+            return json_error("دسترسی کافی ندارید.", status=403)
         users_qs = visible_users(request.current_user).select_related("department", "manager").order_by("created_at")
         return json_response([serialize_user(item) for item in users_qs], safe=False)
+
+    if not can_manage_users(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
 
     payload = parse_json(request)
     email = (payload.get("email") or "").strip().lower()
@@ -376,6 +479,24 @@ def reports_view(request: HttpRequest):
     if not can_view_reports(request.current_user):
         return json_error("دسترسی کافی ندارید.", status=403)
     return json_response(visible_reports_payload(request.current_user))
+
+
+@require_auth
+@methods("GET")
+def report_export_view(request: HttpRequest, report_key: str):
+    if not can_view_reports(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+    export_format = (request.GET.get("format") or "csv").strip().lower()
+    if export_format != "csv":
+        return json_error("فرمت خروجی معتبر نیست.", status=422)
+    try:
+        file_name, content = render_report_export(report_key, request.current_user)
+    except ValueError as exc:
+        return json_error(str(exc), status=404)
+
+    response = HttpResponse(content, content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{file_name}"'
+    return response
 
 
 @require_auth
@@ -463,6 +584,26 @@ def approval_detail_view(request: HttpRequest, document_code: str):
 
 
 @require_auth
+@methods("GET")
+def approval_download_view(request: HttpRequest, document_code: str):
+    if not can_approve_documents(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+    document = visible_approvals(request.current_user).filter(code=document_code).first()
+    if document is None or not document.file_name:
+        return json_error("سند پیدا نشد.", status=404)
+
+    document_path = Path(settings.MEDIA_ROOT) / document.file_name
+    if not document_path.exists():
+        return json_error("فایل سند موجود نیست.", status=404)
+
+    content_type, _ = mimetypes.guess_type(document_path.name)
+    download_name = f"{document.code}{document_path.suffix.lower()}"
+    response = FileResponse(document_path.open("rb"), content_type=content_type or "application/octet-stream")
+    response["Content-Disposition"] = f'attachment; filename="{download_name}"'
+    return response
+
+
+@require_auth
 @csrf_exempt
 @methods("POST")
 def approval_approve_view(request: HttpRequest, document_code: str):
@@ -522,6 +663,56 @@ def approval_reject_view(request: HttpRequest, document_code: str):
 
 
 @require_auth
+@csrf_exempt
+@methods("GET", "POST")
+def settings_profile_view(request: HttpRequest):
+    if request.method == "GET":
+        return json_response(build_settings_profile_payload(request.current_user))
+
+    if not can_manage_users(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+
+    payload = parse_json(request)
+    organization = get_user_organization(request.current_user)
+    preference, _ = OrganizationPreference.objects.get_or_create(organization=organization)
+    section_key = (payload.get("sectionKey") or "").strip()
+
+    if section_key:
+        allowed_user_ids = [int(item) for item in payload.get("allowedUserIds", []) if str(item).strip().isdigit()]
+        allowed_ids = set(visible_users(request.current_user).values_list("id", flat=True))
+        SectionAccessGrant.objects.filter(organization=organization, section_key=section_key).delete()
+        SectionAccessGrant.objects.bulk_create(
+            [
+                SectionAccessGrant(organization=organization, section_key=section_key, user_id=user_id)
+                for user_id in allowed_user_ids
+                if user_id in allowed_ids and user_id != request.current_user.id
+            ]
+        )
+    else:
+        organization_name = (payload.get("organizationName") or "").strip()
+        if not organization_name:
+            return json_error("نام سازمان الزامی است.", status=422)
+        organization.name = organization_name
+        organization.save(update_fields=["name"])
+
+        if "twoFactorRequired" in payload:
+            preference.two_factor_required = bool(payload.get("twoFactorRequired"))
+            preference.updated_at = timezone.now()
+            preference.save(update_fields=["two_factor_required", "updated_at"])
+
+    AuditLog.objects.create(
+        actor=request.current_user,
+        actor_name=request.current_user.full_name,
+        action="settings_updated",
+        entity_type="organization",
+        entity_code=organization.code,
+        detail=section_key or organization.name,
+        icon="settings",
+    )
+    return json_response(build_settings_profile_payload(request.current_user))
+
+
+@require_auth
 @methods("GET")
 def settings_view(request: HttpRequest):
     del request
@@ -534,6 +725,3 @@ def settings_view(request: HttpRequest):
         ],
         safe=False,
     )
-
-
-

@@ -5,23 +5,26 @@ import { RouterLink, useRoute } from 'vue-router'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const route = useRoute()
-const { canManageUsers, canViewReports } = useWorkflowHub()
+const { state } = useWorkflowHub()
 
-const specialItem = computed(() => {
-  if (route.path === '/users') return { to: '/users', label: 'کاربران', icon: 'group' }
-  if (route.path === '/reports') return { to: '/reports', label: 'گزارش', icon: 'monitoring' }
-  if (canManageUsers.value) return { to: '/users', label: 'کاربران', icon: 'group' }
-  if (canViewReports.value) return { to: '/reports', label: 'گزارش', icon: 'monitoring' }
-  return { to: '/settings', label: 'تنظیمات', icon: 'settings' }
+const items = computed(() => {
+  const navItems = [
+    { to: '/dashboard', label: 'خانه', icon: 'home' },
+    { to: '/requests', label: 'درخواست', icon: 'list_alt' },
+  ]
+  if (state.currentUser.canAccessExpenses !== false) navItems.push({ to: '/expenses', label: 'هزینه', icon: 'receipt_long' })
+  if (state.currentUser.canAccessUsers || state.currentUser.canManageUsers) {
+    navItems.push({ to: '/users', label: 'کاربران', icon: 'group' })
+  } else if (state.currentUser.canViewReports) {
+    navItems.push({ to: '/reports', label: 'گزارش', icon: 'monitoring' })
+  } else if (state.currentUser.canApproveDocuments) {
+    navItems.push({ to: '/approvals', label: 'تایید', icon: 'verified' })
+  } else {
+    navItems.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
+  }
+  navItems.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
+  return navItems
 })
-
-const items = computed(() => [
-  { to: '/dashboard', label: 'خانه', icon: 'home' },
-  { to: '/requests', label: 'درخواست', icon: 'list_alt' },
-  { to: '/expenses', label: 'هزینه', icon: 'receipt_long' },
-  specialItem.value,
-  { to: '/settings', label: 'تنظیمات', icon: 'settings' },
-])
 </script>
 
 <template>

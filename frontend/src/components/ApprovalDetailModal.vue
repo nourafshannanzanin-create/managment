@@ -20,6 +20,18 @@ const isImage = computed(() => previewKind.value === 'image')
 const isPdf = computed(() => previewKind.value === 'pdf')
 const previewUrl = computed(() => props.approval?.previewUrl || '')
 const downloadUrl = computed(() => props.approval?.downloadUrl || previewUrl.value)
+const approvalStatusClass = computed(() => {
+  const status = String(props.approval?.status || '')
+  if (status.includes('تایید')) return 'bg-emerald-50 border border-emerald-200'
+  if (status.includes('رد')) return 'bg-rose-50 border border-rose-200'
+  return 'bg-white border border-outline/20'
+})
+const approvalStatusMessage = computed(() => {
+  const status = String(props.approval?.status || '')
+  if (status.includes('تایید')) return 'این سند تایید شده و نسخه امضاشده آن روی خود فایل ذخیره شده است.'
+  if (status.includes('رد')) return 'این سند رد شده است و در این مرحله قابل تایید نیست.'
+  return 'برای این سند می‌توانید تایید یا رد ثبت کنید.'
+})
 
 async function handleReject() {
   await rejectSelectedDocument(rejectReason.value)
@@ -40,7 +52,7 @@ async function handleReject() {
           <strong>{{ approval.id }}</strong>
         </div>
         <div class="detail-meta-item">
-          <span>- ثبت‌کننده -</span>
+          <span>ثبت‌کننده</span>
           <strong>{{ approval.owner }}</strong>
         </div>
         <div class="detail-meta-item">
@@ -67,12 +79,12 @@ async function handleReject() {
           <object v-else-if="isPdf && previewUrl" :data="previewUrl" type="application/pdf" class="document-object">
             <div class="preview-empty">
               <span class="material-symbols-outlined">picture_as_pdf</span>
-              <a :href="downloadUrl" target="_blank" class="table-link">باز کردن فایل PDF</a>
+              <a :href="downloadUrl" class="table-link">دانلود فایل PDF</a>
             </div>
           </object>
           <div v-else-if="previewUrl" class="preview-empty">
             <span class="material-symbols-outlined">attach_file</span>
-            <a :href="downloadUrl" target="_blank" class="table-link">دانلود فایل</a>
+            <a :href="downloadUrl" class="table-link">دانلود فایل</a>
           </div>
           <div v-else class="preview-empty">
             <span class="material-symbols-outlined">description</span>
@@ -95,20 +107,23 @@ async function handleReject() {
           <h3>اقدام</h3>
           <small v-if="loading">در حال بارگذاری...</small>
         </div>
-        <textarea v-model="rejectReason" rows="3" placeholder="علت رد"></textarea>
-        <div class="action-group modal-actions">
-          <button class="action-btn tone-soft" @click="$emit('close')">
-            <span class="material-symbols-outlined">close</span>
-            <span>بستن</span>
-          </button>
-          <button v-if="approval.canApprove" class="action-btn tone-primary" @click="approveSelectedDocument">
-            <span class="material-symbols-outlined">check_circle</span>
-            <span>تایید</span>
-          </button>
-          <button v-if="approval.canApprove" class="action-btn tone-danger" @click="handleReject">
-            <span class="material-symbols-outlined">cancel</span>
-            <span>رد</span>
-          </button>
+        <div :class="approvalStatusClass" class="rounded-xl p-4">
+          <p class="m-0 mb-3 text-sm text-on-surface-variant">{{ approvalStatusMessage }}</p>
+          <textarea v-if="approval.canApprove" v-model="rejectReason" rows="3" placeholder="علت رد"></textarea>
+          <div class="action-group modal-actions">
+            <button class="action-btn tone-soft" @click="$emit('close')">
+              <span class="material-symbols-outlined">close</span>
+              <span>بستن</span>
+            </button>
+            <button v-if="approval.canApprove" class="action-btn tone-primary" @click="approveSelectedDocument">
+              <span class="material-symbols-outlined">check_circle</span>
+              <span>تایید</span>
+            </button>
+            <button v-if="approval.canApprove" class="action-btn tone-danger" @click="handleReject">
+              <span class="material-symbols-outlined">cancel</span>
+              <span>رد</span>
+            </button>
+          </div>
         </div>
       </section>
     </div>

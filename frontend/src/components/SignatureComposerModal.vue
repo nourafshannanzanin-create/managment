@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import BaseModal from './BaseModal.vue'
 import SignaturePad from './SignaturePad.vue'
@@ -13,6 +13,7 @@ defineEmits(['close'])
 
 const signatureDraft = ref('')
 const { signatureState, saveSignature } = useWorkflowHub()
+const isEditing = computed(() => signatureState.hasSignature && Boolean(signatureState.signatureData))
 
 watch(
   () => signatureState.signatureData,
@@ -28,10 +29,25 @@ watch(
     <div class="detail-layout">
       <div class="modal-headline">
         <p class="page-eyebrow">امضای مدیر</p>
-        <h2>ثبت امضای دیجیتال</h2>
+        <h2>{{ isEditing ? 'ویرایش امضای دیجیتال' : 'ثبت امضای دیجیتال' }}</h2>
       </div>
 
-      <SignaturePad v-model="signatureDraft" />
+      <section v-if="isEditing" class="modal-section">
+        <div class="section-label-row">
+          <h3>امضای فعلی</h3>
+        </div>
+        <div class="signed-preview">
+          <img :src="signatureState.signatureData" alt="signature" />
+        </div>
+      </section>
+
+      <section class="modal-section">
+        <div class="section-label-row">
+          <h3>{{ isEditing ? 'ویرایش امضا' : 'ثبت امضا' }}</h3>
+          <small>{{ isEditing ? 'برای تغییر امضا، روی همان کادر دوباره امضا کنید.' : 'امضای خود را داخل کادر زیر ثبت کنید.' }}</small>
+        </div>
+        <SignaturePad v-model="signatureDraft" />
+      </section>
 
       <div class="action-group modal-actions">
         <button class="action-btn tone-soft" @click="$emit('close')">
@@ -40,7 +56,7 @@ watch(
         </button>
         <button class="action-btn tone-primary" :disabled="signatureState.loading || !signatureDraft" @click="saveSignature(signatureDraft)">
           <span class="material-symbols-outlined">draw</span>
-          <span>{{ signatureState.loading ? 'در حال ذخیره...' : 'ذخیره امضا' }}</span>
+          <span>{{ signatureState.loading ? 'در حال ذخیره...' : (isEditing ? 'ذخیره ویرایش' : 'ذخیره امضا') }}</span>
         </button>
       </div>
     </div>

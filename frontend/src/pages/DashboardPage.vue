@@ -18,8 +18,10 @@ function hydrate(root) {
   const welcome = root.querySelector('main section p')
   if (welcome) welcome.textContent = 'کارنومند'
 
-  const dashboardCards = root.querySelectorAll('main > div')
-  if (dashboardCards[2]) dashboardCards[2].remove()
+  const cardTitles = Array.from(root.querySelectorAll('main > div h3'))
+  const trendCardTitle = cardTitles.find((title) => title.textContent?.includes('روند هزینه'))
+  const trendCard = trendCardTitle?.closest('.bg-surface-container-lowest')
+  if (trendCard) trendCard.remove()
 
   wirePageNavigation(root, navigateTo, '/dashboard', visibleNavItems.value)
 }

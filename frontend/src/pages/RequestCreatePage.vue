@@ -57,15 +57,16 @@ const {
         <div class="form-stack">
           <label class="field-shell">
             <span>ارجاع به مدیر</span>
-            <select :value="state.requestForm.manager" @change="setRequestManager($event.target.value)">
-              <option value="">انتخاب</option>
+            <select :value="state.requestForm.manager" required @change="setRequestManager($event.target.value)">
+              <option value="" disabled>انتخاب مدیر</option>
               <option v-for="item in state.directories.managers" :key="item.slug" :value="item.slug">{{ item.name }}</option>
             </select>
           </label>
 
           <label class="field-shell">
-            <span>ارجاع به مدیران</span>
+            <span>ارجاع به ...</span>
             <select v-model="state.requestForm.managerAssigneeIds" multiple :disabled="!state.requestForm.manager">
+              <option value="">هیچکدام</option>
               <option v-for="item in requestManagerAssigneeOptions" :key="item.id" :value="item.id">{{ item.name }}</option>
             </select>
           </label>

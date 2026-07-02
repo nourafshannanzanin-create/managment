@@ -8,7 +8,7 @@ import { escapeHtml, formatMetric, wirePageNavigation } from '../utils/stitch'
 
 const runtime = ref(null)
 const filterOpen = ref(false)
-const { filteredReports, loadReports, navigateTo, reportPeople, resetPageFilters, state, updatePageFilter, visibleNavItems } = useWorkflowHub()
+const { exportReport, filteredReports, loadReports, navigateTo, reportPeople, resetPageFilters, state, updatePageFilter, visibleNavItems } = useWorkflowHub()
 const reportFilters = computed(() => state.filters.reports)
 
 function filterSummary() {
@@ -29,6 +29,23 @@ function resetFilters() {
   resetPageFilters('reports')
 }
 
+function bindReportCard(card, report) {
+  if (!card) return
+
+  card.style.display = report ? '' : 'none'
+  if (!report) return
+
+  const title = card.querySelector('span.text-on-surface')
+  if (title) title.textContent = report.title
+
+  const button = card.querySelector('button')
+  if (button) {
+    button.onclick = async () => {
+      await exportReport(report.id, 'csv')
+    }
+  }
+}
+
 function hydrate(root) {
   const searchInput = root.querySelector('input[type="text"]')
   if (searchInput) {
@@ -47,23 +64,19 @@ function hydrate(root) {
   if (statValues[2]) statValues[2].textContent = String(state.reportSummary?.requests || 0)
 
   const exportCards = root.querySelectorAll('section.space-y-3 .grid > div')
-  filteredReports.value.slice(0, 3).forEach((item, index) => {
-    const card = exportCards[index]
-    if (!card) return
-    const title = card.querySelector('span.text-on-surface')
-    if (title) title.textContent = item.title
-  })
+  Array.from(exportCards).forEach((card, index) => bindReportCard(card, filteredReports.value[index]))
 
   const listGroups = root.querySelectorAll('.space-y-4')
   const spenders = listGroups[listGroups.length - 1]
   if (spenders) {
+    const maxAmount = Math.max(...state.topSubmitters.map((item) => Number(item.count || 0)), 0)
     spenders.innerHTML = state.topSubmitters.map((item, index) => `
       <div class="flex flex-row-reverse items-center gap-4 group">
         <div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-label-sm text-label-sm">${index + 1}</div>
         <div class="flex-1 flex flex-row-reverse justify-between items-center">
-          <span class="text-on-surface font-body-md text-body-md">${escapeHtml(item.name)}</span>
+          <span class="text-on-surface font-body-md text-body-md">${escapeHtml(item.name)} - ${escapeHtml(item.amount || '0')}</span>
           <div class="w-16 h-1 bg-surface-container rounded-full overflow-hidden">
-            <div class="h-full bg-primary" style="width:${Math.max(25, item.count * 20)}%"></div>
+            <div class="h-full bg-primary" style="width:${Math.max(25, maxAmount > 0 ? (Number(item.count || 0) / maxAmount) * 100 : 0)}%"></div>
           </div>
         </div>
       </div>

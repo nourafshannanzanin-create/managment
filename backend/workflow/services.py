@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import csv
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from io import StringIO
 from pathlib import Path
 from uuid import uuid4
 
 from django.conf import settings
 from django.db.models import Prefetch
 
-from workflow.access import can_approve_documents, can_manage_users, can_view_reports, is_manager, visible_users
+from workflow.access import can_access_expenses, can_access_users, can_approve_documents, can_manage_users, can_view_reports, is_manager, visible_users
 from workflow.models import (
     ApprovalAssignment,
     ApprovalAssignmentStatus,
@@ -22,6 +24,7 @@ from workflow.models import (
     ExpenseCategory,
     ExpenseStatus,
     OrganizationMembership,
+    OrganizationPreference,
     Request,
     RequestPriority,
     RequestStatus,
@@ -146,6 +149,8 @@ def serialize_current_user(user: User) -> dict:
         "email": user.email,
         "organization": membership.organization.name if membership else "",
         "canManageUsers": can_manage_users(user),
+        "canAccessUsers": can_access_users(user),
+        "canAccessExpenses": can_access_expenses(user),
         "canViewReports": can_view_reports(user),
         "canApproveDocuments": can_approve_documents(user),
         "isManager": is_manager(user),
@@ -165,6 +170,42 @@ def serialize_user(user: User) -> dict:
         "joinedAt": format_date(user.created_at.date()),
         "joinedAtIso": format_date(user.created_at.date()),
         "status": "فعال" if user.is_active else "غیرفعال",
+    }
+
+
+def settings_cards() -> list[dict]:
+    return [
+        {"title": "حساب کاربری", "description": "مدیریت نقش ها و دسترسی"},
+        {"title": "اسناد", "description": "گردش کار امضای دیجیتال"},
+        {"title": "هزینه ها", "description": "ثبت، پیگیری و کنترل هزینه"},
+        {"title": "گزارشات", "description": "نمای مدیریتی و تحلیل عملکرد"},
+    ]
+
+
+def visible_settings_payload(user: User) -> dict:
+    membership = OrganizationMembership.objects.select_related("organization").filter(user=user).first()
+    organization = membership.organization if membership else None
+    preference = None
+    if organization:
+        preference, _ = OrganizationPreference.objects.get_or_create(organization=organization)
+
+    recent_logins = list(
+        AuditLog.objects.filter(actor_id__in=visible_users(user).values_list("id", flat=True), action="login").order_by("-created_at")[:3]
+    )
+    recent_session_label = "بدون نشست اخیر"
+    if recent_logins:
+        recent_session_label = f"{len(recent_logins)} دستگاه فعال شناسایی شد"
+
+    return {
+        "organizationName": organization.name if organization else "",
+        "systemId": f"KARO-{str(user.id or 0).zfill(4)}",
+        "security": {
+            "twoFactorRequired": preference.two_factor_required if preference else True,
+            "recentSessionCount": len(recent_logins),
+            "recentSessionLabel": recent_session_label,
+        },
+        "sections": settings_cards(),
+        "canEdit": can_manage_users(user),
     }
 
 
@@ -227,7 +268,7 @@ def serialize_approval(document: Document, current_user: User | None = None) -> 
         "summary": document.description or "",
         "assignees": [normalize_person_name(assignment.approver.full_name) for assignment in document.approval_assignments.all()],
         "previewUrl": media_url(document.file_name),
-        "downloadUrl": media_url(document.file_name),
+        "downloadUrl": f"/api/v1/approvals/{document.code}/download",
         "previewKind": preview_kind_for_file(document.file_name),
         "signedSignature": current_assignment.signed_signature_data if current_assignment else "",
         "decisionNote": current_assignment.decision_note if current_assignment else (document.rejection_reason or ""),
@@ -272,24 +313,71 @@ def visible_approvals(user: User):
     )
 
 
+def report_catalog(user: User) -> list[dict]:
+    owner = normalize_person_name(user.full_name) or "مدیرعامل"
+    today = date.today().isoformat()
+    return [
+        {
+            "id": "requests",
+            "title": "گزارش درخواست ها",
+            "description": "نمای کلی جریان درخواست ها و وضعیت پیگیری آن ها",
+            "export": "CSV / Excel",
+            "owner": owner,
+            "generatedAt": today,
+            "generatedAtIso": today,
+            "downloadUrl": "/api/v1/reports/requests/export?format=csv",
+        },
+        {
+            "id": "expenses",
+            "title": "گزارش هزینه ها",
+            "description": "تحلیل هزینه های سازمان بر اساس ثبت کننده و مبلغ",
+            "export": "CSV / Excel",
+            "owner": owner,
+            "generatedAt": today,
+            "generatedAtIso": today,
+            "downloadUrl": "/api/v1/reports/expenses/export?format=csv",
+        },
+        {
+            "id": "approvals",
+            "title": "گزارش تاییدها",
+            "description": "عملکرد مدیران در تایید، رد و گردش اسناد",
+            "export": "CSV / Excel",
+            "owner": owner,
+            "generatedAt": today,
+            "generatedAtIso": today,
+            "downloadUrl": "/api/v1/reports/approvals/export?format=csv",
+        },
+    ]
+
+
 def visible_reports_payload(user: User) -> dict:
     users_qs = visible_users(user).select_related("department", "manager")
     requests_qs = list(visible_requests(user))
     expenses_qs = list(visible_expenses(user))
+    approvals_qs = list(visible_approvals(user)) if can_approve_documents(user) else []
     expense_total = sum(Decimal(item.amount) for item in expenses_qs)
     request_status = Counter(item.status for item in requests_qs)
-    top_submitters = Counter(normalize_person_name(item.owner.full_name) for item in expenses_qs if item.owner)
+    expense_by_submitter: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+    for item in expenses_qs:
+        if item.owner:
+            expense_by_submitter[normalize_person_name(item.owner.full_name)] += Decimal(item.amount)
     return {
         "summary": {
             "users": users_qs.count(),
             "requests": len(requests_qs),
             "expenses": len(expenses_qs),
+            "approvals": len(approvals_qs),
             "expenseTotal": format_money(expense_total),
         },
         "requestStatus": dict(request_status),
-        "topSubmitters": [{"name": name, "count": count} for name, count in top_submitters.most_common(5)],
+        "topSubmitters": [
+            {"name": name, "count": float(total), "amount": format_money(total)}
+            for name, total in sorted(expense_by_submitter.items(), key=lambda item: item[1], reverse=True)[:5]
+        ],
+        "reports": report_catalog(user),
         "requests": [serialize_request(item) for item in requests_qs],
         "expenses": [serialize_expense(item) for item in expenses_qs],
+        "approvals": [serialize_approval(item, user) for item in approvals_qs],
         "users": [serialize_user(item) for item in users_qs],
     }
 
@@ -364,6 +452,8 @@ def build_bootstrap_payload(user: User) -> dict:
             {"title": "گزارش تاییدها", "description": "عملکرد مدیران در تایید اسناد", "export": "CSV / Excel", "owner": "مدیرعامل", "generatedAt": date.today().isoformat(), "generatedAtIso": date.today().isoformat()},
         ]
 
+    reports = report_catalog(user) if can_view_reports(user) else []
+
     today_total = sum(Decimal(item.amount) for item in expenses_qs if item.expense_date == date.today())
     week_start = date.today() - timedelta(days=date.today().weekday())
     week_total = sum(Decimal(item.amount) for item in expenses_qs if item.expense_date >= week_start)
@@ -418,3 +508,56 @@ def build_bootstrap_payload(user: User) -> dict:
             "users": [{"id": item.id, "name": normalize_person_name(item.full_name)} for item in users_qs],
         },
     }
+
+
+def render_report_export(report_key: str, user: User) -> tuple[str, str]:
+    buffer = StringIO()
+    writer = csv.writer(buffer)
+    today = date.today().isoformat()
+
+    if report_key == "requests":
+        writer.writerow(["کد", "عنوان", "ثبت کننده", "مدیر", "مدیران", "وضعیت", "اولویت", "واحد", "تاریخ ایجاد", "ددلاین"])
+        for item in visible_requests(user):
+            writer.writerow([
+                item.code,
+                item.title,
+                normalize_person_name(item.requester.full_name) if item.requester else "",
+                normalize_person_name(item.manager.full_name) if item.manager else "",
+                "، ".join(normalize_person_name(manager.full_name) for manager in item.assigned_managers.all()),
+                request_status_label(item.status),
+                priority_label(item.priority),
+                item.department.name if item.department else "",
+                format_date(item.created_at.date()),
+                format_date(item.deadline),
+            ])
+    elif report_key == "expenses":
+        writer.writerow(["کد", "شرح", "ثبت کننده", "مبلغ", "دسته", "وضعیت", "واحد", "تاریخ هزینه"])
+        for item in visible_expenses(user):
+            writer.writerow([
+                item.code,
+                item.notes or item.title,
+                normalize_person_name(item.owner.full_name) if item.owner else "",
+                format_money(item.amount),
+                expense_category_label(item.category),
+                expense_status_label(item.status),
+                item.department.name if item.department else "",
+                format_date(item.expense_date),
+            ])
+    elif report_key == "approvals":
+        writer.writerow(["کد", "عنوان", "ثبت کننده", "نوع", "وضعیت", "ریسک", "واحد", "تاریخ بارگذاری", "تاییدکنندگان"])
+        for item in visible_approvals(user):
+            writer.writerow([
+                item.code,
+                item.title,
+                normalize_person_name(item.owner.full_name) if item.owner else "",
+                item.document_type,
+                document_status_label(item.status),
+                document_risk_label(item.risk),
+                item.department.name if item.department else "",
+                format_date(item.uploaded_at.date()),
+                "، ".join(normalize_person_name(assignment.approver.full_name) for assignment in item.approval_assignments.all()),
+            ])
+    else:
+        raise ValueError("گزارش درخواستی معتبر نیست.")
+
+    return f"{report_key}-report-{today}.csv", buffer.getvalue()

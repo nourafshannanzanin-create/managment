@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
 @font-face {
   font-family: 'Vazirmatn';
@@ -10,6 +10,7 @@
 
 :root {
   color-scheme: light;
+  --app-font-family: 'Vazirmatn', sans-serif;
   --bg: #eef4e8;
   --bg-soft: #e6eec9;
   --surface: rgba(255, 255, 255, 0.72);
@@ -46,7 +47,7 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: 'Vazirmatn', sans-serif;
+  font-family: var(--app-font-family);
   color: var(--text);
   background: #f6f8f4;
 }
@@ -57,6 +58,7 @@ select,
 textarea {
   font: inherit;
   color: inherit;
+  font-family: var(--app-font-family);
 }
 
 button {
@@ -81,7 +83,25 @@ a {
   min-height: 100vh;
 }
 
+#app,
+#app *:not(.material-symbols-outlined) {
+  font-family: var(--app-font-family);
+}
+
+.stitch-runtime-host,
+.stitch-runtime-host *:not(.material-symbols-outlined),
+.font-headline-md,
+.font-headline-lg,
+.font-headline-lg-mobile,
+.font-body-md,
+.font-body-lg,
+.font-label-sm,
+.font-stat-value {
+  font-family: var(--app-font-family) !important;
+}
+
 .material-symbols-outlined {
+  font-family: 'Material Symbols Outlined' !important;
   font-variation-settings: 'FILL' 0, 'wght' 450, 'GRAD' 0, 'opsz' 24;
 }
 
@@ -307,15 +327,10 @@ a {
   backdrop-filter: blur(16px);
 }
 
-.topbar-brand,
 .topbar-account {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.topbar-brand {
-  flex-direction: row-reverse;
 }
 
 .topbar-user,
@@ -971,6 +986,10 @@ a {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.request-composer-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .modal-grid.three-col {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -1034,6 +1053,17 @@ a {
   gap: 12px;
 }
 
+.checkbox-card {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.checkbox-card > div {
+  flex: 1;
+  display: grid;
+  gap: 4px;
+}
+
 .checkbox-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -1046,12 +1076,14 @@ a {
 .detail-meta-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 16px;
 }
 
 .detail-meta-item {
+  display: grid;
+  gap: 8px;
   border-radius: 14px;
-  padding: 14px;
+  padding: 16px;
   background: rgba(255, 255, 255, 0.64);
 }
 
@@ -1351,6 +1383,16 @@ a {
   .modal-grid.two-col {
     grid-template-columns: 1fr;
   }
+
+  .request-composer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .request-composer-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 960px) {
@@ -1359,7 +1401,6 @@ a {
     padding: 14px;
   }
 
-  .topbar-brand,
   .topbar-account,
   .topbar-user,
   .topbar-nav-row {

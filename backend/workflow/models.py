@@ -124,6 +124,27 @@ class OrganizationMembership(TimeStampedModel):
         db_table = "organization_memberships"
 
 
+class OrganizationPreference(models.Model):
+    organization = models.OneToOneField(Organization, on_delete=models.CASCADE, related_name="preferences")
+    two_factor_required = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "organization_preferences"
+
+
+class SectionAccessGrant(TimeStampedModel):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="section_access_grants")
+    section_key = models.CharField(max_length=40, db_index=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="section_access_grants")
+
+    class Meta:
+        db_table = "section_access_grants"
+        constraints = [
+            models.UniqueConstraint(fields=["organization", "section_key", "user"], name="uq_section_access_grant"),
+        ]
+
+
 class UserSignature(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="signature")
     signature_data = models.TextField()

@@ -22,11 +22,6 @@ const { state, setExpenseInvoice, submitExpense } = useWorkflowHub()
         <h2>ثبت هزینه</h2>
       </div>
 
-      <label class="field-shell">
-        <span>شرح</span>
-        <textarea v-model="form.description" rows="4"></textarea>
-      </label>
-
       <div class="modal-grid three-col">
         <label class="field-shell">
           <span>مبلغ</span>
@@ -54,14 +49,27 @@ const { state, setExpenseInvoice, submitExpense } = useWorkflowHub()
         <small>اختیاری</small>
       </label>
 
+      <label class="field-shell">
+        <span>شرح</span>
+        <textarea v-model="form.description" rows="4"></textarea>
+      </label>
+
       <div class="action-group modal-actions">
         <button class="action-btn tone-soft" @click="$emit('close')">
           <span class="material-symbols-outlined">close</span>
           <span>بستن</span>
         </button>
-        <button class="action-btn tone-primary" :disabled="submitting" @click="submitExpense">
+        <button class="action-btn tone-danger" :disabled="submitting" @click="submitExpense('reject')">
+          <span class="material-symbols-outlined">cancel</span>
+          <span>{{ submitting ? 'در حال ثبت...' : 'رد' }}</span>
+        </button>
+        <button class="action-btn tone-primary" :disabled="submitting" @click="submitExpense('approve')">
+          <span class="material-symbols-outlined">check_circle</span>
+          <span>{{ submitting ? 'در حال ثبت...' : 'تایید' }}</span>
+        </button>
+        <button class="action-btn tone-soft" :disabled="submitting" @click="submitExpense('refer')">
           <span class="material-symbols-outlined">payments</span>
-          <span>{{ submitting ? 'در حال ثبت...' : 'ثبت هزینه' }}</span>
+          <span>{{ submitting ? 'در حال ثبت...' : 'ارجاع' }}</span>
         </button>
       </div>
     </div>

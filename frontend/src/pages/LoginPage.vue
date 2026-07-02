@@ -24,7 +24,7 @@ async function handleLogin() {
         <div class="stitch-brand-copy">
           <div class="stitch-chip">
             <span class="stitch-chip-dot"></span>
-            <span>Workflow Hub</span>
+            <span>سامانه کارنومند</span>
           </div>
 
           <h1>
@@ -34,7 +34,7 @@ async function handleLogin() {
           </h1>
 
           <p>
-            مدیریت هوشمند درخواست‌ها، پایش هزینه‌ها و تایید اسناد در یک پلتفرم پیشرفته و امن.
+            مدیریت هوشمند درخواست‌ها و تایید اسناد در یک پلتفرم امن و یکپارچه.
           </p>
         </div>
 
@@ -75,7 +75,7 @@ async function handleLogin() {
 
       <section class="stitch-form-panel">
         <div class="stitch-form-header">
-          <span>System Access</span>
+            <span>دسترسی سامانه</span>
           <h2>حساب سازمانی</h2>
         </div>
 

@@ -1,4 +1,6 @@
 <script setup>
+import { computed } from 'vue'
+
 import BaseModal from './BaseModal.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -11,6 +13,7 @@ defineProps({
 defineEmits(['close'])
 
 const { state, setDocumentFile, submitDocument } = useWorkflowHub()
+const availableManagers = computed(() => state.directories.managers || [])
 
 function toggleAssignee(id) {
   const current = new Set(state.documentForm.assigneeIds)
@@ -75,8 +78,11 @@ function toggleAssignee(id) {
         <div class="section-label-row">
           <h3>مدیرهای دریافت کننده</h3>
         </div>
-        <div class="checkbox-grid">
-          <label v-for="item in state.directories.managers" :key="item.id" class="checkbox-card">
+        <p v-if="!availableManagers.length" class="inline-error">
+          هیچ مدیر فعالی برای ارجاع سند پیدا نشد.
+        </p>
+        <div v-else class="checkbox-grid">
+          <label v-for="item in availableManagers" :key="item.id" class="checkbox-card">
             <input
               type="checkbox"
               :checked="form.assigneeIds.includes(item.id)"
@@ -87,12 +93,14 @@ function toggleAssignee(id) {
         </div>
       </section>
 
+      <p v-if="state.lastError" class="inline-error">{{ state.lastError }}</p>
+
       <div class="action-group modal-actions">
         <button class="action-btn tone-soft" @click="$emit('close')">
           <span class="material-symbols-outlined">close</span>
           <span>بستن</span>
         </button>
-        <button class="action-btn tone-primary" :disabled="submitting" @click="submitDocument">
+        <button class="action-btn tone-primary" :disabled="submitting || !availableManagers.length" @click="submitDocument">
           <span class="material-symbols-outlined">send</span>
           <span>{{ submitting ? 'در حال ارسال...' : 'ثبت سند' }}</span>
         </button>

@@ -12,7 +12,6 @@ from workflow.models import ApprovalAssignment, ApprovalAssignmentStatus, Docume
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 PDF_EXTENSIONS = {".pdf"}
-JPEG_EXTENSIONS = {".jpg", ".jpeg"}
 
 
 def _load_pymupdf():
@@ -43,7 +42,10 @@ def _document_path(file_name: str) -> Path:
 
 
 def _signed_file_name(source_path: Path) -> str:
-    return f"{source_path.stem}-signed-{uuid4().hex[:8]}{source_path.suffix.lower()}"
+    extension = source_path.suffix.lower()
+    if extension in IMAGE_EXTENSIONS:
+        extension = ".png"
+    return f"{source_path.stem}-signed-{uuid4().hex[:8]}{extension}"
 
 
 def _decode_signature_data(signature_data: str) -> Image.Image:
@@ -63,13 +65,6 @@ def _build_signature_overlay(signature_image: Image.Image) -> Image.Image:
     overlay = Image.new("RGBA", signature_image.size, (36, 73, 82, 0))
     overlay.putalpha(alpha)
     return overlay
-
-
-def _flatten_to_rgb(image: Image.Image) -> Image.Image:
-    Image, _ = _load_pillow()
-    flattened = Image.new("RGB", image.size, "#ffffff")
-    flattened.paste(image, mask=image.getchannel("A"))
-    return flattened
 
 
 def _approved_slot_index(document: Document, assignment: ApprovalAssignment) -> int:
@@ -135,13 +130,7 @@ def _sign_image_document(source_path: Path, signed_path: Path, signature_image: 
     layer = Image.new("RGBA", base_image.size, (255, 255, 255, 0))
     layer.paste(resized_signature, (x, y), resized_signature)
     composed = Image.alpha_composite(base_image, layer)
-    flattened = _flatten_to_rgb(composed)
-
-    save_kwargs = {}
-    if source_path.suffix.lower() in JPEG_EXTENSIONS:
-        save_kwargs["quality"] = 95
-        save_kwargs["subsampling"] = 0
-    flattened.save(signed_path, **save_kwargs)
+    composed.save(signed_path, format="PNG")
 
 
 def _sign_pdf_document(source_path: Path, signed_path: Path, signature_image: Image.Image, slot_index: int) -> None:

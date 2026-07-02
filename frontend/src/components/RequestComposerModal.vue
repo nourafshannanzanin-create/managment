@@ -29,7 +29,7 @@ const {
         <h2>ثبت درخواست سازمانی</h2>
       </div>
 
-      <div class="modal-grid two-col">
+      <div class="modal-grid two-col request-composer-grid">
         <label class="field-shell">
           <span>عنوان</span>
           <input v-model="form.title" type="text" />
@@ -45,15 +45,16 @@ const {
 
         <label class="field-shell">
           <span>ارجاع به مدیر</span>
-          <select :value="form.manager" @change="setRequestManager($event.target.value)">
-            <option value="">انتخاب مدیر</option>
+          <select :value="form.manager" required @change="setRequestManager($event.target.value)">
+            <option value="" disabled>انتخاب مدیر</option>
             <option v-for="item in state.directories.managers" :key="item.slug" :value="item.slug">{{ item.name }}</option>
           </select>
         </label>
 
         <label class="field-shell">
-          <span>ارجاع به مدیران</span>
+          <span>ارجاع به ...</span>
           <select v-model="form.managerAssigneeIds" multiple :disabled="!form.manager">
+            <option value="">هیچکدام</option>
             <option v-for="item in requestManagerAssigneeOptions" :key="item.id" :value="item.id">{{ item.name }}</option>
           </select>
         </label>
@@ -62,26 +63,29 @@ const {
           <span>تاریخ</span>
           <ShamsiDatePicker v-model="form.deadline" model-type="jalali" placeholder="1405/04/01" />
         </label>
+
+        <label class="field-shell">
+          <span>اولویت</span>
+          <div class="segmented-row">
+            <button :class="['priority-chip', form.priority === 'low' && 'is-active']" @click="form.priority = 'low'">پایین</button>
+            <button :class="['priority-chip', form.priority === 'medium' && 'is-active']" @click="form.priority = 'medium'">متوسط</button>
+            <button :class="['priority-chip', form.priority === 'high' && 'is-active']" @click="form.priority = 'high'">بالا</button>
+            <button :class="['priority-chip', form.priority === 'critical' && 'is-active']" @click="form.priority = 'critical'">بحرانی</button>
+          </div>
+        </label>
+
+        <label class="field-shell">
+          <span>توضیحات</span>
+          <textarea v-model="form.description" rows="5"></textarea>
+        </label>
+
+        <label class="upload-pad compact-upload">
+          <input type="file" multiple @change="setRequestFiles($event.target.files)" />
+          <span class="material-symbols-outlined">attach_file</span>
+          <strong>افزودن پیوست</strong>
+          <small>اختیاری</small>
+        </label>
       </div>
-
-      <label class="field-shell">
-        <span>توضیحات</span>
-        <textarea v-model="form.description" rows="5"></textarea>
-      </label>
-
-      <div class="segmented-row">
-        <button :class="['priority-chip', form.priority === 'low' && 'is-active']" @click="form.priority = 'low'">پایین</button>
-        <button :class="['priority-chip', form.priority === 'medium' && 'is-active']" @click="form.priority = 'medium'">متوسط</button>
-        <button :class="['priority-chip', form.priority === 'high' && 'is-active']" @click="form.priority = 'high'">بالا</button>
-        <button :class="['priority-chip', form.priority === 'critical' && 'is-active']" @click="form.priority = 'critical'">بحرانی</button>
-      </div>
-
-      <label class="upload-pad compact-upload">
-        <input type="file" multiple @change="setRequestFiles($event.target.files)" />
-        <span class="material-symbols-outlined">attach_file</span>
-        <strong>افزودن پیوست</strong>
-        <small>اختیاری</small>
-      </label>
 
       <div v-if="form.attachments.length" class="file-list">
         <article v-for="(file, index) in form.attachments" :key="`${file.name}-${index}`" class="file-row">
@@ -100,9 +104,17 @@ const {
           <span class="material-symbols-outlined">close</span>
           <span>بستن</span>
         </button>
-        <button class="action-btn tone-primary" :disabled="submitting" @click="submitRequest">
+        <button class="action-btn tone-danger" :disabled="submitting" @click="submitRequest('reject')">
+          <span class="material-symbols-outlined">cancel</span>
+          <span>{{ submitting ? 'در حال ثبت...' : 'رد' }}</span>
+        </button>
+        <button class="action-btn tone-primary" :disabled="submitting" @click="submitRequest('approve')">
+          <span class="material-symbols-outlined">check_circle</span>
+          <span>{{ submitting ? 'در حال ثبت...' : 'تایید' }}</span>
+        </button>
+        <button class="action-btn tone-soft" :disabled="submitting" @click="submitRequest('refer')">
           <span class="material-symbols-outlined">send</span>
-          <span>{{ submitting ? 'در حال ثبت...' : 'ثبت درخواست' }}</span>
+          <span>{{ submitting ? 'در حال ثبت...' : 'ارجاع' }}</span>
         </button>
       </div>
     </div>
