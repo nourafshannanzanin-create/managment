@@ -1,14 +1,13 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 
-import StitchRuntimePage from '../components/StitchRuntimePage.vue'
+import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
-import { escapeHtml, wirePageNavigation } from '../utils/stitch'
 
-const runtime = ref(null)
 const searchQuery = ref('')
 const activeCategory = ref('all')
-const { navigateTo, openUserComposer, state, visibleNavItems } = useWorkflowHub()
+
+const { openUserComposer, state } = useWorkflowHub()
 
 const categoryButtons = computed(() => [
   { key: 'all', label: 'همه افراد' },
@@ -25,7 +24,7 @@ const filteredUsers = computed(() => {
       activeCategory.value === 'all' ||
       (activeCategory.value === 'managers' && ['admin', 'executive_manager', 'manager'].includes(item.accessRole)) ||
       (activeCategory.value === 'experts' && item.accessRole === 'employee') ||
-      (activeCategory.value === 'it' && String(item.department || '').includes('فناوری اطلاعات'))
+      (activeCategory.value === 'it' && String(item.department || '').includes('فناوری'))
 
     if (!matchesCategory) return false
     if (!query) return true
@@ -35,108 +34,93 @@ const filteredUsers = computed(() => {
   })
 })
 
-function renderUserCard(item) {
-  const initial = escapeHtml((item.name || '?').slice(0, 1))
+const userStats = computed(() => [
+  { label: 'کل کاربران', value: filteredUsers.value.length },
+  { label: 'کاربران فعال', value: filteredUsers.value.filter((item) => String(item.status || '').includes('فعال')).length },
+  { label: 'مدیران', value: filteredUsers.value.filter((item) => ['admin', 'executive_manager', 'manager'].includes(item.accessRole)).length },
+  { label: 'کارشناسان', value: filteredUsers.value.filter((item) => item.accessRole === 'employee').length },
+])
 
-  return `
-    <div class="bg-surface-container-lowest p-card-padding rounded-2xl card-shadow border border-outline-variant/5">
-      <div class="flex items-start justify-between mb-4">
-        <div class="flex items-center gap-4">
-          <div class="relative w-16 h-16 rounded-2xl bg-primary/10 overflow-hidden border border-outline-variant/10">
-            <div class="w-full h-full flex items-center justify-center text-primary font-bold text-xl">
-              ${initial}
-            </div>
-            <div class="absolute -top-2 -right-2 w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-headline-md shadow-md">
-              <span>${initial}</span>
-            </div>
-          </div>
-          <div>
-            <h4 class="font-headline-md text-body-lg text-on-surface font-bold">${escapeHtml(item.name)}</h4>
-            <span class="inline-block px-2 py-0.5 mt-1 bg-primary/10 text-primary rounded font-label-sm text-label-sm">${escapeHtml(item.role)}</span>
-          </div>
-        </div>
-        <button class="material-symbols-outlined text-on-surface-variant">more_vert</button>
-      </div>
-      <div class="space-y-2 border-t border-secondary/5 pt-4">
-        <div class="flex items-center gap-3 text-on-surface-variant">
-          <span class="material-symbols-outlined text-[20px]">mail</span>
-          <span class="font-label-sm text-label-sm">${escapeHtml(item.email)}</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3 text-on-surface-variant">
-            <span class="material-symbols-outlined text-[20px]">hub</span>
-            <span class="font-label-sm text-label-sm">${escapeHtml(item.department)}</span>
-          </div>
-          <span class="inline-block px-2 py-0.5 bg-surface-variant text-on-surface-variant rounded font-label-sm text-label-sm">${escapeHtml(item.status)}</span>
-        </div>
-      </div>
-    </div>
-  `
+function toneForStatus(status) {
+  const label = String(status || '')
+  if (label.includes('غیرفعال')) return 'is-danger'
+  if (label.includes('فعال')) return 'is-success'
+  return ''
 }
-
-function hydrate(root) {
-  const searchInput = root.querySelector('input[type="text"]')
-  if (searchInput) {
-    searchInput.readOnly = false
-    searchInput.value = searchQuery.value
-    searchInput.placeholder = 'جستجو در کاربران'
-    searchInput.oninput = (event) => {
-      searchQuery.value = event.target.value || ''
-    }
-  }
-
-  const tuneButton = root.querySelector('button.material-symbols-outlined.absolute')
-  if (tuneButton) tuneButton.remove()
-
-  const filterSection = root.querySelector('.flex.gap-2.overflow-x-auto')
-  if (filterSection) {
-    filterSection.innerHTML = categoryButtons.value.map((item) => {
-      const isActive = activeCategory.value === item.key
-      return `
-        <button
-          type="button"
-          data-user-category="${item.key}"
-          class="whitespace-nowrap px-4 py-2 rounded-full font-label-sm text-label-sm ${isActive ? 'bg-primary text-on-primary shadow-md' : 'bg-surface-container-highest text-on-surface-variant'}"
-        >
-          ${escapeHtml(item.label)}
-        </button>
-      `
-    }).join('')
-
-    filterSection.querySelectorAll('[data-user-category]').forEach((button) => {
-      button.onclick = () => {
-        activeCategory.value = button.getAttribute('data-user-category') || 'all'
-      }
-    })
-  }
-
-  const stats = root.querySelectorAll('.grid.grid-cols-2 .font-stat-value')
-  if (stats[0]) stats[0].textContent = String(filteredUsers.value.length)
-  if (stats[1]) stats[1].textContent = String(filteredUsers.value.filter((item) => item.status === 'فعال').length)
-
-  const heading = root.querySelector('h2.font-headline-md')
-  if (heading) heading.onclick = () => openUserComposer()
-
-  const cardGroups = root.querySelectorAll('.space-y-4')
-  const usersContainer = cardGroups[cardGroups.length - 1]
-  if (usersContainer) {
-    usersContainer.innerHTML = filteredUsers.value.map(renderUserCard).join('') || '<div class="bg-surface-container-lowest p-card-padding rounded-2xl text-on-surface-variant">کاربری یافت نشد.</div>'
-  }
-
-  wirePageNavigation(root, navigateTo, '/users', visibleNavItems.value)
-}
-
-function rehydrate() {
-  const root = runtime.value?.getRoot?.()
-  if (root) hydrate(root)
-}
-
-watch(() => [filteredUsers.value, activeCategory.value, searchQuery.value, state.users.length], rehydrate, { deep: true })
 </script>
 
 <template>
-  <StitchRuntimePage v-if="state.currentUser.canAccessUsers || state.currentUser.canManageUsers" ref="runtime" stitch-id="_2" @ready="hydrate" />
-  <section v-else class="page-shell" style="padding: 32px;">
-    دسترسی به صفحه کاربران برای شما فعال نیست.
+  <section v-if="state.currentUser.canAccessUsers || state.currentUser.canManageUsers" class="page-shell enterprise-page">
+    <PageHeader
+      eyebrow="سرمایه انسانی"
+      title="کاربران و نقش‌های دسترسی"
+      action-label="افزودن کاربر"
+      action-icon="person_add"
+      @action="openUserComposer"
+    />
+
+    <section class="metric-grid metric-grid-4">
+      <article v-for="item in userStats" :key="item.label" class="metric-card">
+        <span class="metric-label">{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+      </article>
+    </section>
+
+    <section class="surface-block">
+      <div class="filter-toolbar">
+        <label class="search-shell search-shell-wide">
+          <span class="material-symbols-outlined">search</span>
+          <input v-model="searchQuery" type="text" placeholder="جستجو در کاربران..." />
+        </label>
+
+        <div class="chip-row">
+          <button
+            v-for="item in categoryButtons"
+            :key="item.key"
+            :class="['filter-chip', activeCategory === item.key && 'is-active']"
+            type="button"
+            @click="activeCategory = item.key"
+          >
+            {{ item.label }}
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="surface-block">
+      <div class="section-label-row">
+        <div>
+          <h3>فهرست کاربران</h3>
+          <p>{{ filteredUsers.length }} کاربر مطابق این فیلترها یافت شد.</p>
+        </div>
+      </div>
+
+      <div class="card-grid">
+        <article v-for="item in filteredUsers" :key="item.id || item.email" class="user-card">
+          <div class="user-card-head">
+            <div class="user-avatar">{{ (item.name || '?').slice(0, 1) }}</div>
+            <div class="user-card-copy">
+              <strong>{{ item.name }}</strong>
+              <small>{{ item.role }}</small>
+            </div>
+            <span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span>
+          </div>
+
+          <div class="user-card-grid">
+            <div><span>ایمیل</span><strong>{{ item.email }}</strong></div>
+            <div><span>بخش</span><strong>{{ item.department }}</strong></div>
+            <div><span>مدیر مستقیم</span><strong>{{ item.manager || 'ندارد' }}</strong></div>
+            <div><span>تاریخ عضویت</span><strong>{{ item.joinedAt || '-' }}</strong></div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </section>
+
+  <section v-else class="page-shell">
+    <article class="access-denied-card">
+      <h2>شما به بخش کاربران دسترسی ندارید</h2>
+      <p>برای مشاهده و مدیریت کاربران باید نقش مدیریتی یا دسترسی مناسب داشته باشید.</p>
+    </article>
   </section>
 </template>

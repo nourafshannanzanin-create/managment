@@ -1,150 +1,157 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 
-import FilterDialog from '../components/FilterDialog.vue'
-import StitchRuntimePage from '../components/StitchRuntimePage.vue'
+import PageFilters from '../components/PageFilters.vue'
+import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
-import { escapeHtml, statusTone, wirePageNavigation } from '../utils/stitch'
 
-const runtime = ref(null)
-const filterOpen = ref(false)
 const {
   approvalHistory,
   approvalInbox,
   approvalPeople,
-  navigateTo,
   openApprovalDetail,
   openDocumentComposer,
   openSignatureComposer,
   resetPageFilters,
-  signatureState,
   state,
   updatePageFilter,
-  visibleNavItems,
 } = useWorkflowHub()
 
 const approvalFilters = computed(() => state.filters.approvals)
-
-function renderApprovalCard(item, history = false) {
-  const status = String(item.status || '')
-  const isApproved = status.includes('تایید')
-  const isRejected = status.includes('رد')
-  const accentClass = isApproved ? 'bg-emerald-500' : (isRejected ? 'bg-rose-500' : (history ? 'bg-primary' : 'bg-error'))
-  const shellClass = isApproved
-    ? 'bg-emerald-50 border-emerald-200'
-    : (isRejected ? 'bg-rose-50 border-rose-200' : 'bg-surface-container-lowest border-outline-variant/10')
-
-  return `
-    <div class="${shellClass} rounded-xl shadow-[0_4px_18px_rgba(0,0,0,0.04)] border relative overflow-hidden group p-4 min-h-[148px]">
-      <div class="absolute top-0 right-0 w-1.5 h-full ${accentClass}"></div>
-      <div class="flex justify-between items-start mb-3">
-        <div class="space-y-1">
-          <span class="font-label-sm text-label-sm text-on-surface-variant/70 block">شناسه سند</span>
-          <code class="font-label-sm text-label-sm font-bold text-primary tracking-wider">${escapeHtml(item.id)}</code>
-        </div>
-        <div class="${statusTone(item.status)} px-3 py-1 rounded-full font-label-sm text-label-sm">${escapeHtml(item.status)}</div>
-      </div>
-      <div class="space-y-1 min-h-[52px]">
-        <span class="font-label-sm text-label-sm text-on-surface-variant/70 block">عنوان سند</span>
-        <p class="font-body-md text-body-md text-on-surface font-semibold line-clamp-2">${escapeHtml(item.title)}</p>
-      </div>
-      <div class="mt-4 pt-3 border-t border-outline-variant/10 flex justify-between items-center">
-        <span class="font-label-sm text-label-sm text-on-surface-variant">${escapeHtml(item.owner)} · ${escapeHtml(item.department)}</span>
-        <button class="text-primary font-label-sm text-label-sm flex items-center gap-1 approval-detail-btn" data-approval-id="${escapeHtml(item.id)}">
-          مشاهده جزئیات
-          <span class="material-symbols-outlined text-[16px]">chevron_left</span>
-        </button>
-      </div>
-    </div>
-  `
-}
-
-function filterSummary() {
-  const parts = []
-  if (approvalFilters.value.query) parts.push(`جستجو: ${approvalFilters.value.query}`)
-  if (approvalFilters.value.person) parts.push(`شخص: ${approvalFilters.value.person}`)
-  if (approvalFilters.value.startDate) parts.push(`از: ${approvalFilters.value.startDate}`)
-  if (approvalFilters.value.endDate) parts.push(`تا: ${approvalFilters.value.endDate}`)
-  return parts.join(' | ') || 'برای فیلتر کلیک کنید'
-}
-
-function applyFilters(filters) {
-  Object.entries(filters).forEach(([key, value]) => updatePageFilter('approvals', key, value))
-  filterOpen.value = false
-}
 
 function resetFilters() {
   resetPageFilters('approvals')
 }
 
-function hydrate(root) {
-  const buttons = root.querySelectorAll('section.grid button')
-  if (buttons[0]) buttons[0].onclick = () => openDocumentComposer()
-  if (buttons[1]) {
-    buttons[1].onclick = () => openSignatureComposer()
-    const label = buttons[1].querySelector('span:last-child')
-    if (label) label.textContent = signatureState.hasSignature ? 'ویرایش امضا' : 'ثبت امضا'
-  }
-
-  const searchInput = root.querySelector('input[type="text"]')
-  if (searchInput) {
-    searchInput.readOnly = true
-    searchInput.value = filterSummary()
-    searchInput.placeholder = 'برای فیلتر کلیک کنید'
-    searchInput.onclick = () => { filterOpen.value = true }
-  }
-
-  const filterSection = root.querySelector('section.bg-surface-container-lowest')
-  if (filterSection) filterSection.onclick = () => { filterOpen.value = true }
-
-  const warning = root.querySelector('.bg-primary\\/5 p.font-label-sm')
-  if (warning) {
-    warning.textContent = signatureState.hasSignature
-      ? 'امضای دیجیتال شما ثبت شده و روی فایل نهایی اعمال می‌شود.'
-      : 'برای تایید اسناد ابتدا امضای خود را در پنل کاربری ثبت کنید.'
-  }
-
-  const sections = root.querySelectorAll('main > section')
-  const pendingSection = sections[3]
-  if (pendingSection) {
-    const header = pendingSection.firstElementChild?.outerHTML || ''
-    pendingSection.innerHTML = `${header}${approvalInbox.value.length ? approvalInbox.value.map((item) => renderApprovalCard(item)).join('') : '<div class="flex flex-col items-center justify-center py-12 bg-white rounded-xl border-2 border-dashed border-outline-variant/30 text-on-surface-variant"><span class="material-symbols-outlined text-5xl opacity-20 mb-3">history_edu</span><p class="font-body-md text-body-md">هیچ موردی برای تایید وجود ندارد</p></div>'}`
-  }
-
-  const historySection = sections[4]
-  if (historySection) {
-    const header = historySection.firstElementChild?.outerHTML || ''
-    historySection.innerHTML = `${header}${approvalHistory.value.map((item) => renderApprovalCard(item, true)).join('') || '<div class="bg-surface-container-lowest p-card-padding rounded-xl text-on-surface-variant">تاریخچه‌ای موجود نیست.</div>'}`
-  }
-
-  root.querySelectorAll('.approval-detail-btn').forEach((button) => {
-    button.onclick = () => openApprovalDetail(button.dataset.approvalId)
-  })
-
-  wirePageNavigation(root, navigateTo, '/approvals', visibleNavItems.value)
+function toneForStatus(status) {
+  const label = String(status || '')
+  if (label.includes('رد')) return 'is-danger'
+  if (label.includes('تایید')) return 'is-success'
+  if (label.includes('بررسی') || label.includes('انتظار')) return 'is-warning'
+  return ''
 }
-
-function rehydrate() {
-  const root = runtime.value?.getRoot?.()
-  if (root) hydrate(root)
-}
-
-watch(() => [approvalInbox.value, approvalHistory.value, signatureState.hasSignature, state.filters.approvals], rehydrate, { deep: true })
 </script>
 
 <template>
-  <StitchRuntimePage v-if="state.currentUser.canApproveDocuments" ref="runtime" stitch-id="_6" @ready="hydrate" />
-  <section v-else class="page-shell" style="padding: 32px;">
-    دسترسی به صفحه تاییدیه ها برای شما فعال نیست.
+  <section v-if="state.currentUser.canAccessApprovals || state.currentUser.canApproveDocuments" class="page-shell enterprise-page">
+    <PageHeader
+      eyebrow="مرکز تایید اسناد"
+      title="تاییدیه‌ها و گردش امضا"
+    />
+
+    <section class="quick-action-grid">
+      <button class="quick-action-card" type="button" @click="openDocumentComposer">
+        <span class="material-symbols-outlined">upload_file</span>
+        <strong>ارسال سند</strong>
+        <small>ثبت سند جدید برای گردش تایید</small>
+      </button>
+      <button v-if="state.currentUser.canApproveDocuments" class="quick-action-card is-dark" type="button" @click="openSignatureComposer">
+        <span class="material-symbols-outlined">draw</span>
+        <strong>ثبت امضا</strong>
+        <small>مدیریت امضای دیجیتال مدیر تاییدکننده</small>
+      </button>
+    </section>
+
+    <PageFilters
+      :query="approvalFilters.query"
+      :person="approvalFilters.person"
+      :start-date="approvalFilters.startDate"
+      :end-date="approvalFilters.endDate"
+      :people="approvalPeople"
+      @update:query="updatePageFilter('approvals', 'query', $event)"
+      @update:person="updatePageFilter('approvals', 'person', $event)"
+      @update:start-date="updatePageFilter('approvals', 'startDate', $event)"
+      @update:end-date="updatePageFilter('approvals', 'endDate', $event)"
+      @reset="resetFilters"
+    />
+
+    <section class="surface-block">
+      <div class="section-label-row">
+        <div>
+          <h3>در انتظار بررسی</h3>
+          <p>اسنادی که هنوز در جریان تایید هستند، در این بخش نمایش داده می‌شوند.</p>
+        </div>
+      </div>
+
+      <div class="table-shell">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>عنوان</th>
+              <th>ثبت‌کننده</th>
+              <th>بخش</th>
+              <th>نوع</th>
+              <th>وضعیت</th>
+              <th>تاریخ</th>
+              <th>عملیات</th>
+            </tr>
+          </thead>
+          <tbody v-if="approvalInbox.length">
+            <tr v-for="item in approvalInbox" :key="item.id">
+              <td><strong>{{ item.title }}</strong></td>
+              <td>{{ item.owner }}</td>
+              <td>{{ item.department }}</td>
+              <td>{{ item.type }}</td>
+              <td><span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span></td>
+              <td>{{ item.uploadedAt || '-' }}</td>
+              <td><button class="table-link" type="button" @click="openApprovalDetail(item.id)">مشاهده</button></td>
+            </tr>
+          </tbody>
+          <tbody v-else>
+            <tr>
+              <td colspan="7" class="table-empty">در حال حاضر موردی در انتظار بررسی وجود ندارد.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="surface-block">
+      <div class="section-label-row">
+        <div>
+          <h3>تاریخچه تاییدیه‌ها</h3>
+          <p>موارد بررسی‌شده و نهایی‌شده در این بخش نمایش داده می‌شوند.</p>
+        </div>
+      </div>
+
+      <div class="table-shell">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>عنوان</th>
+              <th>ثبت‌کننده</th>
+              <th>بخش</th>
+              <th>نوع</th>
+              <th>وضعیت</th>
+              <th>تاریخ</th>
+              <th>عملیات</th>
+            </tr>
+          </thead>
+          <tbody v-if="approvalHistory.length">
+            <tr v-for="item in approvalHistory" :key="item.id">
+              <td><strong>{{ item.title }}</strong></td>
+              <td>{{ item.owner }}</td>
+              <td>{{ item.department }}</td>
+              <td>{{ item.type }}</td>
+              <td><span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span></td>
+              <td>{{ item.uploadedAt || '-' }}</td>
+              <td><button class="table-link" type="button" @click="openApprovalDetail(item.id)">مشاهده</button></td>
+            </tr>
+          </tbody>
+          <tbody v-else>
+            <tr>
+              <td colspan="7" class="table-empty">هنوز هیچ تاییدیه نهایی‌شده‌ای ثبت نشده است.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </section>
-  <FilterDialog
-    v-if="state.currentUser.canApproveDocuments"
-    :open="filterOpen"
-    title="فیلتر تاییدها"
-    :filters="approvalFilters"
-    :people="approvalPeople"
-    @close="filterOpen = false"
-    @apply="applyFilters"
-    @reset="resetFilters"
-  />
+
+  <section v-else class="page-shell">
+    <article class="access-denied-card">
+      <h2>دسترسی به ماژول تاییدیه‌ها فعال نیست</h2>
+      <p>برای مشاهده این بخش باید دسترسی تاییدیه‌ها برای حساب شما فعال شده باشد.</p>
+    </article>
+  </section>
 </template>

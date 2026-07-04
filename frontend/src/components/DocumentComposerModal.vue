@@ -71,7 +71,7 @@ function toggleAssignee(id) {
         <input type="file" accept="image/*,.pdf" @change="setDocumentFile($event.target.files?.[0])" />
         <span class="material-symbols-outlined">upload_file</span>
         <strong>{{ form.file?.name || 'افزودن فایل' }}</strong>
-        <small>الزامی</small>
+        <small>اختیاری</small>
       </label>
 
       <section class="surface-inline">

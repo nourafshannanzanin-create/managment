@@ -69,7 +69,7 @@ def has_section_access(user: User, section_key: str) -> bool:
     if section_key == SECTION_REPORTS:
         return False
     if section_key == SECTION_APPROVALS:
-        return is_manager(user)
+        return True
     if section_key == SECTION_EXPENSES:
         return True
     return True
@@ -87,8 +87,12 @@ def can_view_reports(user: User) -> bool:
     return has_section_access(user, SECTION_REPORTS)
 
 
-def can_approve_documents(user: User) -> bool:
+def can_access_approvals(user: User) -> bool:
     return has_section_access(user, SECTION_APPROVALS)
+
+
+def can_approve_documents(user: User) -> bool:
+    return is_manager(user) and has_section_access(user, SECTION_APPROVALS)
 
 
 def can_access_expenses(user: User) -> bool:

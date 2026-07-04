@@ -3,9 +3,10 @@ import { computed, onMounted, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 
 import ApprovalDetailModal from './components/ApprovalDetailModal.vue'
-import AppTopNav from './components/AppTopNav.vue'
+import AppSidebar from './components/AppSidebar.vue'
 import DocumentComposerModal from './components/DocumentComposerModal.vue'
 import ExpenseComposerModal from './components/ExpenseComposerModal.vue'
+import ExpenseDetailModal from './components/ExpenseDetailModal.vue'
 import RequestComposerModal from './components/RequestComposerModal.vue'
 import RequestDetailModal from './components/RequestDetailModal.vue'
 import SignatureComposerModal from './components/SignatureComposerModal.vue'
@@ -19,24 +20,25 @@ const {
   state,
   modalState,
   requestDetailState,
+  expenseDetailState,
   approvalDetailState,
   selectedRequest,
+  selectedExpense,
   selectedApproval,
   selectedRequestTimeline,
   restoreSession,
   closeRequestDetail,
+  closeExpenseDetail,
   closeApprovalDetail,
   closeRequestComposer,
   closeExpenseComposer,
   closeUserComposer,
   closeDocumentComposer,
   closeSignatureComposer,
+  toggleSidebar,
 } = hub
 
 const isAuthRoute = computed(() => route.path === '/login')
-const layoutClass = computed(() => ({
-  'is-auth-route': isAuthRoute.value,
-}))
 
 watch(
   () => route.fullPath,
@@ -51,10 +53,24 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="app-shell" :class="layoutClass">
-    <AppTopNav v-if="!isAuthRoute" />
+  <div class="app-shell" :class="{ 'is-auth-route': isAuthRoute }">
+    <template v-if="!isAuthRoute">
+      <div class="shell-backdrop" :class="{ 'is-open': state.mobileMenuOpen }" @click="toggleSidebar"></div>
+      <button class="shell-menu-fab" type="button" @click="toggleSidebar">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+      <AppSidebar :mobile-menu-open="state.mobileMenuOpen" :toggle-sidebar="toggleSidebar" />
 
-    <main class="shell-main">
+      <div class="shell-main">
+        <main class="shell-content">
+          <RouterView v-slot="{ Component }">
+            <component :is="Component" :key="route.fullPath" />
+          </RouterView>
+        </main>
+      </div>
+    </template>
+
+    <main v-else class="shell-main auth-main">
       <div class="shell-content">
         <RouterView v-slot="{ Component }">
           <component :is="Component" :key="route.fullPath" />
@@ -68,6 +84,13 @@ onMounted(() => {
       :timeline="selectedRequestTimeline"
       :loading="requestDetailState.loading"
       @close="closeRequestDetail"
+    />
+
+    <ExpenseDetailModal
+      :open="modalState.expenseDetail"
+      :expense="selectedExpense"
+      :loading="expenseDetailState.loading"
+      @close="closeExpenseDetail"
     />
 
     <ApprovalDetailModal
@@ -105,9 +128,6 @@ onMounted(() => {
       @close="closeDocumentComposer"
     />
 
-    <SignatureComposerModal
-      :open="modalState.signatureComposer"
-      @close="closeSignatureComposer"
-    />
+    <SignatureComposerModal :open="modalState.signatureComposer" @close="closeSignatureComposer" />
   </div>
 </template>

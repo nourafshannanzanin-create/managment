@@ -1,165 +1,188 @@
 ---
-name: Executive Zenith
+name: Karomand Warm Enterprise
 colors:
-  surface: '#f8f9ff'
-  surface-dim: '#cbdbf5'
-  surface-bright: '#f8f9ff'
+  background: '#f7f1eb'
+  on-background: '#2e4374'
+  surface: '#ffffff'
+  surface-bright: '#fffaf6'
+  surface-dim: '#e8ddd4'
   surface-container-lowest: '#ffffff'
-  surface-container-low: '#eff4ff'
-  surface-container: '#e5eeff'
-  surface-container-high: '#dce9ff'
-  surface-container-highest: '#d3e4fe'
-  on-surface: '#0b1c30'
-  on-surface-variant: '#3f4949'
-  inverse-surface: '#213145'
-  inverse-on-surface: '#eaf1ff'
-  outline: '#6f797a'
-  outline-variant: '#bec8c9'
-  surface-tint: '#14686d'
-  primary: '#026166'
+  surface-container-low: '#fbf5ef'
+  surface-container: '#f6eee6'
+  surface-container-high: '#f7efe7'
+  surface-container-highest: '#f4ece4'
+  surface-variant: '#eedaca'
+  on-surface: '#2e4374'
+  on-surface-variant: '#7c81ad'
+  inverse-surface: '#2e4374'
+  inverse-on-surface: '#fbf5ef'
+  outline: '#cbb9ab'
+  outline-variant: '#ddcec1'
+  surface-tint: '#e5c3a6'
+  primary: '#2e4374'
   on-primary: '#ffffff'
-  primary-container: '#2d7a7f'
-  on-primary-container: '#d2fcff'
-  inverse-primary: '#8ad3d8'
-  secondary: '#4d6169'
+  primary-container: '#eedaca'
+  on-primary-container: '#2e4374'
+  inverse-primary: '#eedaca'
+  primary-fixed: '#f7ede4'
+  primary-fixed-dim: '#d8c0ac'
+  on-primary-fixed: '#2e4374'
+  on-primary-fixed-variant: '#2e4374'
+  secondary: '#4b527e'
   on-secondary: '#ffffff'
-  secondary-container: '#d0e6ef'
-  on-secondary-container: '#53676f'
-  tertiary: '#545857'
+  secondary-container: '#f4ece4'
+  on-secondary-container: '#6c6f92'
+  secondary-fixed: '#f3e8df'
+  secondary-fixed-dim: '#e7d9ce'
+  on-secondary-fixed: '#2e4374'
+  on-secondary-fixed-variant: '#4b527e'
+  tertiary: '#e5c3a6'
   on-tertiary: '#ffffff'
-  tertiary-container: '#6c706f'
-  on-tertiary-container: '#f1f4f3'
-  error: '#ba1a1a'
+  tertiary-container: '#fbf5ef'
+  on-tertiary-container: '#2e4374'
+  tertiary-fixed: '#fbf5ef'
+  tertiary-fixed-dim: '#f2e7dc'
+  on-tertiary-fixed: '#2e4374'
+  on-tertiary-fixed-variant: '#4b527e'
+  error: '#8f3b3b'
   on-error: '#ffffff'
-  error-container: '#ffdad6'
-  on-error-container: '#93000a'
-  primary-fixed: '#a6eff4'
-  primary-fixed-dim: '#8ad3d8'
-  on-primary-fixed: '#002022'
-  on-primary-fixed-variant: '#004f53'
-  secondary-fixed: '#d0e6ef'
-  secondary-fixed-dim: '#b4cad3'
-  on-secondary-fixed: '#091e25'
-  on-secondary-fixed-variant: '#364a51'
-  tertiary-fixed: '#e0e3e2'
-  tertiary-fixed-dim: '#c4c7c6'
-  on-tertiary-fixed: '#181c1c'
-  on-tertiary-fixed-variant: '#434847'
-  background: '#f8f9ff'
-  on-background: '#0b1c30'
-  surface-variant: '#d3e4fe'
+  error-container: '#f4dfdb'
+  on-error-container: '#6a2f2f'
 typography:
   headline-lg:
-    fontFamily: Hanken Grotesk
+    fontFamily: Vazirmatn
     fontSize: 32px
     fontWeight: '700'
     lineHeight: 40px
     letterSpacing: -0.02em
   headline-lg-mobile:
-    fontFamily: Hanken Grotesk
+    fontFamily: Vazirmatn
     fontSize: 24px
     fontWeight: '700'
     lineHeight: 32px
   headline-md:
-    fontFamily: Hanken Grotesk
+    fontFamily: Vazirmatn
     fontSize: 24px
     fontWeight: '600'
     lineHeight: 32px
   body-lg:
-    fontFamily: Be Vietnam Pro
+    fontFamily: Vazirmatn
     fontSize: 18px
     fontWeight: '400'
     lineHeight: 28px
   body-md:
-    fontFamily: Be Vietnam Pro
+    fontFamily: Vazirmatn
     fontSize: 16px
     fontWeight: '400'
     lineHeight: 24px
   label-sm:
-    fontFamily: JetBrains Mono
+    fontFamily: Vazirmatn
     fontSize: 12px
-    fontWeight: '500'
+    fontWeight: '600'
     lineHeight: 16px
-    letterSpacing: 0.05em
+    letterSpacing: 0.01em
   stat-value:
-    fontFamily: Hanken Grotesk
+    fontFamily: Vazirmatn
     fontSize: 36px
     fontWeight: '700'
     lineHeight: 44px
 rounded:
-  sm: 0.25rem
-  DEFAULT: 0.5rem
-  md: 0.75rem
-  lg: 1rem
-  xl: 1.5rem
+  sm: 10px
+  DEFAULT: 16px
+  md: 16px
+  lg: 22px
+  xl: 30px
   full: 9999px
 spacing:
   container-padding: 2rem
   gutter: 1.5rem
   section-gap: 3rem
   card-padding: 1.5rem
-  sidebar-width: 280px
+  sidebar-width: 270px
 ---
 
 ## Brand & Style
 
-The design system embodies a **Corporate Modern** aesthetic tailored for high-stakes enterprise management. It conveys authority, precision, and luxury through a disciplined application of whitespace and a refined color palette. The personality is "Quietly Powerful"—it doesn't shout for attention but earns it through flawless execution and technical sophistication.
+This system is no longer modeled as a generic enterprise dashboard. It follows the visual language already present in the product: a warm, premium Persian workflow workspace with soft glass layers, large rounded shapes, and calm navy anchors.
 
-The interface prioritizes clarity and a sense of "premium space," drawing inspiration from world-class SaaS platforms. It utilizes a layered approach to depth, where subtle shadows and tonal changes replace heavy borders, creating an environment that feels breathable yet structured. For the RTL context, every element is mirrored to ensure a natural reading flow that feels native and intentional, rather than an afterthought.
+The personality is **formal, humane, and quiet**. It should feel trustworthy for organizational workflows, but never cold or overly technical. The interface must read like an operational salon: warm background, bright paper-like cards, and restrained contrast.
 
 ## Colors
 
-The palette is anchored by a deep **Executive Teal** (Primary), which provides a professional yet distinctive brand signal. This is paired with **Slate Onyx** (Secondary) for high-contrast typography and iconography, ensuring maximum legibility.
+The palette is built from the live UI:
 
-- **Primary (#2D7A7F):** Used for primary actions, active navigation states, and key data visualizations.
-- **Secondary (#1A2E35):** Reserved for primary headings and critical UI anchors to provide a sense of weight.
-- **Background/Surface (#F4F7F6):** A custom off-white/grey tint that reduces eye strain and provides a luxury "paper" feel compared to pure white.
-- **Success/Info/Warning:** These are derived as tonal variations of the primary teal and a muted gold to maintain the professional sobriety of the system.
+- **Primary `#2E4374`** for active states, major actions, strong headings, and navigation focus.
+- **Secondary `#4B527E`** for supporting emphasis, icons, and secondary actions.
+- **Sand Accent `#E5C3A6`** for tinted surfaces, pills, hover states, and soft highlights.
+- **Background `#F7F1EB`** for the global canvas.
+- **Surface `#FFFFFF`** and **Soft Surface `#FBF5EF` / `#F4ECE4`** for cards, forms, modals, and grouped content.
+
+Semantic states should stay muted and brand-consistent. Even alerts should avoid neon SaaS colors unless the action is truly destructive.
 
 ## Typography
 
-The typographic scale is designed for complex data environments. **Hanken Grotesk** provides a sharp, geometric clarity for headlines and financial figures. **Be Vietnam Pro** is used for body copy due to its exceptional readability and modern, friendly proportions. 
+**Vazirmatn** is the primary typeface across headline, body, label, and numeric presentation. The current product already uses it consistently, so the design system should not introduce competing Latin-first font stacks.
 
-For technical labels, metadata, and ID numbers (like REQ-codes), **JetBrains Mono** is introduced to provide a "developer-grade" precision feel. In the RTL (Persian/Arabic) context, ensure the selected font weights are balanced to maintain the same visual hierarchy as the English counterparts.
+- Headlines are bold, compact, and right-aligned.
+- Body text is comfortable and spacious for Persian reading.
+- Labels and metadata are small but still readable, with minimal tracking.
+- Numeric metrics may use the same family with heavier weights rather than switching to a different display font.
 
-## Layout & Spacing
+## Layout & Flow
 
-This design system utilizes a **Fixed Grid** philosophy for dashboard content to maintain a high-end, editorial feel, while the internal card structures remain fluid. 
+The layout language is **RTL-first and card-led**.
 
-- **Grid:** A 12-column grid is standard for desktop, transitioning to a single-column stack for mobile.
-- **RTL Flow:** The layout is strictly right-to-left. The sidebar is anchored to the right, and the main content area flows to the left. Form labels are right-aligned above their inputs.
-- **Rhythm:** An 8px base unit governs all spacing. Premium "breathability" is achieved by doubling standard margins (using 32px instead of 16px) for major section breaks.
+- Navigation is horizontal and pill-based in desktop topbar and mobile floating nav.
+- Primary content is composed of stacked sections, hero cards, metric cards, modal forms, and list cards.
+- Cards should be visually grouped by spacing and background tint, not heavy separators.
+- Page rhythm should preserve generous breathing room: 14px, 16px, 18px, 22px, and 28px are recurring practical intervals in the current UI.
 
 ## Elevation & Depth
 
-Depth is conveyed through **Tonal Layering** and **Ambient Shadows**. Instead of traditional borders, cards sit on the surface with a very soft, multi-layered shadow (0px 4px 20px rgba(0,0,0,0.04)).
+Depth should come from **soft contrast, blur, and tonal layering**, not heavy shadow stacks.
 
-- **Level 0 (Background):** The base `#F4F7F6` surface.
-- **Level 1 (Cards/Containers):** Pure white `#FFFFFF` surfaces with rounded corners and ambient shadows.
-- **Level 2 (Dropdowns/Modals):** Increased shadow spread and a subtle 1px stroke in a lightened primary tint to define boundaries against Level 1.
-- **Interactive Depth:** Buttons use a subtle inner-shadow when pressed to simulate a tactile "click" into the interface.
+- Surfaces are light and slightly translucent where appropriate.
+- Borders are subtle and warm, usually derived from the primary tone at low opacity.
+- Modals and login panels can use frosted-glass treatment, but standard content cards should stay crisp and readable.
 
 ## Shapes
 
-The shape language is **Rounded**, striking a balance between approachable and professional. 
+The shape system is one of the clearest signatures of the product.
 
-- **Primary Containers:** Use `rounded-lg` (16px) to create a soft, modern frame for data.
-- **Interactive Elements:** Buttons and input fields use `rounded-md` (8px) for a more disciplined, precise look.
-- **Avatars & Status Indicators:** Use full circles (`rounded-full`) to differentiate "human" or "status" elements from "structural" ones.
+- Small controls: `10px`
+- Inputs and buttons: `16px`
+- Standard cards and grouped nav items: `22px`
+- Large feature panels and modals: `30px`
+- Pills and filters: `9999px`
+
+Avoid sharp corners unless a highly technical sub-surface explicitly needs contrast.
 
 ## Components
 
 ### Buttons
-Primary buttons feature a subtle vertical gradient (Primary Main to a 10% darker shade) to give them a premium, tactile feel. Label text is always `label-sm` weight but slightly upscaled for visibility.
+
+Primary buttons use dark navy fills or navy gradients with white text. Secondary buttons use tinted sand or white surfaces with subtle borders. The interaction should feel lifted, not loud.
 
 ### Inputs
-Input fields are "Ghost Style" by default: a light grey background with no border, which transitions to a 2px Primary Teal bottom-border or full-border on focus. Labels are placed inside the field area for a modern, compact look.
+
+Inputs sit on soft white surfaces with very light warm borders. Focus uses a low-opacity navy ring or border shift. Labels remain outside the input and right-aligned for clarity in Persian workflows.
 
 ### Cards
-Cards are the primary vehicle for information. They must include a `card-padding` of 24px. Headers within cards should be separated by a light horizontal rule (1px, 5% opacity Secondary color).
 
-### Data Tables
-Tables use a "Zebra" striping that is extremely subtle (2% opacity Secondary). The header row uses a slightly darker tint of the background color with uppercase (or bolded RTL) labels to provide a strong anchor.
+Cards are the structural backbone of the interface. They use white or warm-soft surfaces, 16px to 22px corner radii, and light outlines. Section headers inside cards may use a faint divider, but large blocks should rely more on spacing than rules.
 
-### Chips & Tags
-Status chips (e.g., "Approved", "Pending") use a low-saturation background with high-saturation text of the same hue, ensuring they are readable without being visually noisy.
+### Navigation
+
+Navigation elements are rounded pills. Inactive states are muted navy on light/sand backgrounds; active states invert to solid navy with white text. Mobile navigation can float above the page if it preserves touch comfort and readability.
+
+### Status Chips
+
+Status chips should remain soft and low-noise:
+
+- Approved and positive states: tinted sand or muted success treatments
+- Pending and review states: pale violet-navy tints
+- Rejected states: dusty warm red backgrounds with deeper text
+
+### Tables & Lists
+
+Dense data should feel softened to match the rest of the system. Use warm header fills, low-contrast row dividers, and cardified list treatments on smaller screens.

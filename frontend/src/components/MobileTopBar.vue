@@ -30,8 +30,8 @@ defineProps({
   grid-template-columns: 88px minmax(0, 1fr) 88px;
   align-items: center;
   gap: 8px;
-  background: #f7f9ff;
-  border-bottom: 1px solid rgba(188, 200, 201, 0.3);
+  background: #fbf5ef;
+  border-bottom: 1px solid rgba(46, 67, 116, 0.14);
 }
 
 .mobile-topbar-side {
@@ -55,7 +55,7 @@ defineProps({
 
 .mobile-topbar-center h1 {
   margin: 0;
-  color: #026166;
+  color: #2E4374;
   font-size: 20px;
   font-weight: 800;
   line-height: 1.2;
@@ -63,7 +63,7 @@ defineProps({
 
 .mobile-topbar-center p {
   margin: 4px 0 0;
-  color: #6f797a;
+  color: #7C81AD;
   font-size: 12px;
   line-height: 1.4;
 }

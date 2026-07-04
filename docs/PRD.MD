@@ -337,15 +337,15 @@ Examples:
 
 # Design Philosophy
 
-Professional
+Warm
 
-Minimal
+Professional
 
 Elegant
 
-Enterprise Grade
+RTL Native
 
-Fast
+Enterprise Grade
 
 Trustworthy
 
@@ -355,15 +355,15 @@ Trustworthy
 
 الهام از:
 
-Stripe
+فضای سازمانی فارسی‌محور
 
-Linear
+کارت‌های روشن و گرم
 
-Notion
+ناوبری pill-based
 
-Slack
+سطوح soft glass
 
-Atlassian
+فرم‌های rounded و آرام
 
 ---
 
@@ -372,7 +372,7 @@ Atlassian
 ## Border Radius
 
 Cards:
-24px
+22px
 
 Buttons:
 16px
@@ -381,7 +381,7 @@ Inputs:
 16px
 
 Dialogs:
-32px
+30px
 
 ---
 
@@ -409,23 +409,23 @@ System Mode
 
 Primary
 
-#2563EB
+#2E4374
 
 Success
 
-#22C55E
+#E5C3A6
 
 Warning
 
-#F59E0B
+#E5C3A6
 
 Danger
 
-#EF4444
+#8F3B3B
 
 Background
 
-#F8FAFC
+#F7F1EB
 
 Surface
 
@@ -442,6 +442,8 @@ Tablet Optimized
 Mobile Friendly
 
 Progressive Web App
+
+Floating Navigation
 
 ---
 

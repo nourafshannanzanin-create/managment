@@ -75,7 +75,7 @@ async function handleLogin() {
 
       <section class="stitch-form-panel">
         <div class="stitch-form-header">
-            <span>دسترسی سامانه</span>
+          <span>دسترسی سامانه</span>
           <h2>حساب سازمانی</h2>
         </div>
 
@@ -153,19 +153,19 @@ async function handleLogin() {
   padding: 24px;
   overflow: hidden;
   font-family: 'Vazirmatn', sans-serif;
-  background-color: #f8fafc;
+  background-color: #f7f1eb;
   background-image:
-    radial-gradient(at 0% 0%, hsla(180, 47%, 85%, 0.4) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, hsla(210, 40%, 90%, 0.4) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, hsla(180, 47%, 85%, 0.4) 0px, transparent 50%),
-    radial-gradient(at 0% 100%, hsla(210, 40%, 90%, 0.4) 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(229, 195, 166, 0.34) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(124, 129, 173, 0.22) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(229, 195, 166, 0.3) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(75, 82, 126, 0.2) 0px, transparent 50%);
 }
 
 .stitch-login-page::before {
   content: '';
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(46, 67, 116, 0.06) 1px, transparent 1px);
   background-size: 30px 30px;
 }
 
@@ -178,7 +178,7 @@ async function handleLogin() {
   border-radius: 999px;
   filter: blur(80px);
   opacity: 0.18;
-  background: #d6f5f0;
+  background: rgba(229, 195, 166, 0.9);
 }
 
 .stitch-login-grid {
@@ -216,7 +216,7 @@ async function handleLogin() {
   display: none;
   flex-direction: column;
   justify-content: space-between;
-  border-right: 4px solid rgba(45, 122, 120, 0.2);
+  border-right: 4px solid rgba(46, 67, 116, 0.18);
 }
 
 .stitch-brand-copy {
@@ -232,10 +232,10 @@ async function handleLogin() {
   gap: 0.75rem;
   margin-bottom: 2.25rem;
   padding: 0.625rem 1.15rem;
-  border: 1px solid rgba(45, 122, 120, 0.1);
+  border: 1px solid rgba(46, 67, 116, 0.12);
   border-radius: 999px;
-  background: rgba(45, 122, 120, 0.05);
-  color: #0f766e;
+  background: rgba(229, 195, 166, 0.24);
+  color: #4B527E;
   font-size: 0.95rem;
   font-weight: 800;
   letter-spacing: 0.18em;
@@ -246,26 +246,26 @@ async function handleLogin() {
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 999px;
-  background: #14b8a6;
-  box-shadow: 0 0 0 6px rgba(20, 184, 166, 0.12);
+  background: #E5C3A6;
+  box-shadow: 0 0 0 6px rgba(229, 195, 166, 0.26);
 }
 
 .stitch-brand-copy h1 {
   margin: 0;
-  color: #0f172a;
+  color: #2E4374;
   font-size: clamp(3rem, 5vw, 4.75rem);
   line-height: 1.08;
   font-weight: 900;
 }
 
 .stitch-brand-copy h1 span {
-  color: #0f766e;
+  color: #4B527E;
 }
 
 .stitch-brand-copy p {
   max-width: 36rem;
   margin: 1.75rem 0 0;
-  color: rgba(15, 23, 42, 0.72);
+  color: rgba(46, 67, 116, 0.74);
   font-size: 1.15rem;
   line-height: 2.1rem;
   text-align: right;
@@ -285,8 +285,8 @@ async function handleLogin() {
   padding: 1.1rem 1.35rem;
   border-radius: 1.35rem;
   background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(15, 118, 110, 0.08);
-  color: #0f172a;
+  border: 1px solid rgba(46, 67, 116, 0.1);
+  color: #2E4374;
   font-weight: 700;
 }
 
@@ -294,7 +294,7 @@ async function handleLogin() {
 .stitch-support-arrow {
   width: 1.35rem;
   height: 1.35rem;
-  color: #0f766e;
+  color: #4B527E;
 }
 
 .stitch-support-arrow {
@@ -307,7 +307,7 @@ async function handleLogin() {
   width: 28rem;
   height: 28rem;
   opacity: 0.22;
-  color: rgba(15, 118, 110, 0.45);
+  color: rgba(75, 82, 126, 0.38);
 }
 
 .stitch-brand-rings svg {
@@ -333,7 +333,7 @@ async function handleLogin() {
 }
 
 .stitch-form-header span {
-  color: #0f766e;
+  color: #4B527E;
   font-size: 0.88rem;
   font-weight: 800;
   letter-spacing: 0.18em;
@@ -342,7 +342,7 @@ async function handleLogin() {
 
 .stitch-form-header h2 {
   margin: 0;
-  color: #0f172a;
+  color: #2E4374;
   font-size: 2rem;
   font-weight: 800;
 }
@@ -359,7 +359,7 @@ async function handleLogin() {
 }
 
 .stitch-field-group span {
-  color: rgba(15, 23, 42, 0.68);
+  color: rgba(46, 67, 116, 0.68);
   font-size: 0.94rem;
   font-weight: 700;
 }
@@ -368,7 +368,7 @@ async function handleLogin() {
   width: 100%;
   min-height: 3.6rem;
   padding: 0 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(124, 129, 173, 0.22);
   border-radius: 1rem;
   background: rgba(255, 255, 255, 0.76);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
@@ -376,13 +376,13 @@ async function handleLogin() {
 }
 
 .stitch-field-group input:focus {
-  border-color: rgba(15, 118, 110, 0.5);
-  box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.12);
+  border-color: rgba(75, 82, 126, 0.46);
+  box-shadow: 0 0 0 4px rgba(124, 129, 173, 0.16);
 }
 
 .stitch-error {
   margin: 0;
-  color: #b91c1c;
+  color: #4B527E;
   font-size: 0.92rem;
   text-align: right;
 }
@@ -396,7 +396,7 @@ async function handleLogin() {
 }
 
 .stitch-form-meta a {
-  color: #0f766e;
+  color: #4B527E;
   font-weight: 700;
 }
 
@@ -404,11 +404,11 @@ async function handleLogin() {
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
-  color: rgba(15, 23, 42, 0.7);
+  color: rgba(46, 67, 116, 0.7);
 }
 
 .stitch-checkbox-row input {
-  accent-color: #0f766e;
+  accent-color: #4B527E;
 }
 
 .stitch-submit-btn {
@@ -418,11 +418,11 @@ async function handleLogin() {
   justify-content: center;
   gap: 0.85rem;
   border-radius: 1.1rem;
-  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  background: linear-gradient(135deg, #2E4374, #4B527E);
   color: #fff;
   font-size: 1rem;
   font-weight: 800;
-  box-shadow: 0 16px 30px rgba(15, 118, 110, 0.22);
+  box-shadow: 0 16px 30px rgba(46, 67, 116, 0.22);
 }
 
 .stitch-submit-btn svg {
@@ -436,13 +436,13 @@ async function handleLogin() {
 
 .stitch-footer-note {
   margin: 1.6rem 0 0;
-  color: rgba(15, 23, 42, 0.56);
+  color: rgba(46, 67, 116, 0.56);
   text-align: center;
   line-height: 1.9;
 }
 
 .stitch-footer-note span {
-  color: #0f766e;
+  color: #4B527E;
   font-weight: 800;
 }
 

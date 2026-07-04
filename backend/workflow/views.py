@@ -17,6 +17,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from workflow.access import (
     attach_user,
+    can_access_approvals,
     can_access_expenses,
     can_access_users,
     can_approve_documents,
@@ -359,6 +360,88 @@ def request_detail_view(request: HttpRequest, request_code: str):
 
 @require_auth
 @csrf_exempt
+@methods("POST")
+def request_approve_view(request: HttpRequest, request_code: str):
+    request_obj = visible_requests(request.current_user).filter(code=request_code).first()
+    if request_obj is None:
+        return json_error("درخواست پیدا نشد.", status=404)
+
+    can_approve = (
+        request_obj.status in {RequestStatus.SUBMITTED, RequestStatus.UNDER_REVIEW}
+        and (
+            request_obj.manager_id == request.current_user.id
+            or request_obj.assigned_managers.filter(pk=request.current_user.id).exists()
+            or request.current_user.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER}
+        )
+    )
+    if not can_approve:
+        return json_error("دسترسی کافی برای تایید این درخواست ندارید.", status=403)
+
+    request_obj.status = RequestStatus.APPROVED
+    request_obj.updated_at = timezone.now()
+    request_obj.save(update_fields=["status", "updated_at"])
+    RequestTimeline.objects.create(
+        request=request_obj,
+        action="approved",
+        note="تایید درخواست",
+        actor_name=request.current_user.full_name,
+    )
+    AuditLog.objects.create(
+        actor=request.current_user,
+        actor_name=request.current_user.full_name,
+        action="request_approved",
+        entity_type="request",
+        entity_code=request_obj.code,
+        detail=request_obj.title,
+        icon="assignment_turned_in",
+    )
+    return json_response({"status": "approved", "request": request_obj.code})
+
+
+@require_auth
+@csrf_exempt
+@methods("POST")
+def request_reject_view(request: HttpRequest, request_code: str):
+    request_obj = visible_requests(request.current_user).filter(code=request_code).first()
+    if request_obj is None:
+        return json_error("درخواست پیدا نشد.", status=404)
+
+    can_approve = (
+        request_obj.status in {RequestStatus.SUBMITTED, RequestStatus.UNDER_REVIEW}
+        and (
+            request_obj.manager_id == request.current_user.id
+            or request_obj.assigned_managers.filter(pk=request.current_user.id).exists()
+            or request.current_user.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER}
+        )
+    )
+    if not can_approve:
+        return json_error("دسترسی کافی برای رد این درخواست ندارید.", status=403)
+
+    payload = parse_json(request)
+    reason = (payload.get("reason") or "").strip()
+    request_obj.status = RequestStatus.REJECTED
+    request_obj.updated_at = timezone.now()
+    request_obj.save(update_fields=["status", "updated_at"])
+    RequestTimeline.objects.create(
+        request=request_obj,
+        action="rejected",
+        note=reason or "رد درخواست",
+        actor_name=request.current_user.full_name,
+    )
+    AuditLog.objects.create(
+        actor=request.current_user,
+        actor_name=request.current_user.full_name,
+        action="request_rejected",
+        entity_type="request",
+        entity_code=request_obj.code,
+        detail=request_obj.title,
+        icon="cancel",
+    )
+    return json_response({"status": "rejected", "request": request_obj.code})
+
+
+@require_auth
+@csrf_exempt
 @methods("GET", "POST")
 def expenses_view(request: HttpRequest):
     if not can_access_expenses(request.current_user):
@@ -408,6 +491,84 @@ def expenses_view(request: HttpRequest):
     expense = Expense.objects.select_related("owner", "department").get(pk=expense.pk)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="expense_created", entity_type="expense", entity_code=expense.code, detail=expense.title, icon="payments")
     return json_response(serialize_expense(expense), status=201)
+
+
+@require_auth
+@methods("GET")
+def expense_detail_view(request: HttpRequest, expense_code: str):
+    if not can_access_expenses(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+    expense = visible_expenses(request.current_user).filter(code=expense_code).first()
+    if expense is None:
+        return json_error("هزینه پیدا نشد.", status=404)
+    return json_response(serialize_expense(expense))
+
+
+@require_auth
+@csrf_exempt
+@methods("POST")
+def expense_approve_view(request: HttpRequest, expense_code: str):
+    if not can_access_expenses(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+    expense = visible_expenses(request.current_user).filter(code=expense_code).first()
+    if expense is None:
+        return json_error("هزینه پیدا نشد.", status=404)
+
+    can_approve = (
+        expense.status in {ExpenseStatus.PENDING, ExpenseStatus.UNDER_REVIEW}
+        and request.current_user.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER, UserRole.MANAGER}
+    )
+    if not can_approve:
+        return json_error("دسترسی کافی برای تایید این هزینه ندارید.", status=403)
+
+    expense.status = ExpenseStatus.APPROVED
+    expense.progress = 100
+    expense.save(update_fields=["status", "progress"])
+    AuditLog.objects.create(
+        actor=request.current_user,
+        actor_name=request.current_user.full_name,
+        action="expense_approved",
+        entity_type="expense",
+        entity_code=expense.code,
+        detail=expense.title,
+        icon="payments",
+    )
+    return json_response({"status": "approved", "expense": expense.code})
+
+
+@require_auth
+@csrf_exempt
+@methods("POST")
+def expense_reject_view(request: HttpRequest, expense_code: str):
+    if not can_access_expenses(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+    expense = visible_expenses(request.current_user).filter(code=expense_code).first()
+    if expense is None:
+        return json_error("هزینه پیدا نشد.", status=404)
+
+    can_approve = (
+        expense.status in {ExpenseStatus.PENDING, ExpenseStatus.UNDER_REVIEW}
+        and request.current_user.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER, UserRole.MANAGER}
+    )
+    if not can_approve:
+        return json_error("دسترسی کافی برای رد این هزینه ندارید.", status=403)
+
+    payload = parse_json(request)
+    reason = (payload.get("reason") or "").strip()
+    expense.status = ExpenseStatus.REJECTED
+    expense.progress = 100
+    expense.notes = f"{expense.notes or expense.title}\n\nعلت رد: {reason}" if reason else expense.notes
+    expense.save(update_fields=["status", "progress", "notes"])
+    AuditLog.objects.create(
+        actor=request.current_user,
+        actor_name=request.current_user.full_name,
+        action="expense_rejected",
+        entity_type="expense",
+        entity_code=expense.code,
+        detail=expense.title,
+        icon="payments",
+    )
+    return json_response({"status": "rejected", "expense": expense.code})
 
 
 @require_auth
@@ -502,7 +663,7 @@ def report_export_view(request: HttpRequest, report_key: str):
 @require_auth
 @methods("GET")
 def approvals_view(request: HttpRequest):
-    if not can_approve_documents(request.current_user):
+    if not can_access_approvals(request.current_user):
         return json_error("دسترسی کافی ندارید.", status=403)
     return json_response([serialize_approval(item, request.current_user) for item in visible_approvals(request.current_user)], safe=False)
 
@@ -510,7 +671,7 @@ def approvals_view(request: HttpRequest):
 @require_auth
 @methods("GET")
 def approvals_metrics_view(request: HttpRequest):
-    if not can_approve_documents(request.current_user):
+    if not can_access_approvals(request.current_user):
         return json_error("دسترسی کافی ندارید.", status=403)
     return json_response(approval_metrics(request.current_user))
 
@@ -534,10 +695,11 @@ def approvals_signature_view(request: HttpRequest):
 
 
 @require_auth
-@require_roles(UserRole.ADMIN)
 @csrf_exempt
 @methods("POST")
 def documents_create_view(request: HttpRequest):
+    if not can_access_approvals(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
     title = request.POST.get("title", "").strip()
     description = request.POST.get("description", "").strip()
     department_code = request.POST.get("department", "").strip()
@@ -547,8 +709,6 @@ def documents_create_view(request: HttpRequest):
     file_obj = request.FILES.get("file")
     if not assignee_ids:
         return json_error("حداقل یک مدیر باید انتخاب شود.", status=422)
-    if file_obj is None:
-        return json_error("فایل سند الزامی است.", status=422)
     approvers = list(User.objects.filter(pk__in=assignee_ids))
     if not approvers or any(not is_manager(item) for item in approvers):
         return json_error("ارجاع سند فقط به مدیر مجاز است.", status=422)
@@ -556,14 +716,14 @@ def documents_create_view(request: HttpRequest):
     document = Document.objects.create(
         code=next_code("DOC"),
         title=title or "سند جدید",
-        description=description,
         document_type=document_type,
+        description=description,
         status=DocumentStatus.PENDING,
         risk=risk,
         confidentiality=ConfidentialityLevel.INTERNAL,
         department=Department.objects.filter(code=department_code).first() or request.current_user.department,
         owner=request.current_user,
-        file_name=save_uploaded_file(file_obj),
+        file_name=save_uploaded_file(file_obj) if file_obj else None,
     )
     for approver in approvers:
         ApprovalAssignment.objects.create(document=document, approver=approver, status=ApprovalAssignmentStatus.PENDING)
@@ -575,7 +735,7 @@ def documents_create_view(request: HttpRequest):
 @require_auth
 @methods("GET")
 def approval_detail_view(request: HttpRequest, document_code: str):
-    if not can_approve_documents(request.current_user):
+    if not can_access_approvals(request.current_user):
         return json_error("دسترسی کافی ندارید.", status=403)
     document = visible_approvals(request.current_user).filter(code=document_code).first()
     if document is None:
@@ -586,7 +746,7 @@ def approval_detail_view(request: HttpRequest, document_code: str):
 @require_auth
 @methods("GET")
 def approval_download_view(request: HttpRequest, document_code: str):
-    if not can_approve_documents(request.current_user):
+    if not can_access_approvals(request.current_user):
         return json_error("دسترسی کافی ندارید.", status=403)
     document = visible_approvals(request.current_user).filter(code=document_code).first()
     if document is None or not document.file_name:
@@ -626,14 +786,14 @@ def approval_approve_view(request: HttpRequest, document_code: str):
             assignment.signed_signature_data = signature.signature_data
             assignment.acted_at = timezone.now()
             assignment.save(update_fields=["status", "decision_note", "signed_signature_data", "acted_at"])
-            document.file_name = sign_document_file(document, assignment, signature.signature_data)
-            document.save(update_fields=["file_name"])
+            if document.file_name:
+                document.file_name = sign_document_file(document, assignment, signature.signature_data)
+                document.save(update_fields=["file_name"])
             update_document_status(document)
     except (ValueError, FileNotFoundError) as exc:
         return json_error(str(exc), status=422)
     except Exception:
         return json_error("امضای سند با خطا مواجه شد.", status=500)
-
     return json_response({"status": "approved", "document": document.code})
 
 

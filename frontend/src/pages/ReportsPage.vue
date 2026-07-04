@@ -1,116 +1,133 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted } from 'vue'
 
-import FilterDialog from '../components/FilterDialog.vue'
-import StitchRuntimePage from '../components/StitchRuntimePage.vue'
+import PageFilters from '../components/PageFilters.vue'
+import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
-import { escapeHtml, formatMetric, wirePageNavigation } from '../utils/stitch'
 
-const runtime = ref(null)
-const filterOpen = ref(false)
-const { exportReport, filteredReports, loadReports, navigateTo, reportPeople, resetPageFilters, state, updatePageFilter, visibleNavItems } = useWorkflowHub()
+const { exportReport, filteredReports, loadReports, reportPeople, resetPageFilters, state, updatePageFilter } = useWorkflowHub()
+
 const reportFilters = computed(() => state.filters.reports)
 
-function filterSummary() {
-  const parts = []
-  if (reportFilters.value.query) parts.push(`جستجو: ${reportFilters.value.query}`)
-  if (reportFilters.value.person) parts.push(`شخص: ${reportFilters.value.person}`)
-  if (reportFilters.value.startDate) parts.push(`از: ${reportFilters.value.startDate}`)
-  if (reportFilters.value.endDate) parts.push(`تا: ${reportFilters.value.endDate}`)
-  return parts.join(' | ') || 'برای فیلتر کلیک کنید'
-}
+const reportStats = computed(() => [
+  { label: 'جمع هزینه‌ها', value: state.reportSummary?.expenseTotal || '0' },
+  { label: 'کاربران فعال', value: state.reportSummary?.users || 0 },
+  { label: 'درخواست‌ها', value: state.reportSummary?.requests || 0 },
+  { label: 'گزارش‌های آماده', value: filteredReports.value.length },
+])
 
-function applyFilters(filters) {
-  Object.entries(filters).forEach(([key, value]) => updatePageFilter('reports', key, value))
-  filterOpen.value = false
-}
+const requestStatusItems = computed(() => {
+  const entries = Object.entries(state.reportStatus || {})
+  const max = Math.max(...entries.map(([, value]) => Number(value || 0)), 1)
+  return entries.map(([label, value]) => ({
+    label,
+    value,
+    width: `${Math.max(12, (Number(value || 0) / max) * 100)}%`,
+  }))
+})
 
 function resetFilters() {
   resetPageFilters('reports')
 }
 
-function bindReportCard(card, report) {
-  if (!card) return
-
-  card.style.display = report ? '' : 'none'
-  if (!report) return
-
-  const title = card.querySelector('span.text-on-surface')
-  if (title) title.textContent = report.title
-
-  const button = card.querySelector('button')
-  if (button) {
-    button.onclick = async () => {
-      await exportReport(report.id, 'csv')
-    }
-  }
-}
-
-function hydrate(root) {
-  const searchInput = root.querySelector('input[type="text"]')
-  if (searchInput) {
-    searchInput.readOnly = true
-    searchInput.value = filterSummary()
-    searchInput.placeholder = 'برای فیلتر کلیک کنید'
-    searchInput.onclick = () => { filterOpen.value = true }
-  }
-
-  const filterPanel = root.querySelector('.bg-surface-container-low')
-  if (filterPanel) filterPanel.onclick = () => { filterOpen.value = true }
-
-  const statValues = root.querySelectorAll('.font-stat-value')
-  if (statValues[0]) statValues[0].textContent = formatMetric(state.reportSummary?.expenseTotal)
-  if (statValues[1]) statValues[1].textContent = String(state.reportSummary?.users || 0)
-  if (statValues[2]) statValues[2].textContent = String(state.reportSummary?.requests || 0)
-
-  const exportCards = root.querySelectorAll('section.space-y-3 .grid > div')
-  Array.from(exportCards).forEach((card, index) => bindReportCard(card, filteredReports.value[index]))
-
-  const listGroups = root.querySelectorAll('.space-y-4')
-  const spenders = listGroups[listGroups.length - 1]
-  if (spenders) {
-    const maxAmount = Math.max(...state.topSubmitters.map((item) => Number(item.count || 0)), 0)
-    spenders.innerHTML = state.topSubmitters.map((item, index) => `
-      <div class="flex flex-row-reverse items-center gap-4 group">
-        <div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-label-sm text-label-sm">${index + 1}</div>
-        <div class="flex-1 flex flex-row-reverse justify-between items-center">
-          <span class="text-on-surface font-body-md text-body-md">${escapeHtml(item.name)} - ${escapeHtml(item.amount || '0')}</span>
-          <div class="w-16 h-1 bg-surface-container rounded-full overflow-hidden">
-            <div class="h-full bg-primary" style="width:${Math.max(25, maxAmount > 0 ? (Number(item.count || 0) / maxAmount) * 100 : 0)}%"></div>
-          </div>
-        </div>
-      </div>
-    `).join('') || '<div class="text-on-surface-variant">داده‌ای برای نمایش وجود ندارد.</div>'
-  }
-
-  wirePageNavigation(root, navigateTo, '/reports', visibleNavItems.value)
-}
-
-function rehydrate() {
-  const root = runtime.value?.getRoot?.()
-  if (root) hydrate(root)
-}
-
 onMounted(() => {
   loadReports(true)
 })
-
-watch(() => [state.reportSummary, state.topSubmitters, filteredReports.value, state.filters.reports], rehydrate, { deep: true })
 </script>
 
 <template>
-  <StitchRuntimePage v-if="state.currentUser.canViewReports" ref="runtime" stitch-id="_3" @ready="hydrate" />
-  <section v-else class="page-shell" style="padding: 32px;">
-    دسترسی به گزارشات فقط برای مدیرعامل فعال است.
+  <section v-if="state.currentUser.canViewReports" class="page-shell enterprise-page">
+    <PageHeader
+      eyebrow="بینش مدیریتی"
+      title="گزارش‌ها و خروجی‌های تحلیلی"
+    />
+
+    <section class="metric-grid metric-grid-4">
+      <article v-for="item in reportStats" :key="item.label" class="metric-card">
+        <span class="metric-label">{{ item.label }}</span>
+      </article>
+    </section>
+
+    <PageFilters
+      :query="reportFilters.query"
+      :person="reportFilters.person"
+      :start-date="reportFilters.startDate"
+      :end-date="reportFilters.endDate"
+      :people="reportPeople"
+      @update:query="updatePageFilter('reports', 'query', $event)"
+      @update:person="updatePageFilter('reports', 'person', $event)"
+      @update:start-date="updatePageFilter('reports', 'startDate', $event)"
+      @update:end-date="updatePageFilter('reports', 'endDate', $event)"
+      @reset="resetFilters"
+    />
+
+    <section class="dashboard-grid">
+      <article class="surface-block">
+        <div class="section-label-row">
+          <div>
+            <h3>وضعیت درخواست‌ها</h3>
+            <p>توزیع فعلی درخواست‌ها در چرخه عملیاتی</p>
+          </div>
+        </div>
+
+        <div class="progress-list">
+          <article v-for="item in requestStatusItems" :key="item.label" class="progress-row">
+            <strong>{{ item.label }}</strong>
+            <div class="progress-bar"><span :style="{ width: item.width }"></span></div>
+            <small>{{ item.value }}</small>
+          </article>
+        </div>
+      </article>
+
+      <article class="surface-block">
+        <div class="section-label-row">
+          <div>
+            <h3>افراد با بیشترین ثبت</h3>
+            <p>کاربران پیشرو از نظر حجم فعالیت</p>
+          </div>
+        </div>
+
+        <div class="stack-list">
+          <article v-for="(item, index) in state.topSubmitters" :key="item.name || index" class="list-row">
+            <div class="list-row-main">
+              <strong>{{ item.name }}</strong>
+              <p>{{ item.amount || '0' }}</p>
+            </div>
+            <div class="list-row-meta">
+              <span class="meta-pill">{{ index + 1 }}</span>
+              <small>{{ item.count || 0 }} ثبت</small>
+            </div>
+          </article>
+        </div>
+      </article>
+    </section>
+
+    <section class="surface-block">
+      <div class="section-label-row">
+        <div>
+          <h3>گزارش‌های آماده خروجی</h3>
+          <p>روی هر گزارش کلیک کنید تا فایل خروجی دریافت شود.</p>
+        </div>
+      </div>
+
+      <div class="card-grid">
+        <article v-for="item in filteredReports" :key="item.id" class="report-card">
+          <span>{{ item.title }}</span>
+          <strong>{{ item.description || 'گزارش مدیریتی سازمان' }}</strong>
+          <small>{{ item.owner || 'سامانه' }} - {{ item.generatedAt || '-' }}</small>
+          <button class="action-btn tone-primary" type="button" @click="exportReport(item.id, 'csv', item.downloadUrl)">
+            <span class="material-symbols-outlined">download</span>
+            <span>دریافت خروجی</span>
+          </button>
+        </article>
+      </div>
+    </section>
   </section>
-  <FilterDialog
-    v-if="state.currentUser.canViewReports"
-    :open="filterOpen"
-    title="فیلتر گزارشات"
-    :filters="reportFilters"
-    :people="reportPeople"
-    @close="filterOpen = false"
-    @apply="applyFilters"
-    @reset="resetFilters"
-  />
+
+  <section v-else class="page-shell">
+    <article class="access-denied-card">
+      <h2>دسترسی به گزارش‌ها فقط برای مدیران ارشد فعال است</h2>
+      <p>برای مشاهده این بخش باید مجوز گزارش‌گیری مدیریتی برای حساب شما تعریف شده باشد.</p>
+    </article>
+  </section>
 </template>

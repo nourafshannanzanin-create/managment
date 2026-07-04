@@ -76,7 +76,7 @@ watch(
   place-content: center;
   gap: 8px;
   text-align: center;
-  color: #93000a;
-  background: #ffdad6;
+  color: #2E4374;
+  background: rgba(229, 195, 166, 0.42);
 }
 </style>

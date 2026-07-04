@@ -25,7 +25,7 @@ const { state, setExpenseInvoice, submitExpense } = useWorkflowHub()
       <div class="modal-grid three-col">
         <label class="field-shell">
           <span>مبلغ</span>
-          <input v-model="form.amount" type="number" min="0" />
+          <input v-model="form.amount" type="number" min="0" step="0.01" />
         </label>
 
         <label class="field-shell">

@@ -12,49 +12,62 @@ defineProps({
 const route = useRoute()
 const { state, logout } = useWorkflowHub()
 
-const displayName = computed(() => {
-  const name = state.currentUser.name || 'کاربر'
-  return name === 'آرمان کریمی' ? 'امید کریمی' : name
-})
+const displayName = computed(() => state.currentUser.name || 'کاربر')
 
 const navItems = computed(() => {
   const items = [
-    { to: '/dashboard', label: 'داشبورد', icon: 'dashboard' },
+    { to: '/dashboard', label: 'داشبورد', icon: 'space_dashboard' },
     { to: '/requests', label: 'درخواست‌ها', icon: 'assignment' },
   ]
-  if (state.currentUser.canAccessExpenses !== false) items.push({ to: '/expenses', label: 'هزینه‌ها', icon: 'payments' })
-  if (state.currentUser.canApproveDocuments) items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check' })
-  if (state.currentUser.canViewReports) items.push({ to: '/reports', label: 'گزارشات', icon: 'monitoring' })
-  if (state.currentUser.canAccessUsers || state.currentUser.canManageUsers) items.push({ to: '/users', label: 'کاربران', icon: 'group' })
+
+  if (state.currentUser.canAccessExpenses !== false) {
+    items.push({ to: '/expenses', label: 'هزینه‌ها', icon: 'payments' })
+  }
+
+  if (state.currentUser.canAccessApprovals || state.currentUser.canApproveDocuments) {
+    items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check' })
+  }
+
+  if (state.currentUser.canViewReports) {
+    items.push({ to: '/reports', label: 'گزارشات', icon: 'monitoring' })
+  }
+
+  if (state.currentUser.canAccessUsers || state.currentUser.canManageUsers) {
+    items.push({ to: '/users', label: 'کاربران', icon: 'groups' })
+  }
+
   items.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
+
   return items
 })
 </script>
 
 <template>
   <aside :class="['shell-sidebar', mobileMenuOpen && 'is-open']">
-    <div class="brand-strip">
+    <div class="sidebar-brand">
       <div class="brand-mark">
-        <span class="material-symbols-outlined">stacked_line_chart</span>
+        <span class="material-symbols-outlined">corporate_fare</span>
       </div>
       <div class="brand-copy">
-        <strong>کارنومند</strong>
-        <small>{{ state.currentUser.organization || 'سازمان' }}</small>
+        <strong>کارمند</strong>
+        <small>{{ state.currentUser.organization || 'سامانه مدیریت سازمانی' }}</small>
       </div>
-      <button class="icon-btn mobile-toggle" @click="toggleSidebar">
+      <button class="icon-btn mobile-toggle" type="button" @click="toggleSidebar">
         <span class="material-symbols-outlined">close</span>
       </button>
     </div>
 
-    <div class="profile-strip">
-      <div class="avatar-pill">{{ state.currentUser.avatar || 'U' }}</div>
-      <div class="profile-copy">
+    <div class="sidebar-profile">
+      <div class="sidebar-avatar">{{ (displayName || 'ک').slice(0, 1) }}</div>
+      <div class="sidebar-profile-copy">
         <strong>{{ displayName }}</strong>
-        <p>{{ state.currentUser.role || state.currentUser.department }}</p>
+        <small>{{ state.currentUser.department || state.currentUser.role || 'کاربر سازمان' }}</small>
       </div>
     </div>
 
-    <nav class="sidebar-nav">
+    <div class="sidebar-section-label">منوی اصلی</div>
+
+    <nav class="sidebar-nav" aria-label="ناوبری اصلی">
       <RouterLink
         v-for="item in navItems"
         :key="item.to"
@@ -63,13 +76,13 @@ const navItems = computed(() => {
         @click="mobileMenuOpen ? toggleSidebar() : undefined"
       >
         <span class="material-symbols-outlined">{{ item.icon }}</span>
-        <span>{{ item.label }}</span>
+        <span class="nav-link-label">{{ item.label }}</span>
       </RouterLink>
     </nav>
 
-    <button class="action-btn tone-soft sidebar-logout" @click="logout">
+    <button class="action-btn tone-soft sidebar-logout" type="button" @click="logout">
       <span class="material-symbols-outlined">logout</span>
-      <span>خروج</span>
+      <span>خروج از سامانه</span>
     </button>
   </aside>
 </template>

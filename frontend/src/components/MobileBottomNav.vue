@@ -17,10 +17,8 @@ const items = computed(() => {
     navItems.push({ to: '/users', label: 'کاربران', icon: 'group' })
   } else if (state.currentUser.canViewReports) {
     navItems.push({ to: '/reports', label: 'گزارش', icon: 'monitoring' })
-  } else if (state.currentUser.canApproveDocuments) {
+  } else if (state.currentUser.canAccessApprovals || state.currentUser.canApproveDocuments) {
     navItems.push({ to: '/approvals', label: 'تایید', icon: 'verified' })
-  } else {
-    navItems.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
   }
   navItems.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
   return navItems
@@ -31,7 +29,7 @@ const items = computed(() => {
   <nav class="mobile-bottom-nav">
     <RouterLink
       v-for="item in items"
-      :key="`${item.to}-${item.label}`"
+      :key="item.to + '-' + item.label"
       :to="item.to"
       :class="['mobile-bottom-link', route.path === item.to && 'is-active']"
     >
@@ -53,9 +51,9 @@ const items = computed(() => {
   gap: 8px;
   width: min(720px, calc(100vw - 24px));
   padding: 10px 12px;
-  background: #cfe0fb;
+  background: rgba(229, 195, 166, 0.78);
   border-radius: 24px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 24px rgba(46, 67, 116, 0.12);
 }
 
 .mobile-bottom-link {
@@ -66,7 +64,7 @@ const items = computed(() => {
   justify-items: center;
   align-content: center;
   gap: 4px;
-  color: #28363a;
+  color: #4B527E;
   text-decoration: none;
   transition: transform 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
@@ -83,8 +81,8 @@ const items = computed(() => {
 
 .mobile-bottom-link.is-active {
   color: #ffffff;
-  background: #2d7a7f;
-  box-shadow: 0 8px 18px rgba(2, 97, 102, 0.22);
+  background: #2E4374;
+  box-shadow: 0 8px 18px rgba(46, 67, 116, 0.24);
   transform: translateY(4px);
 }
 

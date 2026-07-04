@@ -1,39 +1,71 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { computed } from 'vue'
 
-import StitchRuntimePage from '../components/StitchRuntimePage.vue'
+import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
-import { formatMetric, wirePageNavigation } from '../utils/stitch'
+import { formatJalali, getTodayJalali } from '../utils/jalali'
 
-const runtime = ref(null)
-const { navigateTo, state, visibleNavItems } = useWorkflowHub()
+const { state } = useWorkflowHub()
 
-function hydrate(root) {
+const todayLabel = computed(() => formatJalali(getTodayJalali()))
+
+const highlightedStats = computed(() => {
   const monthly = state.stats.find((item) => item.id === 'monthly')?.value || state.expenseSummary[2]?.value || '0'
-  const summaryValues = root.querySelectorAll('.text-primary.font-stat-value, .text-on-surface.font-headline-md.text-headline-md')
-  if (summaryValues[0]) summaryValues[0].textContent = formatMetric(monthly)
-  if (summaryValues[1]) summaryValues[1].textContent = String(state.requests.length)
-  if (summaryValues[2]) summaryValues[2].textContent = String(state.approvalMetrics.pending || 0)
 
-  const welcome = root.querySelector('main section p')
-  if (welcome) welcome.textContent = 'کارنومند'
+  return [
+    { label: 'هزینه ماه جاری', value: monthly, icon: 'payments' },
+    { label: 'تعداد درخواست‌ها', value: state.requests.length, icon: 'assignment' },
+    { label: 'در انتظار تایید', value: state.approvalMetrics.pending || 0, icon: 'fact_check' },
+    { label: 'فعالیت‌های ثبت‌شده', value: state.activities.length, icon: 'timeline' },
+  ]
+})
 
-  const cardTitles = Array.from(root.querySelectorAll('main > div h3'))
-  const trendCardTitle = cardTitles.find((title) => title.textContent?.includes('روند هزینه'))
-  const trendCard = trendCardTitle?.closest('.bg-surface-container-lowest')
-  if (trendCard) trendCard.remove()
+const expenseBars = computed(() => {
+  const raw = (state.chartData?.length ? state.chartData : state.expenseSummary || []).slice(0, 6)
+  const max = Math.max(...raw.map((item) => Number(item.value || item.amount || item.total || 0)), 1)
 
-  wirePageNavigation(root, navigateTo, '/dashboard', visibleNavItems.value)
-}
-
-function rehydrate() {
-  const root = runtime.value?.getRoot?.()
-  if (root) hydrate(root)
-}
-
-watch(() => [state.stats, state.requests.length, state.approvalMetrics.pending, state.expenseSummary, state.currentUser.name], rehydrate, { deep: true })
+  return raw.map((item, index) => ({
+    key: item.id || item.label || index,
+    label: item.label || item.title || item.name || `بازه ${index + 1}`,
+    value: item.value || item.amount || item.total || '0',
+    height: `${Math.max(16, (Number(item.value || item.amount || item.total || 0) / max) * 100)}%`,
+  }))
+})
 </script>
 
 <template>
-  <StitchRuntimePage ref="runtime" stitch-id="_5" @ready="hydrate" />
+  <section class="page-shell enterprise-page">
+    <PageHeader eyebrow="نمای کلی سازمان" title="داشبورد مدیریتی" :description="`تاریخ روز: ${todayLabel}`" />
+
+    <section class="metric-grid metric-grid-4">
+      <article v-for="item in highlightedStats" :key="item.label" class="metric-card">
+        <span class="metric-label">{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+        <small class="dashboard-metric-icon">
+          <span class="material-symbols-outlined">{{ item.icon }}</span>
+        </small>
+      </article>
+    </section>
+
+    <section class="dashboard-grid">
+      <article class="surface-block chart-card">
+        <div class="section-label-row">
+          <div>
+            <h3>روند هزینه‌ها</h3>
+            <p>نمای بصری از آخرین بازه‌های ثبت‌شده</p>
+          </div>
+        </div>
+
+        <div class="bar-chart">
+          <div v-for="item in expenseBars" :key="item.key" class="bar-chart-item">
+            <div class="bar-chart-rail">
+              <span :style="{ height: item.height }"></span>
+            </div>
+            <strong>{{ item.value }}</strong>
+            <small>{{ item.label }}</small>
+          </div>
+        </div>
+      </article>
+    </section>
+  </section>
 </template>

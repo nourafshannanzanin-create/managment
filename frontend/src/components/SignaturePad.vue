@@ -23,7 +23,7 @@ function resizeCanvas() {
   context.scale(ratio, ratio)
   context.lineWidth = 2.2
   context.lineCap = 'round'
-  context.strokeStyle = '#244952'
+  context.strokeStyle = '#2E4374'
   context.fillStyle = '#ffffff'
   context.fillRect(0, 0, width, height)
   if (props.modelValue) drawImage(props.modelValue)

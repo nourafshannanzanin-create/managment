@@ -47,7 +47,7 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
       />
     </label>
 
-    <button class="action-btn tone-soft filter-reset-btn" @click="emit('reset')">
+    <button class="action-btn tone-soft filter-reset-btn" type="button" @click="emit('reset')">
       <span class="material-symbols-outlined">restart_alt</span>
       <span>پاک کردن</span>
     </button>

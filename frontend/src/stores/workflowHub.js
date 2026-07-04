@@ -1,7 +1,7 @@
 import { computed, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { jalaliToIso } from '../utils/jalali'
+import { formatJalali, getTodayJalali, jalaliToIso } from '../utils/jalali'
 import { repairPayload } from '../utils/stitch'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
@@ -23,6 +23,7 @@ function createCurrentUser() {
     canAccessUsers: false,
     canAccessExpenses: true,
     canViewReports: false,
+    canAccessApprovals: false,
     canApproveDocuments: false,
     isManager: false,
   }
@@ -36,7 +37,7 @@ function createRequestForm() {
     manager: '',
     managerAssigneeIds: [],
     priority: 'medium',
-    deadline: '',
+    deadline: formatJalali(getTodayJalali()),
     attachments: [],
   }
 }
@@ -44,8 +45,8 @@ function createRequestForm() {
 function createExpenseForm() {
   return {
     description: '',
-    amount: '',
-    expenseDate: '',
+    amount: '0.00',
+    expenseDate: formatJalali(getTodayJalali()),
     department: '',
     invoice: null,
   }
@@ -140,6 +141,7 @@ const state = reactive({
 
 const modalState = reactive({
   requestDetail: false,
+  expenseDetail: false,
   requestComposer: false,
   expenseComposer: false,
   approvalDetail: false,
@@ -158,6 +160,11 @@ const approvalDetailState = reactive({
   item: null,
 })
 
+const expenseDetailState = reactive({
+  loading: false,
+  item: null,
+})
+
 const signatureState = reactive({
   loading: false,
   hasSignature: false,
@@ -166,6 +173,7 @@ const signatureState = reactive({
 
 const selectedState = reactive({
   requestId: '',
+  expenseId: '',
   approvalId: '',
 })
 
@@ -219,6 +227,27 @@ function normalizeApproval(item) {
   }
 }
 
+function normalizeReport(item) {
+  return {
+    ...item,
+    downloadUrl: resolveAssetUrl(item?.downloadUrl),
+  }
+}
+
+function parseDownloadFilename(disposition = '') {
+  const utfMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utfMatch?.[1]) {
+    try {
+      return decodeURIComponent(utfMatch[1])
+    } catch {
+      // ignore malformed header encoding
+    }
+  }
+
+  const asciiMatch = disposition.match(/filename="([^"]+)"|filename=([^;]+)/i)
+  return asciiMatch?.[1] || asciiMatch?.[2] || ''
+}
+
 function clearSessionState() {
   state.authToken = ''
   state.bootstrapLoaded = false
@@ -246,7 +275,9 @@ function clearSessionState() {
   signatureState.hasSignature = false
   signatureState.signatureData = ''
   approvalDetailState.item = null
+  expenseDetailState.item = null
   selectedState.requestId = ''
+  selectedState.expenseId = ''
   selectedState.approvalId = ''
   localStorage.removeItem(TOKEN_KEY)
 }
@@ -278,11 +309,39 @@ const selectedApproval = computed(
   () => approvalDetailState.item ?? state.approvals.find((item) => item.id === selectedState.approvalId) ?? null,
 )
 
+const selectedExpense = computed(
+  () => expenseDetailState.item ?? state.expenses.find((item) => item.id === selectedState.expenseId) ?? null,
+)
+
 const selectedRequestTimeline = computed(() => requestDetailState.items[selectedState.requestId]?.timeline ?? [])
+
+const canApproveSelectedRequest = computed(() => {
+  const request = selectedRequest.value
+  if (!request) return false
+  const currentName = String(state.currentUser.name || '').trim()
+  const managerName = String(request.manager || '').trim()
+  const assignedManagers = Array.isArray(request.managerAssignees) ? request.managerAssignees : []
+  const isPrivileged = ['admin', 'executive_manager'].includes(String(state.currentUser.accessRole || ''))
+  const isManagerTarget = currentName && (managerName === currentName || assignedManagers.includes(currentName))
+  const status = String(request.status || '')
+  const isOpen = status.includes('ثبت') || status.includes('بررسی')
+  return isOpen && (isPrivileged || isManagerTarget)
+})
+
+const canApproveSelectedExpense = computed(() => {
+  const expense = selectedExpense.value
+  if (!expense) return false
+  const role = String(state.currentUser.accessRole || '')
+  const isPrivileged = ['admin', 'executive_manager', 'manager'].includes(role)
+  const status = String(expense.status || '')
+  const isOpen = status.includes('انتظار') || status.includes('بررسی')
+  return isOpen && isPrivileged
+})
 
 const canManageUsers = computed(() => state.currentUser.canManageUsers)
 const canAccessUsers = computed(() => state.currentUser.canAccessUsers || canManageUsers.value)
 const canViewReports = computed(() => state.currentUser.canViewReports)
+const canAccessApprovals = computed(() => state.currentUser.canAccessApprovals || state.currentUser.canApproveDocuments)
 const canApproveDocuments = computed(() => state.currentUser.canApproveDocuments)
 
 const visibleNavItems = computed(() => {
@@ -290,7 +349,7 @@ const visibleNavItems = computed(() => {
     { to: '/dashboard', label: 'داشبورد', icon: 'dashboard' },
     { to: '/requests', label: 'درخواست‌ها', icon: 'assignment' },
   ]
-  if (canApproveDocuments.value) items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check' })
+  if (canAccessApprovals.value) items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check' })
   if (canViewReports.value) items.push({ to: '/reports', label: 'گزارشات', icon: 'monitoring' })
   if (canManageUsers.value) items.push({ to: '/users', label: 'کاربران', icon: 'group' })
 
@@ -439,7 +498,7 @@ function hydrateBootstrap(payload) {
   replaceItems(state.expenses, (payload.expenses || []).map(normalizeExpense))
   replaceItems(state.approvals, (payload.approvals || []).map(normalizeApproval))
   replaceItems(state.users, payload.users)
-  replaceItems(state.reports, payload.reports)
+  replaceItems(state.reports, (payload.reports || []).map(normalizeReport))
   replaceItems(state.activities, payload.activities)
   replaceItems(state.insights, payload.insights)
   replaceItems(state.expenseSummary, payload.expenseSummary)
@@ -451,6 +510,7 @@ function hydrateBootstrap(payload) {
   state.directories.users = payload.directories?.users || []
 
   selectedState.requestId = state.requests[0]?.id || ''
+  if (!expenseDetailState.item) selectedState.expenseId = state.expenses[0]?.id || ''
   if (!approvalDetailState.item) selectedState.approvalId = state.approvals[0]?.id || ''
 }
 
@@ -485,7 +545,7 @@ async function loadReports(force = false) {
   state.reportSummary = payload.summary
   state.reportStatus = payload.requestStatus
   state.topSubmitters = payload.topSubmitters
-  replaceItems(state.reports, payload.reports || [])
+  replaceItems(state.reports, (payload.reports || []).map(normalizeReport))
 }
 
 async function loadSettings(force = false) {
@@ -499,21 +559,22 @@ async function loadSettings(force = false) {
   state.currentUser.organization = payload.organizationName || state.currentUser.organization
 }
 
-async function exportReport(reportId, format = 'csv') {
-  if (!reportId) return
-  const response = await authorizedFetch(`/reports/${reportId}/export?format=${encodeURIComponent(format)}`)
+async function exportReport(reportId, format = 'csv', downloadUrl = '') {
+  const requestPath = downloadUrl || (reportId ? `/reports/${reportId}/export?format=${encodeURIComponent(format)}` : '')
+  if (!requestPath) return
+  const response = await authorizedFetch(requestPath)
   const blob = await response.blob()
   const disposition = response.headers.get('Content-Disposition') || ''
-  const match = disposition.match(/filename="([^"]+)"/i)
-  const fileName = match?.[1] || `${reportId}-report.${format === 'csv' ? 'csv' : 'xlsx'}`
+  const fileName = parseDownloadFilename(disposition) || `${reportId || 'report'}-report.${format === 'csv' ? 'csv' : 'xlsx'}`
   const objectUrl = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = objectUrl
   link.download = fileName
+  link.style.display = 'none'
   document.body.appendChild(link)
   link.click()
   link.remove()
-  URL.revokeObjectURL(objectUrl)
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
 }
 
 async function saveSettings(nextSettings) {
@@ -625,6 +686,27 @@ export function useWorkflowHub() {
 
   function closeRequestDetail() {
     modalState.requestDetail = false
+  }
+
+  async function loadExpenseDetail(id) {
+    expenseDetailState.loading = true
+    try {
+      const response = await authorizedFetch(`/expenses/${id}`)
+      expenseDetailState.item = normalizeExpense(repairPayload(await response.json()))
+      selectedState.expenseId = id
+    } finally {
+      expenseDetailState.loading = false
+    }
+  }
+
+  function openExpenseDetail(id) {
+    modalState.expenseDetail = true
+    void loadExpenseDetail(id)
+  }
+
+  function closeExpenseDetail() {
+    modalState.expenseDetail = false
+    expenseDetailState.item = null
   }
 
   async function loadApprovalDetail(id) {
@@ -812,10 +894,6 @@ export function useWorkflowHub() {
       if (!state.documentForm.assigneeIds.length) {
         throw new Error('حداقل یک مدیر دریافت کننده را انتخاب کنید.')
       }
-      if (!state.documentForm.file) {
-        throw new Error('فایل سند الزامی است.')
-      }
-
       const formData = new FormData()
       formData.append('title', state.documentForm.title)
       formData.append('description', state.documentForm.description)
@@ -875,15 +953,55 @@ export function useWorkflowHub() {
     await loadApprovalDetail(selectedApproval.value.id)
   }
 
+  async function approveSelectedRequest() {
+    if (!selectedRequest.value) return
+    await authorizedFetch(`/requests/${selectedRequest.value.id}/approve`, { method: 'POST' })
+    await loadBootstrapData(true)
+    await loadRequestDetail(selectedRequest.value.id)
+  }
+
+  async function rejectSelectedRequest(reason = '') {
+    if (!selectedRequest.value) return
+    await authorizedFetch(`/requests/${selectedRequest.value.id}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    })
+    await loadBootstrapData(true)
+    await loadRequestDetail(selectedRequest.value.id)
+  }
+
+  async function approveSelectedExpense() {
+    if (!selectedExpense.value) return
+    await authorizedFetch(`/expenses/${selectedExpense.value.id}/approve`, { method: 'POST' })
+    await loadBootstrapData(true)
+    await loadExpenseDetail(selectedExpense.value.id)
+  }
+
+  async function rejectSelectedExpense(reason = '') {
+    if (!selectedExpense.value) return
+    await authorizedFetch(`/expenses/${selectedExpense.value.id}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    })
+    await loadBootstrapData(true)
+    await loadExpenseDetail(selectedExpense.value.id)
+  }
+
   singleton = {
     state,
     modalState,
     requestDetailState,
+    expenseDetailState,
     approvalDetailState,
     signatureState,
     selectedRequest,
+    selectedExpense,
     selectedApproval,
     selectedRequestTimeline,
+    canApproveSelectedRequest,
+    canApproveSelectedExpense,
     filteredRequests,
     filteredExpenses,
     filteredApprovals,
@@ -899,6 +1017,7 @@ export function useWorkflowHub() {
     userPeople,
     canManageUsers,
     canViewReports,
+    canAccessApprovals,
     canApproveDocuments,
     visibleNavItems,
     priorityLabel,
@@ -921,6 +1040,8 @@ export function useWorkflowHub() {
     exportReport,
     openRequestDetail,
     closeRequestDetail,
+    openExpenseDetail,
+    closeExpenseDetail,
     openApprovalDetail,
     closeApprovalDetail,
     openRequestComposer,
@@ -943,13 +1064,16 @@ export function useWorkflowHub() {
     submitUser,
     submitDocument,
     saveSignature,
+    approveSelectedRequest,
+    rejectSelectedRequest,
+    approveSelectedExpense,
+    rejectSelectedExpense,
     approveSelectedDocument,
     rejectSelectedDocument,
   }
 
   return singleton
 }
-
 
 
 

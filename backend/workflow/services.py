@@ -3,15 +3,15 @@ from __future__ import annotations
 import csv
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from io import StringIO
 from pathlib import Path
 from uuid import uuid4
 
 from django.conf import settings
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 
-from workflow.access import can_access_expenses, can_access_users, can_approve_documents, can_manage_users, can_view_reports, is_manager, visible_users
+from workflow.access import can_access_approvals, can_access_expenses, can_access_users, can_approve_documents, can_manage_users, can_view_reports, is_manager, visible_users
 from workflow.models import (
     ApprovalAssignment,
     ApprovalAssignmentStatus,
@@ -43,7 +43,8 @@ def now():
 
 
 def format_money(value: Decimal | int | float | str) -> str:
-    return f"{int(Decimal(value)):,}"
+    amount = Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return f"{amount:,.2f}"
 
 
 def format_date(value):
@@ -152,6 +153,7 @@ def serialize_current_user(user: User) -> dict:
         "canAccessUsers": can_access_users(user),
         "canAccessExpenses": can_access_expenses(user),
         "canViewReports": can_view_reports(user),
+        "canAccessApprovals": can_access_approvals(user),
         "canApproveDocuments": can_approve_documents(user),
         "isManager": is_manager(user),
     }
@@ -210,6 +212,17 @@ def visible_settings_payload(user: User) -> dict:
 
 
 def serialize_request(request_obj: Request) -> dict:
+    current_user = getattr(request_obj, "_current_user", None)
+    can_approve = False
+    if current_user is not None:
+        can_approve = (
+            request_obj.status in {RequestStatus.SUBMITTED, RequestStatus.UNDER_REVIEW}
+            and (
+                request_obj.manager_id == current_user.id
+                or request_obj.assigned_managers.filter(pk=current_user.id).exists()
+                or current_user.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER}
+            )
+        )
     return {
         "id": request_obj.code,
         "title": request_obj.title,
@@ -226,6 +239,7 @@ def serialize_request(request_obj: Request) -> dict:
         "createdAtIso": format_date(request_obj.created_at.date()),
         "description": request_obj.description or "",
         "attachmentsCount": request_obj.attachments.count(),
+        "canApprove": can_approve,
     }
 
 
@@ -268,7 +282,7 @@ def serialize_approval(document: Document, current_user: User | None = None) -> 
         "summary": document.description or "",
         "assignees": [normalize_person_name(assignment.approver.full_name) for assignment in document.approval_assignments.all()],
         "previewUrl": media_url(document.file_name),
-        "downloadUrl": f"/api/v1/approvals/{document.code}/download",
+        "downloadUrl": f"/api/v1/approvals/{document.code}/download" if document.file_name else "",
         "previewKind": preview_kind_for_file(document.file_name),
         "signedSignature": current_assignment.signed_signature_data if current_assignment else "",
         "decisionNote": current_assignment.decision_note if current_assignment else (document.rejection_reason or ""),
@@ -297,10 +311,10 @@ def visible_expenses(user: User):
 
 
 def visible_approvals(user: User):
-    if not can_approve_documents(user):
+    if not can_access_approvals(user):
         return Document.objects.none()
     return (
-        Document.objects.filter(approval_assignments__approver=user)
+        Document.objects.filter(Q(owner=user) | Q(approval_assignments__approver=user))
         .select_related("owner", "department")
         .prefetch_related(
             Prefetch(
