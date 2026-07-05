@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const {
+  downloadProtectedFile,
   approvalHistory,
   approvalInbox,
   openApprovalDetail,
@@ -55,6 +56,10 @@ function bucketTone(item) {
   if (String(item.status || '').includes('تایید')) return 'approval-state-approved'
   return 'approval-state-pending'
 }
+
+async function handleDownload(item) {
+  await downloadProtectedFile(item?.downloadUrl, item?.id || 'approval-document')
+}
 </script>
 
 <template>
@@ -93,10 +98,10 @@ function bucketTone(item) {
           </div>
 
           <div class="list-card-actions">
-            <a v-if="item.downloadUrl" class="action-btn tone-soft" :href="item.downloadUrl" target="_blank" rel="noreferrer">
+            <button v-if="item.downloadUrl" class="action-btn tone-soft" type="button" @click="handleDownload(item)">
               <span class="material-symbols-outlined">download</span>
               <span>دانلود فایل</span>
-            </a>
+            </button>
             <button class="action-btn tone-primary" type="button" @click="openApprovalDetail(item.id)">
               <span class="material-symbols-outlined">visibility</span>
               <span>جزئیات و اقدام</span>
@@ -135,7 +140,7 @@ function bucketTone(item) {
               <td>{{ (item.assignees || []).join('، ') || '-' }}</td>
               <td><span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span></td>
               <td>
-                <a v-if="item.downloadUrl" class="table-link" :href="item.downloadUrl" target="_blank" rel="noreferrer">دانلود</a>
+                <button v-if="item.downloadUrl" class="table-link" type="button" @click="handleDownload(item)">دانلود</button>
                 <span v-else class="table-muted">بدون فایل</span>
               </td>
               <td><button class="table-link" type="button" @click="openApprovalDetail(item.id)">مشاهده</button></td>

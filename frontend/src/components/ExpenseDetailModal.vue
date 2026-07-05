@@ -13,10 +13,14 @@ defineProps({
 defineEmits(['close'])
 
 const rejectReason = ref('')
-const { canApproveSelectedExpense, approveSelectedExpense, rejectSelectedExpense } = useWorkflowHub()
+const { canApproveSelectedExpense, approveSelectedExpense, rejectSelectedExpense, openProtectedFile } = useWorkflowHub()
 
 async function handleReject() {
   await rejectSelectedExpense(rejectReason.value)
+}
+
+async function handleInvoiceOpen(url) {
+  await openProtectedFile(url, 'expense-invoice')
 }
 </script>
 
@@ -73,16 +77,15 @@ async function handleReject() {
         <div class="section-label-row">
           <h3>فاکتور</h3>
         </div>
-        <a
+        <button
           v-if="expense.invoiceUrl"
           class="action-btn tone-soft"
-          :href="expense.invoiceUrl"
-          target="_blank"
-          rel="noreferrer"
+          type="button"
+          @click="handleInvoiceOpen(expense.invoiceUrl)"
         >
           <span class="material-symbols-outlined">description</span>
           <span>مشاهده فاکتور</span>
-        </a>
+        </button>
         <div v-else class="detail-note-box">
           <p>برای این هزینه فاکتوری بارگذاری نشده است.</p>
         </div>
