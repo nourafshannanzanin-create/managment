@@ -12,8 +12,6 @@ defineProps({
 const route = useRoute()
 const { state, logout } = useWorkflowHub()
 
-const displayName = computed(() => state.currentUser.name || 'کاربر')
-
 const navItems = computed(() => {
   const items = [
     { to: '/dashboard', label: 'داشبورد', icon: 'space_dashboard' },
@@ -50,19 +48,10 @@ const navItems = computed(() => {
       </div>
       <div class="brand-copy">
         <strong>کارمند</strong>
-        <small>{{ state.currentUser.organization || 'سامانه مدیریت سازمانی' }}</small>
       </div>
       <button class="icon-btn mobile-toggle" type="button" @click="toggleSidebar">
         <span class="material-symbols-outlined">close</span>
       </button>
-    </div>
-
-    <div class="sidebar-profile">
-      <div class="sidebar-avatar">{{ (displayName || 'ک').slice(0, 1) }}</div>
-      <div class="sidebar-profile-copy">
-        <strong>{{ displayName }}</strong>
-        <small>{{ state.currentUser.department || state.currentUser.role || 'کاربر سازمان' }}</small>
-      </div>
     </div>
 
     <div class="sidebar-section-label">منوی اصلی</div>
