@@ -4,8 +4,8 @@ import { reactive } from 'vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const form = reactive({
-  email: 'admin@karomand.local',
-  password: 'AdminSecret!',
+  email: 'milad_dhs',
+  password: 'milad_dhs@123',
   remember: false,
 })
 
@@ -81,14 +81,14 @@ async function handleLogin() {
 
         <form class="stitch-form" @submit.prevent="handleLogin">
           <label class="stitch-field-group" for="login-email">
-            <span>ایمیل</span>
+            <span>نام کاربری / ایمیل</span>
             <input
               id="login-email"
               v-model="form.email"
               autocomplete="username"
               dir="ltr"
-              placeholder="email@example.com"
-              type="email"
+              placeholder="username"
+              type="text"
             />
           </label>
 

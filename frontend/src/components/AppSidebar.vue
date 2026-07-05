@@ -22,6 +22,12 @@ const navItems = computed(() => {
     items.push({ to: '/expenses', label: 'هزینه‌ها', icon: 'payments' })
   }
 
+  if (state.currentUser.isManager || state.currentUser.canUseHq) {
+    items.push({ to: '/wallet', label: 'کیف پول', icon: 'account_balance_wallet' })
+  }
+
+  items.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent' })
+
   if (state.currentUser.canAccessApprovals || state.currentUser.canApproveDocuments) {
     items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check' })
   }
@@ -35,6 +41,10 @@ const navItems = computed(() => {
   }
 
   items.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
+
+  if (state.currentUser.canUseHq) {
+    items.push({ to: '/hq', label: 'HQ', icon: 'admin_panel_settings' })
+  }
 
   return items
 })

@@ -1,730 +1,593 @@
-# ENTERPRISE WORKFLOW HUB
+# Workflow Hub
 
-# COMPLETE INFORMATION ARCHITECTURE & PAGE STRUCTURE
+## Product Structure, Flows, and Page Schematic
+
+این سند ساختار محصول، فلوهای اصلی کاربر، ناوبری و نقشه صفحات را بر اساس وضعیت واقعی frontend و store توضیح می دهد.
 
 ---
 
-# ساختار کلی سیستم
+## 1. نقشه کلی محصول
 
 ```text
-Authentication
-│
-├── Login
-├── Forgot Password
-├── Reset Password
-└── Two Factor Authentication
-
+Login
+  |
+  v
 Dashboard
-│
-├── Executive Dashboard
-├── Department Dashboard
-└── Personal Dashboard
-
-Requests
-│
-├── All Requests
-├── Create Request
-├── Request Details
-├── Request Timeline
-├── Draft Requests
-└── Archived Requests
-
-Expenses
-│
-├── Expenses Dashboard
-├── All Expenses
-├── Create Expense
-├── Expense Details
-├── Expense Analytics
-└── Archived Expenses
-
-Approval Center
-│
-├── Pending Approvals
-├── Approved Documents
-├── Rejected Documents
-├── Upload Document
-├── Document Details
-└── Archive
-
-Reports
-│
-├── Requests Reports
-├── Expenses Reports
-├── Documents Reports
-├── Employee Reports
-└── Executive Reports
-
-Users
-│
-├── Employees
-├── Managers
-├── Departments
-├── Roles & Permissions
-└── User Activity
-
-Settings
-│
-├── General Settings
-├── Security
-├── Notifications
-├── Branding
-└── Integrations
+  |-- Requests
+  |-- Expenses
+  |-- Approvals
+  |-- Reports
+  |-- Users
+  `-- Settings
 ```
+
+### مسیرهای اصلی frontend
+
+- `/login`
+- `/dashboard`
+- `/requests`
+- `/expenses`
+- `/approvals`
+- `/reports`
+- `/users`
+- `/settings`
+
+### الگوی ناوبری
+
+- کاربر بعد از ورود وارد `Dashboard` می شود
+- شل اصلی برنامه شامل `AppSidebar` و `AppTopNav` است
+- جزییات و فرم های ایجاد بیشتر به صورت modal باز می شوند، نه صفحه جدا
 
 ---
 
-# صفحه Login
+## 2. ساختار تجربه کاربری
+
+### الگوی اصلی UI
+
+محصول از یک الگوی modal-first استفاده می کند:
+
+- صفحات برای مرور و فهرست
+- modal برای ایجاد
+- modal برای جزییات
+- dashboard برای اقدام سریع
+
+### modal های اصلی
+
+- `RequestComposerModal`
+- `RequestDetailModal`
+- `ExpenseComposerModal`
+- `ExpenseDetailModal`
+- `DocumentComposerModal`
+- `ApprovalDetailModal`
+- `UserComposerModal`
+- `SignatureComposerModal`
+
+---
+
+## 3. شمای ناوبری و وضعیت جلسه
+
+```text
+User opens app
+  |
+  +-- no token --> /login
+  |
+  `-- token exists --> restoreSession()
+                         |
+                         +-- /bootstrap
+                         +-- optional /reports
+                         `-- render role-based UI
+```
+
+### رفتار session
+
+- توکن در `localStorage` با کلید `workflow-hub-token` نگهداری می شود
+- اگر `401` دریافت شود، session پاک می شود
+- بعد از login، داده های پایه با `bootstrap` بارگذاری می شوند
+
+---
+
+## 4. Page Map
+
+### 4.1 Login Page
 
 هدف:
 
-ایجاد حس اعتماد و حرفه‌ای بودن از همان لحظه اول
+- شروع امن و سریع جلسه کاربر
+
+اجزای صفحه:
+
+- پنل برند
+- فرم ایمیل و رمز
+- نمایش خطا
+- CTA ورود
+
+فلو:
+
+1. کاربر ایمیل و رمز را وارد می کند
+2. `login()` در store اجرا می شود
+3. توکن ذخیره می شود
+4. `loadBootstrapData(true)` اجرا می شود
+5. کاربر به `/dashboard` هدایت می شود
 
 ---
 
-## Layout
+### 4.2 Dashboard Page
 
-### سمت چپ
+هدف:
 
-تصویر سه‌بعدی سازمان
+- نمایش خلاصه عملیاتی روز
+- ارائه صف اقدام
+- ایجاد مسیر سریع به ثبت درخواست
 
-نمایش:
+دو حالت اصلی:
 
-* تعداد کاربران
-* تعداد درخواست‌ها
-* تعداد اسناد
+- داشبورد مدیریتی
+- داشبورد کاری
 
-به صورت Real-Time
+بخش ها:
+
+- `PageHeader`
+- Hero / stage panel
+- Quick focus ribbon
+- Operational snapshot
+- Highlighted stats
+- Action queue
+
+منطق نقش:
+
+- اگر نقش کاربر `admin`, `executive_manager`, `manager` باشد، نمای مدیریتی رندر می شود
+- در غیر این صورت نمای شخصی و کاری نمایش داده می شود
+
+فلوهای خروجی:
+
+- باز کردن جزییات درخواست
+- باز کردن جزییات هزینه
+- باز کردن جزییات تاییدیه
+- باز کردن فرم ثبت درخواست
 
 ---
 
-### سمت راست
+### 4.3 Requests Page
 
-فرم ورود
+هدف:
+
+- نمایش فهرست درخواست ها
+- دسترسی سریع به جزییات و مسیر اقدام
+
+ساختار:
+
+- کارت های آماری
+- جدول درخواست ها
+
+ستون ها:
+
+- شماره
+- عنوان
+- ثبت کننده
+- مدیر مسئول
+- وضعیت
+- اولویت
+- تاریخ
+- عملیات
+
+فلو:
+
+1. کاربر فهرست را می بیند
+2. روی `مشاهده جزییات` کلیک می کند
+3. `RequestDetailModal` باز می شود
+4. در صورت مجاز بودن، تایید یا رد از modal انجام می شود
+
+---
+
+### 4.4 Request Composer Modal
+
+هدف:
+
+- ثبت درخواست جدید
 
 فیلدها:
 
-* ایمیل
-* رمز عبور
+- عنوان
+- بخش
+- ارجاع به مدیر
+- ارجاع به مدیران دیگر
+- تاریخ
+- اولویت
+- توضیحات
+- پیوست
 
-دکمه‌ها:
+اکشن های فعلی فرم:
 
-* ورود
-* ورود با مایکروسافت
-* ورود با گوگل
+- `ارجاع`
+- `تایید`
+- `رد`
 
-لینک‌ها:
+نکته مهم:
 
-* فراموشی رمز
-* تماس با پشتیبانی
+در پیاده سازی فعلی، فرم ایجاد درخواست با سه action مختلف کار می کند و action مستقیما روی status اولیه درخواست اثر می گذارد.
 
 ---
 
-# Dashboard
+### 4.5 Request Detail Modal
 
-این صفحه باید کاربر را شگفت‌زده کند.
+هدف:
+
+- نمایش جزییات یک درخواست
+- نمایش timeline
+- انجام تایید یا رد برای افراد مجاز
+
+ورودی داده:
+
+- `/requests/<code>`
+
+خروجی های کاربر:
+
+- approve request
+- reject request
 
 ---
 
-## Hero Section
+### 4.6 Expenses Page
 
-بالای صفحه
+هدف:
+
+- نمایش فهرست هزینه ها و خلاصه مالی
+
+بخش ها:
+
+- چهار کارت خلاصه: روز، هفته، ماه، سال
+- جدول هزینه ها
+
+ستون ها:
+
+- عنوان
+- مبلغ
+- نوع
+- ثبت کننده
+- تاریخ
+- وضعیت
+- فاکتور
+- عملیات
+
+فلو:
+
+1. کاربر فهرست را می بیند
+2. در صورت وجود، فاکتور را باز می کند
+3. جزییات هزینه را باز می کند
+4. اگر مجاز باشد تایید یا رد می کند
+
+---
+
+### 4.7 Expense Composer Modal
+
+فیلدها:
+
+- شرح
+- مبلغ
+- تاریخ هزینه
+- بخش
+- فایل فاکتور
+
+خروجی:
+
+- ثبت هزینه جدید
+
+---
+
+### 4.8 Expense Detail Modal
 
 نمایش:
 
-سلام، خوش آمدید
-
-امروز:
-
-* تعداد درخواست‌های جدید
-* تعداد تاییدیه‌ها
-* وضعیت مالی
+- مشخصات هزینه
+- فایل فاکتور
+- وضعیت
+- عملیات تایید یا رد برای نقش های مجاز
 
 ---
 
-## KPI Cards
+### 4.9 Approvals Page
 
-ردیف اول
+هدف:
+
+- مدیریت صف تایید اسناد
+- مشاهده تاریخچه تاییدها
+
+بخش ها:
+
+- کارت های آماری
+- صف بررسی
+- جدول تاریخچه تاییدها
+
+در صف بررسی هر کارت شامل:
+
+- عنوان سند
+- نوع سند
+- بخش
+- وضعیت
+- دانلود فایل
+- جزییات و اقدام
+
+فلو:
+
+1. کاربر وارد صف بررسی می شود
+2. در صورت نیاز فایل را دانلود می کند
+3. وارد جزییات سند می شود
+4. در صورت نداشتن امضا، امضای دیجیتال را ثبت می کند
+5. سند را تایید یا رد می کند
+
+---
+
+### 4.10 Document Composer Modal
+
+هدف:
+
+- ایجاد سند جدید برای گردش تایید
+
+فیلدها:
+
+- عنوان
+- توضیحات
+- بخش
+- نوع سند
+- ریسک
+- گیرندگان تایید
+- فایل
+
+قید مهم:
+
+- حداقل یک مدیر باید انتخاب شود
+
+---
+
+### 4.11 Approval Detail Modal
+
+هدف:
+
+- نمایش preview و metadata سند
+- نمایش وضعیت ارجاع جاری
+- ارائه دکمه های تایید، رد، دانلود و مشاهده
+
+ورودی:
+
+- `/approvals/<code>`
+
+وابستگی:
+
+- اگر کاربر امضای ذخیره شده نداشته باشد، برای approve باید ابتدا Signature modal را تکمیل کند
+
+---
+
+### 4.12 Signature Composer Modal
+
+هدف:
+
+- ثبت یا به روزرسانی امضای دیجیتال کاربر مدیریتی
+
+فلو:
+
+1. `GET /approvals/signature`
+2. رندر pad یا امضای موجود
+3. `POST /approvals/signature`
+4. بازگشت به جریان تایید سند
+
+---
+
+### 4.13 Reports Page
+
+هدف:
+
+- ارائه نما و خروجی از سه دسته داده اصلی
+
+تب های اصلی:
+
+- درخواست ها
+- هزینه ها
+- تاییدیه ها
+
+قابلیت ها:
+
+- جابجایی بین تب ها
+- مشاهده rows
+- دریافت CSV
+
+فلو:
+
+1. صفحه `loadReports(true)` را فراخوانی می کند
+2. داده summary و catalog گزارش ها دریافت می شود
+3. کاربر تب را انتخاب می کند
+4. کاربر خروجی CSV را دانلود می کند
+
+---
+
+### 4.14 Users Page
+
+هدف:
+
+- مشاهده ساختار کاربران
+- جستجو و فیلتر سریع
+- مشاهده جزییات هر کاربر
+
+بخش ها:
+
+- کارت های آماری
+- فیلتر متنی
+- فیلتر دسته ای
+- فیلتر حروف الفبا
+- جدول یا لیست سبک کاربران
+- modal جزییات
+
+دسترسی:
+
+- فقط برای کسانی که `canAccessUsers` یا `canManageUsers` دارند
+
+---
+
+### 4.15 User Composer Modal
+
+هدف:
+
+- ایجاد کاربر جدید
+
+فیلدها:
+
+- نام کامل
+- ایمیل
+- رمز
+- نقش دسترسی
+- بخش
+- مدیر مستقیم
+- عنوان شغلی
+
+نکته:
+
+- ایجاد کاربر در عمل فقط برای `admin` مجاز است
+
+---
+
+### 4.16 Settings Page
+
+هدف:
+
+- مدیریت تنظیمات پایه سازمان
+- مدیریت دسترسی کاربران به هر بخش
+
+بخش ها:
+
+- پروفایل سازمان
+- خلاصه دسترسی ها
+- جدول دسترسی بخش ها
+- modal انتخاب کاربران مجاز برای هر بخش
+
+بخش های قابل تنظیم:
+
+- `users`
+- `approvals`
+- `expenses`
+- `reports`
+
+فلو:
+
+1. ادمین یک بخش را باز می کند
+2. کاربران سازمان را فیلتر و انتخاب می کند
+3. دسترسی ذخیره می شود
+4. لیست مجازهای آن بخش به روز می شود
+
+---
+
+## 5. فلوهای end-to-end
+
+### 5.1 فلو کامل درخواست
 
 ```text
-درخواست‌های فعال
-
-درخواست‌های تایید شده
-
-اسناد در انتظار
-
-هزینه‌های ماه
+Dashboard or Requests
+  -> Open Request Composer
+  -> Fill form
+  -> Submit
+  -> POST /requests
+  -> Bootstrap refresh
+  -> Request appears in list
+  -> Open detail
+  -> Approve/Reject if allowed
 ```
 
----
-
-## Analytics Center
-
-نمودار تمام عرض
-
-* روند هزینه‌ها
-* روند تاییدات
-* فعالیت کاربران
-
----
-
-## Activity Feed
-
-مانند LinkedIn
-
-نمایش:
-
-* علی یک درخواست ثبت کرد
-* مدیر مالی یک سند را تایید کرد
-* هزینه جدید ثبت شد
-
----
-
-## Smart Insights
-
-باکس هوشمند
-
-مثال:
-
-"هزینه‌های این ماه ۱۸٪ بیشتر از ماه قبل است."
-
-"بیشترین درخواست مربوط به واحد مالی است."
-
----
-
-# Requests Module
-
----
-
-# صفحه All Requests
-
----
-
-## Header
-
-جستجوی جهانی
-
-فیلتر پیشرفته
-
-دکمه:
-
-ثبت درخواست جدید
-
----
-
-## Filters
-
-* تاریخ
-* مدیر
-* وضعیت
-* اولویت
-* دپارتمان
-
----
-
-## View Modes
-
-Table View
-
-Kanban View
-
-Timeline View
-
-Calendar View
-
----
-
-## Request Cards
-
-نمایش:
-
-عنوان
-
-ثبت کننده
-
-مدیر
-
-وضعیت
-
-اولویت
-
-تاریخ
-
----
-
-# صفحه Create Request
-
----
-
-## بخش اطلاعات
-
-* عنوان
-* توضیحات
-* دپارتمان
-
----
-
-## بخش Workflow
-
-انتخاب مدیر
-
-تعیین اولویت
-
-انتخاب مهلت
-
----
-
-## بخش پیوست
-
-Drag & Drop Zone
-
-آپلود:
-
-* PDF
-* Word
-* Excel
-* عکس
-
----
-
-## Preview
-
-نمایش درخواست قبل از ارسال
-
----
-
-# صفحه Request Details
-
----
-
-## Summary Card
-
-عنوان
-
-شماره درخواست
-
-وضعیت
-
-ثبت کننده
-
----
-
-## Timeline
+### 5.2 فلو کامل هزینه
 
 ```text
-ثبت شد
-
-بررسی شد
-
-ارجاع شد
-
-تایید شد
-```
-
----
-
-## Comments
-
-سیستم گفتگو
-
-شبیه Slack
-
----
-
-## Attachments
-
-نمایش فایل‌ها
-
----
-
-# Expense Module
-
----
-
-# Expense Dashboard
-
----
-
-## Financial Overview
-
-کارت‌ها:
-
-* امروز
-* این هفته
-* این ماه
-* امسال
-
----
-
-## Expense Heatmap
-
-نقشه حرارتی هزینه‌ها
-
----
-
-## Category Breakdown
-
-دایره‌ای
-
-* حقوق
-* تبلیغات
-* تجهیزات
-* حمل و نقل
-
----
-
-## Expense Forecast
-
-پیش‌بینی هزینه‌های آینده
-
----
-
-# All Expenses
-
----
-
-نمایش به دو حالت:
-
-Table
-
-Cards
-
----
-
-هر هزینه:
-
-* عنوان
-* مبلغ
-* تاریخ
-* دسته‌بندی
-* ثبت کننده
-
----
-
-# Expense Details
-
----
-
-اطلاعات کامل
-
-فاکتور
-
-اسناد
-
-تاریخچه تغییرات
-
----
-
-# Approval Center
-
-قلب سیستم
-
----
-
-# Approval Dashboard
-
----
-
-## Pending Queue
-
-اسناد در انتظار
-
----
-
-## Approval Metrics
-
-میانگین زمان تایید
-
-اسناد تایید شده
-
-اسناد رد شده
-
----
-
-## Quick Actions
-
-* تایید سریع
-* مشاهده سریع
-* رد سریع
-
----
-
-# Upload Document
-
----
-
-## Drag & Drop Zone
-
-تمام صفحه
-
----
-
-## Metadata
-
-عنوان
-
-دسته‌بندی
-
-واحد
-
-توضیحات
-
----
-
-## Security Options
-
-سطح محرمانگی
-
-عمومی
-
-داخلی
-
-محرمانه
-
-بسیار محرمانه
-
----
-
-# Document Details
-
----
-
-## Viewer
-
-PDF Viewer
-
-Image Viewer
-
-Office Viewer
-
----
-
-## Right Sidebar
-
-اطلاعات سند
-
-تاریخ
-
-ثبت کننده
-
-وضعیت
-
----
-
-## Bottom Actions
-
-مشاهده
-
-دانلود
-
-تایید
-
-رد
-
----
-
-# Reports Center
-
----
-
-# Executive Dashboard
-
----
-
-نمای مورد علاقه مدیرعامل
-
----
-
-## Widgets
-
-درخواست‌ها
-
-هزینه‌ها
-
-عملکرد کارکنان
-
-عملکرد مدیران
-
-اسناد
-
----
-
-## Charts
-
-Line Chart
-
-Area Chart
-
-Bar Chart
-
-Pie Chart
-
-Heatmap
-
----
-
-# Users Module
-
----
-
-# Employee Profile
-
----
-
-عکس
-
-سمت سازمانی
-
-دپارتمان
-
-مدیر مستقیم
-
----
-
-## Statistics
-
-تعداد درخواست‌ها
-
-تعداد تاییدها
-
-میانگین زمان پاسخگویی
-
----
-
-## Activity Timeline
-
-تمام فعالیت‌های کاربر
-
----
-
-# Notification Center
-
----
-
-شبیه Notification Center اپل
-
----
-
-## دسته‌بندی
-
-Requests
-
 Expenses
+  -> Open Expense Composer
+  -> Fill form
+  -> POST /expenses
+  -> Bootstrap refresh
+  -> Open detail
+  -> Approve/Reject if manager-level user
+```
 
-Documents
+### 5.3 فلو کامل تایید سند
 
-System
+```text
+Approvals
+  -> Open Document Composer
+  -> Choose managers
+  -> POST /approvals/documents
+  -> Document enters approval queue
+  -> Assignee opens detail
+  -> Ensure signature exists
+  -> POST /approvals/<code>/approve
+  -> Signed file generated
+  -> Download protected file
+```
 
----
+### 5.4 فلو مدیریت دسترسی
 
-# Global Search
-
----
-
-مشابه Notion
-
-کلید:
-
-CTRL + K
-
----
-
-جستجو در:
-
-* درخواست‌ها
-* کاربران
-* اسناد
-* هزینه‌ها
-
----
-
-# Settings
-
----
-
-## Organization
-
-نام شرکت
-
-لوگو
-
-اطلاعات
+```text
+Settings
+  -> Open section access modal
+  -> Select allowed users
+  -> POST /settings/profile
+  -> SectionAccessGrant updated
+  -> Access rules change immediately
+```
 
 ---
 
-## Branding
+## 6. شمای نمایش داده در frontend
 
-رنگ سازمان
+### داده های پایه store
 
-لوگو
+```text
+currentUser
+stats
+chartData
+pipeline
+requests
+expenses
+approvals
+users
+reports
+activities
+expenseSummary
+approvalMetrics
+settings
+directories
+```
 
-فونت
+### دایرکتوری های مورد استفاده فرم ها
 
----
+- `departments`
+- `managers`
+- `users`
 
-## Security
-
-احراز هویت دو مرحله‌ای
-
-مدیریت نشست‌ها
-
-IP Restrictions
-
----
-
-# طراحی مدرن پیشنهادی
-
-سبک:
-
-* Apple Dashboard
-* Linear
-* Notion
-* Stripe
-* Slack
-* Atlassian
+این داده ها از `bootstrap` می آیند و منبع اصلی option های فرم هستند.
 
 ---
 
-# امکاناتی که محصول را Premium می‌کنند
+## 7. قواعد UX مبتنی بر کد فعلی
 
-✓ Dark Mode
-
-✓ Glassmorphism
-
-✓ Micro Animations
-
-✓ Real-Time Updates
-
-✓ Live Notifications
-
-✓ Command Palette
-
-✓ Smart Search
-
-✓ Drag & Drop Upload
-
-✓ Activity Feed
-
-✓ Audit Logs
-
-✓ Approval Workflow Engine
-
-✓ Multi Department Support
-
-✓ Multi Branch Support
-
-✓ AI Insights
-
-✓ Executive Analytics
-
-✓ Responsive Design
-
-✓ PWA Support
-
-✓ Enterprise Security
+- صفحه ها برای مرور داده اند، modal ها برای عملیات
+- جزییات request, expense, approval به صورت lazy load باز می شوند
+- بعد از هر عملیات مهم، `loadBootstrapData(true)` اجرا می شود
+- فایل ها با مسیر محافظت شده دانلود یا preview می شوند
+- نقش کاربر مستقیما روی متن و ساختار داشبورد اثر می گذارد
 
 ---
 
-# نتیجه نهایی
+## 8. شکاف های محصولی فعلی
 
-کاربر پس از ورود احساس می‌کند با یک نرم‌افزار سازمانی سطح بالا در حد محصولات چند میلیون دلاری بین‌المللی کار می‌کند؛ نه یک پنل مدیریتی ساده. تمام فرآیندهای شرکت از درخواست تا هزینه و تایید اسناد در یک محیط مدرن، شفاف و بسیار حرفه‌ای مدیریت می‌شوند.
+- برای request و expense هنوز صفحه مستقل detail وجود ندارد و modal محور هستند
+- reports فعلا فقط CSV export دارند
+- users هنوز edit/delete ندارد
+- settings هنوز تنظیمات عمیق برندینگ، امنیت پیشرفته یا audit explorer ندارد
+- notification center، جستجوی سراسری و command palette در کد فعلی وجود ندارند
+
+---
+
+## 9. جمع بندی ساختاری
+
+ساختار فعلی محصول ساده اما درست لایه بندی شده است:
+
+- یک shell ثابت
+- چند صفحه اصلی برای مرور
+- چند modal عملیاتی برای create/detail/action
+- یک store مرکزی برای session، data hydration و عملیات API
+
+این الگو برای توسعه بعدی مناسب است چون هم تجربه کاربری را جمع و جور نگه می دارد، هم قرارداد صفحه ها و عملیات ها را از هم جدا می کند.

@@ -17,6 +17,7 @@ const {
   reportPeople,
   requestPeople,
   resetPageFilters,
+  selectHqOrganization,
   state,
   toggleSidebar,
   updatePageFilter,
@@ -24,6 +25,7 @@ const {
 } = useWorkflowHub()
 
 const displayName = computed(() => state.currentUser.name || 'کاربر')
+const hqOrganizations = computed(() => state.hq.directories.organizations || [])
 
 const pageConfig = computed(() => {
   const configs = {
@@ -45,6 +47,16 @@ const pageConfig = computed(() => {
       description: 'ثبت هزینه، مرور فاکتورها و پایش وضعیت‌ها در یک نمای فشرده و خوانا.',
       filterPage: 'expenses',
       actions: [{ label: 'ثبت هزینه', icon: 'receipt_long', handler: openExpenseComposer, tone: 'primary' }],
+    },
+    '/wallet': {
+      eyebrow: 'Wallet',
+      title: 'کیف پول',
+      description: '',
+    },
+    '/support': {
+      eyebrow: 'Support',
+      title: 'پشتیبانی',
+      description: '',
     },
     '/approvals': {
       eyebrow: 'تاییدها',
@@ -78,6 +90,11 @@ const pageConfig = computed(() => {
       title: 'پیکربندی سازمان و سطح دسترسی',
       description: 'تنظیمات اصلی سازمان و دسترسی بخش‌ها در قالبی جدولی و مقیاس‌پذیر.',
     },
+    '/hq': {
+      eyebrow: 'HQ',
+      title: 'گزارشات HQ',
+      description: '',
+    },
   }
 
   return configs[route.path] || {
@@ -108,6 +125,10 @@ function resetFilters() {
   if (!activeFilterPage.value) return
   resetPageFilters(activeFilterPage.value)
 }
+
+function handleHqOrganizationChange(event) {
+  void selectHqOrganization(event.target.value)
+}
 </script>
 
 <template>
@@ -126,6 +147,16 @@ function resetFilters() {
       </div>
 
       <div class="topbar-actions">
+        <label v-if="state.currentUser.canUseHq" class="hq-organization-select">
+          <span class="material-symbols-outlined">corporate_fare</span>
+          <select :value="state.hq.selectedOrganizationId" @change="handleHqOrganizationChange">
+            <option value="">مجموعه</option>
+            <option v-for="organization in hqOrganizations" :key="organization.id" :value="organization.id">
+              {{ organization.name }}
+            </option>
+          </select>
+        </label>
+
         <div v-if="pageConfig.actions?.length" class="topbar-action-row">
           <button
             v-for="action in pageConfig.actions"

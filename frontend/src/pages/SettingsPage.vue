@@ -9,6 +9,7 @@ const accessModalOpen = ref(false)
 const selectedSectionKey = ref('')
 const selectedUserIds = ref([])
 const userSearch = ref('')
+const newDepartmentName = ref('')
 const activeLetter = ref('همه')
 
 const { loadSettings, saveSettings, state } = useWorkflowHub()
@@ -79,6 +80,23 @@ function isSelected(userId) {
   return selectedUserIds.value.includes(userId)
 }
 
+async function persistDepartments() {
+  if (!state.settings.canEdit || saving.value) return
+  const departments = (state.settings.departments || [])
+    .map((item) => ({ id: item.id, code: item.code, name: String(item.name || '').trim() }))
+    .filter((item) => item.name)
+  const newName = newDepartmentName.value.trim()
+  if (newName) departments.push({ name: newName })
+
+  saving.value = true
+  try {
+    await saveSettings({ departments })
+    newDepartmentName.value = ''
+  } finally {
+    saving.value = false
+  }
+}
+
 function toggleUser(userId) {
   const next = new Set(selectedUserIds.value)
   if (next.has(userId)) next.delete(userId)
@@ -138,6 +156,32 @@ onMounted(async () => {
           </article>
         </div>
       </article>
+    </section>
+
+    <section class="surface-block">
+      <div class="section-label-row">
+        <div>
+          <h3>بخش‌های سازمان</h3>
+          <p>همین لیست در فرم‌های درخواست، هزینه، سند و کاربر به عنوان «انتخاب بخش» نمایش داده می‌شود.</p>
+        </div>
+      </div>
+
+      <div class="settings-stack">
+        <label v-for="department in state.settings.departments" :key="department.id || department.code" class="field-shell">
+          <span>{{ department.code }}</span>
+          <input v-model="department.name" type="text" :readonly="!state.settings.canEdit" />
+        </label>
+
+        <label v-if="state.settings.canEdit" class="field-shell">
+          <span>بخش جدید</span>
+          <input v-model="newDepartmentName" type="text" placeholder="مثلا فروش، عملیات، مالی..." />
+        </label>
+
+        <button v-if="state.settings.canEdit" class="action-btn tone-primary" type="button" @click="persistDepartments">
+          <span class="material-symbols-outlined">save</span>
+          <span>{{ saving ? 'در حال ذخیره...' : 'ذخیره بخش‌ها' }}</span>
+        </button>
+      </div>
     </section>
 
     <section class="surface-block">

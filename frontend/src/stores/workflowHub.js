@@ -26,6 +26,8 @@ function createCurrentUser() {
     canAccessApprovals: false,
     canApproveDocuments: false,
     isManager: false,
+    isHq: false,
+    canUseHq: false,
   }
 }
 
@@ -87,7 +89,47 @@ function createSettingsState() {
     },
     sections: [],
     organizationUsers: [],
+    departments: [],
     canEdit: false,
+  }
+}
+
+function createWalletState() {
+  return {
+    loaded: false,
+    loading: false,
+    submitting: false,
+    error: '',
+    message: '',
+    organization: null,
+    summary: {
+      totalBalance: '0.00',
+      totalBalanceRaw: 0,
+      mainBalance: '0.00',
+      mainBalanceRaw: 0,
+      smsBalance: '0.00',
+      smsBalanceRaw: 0,
+      depositsTotal: '0.00',
+      depositsTotalRaw: 0,
+      withdrawalsTotal: '0.00',
+      withdrawalsTotalRaw: 0,
+      transactions: 0,
+    },
+    wallets: [],
+    transactions: [],
+  }
+}
+
+function createSupportState() {
+  return {
+    loaded: false,
+    loading: false,
+    detailLoading: false,
+    submitting: false,
+    error: '',
+    message: '',
+    tickets: [],
+    selectedTicket: null,
   }
 }
 
@@ -116,6 +158,9 @@ const state = reactive({
   expenseSummary: [],
   approvalMetrics: { pending: 0, approved: 0, rejected: 0 },
   settings: createSettingsState(),
+  hq: createHqState(),
+  wallet: createWalletState(),
+  support: createSupportState(),
   settingsCards: [],
   directories: {
     departments: [],
@@ -201,6 +246,18 @@ function resetSettingsState() {
   Object.assign(state.settings, createSettingsState())
 }
 
+function resetHqState() {
+  Object.assign(state.hq, createHqState())
+}
+
+function resetWalletState() {
+  Object.assign(state.wallet, createWalletState())
+}
+
+function resetSupportState() {
+  Object.assign(state.support, createSupportState())
+}
+
 function replaceItems(target, items) {
   target.splice(0, target.length, ...(items || []))
 }
@@ -220,10 +277,44 @@ function normalizeExpense(item) {
 }
 
 function normalizeApproval(item) {
+  const hqDownloadQuery = state.currentUser.isHq && state.hq.selectedOrganizationId && item?.downloadUrl
+    ? `${item.downloadUrl.includes('?') ? '&' : '?'}organizationId=${encodeURIComponent(state.hq.selectedOrganizationId)}`
+    : ''
   return {
     ...item,
     previewUrl: resolveAssetUrl(item?.previewUrl),
-    downloadUrl: resolveAssetUrl(item?.downloadUrl),
+    downloadUrl: resolveAssetUrl(`${item?.downloadUrl || ''}${hqDownloadQuery}`),
+  }
+}
+
+function createHqState() {
+  return {
+    loaded: false,
+    loading: false,
+    saving: false,
+    activeTable: 'organizations',
+    selectedOrganizationId: '',
+    selectedOrganization: null,
+    selectedType: '',
+    selectedItem: null,
+    query: '',
+    summary: {},
+    organizations: [],
+    users: [],
+    requests: [],
+    payments: [],
+    documents: [],
+    audits: [],
+    segments: { roles: [], payments: [], requests: [], documents: [] },
+    directories: {
+      organizations: [],
+      departments: [],
+      users: [],
+      roles: [],
+      requestStatuses: [],
+      expenseStatuses: [],
+      documentStatuses: [],
+    },
   }
 }
 
@@ -351,6 +442,9 @@ function clearSessionState() {
   replaceItems(state.expenseSummary, [])
   replaceItems(state.settingsCards, [])
   resetSettingsState()
+  resetHqState()
+  resetWalletState()
+  resetSupportState()
   state.directories.departments = []
   state.directories.managers = []
   state.directories.users = []
@@ -589,6 +683,10 @@ function hydrateBootstrap(payload) {
   replaceItems(state.expenseSummary, payload.expenseSummary)
   replaceItems(state.settingsCards, payload.settingsCards)
   if (payload.settings) Object.assign(state.settings, createSettingsState(), payload.settings)
+  if (Array.isArray(payload.hqOrganizations)) {
+    replaceItems(state.hq.directories.organizations, payload.hqOrganizations)
+  }
+  state.hq.selectedOrganization = payload.selectedOrganization || null
   Object.assign(state.approvalMetrics, payload.approvalMetrics || {})
   state.directories.departments = payload.directories?.departments || []
   state.directories.managers = payload.directories?.managers || []
@@ -597,6 +695,48 @@ function hydrateBootstrap(payload) {
   selectedState.requestId = state.requests[0]?.id || ''
   if (!expenseDetailState.item) selectedState.expenseId = state.expenses[0]?.id || ''
   if (!approvalDetailState.item) selectedState.approvalId = state.approvals[0]?.id || ''
+}
+
+function hydrateHq(payload) {
+  if (!payload) return
+  Object.assign(state.hq.summary, payload.summary || {})
+  replaceItems(state.hq.organizations, payload.organizations)
+  replaceItems(state.hq.users, payload.users)
+  replaceItems(state.hq.requests, payload.requests)
+  replaceItems(state.hq.payments, payload.payments)
+  replaceItems(state.hq.documents, payload.documents)
+  replaceItems(state.hq.audits, payload.audits)
+  state.hq.segments = payload.segments || createHqState().segments
+  state.hq.directories = payload.directories || createHqState().directories
+  state.hq.loaded = true
+}
+
+function hydrateWallet(payload) {
+  if (!payload) return
+  state.wallet.organization = payload.organization || null
+  Object.assign(state.wallet.summary, createWalletState().summary, payload.summary || {})
+  replaceItems(state.wallet.wallets, payload.wallets || [])
+  replaceItems(state.wallet.transactions, payload.transactions || [])
+  state.wallet.loaded = true
+}
+
+function hydrateSupportTickets(payload) {
+  replaceItems(state.support.tickets, Array.isArray(payload) ? payload : [])
+  state.support.loaded = true
+}
+
+function hydrateSupportTicket(payload) {
+  state.support.selectedTicket = payload || null
+  if (!payload?.id) return
+  const index = state.support.tickets.findIndex((item) => Number(item.id) === Number(payload.id))
+  if (index >= 0) state.support.tickets[index] = { ...state.support.tickets[index], ...payload }
+  else state.support.tickets.unshift(payload)
+}
+
+function scopedApiPath(path) {
+  if (!state.currentUser.isHq || !state.hq.selectedOrganizationId) return path
+  const separator = path.includes('?') ? '&' : '?'
+  return `${path}${separator}organizationId=${encodeURIComponent(state.hq.selectedOrganizationId)}`
 }
 
 async function loadBootstrapData(force = false) {
@@ -609,7 +749,10 @@ async function loadBootstrapData(force = false) {
   state.appLoading = true
   state.lastError = ''
   try {
-    const response = await authorizedFetch('/bootstrap')
+    const organizationQuery = state.currentUser.isHq && state.hq.selectedOrganizationId
+      ? `?organizationId=${encodeURIComponent(state.hq.selectedOrganizationId)}`
+      : ''
+    const response = await authorizedFetch(`/bootstrap${organizationQuery}`)
     const payload = repairPayload(await response.json())
     hydrateBootstrap(payload)
     state.bootstrapLoaded = true
@@ -624,6 +767,20 @@ async function loadBootstrapData(force = false) {
 
 async function loadReports(force = false) {
   if (!state.authToken || !canViewReports.value) return
+  if (state.currentUser.isHq) {
+    if (!state.hq.selectedOrganizationId) {
+      state.reportSummary = null
+      return
+    }
+    state.reportSummary = {
+      users: state.users.length,
+      requests: state.requests.length,
+      expenses: state.expenses.length,
+      approvals: state.approvals.length,
+      expenseTotal: state.expenseSummary[2]?.value || '0',
+    }
+    return
+  }
   if (state.reportSummary && !force) return
   const response = await authorizedFetch('/reports')
   const payload = repairPayload(await response.json())
@@ -635,17 +792,244 @@ async function loadReports(force = false) {
 
 async function loadSettings(force = false) {
   if (!state.authToken) return
+  if (state.currentUser.isHq && !state.hq.selectedOrganizationId) {
+    resetSettingsState()
+    return
+  }
   if (state.settings.systemId && !force) return
-  const response = await authorizedFetch('/settings/profile')
+  const organizationQuery = state.currentUser.isHq && state.hq.selectedOrganizationId
+    ? `?organizationId=${encodeURIComponent(state.hq.selectedOrganizationId)}`
+    : ''
+  const response = await authorizedFetch(`/settings/profile${organizationQuery}`)
   const payload = repairPayload(await response.json())
   Object.assign(state.settings, createSettingsState(), payload)
   replaceItems(state.settingsCards, payload.sections || [])
   state.settings.organizationUsers = payload.organizationUsers || []
+  state.settings.departments = payload.departments || []
+  state.directories.departments = payload.departments || state.directories.departments
   state.currentUser.organization = payload.organizationName || state.currentUser.organization
 }
 
+async function loadWalletDashboard(force = false) {
+  if (!state.authToken) return
+  if (!state.currentUser.isManager && !state.currentUser.canUseHq) {
+    resetWalletState()
+    return
+  }
+  if (state.currentUser.isHq && !state.hq.selectedOrganizationId) {
+    resetWalletState()
+    return
+  }
+  if (state.wallet.loaded && !force) return
+
+  state.wallet.loading = true
+  state.wallet.error = ''
+  try {
+    const response = await authorizedFetch(scopedApiPath('/wallet'))
+    hydrateWallet(repairPayload(await response.json()))
+  } catch (error) {
+    state.wallet.error = error.message || 'Wallet load failed.'
+    throw error
+  } finally {
+    state.wallet.loading = false
+  }
+}
+
+async function loadSupportTickets(force = false) {
+  if (!state.authToken) return
+  if (state.currentUser.isHq && !state.hq.selectedOrganizationId) {
+    resetSupportState()
+    return
+  }
+  if (state.support.loaded && !force) return
+  state.support.loading = true
+  state.support.error = ''
+  try {
+    const response = await authorizedFetch(scopedApiPath('/support/tickets'))
+    hydrateSupportTickets(repairPayload(await response.json()))
+  } catch (error) {
+    state.support.error = error.message || 'Support load failed.'
+    throw error
+  } finally {
+    state.support.loading = false
+  }
+}
+
+async function loadSupportTicketDetail(ticketId) {
+  if (!ticketId) return
+  state.support.detailLoading = true
+  state.support.error = ''
+  try {
+    const response = await authorizedFetch(scopedApiPath(`/support/tickets/${ticketId}`))
+    hydrateSupportTicket(repairPayload(await response.json()))
+  } catch (error) {
+    state.support.error = error.message || 'Support detail failed.'
+    throw error
+  } finally {
+    state.support.detailLoading = false
+  }
+}
+
+async function createSupportTicket(payload) {
+  state.support.submitting = true
+  state.support.error = ''
+  state.support.message = ''
+  try {
+    const formData = new FormData()
+    formData.append('subject', payload.subject || '')
+    formData.append('message', payload.message || '')
+    formData.append('category', payload.category || 'technical')
+    formData.append('priority', payload.priority || 'medium')
+    ;(payload.attachments || []).forEach((file) => formData.append('attachments', file))
+    const response = await authorizedFetch(scopedApiPath('/support/tickets'), { method: 'POST', body: formData })
+    hydrateSupportTicket(repairPayload(await response.json()))
+    await loadSupportTickets(true)
+    state.support.message = 'تیکت ثبت شد.'
+  } catch (error) {
+    state.support.error = error.message || 'Support submit failed.'
+    throw error
+  } finally {
+    state.support.submitting = false
+  }
+}
+
+async function submitSupportReply(ticketId, payload) {
+  state.support.submitting = true
+  state.support.error = ''
+  try {
+    const response = await authorizedFetch(scopedApiPath(`/support/tickets/${ticketId}/messages`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    hydrateSupportTicket(repairPayload(await response.json()))
+    await loadSupportTickets(true)
+  } catch (error) {
+    state.support.error = error.message || 'Support reply failed.'
+    throw error
+  } finally {
+    state.support.submitting = false
+  }
+}
+
+async function submitSupportFeedback(ticketId, payload) {
+  state.support.submitting = true
+  state.support.error = ''
+  try {
+    const response = await authorizedFetch(scopedApiPath(`/support/tickets/${ticketId}/feedback`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    hydrateSupportTicket(repairPayload(await response.json()))
+    await loadSupportTickets(true)
+  } catch (error) {
+    state.support.error = error.message || 'Support feedback failed.'
+    throw error
+  } finally {
+    state.support.submitting = false
+  }
+}
+
+async function submitWalletTransaction(payload) {
+  if (!payload) return
+  state.wallet.submitting = true
+  state.wallet.error = ''
+  state.wallet.message = ''
+  try {
+    const response = await authorizedFetch(scopedApiPath('/wallet/transactions'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    hydrateWallet(repairPayload(await response.json()))
+    state.wallet.message = payload.direction === 'out' || payload.type === 'withdraw'
+      ? 'برداشت ثبت شد.'
+      : 'شارژ ثبت شد.'
+  } catch (error) {
+    state.wallet.error = error.message || 'Wallet transaction failed.'
+    throw error
+  } finally {
+    state.wallet.submitting = false
+  }
+}
+
+async function loadHqPanel(force = false) {
+  if (!state.authToken || !state.currentUser.canUseHq) return
+  if (state.hq.loaded && !force) return
+  state.hq.loading = true
+  state.lastError = ''
+  try {
+    const response = await authorizedFetch('/hq')
+    hydrateHq(repairPayload(await response.json()))
+  } catch (error) {
+    state.lastError = error.message || 'HQ load failed.'
+    throw error
+  } finally {
+    state.hq.loading = false
+  }
+}
+
+async function selectHqOrganization(organizationId) {
+  state.hq.selectedOrganizationId = organizationId ? String(organizationId) : ''
+  state.bootstrapLoaded = false
+  state.reportSummary = null
+  resetSettingsState()
+  resetWalletState()
+  resetSupportState()
+  await loadBootstrapData(true)
+}
+
+async function saveHqEntity(type, id, payload) {
+  const endpoints = {
+    organization: `/hq/organizations/${id}`,
+    user: `/hq/users/${id}`,
+    request: `/hq/requests/${id}`,
+    payment: `/hq/payments/${id}`,
+    document: `/hq/documents/${id}`,
+  }
+  if (!endpoints[type]) return
+  state.hq.saving = true
+  state.lastError = ''
+  try {
+    const response = await authorizedFetch(endpoints[type], {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    hydrateHq(repairPayload(await response.json()))
+  } catch (error) {
+    state.lastError = error.message || 'HQ save failed.'
+    throw error
+  } finally {
+    state.hq.saving = false
+  }
+}
+
+async function createHqOrganization(payload) {
+  if (!state.authToken || !state.currentUser.canUseHq) return
+  state.hq.saving = true
+  state.lastError = ''
+  try {
+    const response = await authorizedFetch('/hq/organizations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    hydrateHq(repairPayload(await response.json()))
+  } catch (error) {
+    state.lastError = error.message || 'ساخت مجموعه ناموفق بود.'
+    throw error
+  } finally {
+    state.hq.saving = false
+  }
+}
+
 async function exportReport(reportId, format = 'csv', downloadUrl = '') {
-  const requestPath = downloadUrl || (reportId ? `/reports/${reportId}/export?format=${encodeURIComponent(format)}` : '')
+  const hqOrganizationQuery = state.currentUser.isHq && state.hq.selectedOrganizationId
+    ? `&organizationId=${encodeURIComponent(state.hq.selectedOrganizationId)}`
+    : ''
+  const requestPath = downloadUrl || (reportId ? `/reports/${reportId}/export?format=${encodeURIComponent(format)}${hqOrganizationQuery}` : '')
   if (!requestPath) return
   const response = await authorizedFetch(requestPath)
   const blob = await response.blob()
@@ -663,15 +1047,23 @@ async function exportReport(reportId, format = 'csv', downloadUrl = '') {
 }
 
 async function saveSettings(nextSettings) {
-  const response = await authorizedFetch('/settings/profile', {
+  const organizationQuery = state.currentUser.isHq && state.hq.selectedOrganizationId
+    ? `?organizationId=${encodeURIComponent(state.hq.selectedOrganizationId)}`
+    : ''
+  const response = await authorizedFetch(`/settings/profile${organizationQuery}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(nextSettings),
+    body: JSON.stringify({
+      ...nextSettings,
+      ...(state.currentUser.isHq && state.hq.selectedOrganizationId ? { organizationId: state.hq.selectedOrganizationId } : {}),
+    }),
   })
   const payload = repairPayload(await response.json())
   Object.assign(state.settings, createSettingsState(), payload)
   replaceItems(state.settingsCards, payload.sections || [])
   state.settings.organizationUsers = payload.organizationUsers || []
+  state.settings.departments = payload.departments || []
+  state.directories.departments = payload.departments || state.directories.departments
   state.currentUser.organization = payload.organizationName || state.currentUser.organization
 }
 
@@ -751,12 +1143,18 @@ export function useWorkflowHub() {
     Object.assign(state.filters[page], { query: '', person: '', startDate: '', endDate: '' })
   }
 
+  function hqScopedPath(path) {
+    if (!state.currentUser.isHq || !state.hq.selectedOrganizationId) return path
+    const separator = path.includes('?') ? '&' : '?'
+    return `${path}${separator}organizationId=${encodeURIComponent(state.hq.selectedOrganizationId)}`
+  }
+
   async function loadRequestDetail(requestId) {
     if (!requestId) return
     if (requestDetailState.items[requestId]) return
     requestDetailState.loading = true
     try {
-      const response = await authorizedFetch(`/requests/${requestId}`)
+      const response = await authorizedFetch(hqScopedPath(`/requests/${requestId}`))
       requestDetailState.items[requestId] = repairPayload(await response.json())
     } finally {
       requestDetailState.loading = false
@@ -776,7 +1174,7 @@ export function useWorkflowHub() {
   async function loadExpenseDetail(id) {
     expenseDetailState.loading = true
     try {
-      const response = await authorizedFetch(`/expenses/${id}`)
+      const response = await authorizedFetch(hqScopedPath(`/expenses/${id}`))
       expenseDetailState.item = normalizeExpense(repairPayload(await response.json()))
       selectedState.expenseId = id
     } finally {
@@ -797,7 +1195,7 @@ export function useWorkflowHub() {
   async function loadApprovalDetail(id) {
     approvalDetailState.loading = true
     try {
-      const response = await authorizedFetch(`/approvals/${id}`)
+      const response = await authorizedFetch(hqScopedPath(`/approvals/${id}`))
       approvalDetailState.item = normalizeApproval(repairPayload(await response.json()))
       selectedState.approvalId = id
     } finally {
@@ -1024,7 +1422,7 @@ export function useWorkflowHub() {
     if (!selectedApproval.value) return
     state.lastError = ''
     try {
-      await authorizedFetch(`/approvals/${selectedApproval.value.id}/approve`, { method: 'POST' })
+      await authorizedFetch(hqScopedPath(`/approvals/${selectedApproval.value.id}/approve`), { method: 'POST' })
       await loadBootstrapData(true)
       await loadApprovalDetail(selectedApproval.value.id)
     } catch (error) {
@@ -1037,7 +1435,7 @@ export function useWorkflowHub() {
     if (!selectedApproval.value) return
     state.lastError = ''
     try {
-      await authorizedFetch(`/approvals/${selectedApproval.value.id}/reject`, {
+      await authorizedFetch(hqScopedPath(`/approvals/${selectedApproval.value.id}/reject`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),
@@ -1052,14 +1450,14 @@ export function useWorkflowHub() {
 
   async function approveSelectedRequest() {
     if (!selectedRequest.value) return
-    await authorizedFetch(`/requests/${selectedRequest.value.id}/approve`, { method: 'POST' })
+    await authorizedFetch(hqScopedPath(`/requests/${selectedRequest.value.id}/approve`), { method: 'POST' })
     await loadBootstrapData(true)
     await loadRequestDetail(selectedRequest.value.id)
   }
 
   async function rejectSelectedRequest(reason = '') {
     if (!selectedRequest.value) return
-    await authorizedFetch(`/requests/${selectedRequest.value.id}/reject`, {
+    await authorizedFetch(hqScopedPath(`/requests/${selectedRequest.value.id}/reject`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason }),
@@ -1070,14 +1468,14 @@ export function useWorkflowHub() {
 
   async function approveSelectedExpense() {
     if (!selectedExpense.value) return
-    await authorizedFetch(`/expenses/${selectedExpense.value.id}/approve`, { method: 'POST' })
+    await authorizedFetch(hqScopedPath(`/expenses/${selectedExpense.value.id}/approve`), { method: 'POST' })
     await loadBootstrapData(true)
     await loadExpenseDetail(selectedExpense.value.id)
   }
 
   async function rejectSelectedExpense(reason = '') {
     if (!selectedExpense.value) return
-    await authorizedFetch(`/expenses/${selectedExpense.value.id}/reject`, {
+    await authorizedFetch(hqScopedPath(`/expenses/${selectedExpense.value.id}/reject`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason }),
@@ -1133,7 +1531,18 @@ export function useWorkflowHub() {
     loadBootstrapData,
     loadReports,
     loadSettings,
+    loadWalletDashboard,
+    submitWalletTransaction,
+    loadSupportTickets,
+    loadSupportTicketDetail,
+    createSupportTicket,
+    submitSupportReply,
+    submitSupportFeedback,
+    loadHqPanel,
+    selectHqOrganization,
+    createHqOrganization,
     saveSettings,
+    saveHqEntity,
     exportReport,
     openProtectedFile,
     downloadProtectedFile,

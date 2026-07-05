@@ -73,6 +73,28 @@ class ApprovalAssignmentStatus(models.TextChoices):
     REJECTED = "rejected", "رد شده"
 
 
+class SupportTicketStatus(models.TextChoices):
+    OPEN = "open", "Open"
+    PENDING = "pending", "Pending"
+    ANSWERED = "answered", "Answered"
+    CLOSED = "closed", "Closed"
+
+
+class SupportTicketPriority(models.TextChoices):
+    LOW = "low", "Low"
+    MEDIUM = "medium", "Medium"
+    HIGH = "high", "High"
+    URGENT = "urgent", "Urgent"
+
+
+class SupportTicketCategory(models.TextChoices):
+    TECHNICAL = "technical", "Technical"
+    FINANCIAL = "financial", "Financial"
+    OPERATIONS = "operations", "Operations"
+    ACCOUNT = "account", "Account"
+    OTHER = "other", "Other"
+
+
 class TimeStampedModel(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
 
@@ -143,6 +165,91 @@ class SectionAccessGrant(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(fields=["organization", "section_key", "user"], name="uq_section_access_grant"),
         ]
+
+
+class Wallet(TimeStampedModel):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="wallets")
+    key = models.CharField(max_length=40)
+    name = models.CharField(max_length=120)
+    balance = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    low_balance_threshold = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    is_active = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "wallets"
+        constraints = [
+            models.UniqueConstraint(fields=["organization", "key"], name="uq_organization_wallet_key"),
+        ]
+
+
+class WalletTransaction(TimeStampedModel):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="wallet_transactions")
+    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name="transactions")
+    actor = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="wallet_transactions")
+    direction = models.CharField(max_length=12)
+    transaction_type = models.CharField(max_length=40)
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
+    balance_after = models.DecimalField(max_digits=18, decimal_places=2)
+    note = models.TextField(blank=True)
+    reference_id = models.CharField(max_length=80, blank=True)
+    transacted_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "wallet_transactions"
+        indexes = [
+            models.Index(fields=["organization", "-transacted_at"], name="idx_wallet_tx_org_date"),
+            models.Index(fields=["wallet", "-transacted_at"], name="idx_wallet_tx_wallet_date"),
+        ]
+
+
+class SupportTicket(TimeStampedModel):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="support_tickets")
+    requester = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="support_tickets")
+    subject = models.CharField(max_length=180)
+    message = models.TextField()
+    category = models.CharField(max_length=32, choices=SupportTicketCategory.choices, default=SupportTicketCategory.TECHNICAL)
+    priority = models.CharField(max_length=32, choices=SupportTicketPriority.choices, default=SupportTicketPriority.MEDIUM)
+    status = models.CharField(max_length=32, choices=SupportTicketStatus.choices, default=SupportTicketStatus.OPEN)
+    responded_by = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="answered_support_tickets")
+    responded_at = models.DateTimeField(blank=True, null=True)
+    first_response_at = models.DateTimeField(blank=True, null=True)
+    closed_at = models.DateTimeField(blank=True, null=True)
+    customer_satisfaction = models.IntegerField(blank=True, null=True)
+    customer_feedback = models.TextField(blank=True)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "support_tickets"
+        indexes = [
+            models.Index(fields=["organization", "-updated_at"], name="idx_support_ticket_org_date"),
+            models.Index(fields=["status", "-updated_at"], name="idx_support_ticket_status"),
+        ]
+
+
+class SupportMessage(TimeStampedModel):
+    ticket = models.ForeignKey(SupportTicket, on_delete=models.CASCADE, related_name="messages")
+    sender = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="support_messages")
+    sender_name = models.CharField(max_length=120)
+    sender_platform_role = models.CharField(max_length=32, blank=True)
+    body = models.TextField()
+
+    class Meta:
+        db_table = "support_messages"
+        indexes = [
+            models.Index(fields=["ticket", "created_at"], name="idx_support_msg_ticket_date"),
+        ]
+
+
+class SupportAttachment(TimeStampedModel):
+    ticket = models.ForeignKey(SupportTicket, on_delete=models.CASCADE, related_name="attachments")
+    original_name = models.CharField(max_length=255)
+    stored_name = models.CharField(max_length=255)
+    mime_type = models.CharField(max_length=120, blank=True, null=True)
+    size_bytes = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = "support_attachments"
 
 
 class UserSignature(models.Model):
