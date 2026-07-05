@@ -11,7 +11,7 @@ from uuid import uuid4
 from django.conf import settings
 from django.db.models import Prefetch, Q
 
-from workflow.access import can_access_approvals, can_access_expenses, can_access_users, can_approve_documents, can_manage_users, can_view_reports, is_manager, visible_users
+from workflow.access import can_access_approvals, can_access_expenses, can_access_settings, can_access_users, can_approve_documents, can_manage_users, can_view_reports, get_user_organization, is_manager, visible_users
 from workflow.models import (
     ApprovalAssignment,
     ApprovalAssignmentStatus,
@@ -161,6 +161,7 @@ def serialize_current_user(user: User) -> dict:
         "canManageUsers": can_manage_users(user),
         "canAccessUsers": can_access_users(user),
         "canAccessExpenses": can_access_expenses(user),
+        "canAccessSettings": can_access_settings(user),
         "canViewReports": can_view_reports(user),
         "canAccessApprovals": can_access_approvals(user),
         "canApproveDocuments": can_approve_documents(user),
@@ -249,6 +250,8 @@ def serialize_request(request_obj: Request) -> dict:
         "manager": normalize_person_name(request_obj.manager.full_name) if request_obj.manager else "تعیین نشده",
         "managerAssignees": [normalize_person_name(item.full_name) for item in request_obj.assigned_managers.all()],
         "managerAssigneeIds": [item.id for item in request_obj.assigned_managers.all()],
+        "employeeAssignees": [normalize_person_name(item.full_name) for item in request_obj.assigned_employees.all()],
+        "employeeAssigneeIds": [item.id for item in request_obj.assigned_employees.all()],
         "priority": priority_label(request_obj.priority),
         "priorityValue": request_obj.priority,
         "status": request_status_label(request_obj.status),
@@ -501,7 +504,7 @@ def visible_requests(user: User):
     return (
         Request.objects.filter(requester_id__in=user_ids)
         .select_related("requester", "manager", "department")
-        .prefetch_related("assigned_managers", "attachments", "timeline_items")
+        .prefetch_related("assigned_managers", "assigned_employees", "attachments", "timeline_items")
         .order_by("-created_at")
     )
 
@@ -961,3 +964,32 @@ def render_report_export(report_key: str, user: User, organization_id: int | Non
         raise ValueError("گزارش درخواستی معتبر نیست.")
 
     return f"{report_key}-report-{today}.csv", buffer.getvalue()
+
+
+def serialize_user(user: User) -> dict:
+    organization = get_user_organization(user)
+    section_access = set(
+        user.section_access_grants.filter(organization=organization).values_list("section_key", flat=True)
+    )
+    return {
+        "id": user.id,
+        "name": normalize_person_name(user.full_name),
+        "email": user.email,
+        "role": access_role_label(user.role),
+        "accessRole": user.role,
+        "department": user.department.name if user.department else "بدون واحد",
+        "manager": normalize_person_name(user.manager.full_name) if user.manager else "تعیین نشده",
+        "jobTitle": user.job_title,
+        "kpi": user.job_title,
+        "joinedAt": format_date(user.created_at.date()),
+        "joinedAtIso": format_date(user.created_at.date()),
+        "status": "فعال" if user.is_active else "غیرفعال",
+        "isActive": user.is_active,
+        "managerId": user.manager_id,
+        "departmentCode": user.department.code if user.department else "",
+        "sectionAccess": {
+            "reports": "reports" in section_access,
+            "users": "users" in section_access,
+            "settings": "settings" in section_access,
+        },
+    }

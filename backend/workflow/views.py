@@ -20,6 +20,7 @@ from workflow.access import (
     attach_user,
     can_access_approvals,
     can_access_expenses,
+    can_access_settings,
     can_access_users,
     can_approve_documents,
     can_manage_users,
@@ -112,6 +113,54 @@ def parse_json(request: HttpRequest) -> dict:
         return {}
 
 
+USER_SECTION_KEYS = ("reports", "users", "settings")
+
+
+def section_access_payload(payload: dict) -> dict[str, bool]:
+    access = payload.get("sectionAccess") or {}
+    return {key: bool(access.get(key)) for key in USER_SECTION_KEYS}
+
+
+def sync_user_section_access(actor: User, user: User, access_map: dict[str, bool]) -> None:
+    organization = get_user_organization(actor)
+    for section_key, allowed in access_map.items():
+        SectionAccessGrant.objects.filter(
+            organization=organization,
+            section_key=section_key,
+            user=user,
+        ).delete()
+        if allowed and user.id != actor.id:
+            SectionAccessGrant.objects.create(
+                organization=organization,
+                section_key=section_key,
+                user=user,
+            )
+
+
+USER_SECTION_KEYS = ("reports", "users", "settings")
+
+
+def section_access_payload(payload: dict) -> dict[str, bool]:
+    access = payload.get("sectionAccess") or {}
+    return {key: bool(access.get(key)) for key in USER_SECTION_KEYS}
+
+
+def sync_user_section_access(actor: User, user: User, access_map: dict[str, bool]) -> None:
+    organization = get_user_organization(actor)
+    for section_key, allowed in access_map.items():
+        SectionAccessGrant.objects.filter(
+            organization=organization,
+            section_key=section_key,
+            user=user,
+        ).delete()
+        if allowed and user.id != actor.id:
+            SectionAccessGrant.objects.create(
+                organization=organization,
+                section_key=section_key,
+                user=user,
+            )
+
+
 def build_settings_profile_payload(user: User, organization_id: int | None = None) -> dict:
     organization = None
     if user.slug == HQ_USERNAME and organization_id:
@@ -135,6 +184,7 @@ def build_settings_profile_payload(user: User, organization_id: int | None = Non
         {"key": "approvals", "title": "اسناد", "description": "گردش کار امضای دیجیتال", "route": "/approvals"},
         {"key": "expenses", "title": "هزینه ها", "description": "ثبت، پیگیری و کنترل هزینه", "route": "/expenses"},
         {"key": "reports", "title": "گزارشات", "description": "نمای مدیریتی و تحلیل عملکرد", "route": "/reports"},
+        {"key": "settings", "title": "تنظیمات", "description": "مدیریت پروفایل سازمان و دسترسی‌ها", "route": "/settings"},
     ]
     section_payload = []
     for section in sections:
@@ -893,6 +943,7 @@ def requests_view(request: HttpRequest):
     department_code = request.POST.get("department", "").strip()
     manager_slug = request.POST.get("manager", "").strip()
     manager_assignee_ids = [int(item) for item in request.POST.get("managerAssigneeIds", "").split(",") if item.strip()]
+    employee_assignee_ids = [int(item) for item in request.POST.get("employeeAssigneeIds", "").split(",") if item.strip()]
     priority = request.POST.get("priority", RequestPriority.MEDIUM)
     request_action = request.POST.get("action", "refer").strip().lower()
     deadline_raw = request.POST.get("deadline", "").strip()
@@ -904,6 +955,7 @@ def requests_view(request: HttpRequest):
     department = Department.objects.filter(code=department_code).first()
     manager = User.objects.filter(slug=manager_slug).first() if manager_slug else None
     assigned_managers = list(User.objects.filter(pk__in=manager_assignee_ids)) if manager_assignee_ids else []
+    assigned_employees = list(User.objects.filter(pk__in=employee_assignee_ids)) if employee_assignee_ids else []
     status_by_action = {
         "approve": RequestStatus.APPROVED,
         "reject": RequestStatus.REJECTED,
@@ -925,6 +977,8 @@ def requests_view(request: HttpRequest):
         return json_error("مدیر اصلی باید به درخواست ارجاع شود.", status=422)
     if manager_assignee_ids and (len(assigned_managers) != len(manager_assignee_ids) or any(not is_manager(item) for item in assigned_managers)):
         return json_error("مدیران ارجاعی باید از مدیران مجاز انتخاب شوند.", status=422)
+    if employee_assignee_ids and (len(assigned_employees) != len(employee_assignee_ids) or any(is_manager(item) for item in assigned_employees)):
+        return json_error("کارمندان ارجاعی باید از میان کارمندان مجاز انتخاب شوند.", status=422)
     if manager and any(item.slug == manager.slug for item in assigned_managers):
         return json_error("مدیر اصلی نباید در فهرست مدیران ارجاعی تکرار شود.", status=422)
     request_obj = Request.objects.create(
@@ -941,6 +995,8 @@ def requests_view(request: HttpRequest):
     )
     if assigned_managers:
         request_obj.assigned_managers.set(assigned_managers)
+    if assigned_employees:
+        request_obj.assigned_employees.set(assigned_employees)
 
     RequestTimeline.objects.create(request=request_obj, action="created", note="ایجاد درخواست", actor_name=request.current_user.full_name)
     RequestTimeline.objects.create(request=request_obj, action="submitted", note="ثبت درخواست", actor_name=request.current_user.full_name)
@@ -953,6 +1009,13 @@ def requests_view(request: HttpRequest):
             note=f"ارجاع به مدیران: {', '.join(item.full_name for item in assigned_managers)}",
             actor_name=request.current_user.full_name,
         )
+    if assigned_employees:
+        RequestTimeline.objects.create(
+            request=request_obj,
+            action="employee_referrals",
+            note=f"ارجاع به کارمندان: {', '.join(item.full_name for item in assigned_employees)}",
+            actor_name=request.current_user.full_name,
+        )
     for file_obj in request.FILES.getlist("attachments"):
         stored_name = save_uploaded_file(file_obj)
         request_obj.attachments.create(
@@ -962,7 +1025,7 @@ def requests_view(request: HttpRequest):
             size_bytes=file_obj.size,
         )
 
-    request_obj = Request.objects.select_related("requester", "manager", "department").prefetch_related("assigned_managers", "attachments").get(pk=request_obj.pk)
+    request_obj = Request.objects.select_related("requester", "manager", "department").prefetch_related("assigned_managers", "assigned_employees", "attachments").get(pk=request_obj.pk)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="request_created", entity_type="request", entity_code=request_obj.code, detail=request_obj.title, icon="assignment")
     return json_response(serialize_request(request_obj), status=201)
 
@@ -1257,9 +1320,74 @@ def users_view(request: HttpRequest):
     )
     organization = OrganizationMembership.objects.select_related("organization").get(user=request.current_user).organization
     OrganizationMembership.objects.create(organization=organization, user=user, display_title=user.job_title)
+    sync_user_section_access(request.current_user, user, section_access_payload(payload))
     user = User.objects.select_related("department", "manager").get(pk=user.pk)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="user_created", entity_type="user", entity_code=str(user.id), detail=user.full_name, icon="group")
     return json_response(serialize_user(user), status=201)
+
+
+@require_auth
+@csrf_exempt
+@methods("PATCH")
+def user_detail_view(request: HttpRequest, user_id: int):
+    if not can_manage_users(request.current_user):
+        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+
+    allowed_ids = set(visible_users(request.current_user).values_list("id", flat=True))
+    if user_id not in allowed_ids:
+        return json_error("Ú©Ø§Ø±Ø¨Ø± Ù…ÙˆØ±Ø¯ Ù†Ø¸Ø± ÛŒØ§ÙØª Ù†Ø´Ø¯.", status=404)
+
+    user = User.objects.select_related("department", "manager").filter(pk=user_id).first()
+    if not user:
+        return json_error("Ú©Ø§Ø±Ø¨Ø± Ù…ÙˆØ±Ø¯ Ù†Ø¸Ø± ÛŒØ§ÙØª Ù†Ø´Ø¯.", status=404)
+
+    payload = parse_json(request)
+    email = (payload.get("email") or user.email).strip().lower()
+    if User.objects.exclude(pk=user.pk).filter(email=email).exists():
+        return json_error("Ø§ÛŒÙ† Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§ Ø«Ø¨Øª Ø´Ø¯Ù‡ Ø§Ø³Øª.", status=409)
+
+    manager_id = payload.get("managerId")
+    manager = None
+    if manager_id:
+        manager = User.objects.filter(pk=manager_id).first()
+        if not manager or manager.id == user.id or manager.id not in allowed_ids:
+            return json_error("Ù…Ø¯ÛŒØ± Ø§Ù†ØªØ®Ø§Ø¨ Ø´Ø¯Ù‡ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", status=422)
+
+    department = None
+    department_code = (payload.get("department") or payload.get("departmentCode") or "").strip()
+    if department_code:
+        department = Department.objects.filter(code=department_code).first()
+
+    role = payload.get("accessRole") or user.role
+    user.full_name = (payload.get("fullName") or user.full_name).strip()
+    user.email = email
+    user.role = role
+    user.job_title = (payload.get("jobTitle") or user.job_title).strip() or user.job_title
+    user.department = department
+    user.manager = manager
+    if "isActive" in payload:
+        user.is_active = bool(payload.get("isActive"))
+    user.avatar = (user.full_name[:2] if user.full_name else user.avatar or "NA").upper()
+    update_fields = ["full_name", "email", "role", "job_title", "department", "manager", "is_active", "avatar"]
+
+    password = (payload.get("password") or "").strip()
+    if password:
+        user.password_hash = get_password_hash(password)
+        update_fields.append("password_hash")
+
+    user.save(update_fields=update_fields)
+    sync_user_section_access(request.current_user, user, section_access_payload(payload))
+    user.refresh_from_db()
+    AuditLog.objects.create(
+        actor=request.current_user,
+        actor_name=request.current_user.full_name,
+        action="user_updated",
+        entity_type="user",
+        entity_code=str(user.id),
+        detail=user.full_name,
+        icon="manage_accounts",
+    )
+    return json_response(serialize_user(user))
 
 
 @require_auth
@@ -1596,7 +1724,8 @@ def settings_profile_view(request: HttpRequest):
 @require_auth
 @methods("GET")
 def settings_view(request: HttpRequest):
-    del request
+    if not can_access_settings(request.current_user) and not can_manage_users(request.current_user):
+        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
     return json_response(
         [
             {"title": "حساب کاربری", "description": "مدیریت نقش ها و دسترسی"},

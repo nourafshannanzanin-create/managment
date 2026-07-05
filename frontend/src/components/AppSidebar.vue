@@ -40,7 +40,9 @@ const navItems = computed(() => {
     items.push({ to: '/users', label: 'کاربران', icon: 'groups' })
   }
 
-  items.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
+  if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
+    items.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
+  }
 
   if (state.currentUser.canUseHq) {
     items.push({ to: '/hq', label: 'HQ', icon: 'admin_panel_settings' })

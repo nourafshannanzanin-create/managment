@@ -30,6 +30,7 @@ urlpatterns = [
     path("expenses/<str:expense_code>/approve", views.expense_approve_view),
     path("expenses/<str:expense_code>/reject", views.expense_reject_view),
     path("users", views.users_view),
+    path("users/<int:user_id>", views.user_detail_view),
     path("reports", views.reports_view),
     path("reports/<str:report_key>/export", views.report_export_view),
     path("approvals", views.approvals_view),

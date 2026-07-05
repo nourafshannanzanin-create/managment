@@ -22,6 +22,7 @@ function createCurrentUser() {
     canManageUsers: false,
     canAccessUsers: false,
     canAccessExpenses: true,
+    canAccessSettings: false,
     canViewReports: false,
     canAccessApprovals: false,
     canApproveDocuments: false,
@@ -38,6 +39,7 @@ function createRequestForm() {
     department: '',
     manager: '',
     managerAssigneeIds: [],
+    employeeAssigneeIds: [],
     priority: 'medium',
     deadline: formatJalali(getTodayJalali()),
     attachments: [],
@@ -63,6 +65,11 @@ function createUserForm() {
     department: '',
     managerId: '',
     jobTitle: '',
+    sectionAccess: {
+      reports: false,
+      users: false,
+      settings: false,
+    },
   }
 }
 
@@ -530,9 +537,11 @@ const visibleNavItems = computed(() => {
   ]
   if (canAccessApprovals.value) items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check' })
   if (canViewReports.value) items.push({ to: '/reports', label: 'گزارشات', icon: 'monitoring' })
-  if (canManageUsers.value) items.push({ to: '/users', label: 'کاربران', icon: 'group' })
+  if (canAccessUsers.value) items.push({ to: '/users', label: 'کاربران', icon: 'group' })
 
-  items.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
+  if (state.currentUser.canAccessSettings || canManageUsers.value) {
+    items.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
+  }
   return items
 })
 
@@ -621,6 +630,14 @@ function requestManagerAssigneeNames(ids = state.requestForm.managerAssigneeIds)
   const normalizedIds = (ids || []).map((item) => Number(item))
   const names = state.directories.managers
     .filter((item) => normalizedIds.includes(item.id))
+    .map((item) => item.name)
+  return names.length ? names.join('، ') : 'تعیین نشده'
+}
+
+function requestEmployeeAssigneeNames(ids = state.requestForm.employeeAssigneeIds) {
+  const normalizedIds = (ids || []).map((item) => Number(item))
+  const names = state.users
+    .filter((item) => item.accessRole === 'employee' && normalizedIds.includes(Number(item.id)))
     .map((item) => item.name)
   return names.length ? names.join('، ') : 'تعیین نشده'
 }
@@ -1311,6 +1328,7 @@ export function useWorkflowHub() {
       formData.append('department', state.requestForm.department)
       formData.append('manager', state.requestForm.manager)
       formData.append('managerAssigneeIds', state.requestForm.managerAssigneeIds.join(','))
+      formData.append('employeeAssigneeIds', state.requestForm.employeeAssigneeIds.join(','))
       formData.append('priority', state.requestForm.priority)
       formData.append('action', action)
       if (state.requestForm.deadline) formData.append('deadline', jalaliToIso(state.requestForm.deadline))
@@ -1484,6 +1502,22 @@ export function useWorkflowHub() {
     await loadExpenseDetail(selectedExpense.value.id)
   }
 
+  async function updateUser(userId, payload) {
+    state.lastError = ''
+    await authorizedFetch(`/users/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...payload,
+        managerId: payload.managerId ? Number(payload.managerId) : null,
+      }),
+    })
+    await loadBootstrapData(true)
+    if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
+      await loadSettings(true)
+    }
+  }
+
   singleton = {
     state,
     modalState,
@@ -1519,6 +1553,7 @@ export function useWorkflowHub() {
     departmentLabel,
     managerLabel,
     requestManagerAssigneeNames,
+    requestEmployeeAssigneeNames,
     setRequestManager,
     navigateTo,
     toggleSidebar,
@@ -1577,6 +1612,7 @@ export function useWorkflowHub() {
     rejectSelectedRequest,
     approveSelectedExpense,
     rejectSelectedExpense,
+    updateUser,
     approveSelectedDocument,
     rejectSelectedDocument,
   }

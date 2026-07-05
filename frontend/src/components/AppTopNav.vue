@@ -32,12 +32,12 @@ const pageConfig = computed(() => {
     '/dashboard': {
       eyebrow: 'مرکز کنترل',
       title: 'داشبورد اجرایی',
-      description: 'منوی سمت راست، هدر و ابزارهای کلیدی همیشه ثابت می‌مانند و فقط محتوای اصلی صفحه تغییر می‌کند.',
+      description: '',
     },
     '/requests': {
       eyebrow: 'درخواست‌ها',
       title: 'مدیریت درخواست‌های سازمانی',
-      description: 'ثبت، پیگیری و تفکیک درخواست‌ها با فیلتر سراسری و اکشن سریع.',
+      description: '',
       filterPage: 'requests',
       actions: [{ label: 'ثبت درخواست', icon: 'add_circle', handler: openRequestComposer, tone: 'primary' }],
     },
@@ -73,7 +73,7 @@ const pageConfig = computed(() => {
     '/reports': {
       eyebrow: 'گزارشات',
       title: 'گزارش‌های مدیریتی و خروجی‌ها',
-      description: 'نمای تفکیکی گزارش درخواست‌ها، هزینه‌ها و تاییدها با خروجی مستقیم.',
+      description: 'نمای تفکیکی گزارش در درخواست‌ها، هزینه‌ها و تاییدها با خروجی مستقیم.',
       filterPage: 'reports',
     },
     '/users': {
@@ -168,16 +168,6 @@ function handleHqOrganizationChange(event) {
             <span class="material-symbols-outlined">{{ action.icon }}</span>
             <span>{{ action.label }}</span>
           </button>
-        </div>
-
-        <div class="topbar-user-card">
-          <div class="topbar-avatar">
-            {{ (displayName || 'ک').slice(0, 1) }}
-          </div>
-          <div class="topbar-user-copy">
-            <strong>{{ displayName }}</strong>
-            <small>{{ state.currentUser.role || state.currentUser.department || 'عضو سازمان' }}</small>
-          </div>
         </div>
       </div>
     </div>

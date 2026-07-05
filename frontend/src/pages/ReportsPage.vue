@@ -9,10 +9,10 @@ const activeTab = ref('requests')
 const { exportReport, filteredReports, loadReports, state } = useWorkflowHub()
 
 const reportStats = computed(() => [
-  { label: 'جمع هزینه‌ها', value: state.reportSummary?.expenseTotal || '0' },
-  { label: 'کاربران فعال', value: state.reportSummary?.users || 0 },
-  { label: 'درخواست‌ها', value: state.reportSummary?.requests || 0 },
-  { label: 'گزارش آماده', value: filteredReports.value.length },
+  { label: 'جمع هزینه‌ها', value: state.reportSummary?.expenseTotal || '0', icon: 'payments', note: 'خلاصه مالی', tone: 'is-total' },
+  { label: 'کاربران فعال', value: state.reportSummary?.users || 0, icon: 'verified_user', note: 'اعضای فعال', tone: 'is-approved' },
+  { label: 'درخواست‌ها', value: state.reportSummary?.requests || 0, icon: 'pending_actions', note: 'ثبت عملیاتی', tone: 'is-pending' },
+  { label: 'گزارش آماده', value: filteredReports.value.length, icon: 'folder_copy', note: 'نمای کلی خروجی‌ها', tone: 'is-rejected' },
 ])
 
 const reportTabs = computed(() => [
@@ -79,9 +79,13 @@ onMounted(() => {
     />
 
     <section class="metric-grid metric-grid-4">
-      <article v-for="item in reportStats" :key="item.label" class="metric-card">
-        <span class="metric-label">{{ item.label }}</span>
+      <article v-for="item in reportStats" :key="item.label" :class="['metric-card', 'approval-metric-card', item.tone]">
+        <div class="metric-card-headline">
+          <span class="metric-label">{{ item.label }}</span>
+          <span class="material-symbols-outlined approval-metric-icon">{{ item.icon }}</span>
+        </div>
         <strong>{{ item.value }}</strong>
+        <small class="approval-metric-note">{{ item.note }}</small>
       </article>
     </section>
 
@@ -133,7 +137,6 @@ onMounted(() => {
         </table>
       </div>
     </section>
-
   </section>
 
   <section v-else class="page-shell">
