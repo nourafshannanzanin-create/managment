@@ -13,7 +13,20 @@ const props = defineProps({
 defineEmits(['close'])
 
 const rejectReason = ref('')
-const { approveSelectedDocument, rejectSelectedDocument, loadSignature, openSignatureComposer, signatureState, state } = useWorkflowHub()
+const previewObjectUrl = ref('')
+const previewLoading = ref(false)
+
+const {
+  approveSelectedDocument,
+  rejectSelectedDocument,
+  loadSignature,
+  openSignatureComposer,
+  signatureState,
+  state,
+  openProtectedFile,
+  downloadProtectedFile,
+  createProtectedObjectUrl,
+} = useWorkflowHub()
 
 const previewKind = computed(() => props.approval?.previewKind || 'file')
 const isImage = computed(() => previewKind.value === 'image')
@@ -45,13 +58,13 @@ const statusMessage = computed(() => {
 
 const previewTitle = computed(() => {
   if (isImage.value) return 'پیش نمایش مستقیم سند'
-  if (isPdf.value) return 'فایل PDF برای مشاهده آماده است'
+  if (isPdf.value) return 'پیش نمایش PDF'
   return 'پیش نمایش داخلی برای این فایل موجود نیست'
 })
 
 const previewHint = computed(() => {
   if (isImage.value) return 'نسخه فعلی سند در همین پنجره نمایش داده می‌شود.'
-  if (isPdf.value) return 'برای جلوگیری از دانلود ناخواسته، فایل فقط با اقدام مستقیم شما باز یا دانلود می‌شود.'
+  if (isPdf.value) return 'فایل PDF داخل همین مودال بارگذاری می‌شود و در صورت نیاز می‌توانید آن را جداگانه هم باز یا دانلود کنید.'
   return 'برای بررسی محتوا، فایل را در زبانه جدا باز کنید یا مستقیما دانلود بگیرید.'
 })
 
@@ -67,6 +80,25 @@ const metaItems = computed(() => {
   ]
 })
 
+function revokePreviewObjectUrl() {
+  if (!previewObjectUrl.value) return
+  URL.revokeObjectURL(previewObjectUrl.value)
+  previewObjectUrl.value = ''
+}
+
+async function loadInlinePreview() {
+  revokePreviewObjectUrl()
+  if (!props.open || !previewUrl.value || (!isImage.value && !isPdf.value)) return
+  previewLoading.value = true
+  try {
+    previewObjectUrl.value = await createProtectedObjectUrl(previewUrl.value)
+  } catch (error) {
+    state.lastError = error.message || 'بارگذاری پیش نمایش انجام نشد.'
+  } finally {
+    previewLoading.value = false
+  }
+}
+
 async function handleReject() {
   await rejectSelectedDocument(rejectReason.value)
 }
@@ -75,12 +107,22 @@ async function handleApprove() {
   await approveSelectedDocument()
 }
 
+async function handlePreviewOpen() {
+  await openProtectedFile(previewUrl.value, props.approval?.id || 'document-preview')
+}
+
+async function handleDownload() {
+  await downloadProtectedFile(downloadUrl.value, props.approval?.id || 'document')
+}
+
 watch(
-  () => [props.open, props.approval?.id, props.approval?.canApprove],
+  () => [props.open, props.approval?.id, props.approval?.canApprove, previewUrl.value, previewKind.value],
   async ([open, _, canApprove]) => {
     rejectReason.value = ''
+    revokePreviewObjectUrl()
     if (!open) return
     state.lastError = ''
+    await loadInlinePreview()
     if (canApprove) {
       await loadSignature()
     }
@@ -138,31 +180,42 @@ watch(
               <small>{{ previewHint }}</small>
             </div>
             <div class="approval-file-actions">
-              <a
+              <button
                 v-if="hasStandalonePreview"
-                :href="previewUrl"
                 class="action-btn tone-soft"
-                target="_blank"
-                rel="noreferrer"
+                type="button"
+                @click="handlePreviewOpen"
               >
                 <span class="material-symbols-outlined">open_in_new</span>
                 <span>باز کردن فایل</span>
-              </a>
-              <a
+              </button>
+              <button
                 v-if="downloadUrl"
-                :href="downloadUrl"
                 class="action-btn tone-primary"
-                target="_blank"
-                rel="noreferrer"
+                type="button"
+                @click="handleDownload"
               >
                 <span class="material-symbols-outlined">download</span>
                 <span>{{ isApproved ? 'دانلود نسخه نهایی' : 'دانلود سند' }}</span>
-              </a>
+              </button>
             </div>
           </div>
 
           <div class="approval-preview-stage">
-            <img v-if="isImage" :src="previewUrl" alt="" class="approval-preview-image" />
+            <div v-if="previewLoading" class="approval-preview-empty">
+              <div class="approval-preview-badge">
+                <span class="material-symbols-outlined">progress_activity</span>
+              </div>
+              <strong>در حال بارگذاری پیش نمایش</strong>
+              <p>چند لحظه صبر کنید تا فایل برای نمایش داخل مودال آماده شود.</p>
+            </div>
+            <img v-else-if="isImage && previewObjectUrl" :src="previewObjectUrl" alt="" class="approval-preview-image" />
+            <iframe
+              v-else-if="isPdf && previewObjectUrl"
+              :src="previewObjectUrl"
+              class="approval-preview-frame"
+              title="PDF preview"
+            ></iframe>
             <div v-else-if="previewUrl" class="approval-preview-empty">
               <div class="approval-preview-badge">
                 <span class="material-symbols-outlined">{{ isPdf ? 'picture_as_pdf' : 'attach_file' }}</span>
@@ -224,7 +277,12 @@ watch(
 
             <label v-if="approval.canApprove" class="approval-reject-note">
               <span>علت رد</span>
-              <textarea v-model="rejectReason" class="field-shell approval-reject-textarea" rows="4" placeholder="اگر نیاز به رد سند دارید، توضیح خود را اینجا بنویسید."></textarea>
+              <textarea
+                v-model="rejectReason"
+                class="field-shell approval-reject-textarea"
+                rows="4"
+                placeholder="اگر نیاز به رد سند دارید، توضیح خود را اینجا بنویسید."
+              ></textarea>
             </label>
 
             <div class="approval-action-row">
@@ -494,12 +552,22 @@ watch(
   padding: 22px;
 }
 
-.approval-preview-image {
+.approval-preview-image,
+.approval-preview-frame {
   width: 100%;
-  max-height: 520px;
-  object-fit: contain;
+  border: 0;
   border-radius: 18px;
   box-shadow: 0 16px 40px rgba(29, 44, 79, 0.12);
+  background: #fff;
+}
+
+.approval-preview-image {
+  max-height: 520px;
+  object-fit: contain;
+}
+
+.approval-preview-frame {
+  min-height: 560px;
 }
 
 .approval-preview-empty {
@@ -656,6 +724,10 @@ watch(
   .approval-status-panel,
   .signature-readiness-card {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .approval-preview-frame {
+    min-height: 420px;
   }
 
   .approval-surface-head,

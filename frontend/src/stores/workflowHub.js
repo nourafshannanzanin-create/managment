@@ -255,6 +255,91 @@ function parseDownloadFilename(disposition = '') {
   return asciiMatch?.[1] || asciiMatch?.[2] || ''
 }
 
+function fallbackFilenameFromUrl(rawUrl = '', fallback = 'download') {
+  try {
+    const url = new URL(rawUrl, API_ORIGIN)
+    const fileName = decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() || '')
+    return fileName || fallback
+  } catch {
+    return fallback
+  }
+}
+
+async function authorizedFetchUrl(rawUrl, options = {}) {
+  const requestUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : resolveAssetUrl(rawUrl)
+  const response = await fetch(requestUrl, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      ...(state.authToken ? { Authorization: `Bearer ${state.authToken}` } : {}),
+    },
+  })
+
+  if (response.status === 401) {
+    clearSessionState()
+    throw new Error('UNAUTHORIZED')
+  }
+
+  if (!response.ok) {
+    let detail = `Request failed: ${response.status}`
+    try {
+      const payload = repairPayload(await response.json())
+      detail = payload.detail || detail
+    } catch {
+      // ignore parse failure
+    }
+    throw new Error(detail)
+  }
+
+  return response
+}
+
+async function downloadProtectedFile(rawUrl, fallbackName = 'download') {
+  if (!rawUrl) return
+  const response = await authorizedFetchUrl(rawUrl)
+  const blob = await response.blob()
+  const disposition = response.headers.get('Content-Disposition') || ''
+  const fileName = parseDownloadFilename(disposition) || fallbackFilenameFromUrl(rawUrl, fallbackName)
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = fileName
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000)
+}
+
+async function openProtectedFile(rawUrl, fallbackName = 'preview') {
+  if (!rawUrl) return
+  const response = await authorizedFetchUrl(rawUrl)
+  const blob = await response.blob()
+  const objectUrl = URL.createObjectURL(blob)
+  const popup = window.open(objectUrl, '_blank', 'noopener,noreferrer')
+
+  if (!popup) {
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.target = '_blank'
+    link.rel = 'noreferrer'
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  }
+
+  const revokeDelay = /\.(pdf|png|jpe?g|webp|gif|bmp)$/i.test(fallbackFilenameFromUrl(rawUrl, fallbackName)) ? 60000 : 15000
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), revokeDelay)
+}
+
+async function createProtectedObjectUrl(rawUrl) {
+  if (!rawUrl) return ''
+  const response = await authorizedFetchUrl(rawUrl)
+  const blob = await response.blob()
+  return URL.createObjectURL(blob)
+}
+
 function clearSessionState() {
   state.authToken = ''
   state.bootstrapLoaded = false
@@ -1085,6 +1170,9 @@ export function useWorkflowHub() {
     loadSettings,
     saveSettings,
     exportReport,
+    openProtectedFile,
+    downloadProtectedFile,
+    createProtectedObjectUrl,
     openRequestDetail,
     closeRequestDetail,
     openExpenseDetail,

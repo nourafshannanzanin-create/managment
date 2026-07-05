@@ -3,7 +3,7 @@ import { computed } from 'vue'
 
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const { filteredExpenses, openExpenseDetail, state } = useWorkflowHub()
+const { filteredExpenses, openExpenseDetail, openProtectedFile, state } = useWorkflowHub()
 
 const expenseStats = computed(() => {
   const summary = state.expenseSummary || []
@@ -21,6 +21,10 @@ function toneForStatus(status) {
   if (label.includes('تایید')) return 'is-success'
   if (label.includes('بررسی') || label.includes('انتظار')) return 'is-warning'
   return ''
+}
+
+async function handleInvoiceOpen(item) {
+  await openProtectedFile(item?.invoiceUrl, item?.id || 'expense-invoice')
 }
 </script>
 
@@ -71,7 +75,7 @@ function toneForStatus(status) {
               <td>{{ item.createdAt || '-' }}</td>
               <td><span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span></td>
               <td>
-                <a v-if="item.invoiceUrl" class="table-link" :href="item.invoiceUrl" target="_blank" rel="noreferrer">مشاهده</a>
+                <button v-if="item.invoiceUrl" class="table-link" type="button" @click="handleInvoiceOpen(item)">مشاهده</button>
                 <span v-else class="table-muted">بدون فایل</span>
               </td>
               <td><button class="table-link" type="button" @click="openExpenseDetail(item.id)">جزئیات</button></td>

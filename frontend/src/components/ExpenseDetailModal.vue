@@ -57,6 +57,10 @@ const metaItems = computed(() => {
 async function handleReject() {
   await rejectSelectedExpense(rejectReason.value)
 }
+
+async function handleInvoiceOpen(url) {
+  await openProtectedFile(url, 'expense-invoice')
+}
 </script>
 
 <template>
