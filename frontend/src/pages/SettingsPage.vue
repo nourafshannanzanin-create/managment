@@ -2,17 +2,42 @@
 import { computed, onMounted, ref } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
-import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const saving = ref(false)
 const accessModalOpen = ref(false)
 const selectedSectionKey = ref('')
 const selectedUserIds = ref([])
+const userSearch = ref('')
+const activeLetter = ref('همه')
 
-const { loadSettings, logout, saveSettings, state } = useWorkflowHub()
+const { loadSettings, saveSettings, state } = useWorkflowHub()
 
 const selectedSection = computed(() => state.settings.sections.find((item) => item.key === selectedSectionKey.value) || null)
+
+const availableLetters = computed(() => {
+  const letters = new Set(
+    (state.settings.organizationUsers || [])
+      .map((item) => String(item.name || '').trim().slice(0, 1))
+      .filter(Boolean),
+  )
+  return ['همه', ...[...letters].sort((a, b) => a.localeCompare(b, 'fa'))]
+})
+
+const filteredOrganizationUsers = computed(() => {
+  const query = userSearch.value.trim().toLowerCase()
+
+  return [...(state.settings.organizationUsers || [])]
+    .filter((item) => {
+      const firstLetter = String(item.name || '').trim().slice(0, 1)
+      const matchesLetter = activeLetter.value === 'همه' || firstLetter === activeLetter.value
+      const matchesQuery = !query ||
+        ['name', 'role', 'department', 'email']
+          .some((field) => String(item[field] || '').toLowerCase().includes(query))
+      return matchesLetter && matchesQuery
+    })
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'fa'))
+})
 
 async function persistSettings() {
   if (!state.settings.canEdit || saving.value) return
@@ -20,7 +45,7 @@ async function persistSettings() {
   try {
     await saveSettings({
       organizationName: state.settings.organizationName,
-      twoFactorRequired: state.settings.security?.twoFactorRequired,
+      systemId: state.settings.systemId,
     })
   } finally {
     saving.value = false
@@ -31,6 +56,8 @@ function openSectionAccess(section) {
   if (!state.settings.canEdit) return
   selectedSectionKey.value = section.key
   selectedUserIds.value = [...(section.allowedUserIds || [])]
+  userSearch.value = ''
+  activeLetter.value = 'همه'
   accessModalOpen.value = true
 }
 
@@ -48,6 +75,17 @@ async function persistSectionAccess() {
   }
 }
 
+function isSelected(userId) {
+  return selectedUserIds.value.includes(userId)
+}
+
+function toggleUser(userId) {
+  const next = new Set(selectedUserIds.value)
+  if (next.has(userId)) next.delete(userId)
+  else next.add(userId)
+  selectedUserIds.value = [...next]
+}
+
 onMounted(async () => {
   await loadSettings(true)
 })
@@ -55,18 +93,12 @@ onMounted(async () => {
 
 <template>
   <section class="page-shell enterprise-page">
-    <PageHeader
-      eyebrow="پیکربندی سامانه"
-      title="تنظیمات سازمان"
-      description="تنظیمات هویت سازمانی، امنیت حساب‌ها و دسترسی بخش‌های مختلف را در این صفحه مدیریت کنید."
-    />
-
-    <section class="dashboard-grid">
+    <section class="dashboard-grid settings-modern-grid">
       <article class="surface-block">
         <div class="section-label-row">
           <div>
             <h3>پروفایل سازمان</h3>
-            <p>اطلاعات هویتی سازمان</p>
+            <p>فقط اطلاعات هویتی سازمان نگه داشته شده تا صفحه جمع‌وجور و کاربردی بماند.</p>
           </div>
         </div>
 
@@ -74,6 +106,11 @@ onMounted(async () => {
           <label class="field-shell">
             <span>نام سازمان</span>
             <input v-model="state.settings.organizationName" type="text" :readonly="!state.settings.canEdit" />
+          </label>
+
+          <label class="field-shell">
+            <span>کدنوم سازمان</span>
+            <input v-model="state.settings.systemId" type="text" :readonly="!state.settings.canEdit" />
           </label>
 
           <button v-if="state.settings.canEdit" class="action-btn tone-primary" type="button" @click="persistSettings">
@@ -86,36 +123,19 @@ onMounted(async () => {
       <article class="surface-block">
         <div class="section-label-row">
           <div>
-            <h3>امنیت و نشست‌ها</h3>
-            <p>سیاست‌های دسترسی و نشست‌های فعال</p>
+            <h3>خلاصه دسترسی‌ها</h3>
+            <p>نمای فشرده از بخش‌های قابل مدیریت و تعداد افراد مجاز در هر بخش.</p>
           </div>
         </div>
 
-        <div class="settings-stack">
-          <label class="toggle-row">
-            <div>
-              <strong>احراز هویت دومرحله‌ای</strong>
-              <p>الزام ورود دومرحله‌ای برای کاربران سازمان</p>
+        <div class="progress-list">
+          <article v-for="item in state.settings.sections" :key="item.key" class="progress-row">
+            <strong>{{ item.title }}</strong>
+            <div class="progress-bar">
+              <span :style="{ width: `${Math.max(12, ((item.allowedUsers || []).length / Math.max(state.settings.organizationUsers.length, 1)) * 100)}%` }"></span>
             </div>
-            <button
-              :class="['toggle-pill', state.settings.security?.twoFactorRequired && 'is-active']"
-              type="button"
-              :disabled="!state.settings.canEdit"
-              @click="state.settings.security.twoFactorRequired = !state.settings.security.twoFactorRequired"
-            >
-              <span></span>
-            </button>
-          </label>
-
-          <div class="detail-meta-item">
-            <span>نشست‌های اخیر</span>
-            <strong>{{ state.settings.security?.recentSessionLabel || 'بدون نشست اخیر' }}</strong>
-          </div>
-
-          <button class="action-btn tone-soft" type="button" @click="logout">
-            <span class="material-symbols-outlined">logout</span>
-            <span>خروج از حساب</span>
-          </button>
+            <small>{{ (item.allowedUsers || []).length }} نفر</small>
+          </article>
         </div>
       </article>
     </section>
@@ -123,29 +143,35 @@ onMounted(async () => {
     <section class="surface-block">
       <div class="section-label-row">
         <div>
-          <h3>دسترسی بخش‌ها</h3>
-          <p>دسترسی کاربران به ماژول‌های مختلف را برای هر بخش سازمان تنظیم کنید.</p>
+          <h3>دسترسی به بخش‌ها</h3>
+          <p>به‌جای کارت‌های بزرگ، دسترسی‌ها در یک جدول سبک و قابل جستجو نمایش داده می‌شوند.</p>
         </div>
       </div>
 
-      <div class="card-grid">
+      <div v-if="state.settings.sections.length" class="settings-access-table">
+        <div class="settings-access-table-head">
+          <span>بخش</span>
+          <span>شرح</span>
+          <span>کاربران مجاز</span>
+          <span>عملیات</span>
+        </div>
+
         <button
-          v-for="(item, index) in state.settings.sections"
+          v-for="item in state.settings.sections"
           :key="item.key"
-          class="settings-access-card"
+          class="settings-access-table-row"
           type="button"
           @click="openSectionAccess(item)"
         >
-          <div class="settings-access-icon">
-            <span class="material-symbols-outlined">{{ index % 2 === 0 ? 'dashboard_customize' : 'admin_panel_settings' }}</span>
-          </div>
-          <div class="settings-access-copy">
-            <strong>{{ item.title }}</strong>
-            <p>{{ item.description }}</p>
-            <small>{{ (item.allowedUsers || []).length }} کاربر مجاز</small>
-          </div>
-          <span class="material-symbols-outlined">chevron_left</span>
+          <strong>{{ item.title }}</strong>
+          <span>{{ item.description }}</span>
+          <span>{{ (item.allowedUsers || []).length }} نفر</span>
+          <span class="table-link">مدیریت</span>
         </button>
+      </div>
+      <div v-else class="empty-state-inline">
+        <span class="material-symbols-outlined">rule</span>
+        <p>بخشی برای تنظیم دسترسی دریافت نشد.</p>
       </div>
     </section>
   </section>
@@ -157,15 +183,39 @@ onMounted(async () => {
         <h2>{{ selectedSection?.title || 'بخش' }}</h2>
       </div>
 
-      <section class="modal-section">
-        <p class="modal-copy">کاربرانی را انتخاب کنید که به این بخش از سامانه دسترسی داشته باشند.</p>
-        <div class="timeline-rail">
-          <label v-for="user in state.settings.organizationUsers" :key="user.id" class="checkbox-card">
-            <input v-model="selectedUserIds" type="checkbox" :value="user.id" />
-            <div>
-              <strong>{{ user.name }}</strong>
-              <p>{{ user.role }} - {{ user.department }}</p>
-            </div>
+      <section class="surface-inline access-directory-panel">
+        <div class="filter-toolbar users-filter-toolbar">
+          <label class="search-shell search-shell-wide">
+            <span class="material-symbols-outlined">search</span>
+            <input v-model="userSearch" type="text" placeholder="جستجو در اعضا..." />
+          </label>
+
+          <div class="alphabet-strip">
+            <button
+              v-for="letter in availableLetters"
+              :key="letter"
+              :class="['alphabet-chip', activeLetter === letter && 'is-active']"
+              type="button"
+              @click="activeLetter = letter"
+            >
+              {{ letter }}
+            </button>
+          </div>
+        </div>
+
+        <div class="access-selection-table">
+          <div class="settings-access-table-head">
+            <span>انتخاب</span>
+            <span>نام</span>
+            <span>سمت</span>
+            <span>بخش</span>
+          </div>
+
+          <label v-for="user in filteredOrganizationUsers" :key="user.id" class="access-selection-row">
+            <input type="checkbox" :checked="isSelected(user.id)" @change="toggleUser(user.id)" />
+            <strong>{{ user.name }}</strong>
+            <span>{{ user.role || '-' }}</span>
+            <span>{{ user.department || '-' }}</span>
           </label>
         </div>
       </section>

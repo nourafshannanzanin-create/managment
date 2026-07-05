@@ -7,16 +7,17 @@ defineProps({
   startDate: { type: String, default: '' },
   endDate: { type: String, default: '' },
   people: { type: Array, default: () => [] },
+  dense: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:query', 'update:person', 'update:startDate', 'update:endDate', 'reset'])
 </script>
 
 <template>
-  <section class="page-filters">
+  <section :class="['page-filters', dense && 'is-dense']">
     <label class="field-shell compact-field">
       <span>جستجو</span>
-      <input :value="query" type="text" placeholder="جستجو..." @input="emit('update:query', $event.target.value)" />
+      <input :value="query" type="text" placeholder="نام، عنوان، شناسه..." @input="emit('update:query', $event.target.value)" />
     </label>
 
     <label class="field-shell compact-field">

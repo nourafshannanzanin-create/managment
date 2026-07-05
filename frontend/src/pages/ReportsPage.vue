@@ -1,34 +1,69 @@
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
-import PageFilters from '../components/PageFilters.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const { exportReport, filteredReports, loadReports, reportPeople, resetPageFilters, state, updatePageFilter } = useWorkflowHub()
+const activeTab = ref('requests')
 
-const reportFilters = computed(() => state.filters.reports)
+const { exportReport, filteredReports, loadReports, state } = useWorkflowHub()
 
 const reportStats = computed(() => [
   { label: 'جمع هزینه‌ها', value: state.reportSummary?.expenseTotal || '0' },
   { label: 'کاربران فعال', value: state.reportSummary?.users || 0 },
   { label: 'درخواست‌ها', value: state.reportSummary?.requests || 0 },
-  { label: 'گزارش‌های آماده', value: filteredReports.value.length },
+  { label: 'گزارش آماده', value: filteredReports.value.length },
 ])
 
-const requestStatusItems = computed(() => {
-  const entries = Object.entries(state.reportStatus || {})
-  const max = Math.max(...entries.map(([, value]) => Number(value || 0)), 1)
-  return entries.map(([label, value]) => ({
-    label,
-    value,
-    width: `${Math.max(12, (Number(value || 0) / max) * 100)}%`,
-  }))
-})
+const reportTabs = computed(() => [
+  {
+    key: 'requests',
+    label: 'درخواست‌ها',
+    rows: state.requests,
+    exportId: 'requests',
+    columns: [
+      { key: 'id', label: 'کد' },
+      { key: 'title', label: 'عنوان' },
+      { key: 'owner', label: 'ثبت‌کننده' },
+      { key: 'manager', label: 'مسئول' },
+      { key: 'status', label: 'وضعیت' },
+      { key: 'priority', label: 'اولویت' },
+      { key: 'createdAt', label: 'تاریخ' },
+    ],
+  },
+  {
+    key: 'expenses',
+    label: 'هزینه‌ها',
+    rows: state.expenses,
+    exportId: 'expenses',
+    columns: [
+      { key: 'id', label: 'کد' },
+      { key: 'title', label: 'عنوان' },
+      { key: 'owner', label: 'ثبت‌کننده' },
+      { key: 'amount', label: 'مبلغ' },
+      { key: 'category', label: 'دسته' },
+      { key: 'status', label: 'وضعیت' },
+      { key: 'submittedAt', label: 'تاریخ' },
+    ],
+  },
+  {
+    key: 'approvals',
+    label: 'تاییدها',
+    rows: state.approvals,
+    exportId: 'approvals',
+    columns: [
+      { key: 'id', label: 'کد' },
+      { key: 'title', label: 'عنوان' },
+      { key: 'owner', label: 'ثبت‌کننده' },
+      { key: 'type', label: 'نوع' },
+      { key: 'status', label: 'وضعیت' },
+      { key: 'risk', label: 'ریسک' },
+      { key: 'uploadedAt', label: 'تاریخ' },
+    ],
+  },
+])
 
-function resetFilters() {
-  resetPageFilters('reports')
-}
+const currentTab = computed(() => reportTabs.value.find((item) => item.key === activeTab.value) || reportTabs.value[0])
 
 onMounted(() => {
   loadReports(true)
@@ -38,75 +73,72 @@ onMounted(() => {
 <template>
   <section v-if="state.currentUser.canViewReports" class="page-shell enterprise-page">
     <PageHeader
-      eyebrow="بینش مدیریتی"
+      eyebrow="گزارشات"
       title="گزارش‌ها و خروجی‌های تحلیلی"
+      description="هر تب گزارش کامل همان بخش را با داده‌های آماده خروجی نمایش می‌دهد."
     />
 
     <section class="metric-grid metric-grid-4">
       <article v-for="item in reportStats" :key="item.label" class="metric-card">
         <span class="metric-label">{{ item.label }}</span>
-      </article>
-    </section>
-
-    <PageFilters
-      :query="reportFilters.query"
-      :person="reportFilters.person"
-      :start-date="reportFilters.startDate"
-      :end-date="reportFilters.endDate"
-      :people="reportPeople"
-      @update:query="updatePageFilter('reports', 'query', $event)"
-      @update:person="updatePageFilter('reports', 'person', $event)"
-      @update:start-date="updatePageFilter('reports', 'startDate', $event)"
-      @update:end-date="updatePageFilter('reports', 'endDate', $event)"
-      @reset="resetFilters"
-    />
-
-    <section class="dashboard-grid">
-      <article class="surface-block">
-        <div class="section-label-row">
-          <div>
-            <h3>وضعیت درخواست‌ها</h3>
-            <p>توزیع فعلی درخواست‌ها در چرخه عملیاتی</p>
-          </div>
-        </div>
-
-        <div class="progress-list">
-          <article v-for="item in requestStatusItems" :key="item.label" class="progress-row">
-            <strong>{{ item.label }}</strong>
-            <div class="progress-bar"><span :style="{ width: item.width }"></span></div>
-            <small>{{ item.value }}</small>
-          </article>
-        </div>
-      </article>
-
-      <article class="surface-block">
-        <div class="section-label-row">
-          <div>
-            <h3>افراد با بیشترین ثبت</h3>
-            <p>کاربران پیشرو از نظر حجم فعالیت</p>
-          </div>
-        </div>
-
-        <div class="stack-list">
-          <article v-for="(item, index) in state.topSubmitters" :key="item.name || index" class="list-row">
-            <div class="list-row-main">
-              <strong>{{ item.name }}</strong>
-              <p>{{ item.amount || '0' }}</p>
-            </div>
-            <div class="list-row-meta">
-              <span class="meta-pill">{{ index + 1 }}</span>
-              <small>{{ item.count || 0 }} ثبت</small>
-            </div>
-          </article>
-        </div>
+        <strong>{{ item.value }}</strong>
       </article>
     </section>
 
     <section class="surface-block">
       <div class="section-label-row">
         <div>
-          <h3>گزارش‌های آماده خروجی</h3>
-          <p>روی هر گزارش کلیک کنید تا فایل خروجی دریافت شود.</p>
+          <h3>دسته‌بندی گزارش‌ها</h3>
+          <p>نمای تفکیکی برای درخواست‌ها، هزینه‌ها و تاییدها.</p>
+        </div>
+        <div class="chip-row">
+          <button
+            v-for="tab in reportTabs"
+            :key="tab.key"
+            :class="['filter-chip', activeTab === tab.key && 'is-active']"
+            type="button"
+            @click="activeTab = tab.key"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
+      </div>
+
+      <div class="report-tab-header">
+        <div>
+          <strong>{{ currentTab.label }}</strong>
+          <small class="table-muted">{{ currentTab.rows.length }} ردیف آماده گزارش</small>
+        </div>
+        <button class="action-btn tone-primary" type="button" @click="exportReport(currentTab.exportId, 'csv')">
+          <span class="material-symbols-outlined">download</span>
+          <span>دریافت خروجی {{ currentTab.label }}</span>
+        </button>
+      </div>
+
+      <div class="table-shell">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th v-for="column in currentTab.columns" :key="column.key">{{ column.label }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in currentTab.rows" :key="row.id">
+              <td v-for="column in currentTab.columns" :key="`${row.id}-${column.key}`">
+                <strong v-if="column.key === 'title' || column.key === 'id'">{{ row[column.key] || '-' }}</strong>
+                <span v-else>{{ row[column.key] || '-' }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="surface-block">
+      <div class="section-label-row">
+        <div>
+          <h3>کارت‌های خروجی آماده</h3>
+          <p>نسخه‌های از پیش آماده برای دانلود سریع مدیران.</p>
         </div>
       </div>
 

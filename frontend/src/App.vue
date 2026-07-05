@@ -4,6 +4,7 @@ import { RouterView, useRoute } from 'vue-router'
 
 import ApprovalDetailModal from './components/ApprovalDetailModal.vue'
 import AppSidebar from './components/AppSidebar.vue'
+import AppTopNav from './components/AppTopNav.vue'
 import DocumentComposerModal from './components/DocumentComposerModal.vue'
 import ExpenseComposerModal from './components/ExpenseComposerModal.vue'
 import ExpenseDetailModal from './components/ExpenseDetailModal.vue'
@@ -56,12 +57,10 @@ onMounted(() => {
   <div class="app-shell" :class="{ 'is-auth-route': isAuthRoute }">
     <template v-if="!isAuthRoute">
       <div class="shell-backdrop" :class="{ 'is-open': state.mobileMenuOpen }" @click="toggleSidebar"></div>
-      <button class="shell-menu-fab" type="button" @click="toggleSidebar">
-        <span class="material-symbols-outlined">menu</span>
-      </button>
       <AppSidebar :mobile-menu-open="state.mobileMenuOpen" :toggle-sidebar="toggleSidebar" />
 
       <div class="shell-main">
+        <AppTopNav />
         <main class="shell-content">
           <RouterView v-slot="{ Component }">
             <component :is="Component" :key="route.fullPath" />
