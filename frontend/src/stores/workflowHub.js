@@ -223,7 +223,7 @@ function normalizeApproval(item) {
   return {
     ...item,
     previewUrl: resolveAssetUrl(item?.previewUrl),
-    downloadUrl: resolveAssetUrl(item?.downloadUrl || item?.previewUrl),
+    downloadUrl: resolveAssetUrl(item?.downloadUrl),
   }
 }
 
@@ -937,20 +937,32 @@ export function useWorkflowHub() {
 
   async function approveSelectedDocument() {
     if (!selectedApproval.value) return
-    await authorizedFetch(`/approvals/${selectedApproval.value.id}/approve`, { method: 'POST' })
-    await loadBootstrapData(true)
-    await loadApprovalDetail(selectedApproval.value.id)
+    state.lastError = ''
+    try {
+      await authorizedFetch(`/approvals/${selectedApproval.value.id}/approve`, { method: 'POST' })
+      await loadBootstrapData(true)
+      await loadApprovalDetail(selectedApproval.value.id)
+    } catch (error) {
+      state.lastError = error.message || 'تایید سند ناموفق بود.'
+      throw error
+    }
   }
 
   async function rejectSelectedDocument(reason = '') {
     if (!selectedApproval.value) return
-    await authorizedFetch(`/approvals/${selectedApproval.value.id}/reject`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason }),
-    })
-    await loadBootstrapData(true)
-    await loadApprovalDetail(selectedApproval.value.id)
+    state.lastError = ''
+    try {
+      await authorizedFetch(`/approvals/${selectedApproval.value.id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      })
+      await loadBootstrapData(true)
+      await loadApprovalDetail(selectedApproval.value.id)
+    } catch (error) {
+      state.lastError = error.message || 'رد سند ناموفق بود.'
+      throw error
+    }
   }
 
   async function approveSelectedRequest() {

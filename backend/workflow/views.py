@@ -78,6 +78,11 @@ JSON_KWARGS = {"ensure_ascii": False}
 DEFAULT_SIGNATURE_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg=="
 
 
+def has_saved_signature(signature_data: str | None) -> bool:
+    normalized = (signature_data or "").strip()
+    return bool(normalized) and normalized != DEFAULT_SIGNATURE_DATA
+
+
 def json_response(payload, status=200, safe=True):
     return JsonResponse(payload, status=status, safe=safe, json_dumps_params=JSON_KWARGS)
 
@@ -149,10 +154,10 @@ def build_settings_profile_payload(user: User) -> dict:
 def ensure_signature(user: User) -> UserSignature:
     signature, _ = UserSignature.objects.get_or_create(
         user=user,
-        defaults={"signature_data": DEFAULT_SIGNATURE_DATA},
+        defaults={"signature_data": ""},
     )
-    if not signature.signature_data:
-        signature.signature_data = DEFAULT_SIGNATURE_DATA
+    if signature.signature_data == DEFAULT_SIGNATURE_DATA:
+        signature.signature_data = ""
         signature.updated_at = timezone.now()
         signature.save(update_fields=["signature_data", "updated_at"])
     return signature
@@ -684,10 +689,13 @@ def approvals_signature_view(request: HttpRequest):
         return json_error("دسترسی کافی ندارید.", status=403)
     signature = ensure_signature(request.current_user)
     if request.method == "GET":
-        return json_response({"hasSignature": True, "signatureData": signature.signature_data})
+        has_signature = has_saved_signature(signature.signature_data)
+        return json_response({"hasSignature": has_signature, "signatureData": signature.signature_data if has_signature else ""})
 
     payload = parse_json(request)
-    signature_data = payload.get("signatureData", "")
+    signature_data = (payload.get("signatureData") or "").strip()
+    if not has_saved_signature(signature_data):
+        return json_error("امضای معتبر ثبت نشده است.", status=422)
     signature.signature_data = signature_data
     signature.updated_at = timezone.now()
     signature.save(update_fields=["signature_data", "updated_at"])
@@ -775,9 +783,15 @@ def approval_approve_view(request: HttpRequest, document_code: str):
     assignment = document.approval_assignments.filter(approver=request.current_user).first()
     if assignment is None:
         return json_error("این سند به شما ارجاع نشده است.", status=403)
+    if assignment.status == ApprovalAssignmentStatus.REJECTED:
+        return json_error("این ارجاع قبلا رد شده است و دیگر قابل تایید نیست.", status=409)
     if assignment.status == ApprovalAssignmentStatus.APPROVED:
         return json_response({"status": "approved", "document": document.code})
     signature = ensure_signature(request.current_user)
+    if not has_saved_signature(signature.signature_data):
+        return json_error("ابتدا امضای دیجیتال معتبر خود را ثبت کنید.", status=422)
+    if document.status == DocumentStatus.REJECTED:
+        return json_error("این سند قبلا رد شده است و دیگر قابل تایید نیست.", status=409)
 
     try:
         with transaction.atomic():
@@ -810,6 +824,12 @@ def approval_reject_view(request: HttpRequest, document_code: str):
     assignment = document.approval_assignments.filter(approver=request.current_user).first()
     if assignment is None:
         return json_error("این سند به شما ارجاع نشده است.", status=403)
+    if assignment.status == ApprovalAssignmentStatus.APPROVED:
+        return json_error("این ارجاع قبلا تایید شده است و دیگر قابل رد نیست.", status=409)
+    if assignment.status == ApprovalAssignmentStatus.REJECTED:
+        return json_response({"status": "rejected", "document": document.code})
+    if document.status == DocumentStatus.REJECTED:
+        return json_error("این سند قبلا رد شده است.", status=409)
     reason = (payload.get("reason") or "").strip()
     assignment.status = ApprovalAssignmentStatus.REJECTED
     assignment.decision_note = reason

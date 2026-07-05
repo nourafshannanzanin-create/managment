@@ -134,26 +134,6 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="surface-block">
-      <div class="section-label-row">
-        <div>
-          <h3>کارت‌های خروجی آماده</h3>
-          <p>نسخه‌های از پیش آماده برای دانلود سریع مدیران.</p>
-        </div>
-      </div>
-
-      <div class="card-grid">
-        <article v-for="item in filteredReports" :key="item.id" class="report-card">
-          <span>{{ item.title }}</span>
-          <strong>{{ item.description || 'گزارش مدیریتی سازمان' }}</strong>
-          <small>{{ item.owner || 'سامانه' }} - {{ item.generatedAt || '-' }}</small>
-          <button class="action-btn tone-primary" type="button" @click="exportReport(item.id, 'csv', item.downloadUrl)">
-            <span class="material-symbols-outlined">download</span>
-            <span>دریافت خروجی</span>
-          </button>
-        </article>
-      </div>
-    </section>
   </section>
 
   <section v-else class="page-shell">

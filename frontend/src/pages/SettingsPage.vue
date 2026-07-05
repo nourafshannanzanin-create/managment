@@ -205,18 +205,24 @@ onMounted(async () => {
 
         <div class="access-selection-table">
           <div class="settings-access-table-head">
-            <span>انتخاب</span>
+            <span>وضعیت</span>
             <span>نام</span>
             <span>سمت</span>
             <span>بخش</span>
           </div>
 
-          <label v-for="user in filteredOrganizationUsers" :key="user.id" class="access-selection-row">
-            <input type="checkbox" :checked="isSelected(user.id)" @change="toggleUser(user.id)" />
+          <button
+            v-for="user in filteredOrganizationUsers"
+            :key="user.id"
+            :class="['access-selection-row', isSelected(user.id) && 'is-selected']"
+            type="button"
+            @click="toggleUser(user.id)"
+          >
+            <span class="access-selection-state">{{ isSelected(user.id) ? 'انتخاب شده' : 'انتخاب نشده' }}</span>
             <strong>{{ user.name }}</strong>
             <span>{{ user.role || '-' }}</span>
             <span>{{ user.department || '-' }}</span>
-          </label>
+          </button>
         </div>
       </section>
 

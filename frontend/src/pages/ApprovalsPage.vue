@@ -61,12 +61,16 @@ function bucketTone(item) {
   <section v-if="state.currentUser.canAccessApprovals || state.currentUser.canApproveDocuments" class="page-shell enterprise-page">
     <section class="metric-grid metric-grid-4">
       <article v-for="item in approvalStats" :key="item.label" :class="['metric-card', 'approval-metric-card', item.tone]">
-        <div class="metric-card-headline">
-          <span class="metric-label">{{ item.label }}</span>
+        <div class="approval-metric-top">
+          <div class="approval-metric-copy">
+            <span class="metric-label approval-metric-label">{{ item.label }}</span>
+            <strong class="approval-metric-value">{{ item.value }}</strong>
+          </div>
           <span class="material-symbols-outlined approval-metric-icon">{{ item.icon }}</span>
         </div>
-        <strong>{{ item.value }}</strong>
-        <small class="approval-metric-note">{{ item.note }}</small>
+        <div class="approval-metric-bottom">
+          <small class="approval-metric-note">{{ item.note }}</small>
+        </div>
       </article>
     </section>
 
@@ -158,48 +162,101 @@ function bucketTone(item) {
 <style scoped>
 .approval-metric-card {
   position: relative;
-  display: grid;
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
   overflow: hidden;
+  min-height: 108px;
+  padding: 20px 20px 18px;
   border: 1px solid rgba(36, 59, 107, 0.08);
+  border-radius: 26px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 248, 252, 0.94)),
+    radial-gradient(circle at top right, rgba(72, 103, 183, 0.08), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(244, 247, 251, 0.96)),
     var(--surface);
-  box-shadow: 0 18px 40px rgba(36, 59, 107, 0.08);
+  box-shadow: 0 18px 36px rgba(30, 45, 84, 0.08);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.approval-metric-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 24px 44px rgba(30, 45, 84, 0.12);
 }
 
 .approval-metric-card::after {
   content: '';
   position: absolute;
-  inset-inline: 18px;
+  inset-inline: 20px;
   bottom: 0;
-  height: 4px;
+  height: 5px;
   border-radius: 999px 999px 0 0;
   background: rgba(36, 59, 107, 0.14);
 }
 
+.approval-metric-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.approval-metric-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.approval-metric-label {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.approval-metric-value {
+  margin: 0;
+  font-size: clamp(34px, 2.4vw, 44px);
+  line-height: 1;
+  font-weight: 800;
+  color: #1f2f52;
+}
+
 .approval-metric-icon {
+  flex: 0 0 auto;
   display: inline-grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 14px;
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
   background: rgba(36, 59, 107, 0.08);
   color: var(--primary);
-  font-size: 20px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  font-size: 24px;
+}
+
+.approval-metric-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(36, 59, 107, 0.08);
 }
 
 .approval-metric-note {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.8;
 }
 
 .approval-metric-card.is-pending::after {
   background: #d9a441;
 }
 
+.approval-metric-card.is-pending {
+  border-color: rgba(217, 164, 65, 0.14);
+}
+
 .approval-metric-card.is-pending .approval-metric-icon {
-  background: rgba(217, 164, 65, 0.14);
+  background: linear-gradient(135deg, rgba(217, 164, 65, 0.16), rgba(255, 243, 214, 0.9));
   color: #b57900;
 }
 
@@ -207,8 +264,12 @@ function bucketTone(item) {
   background: #22956d;
 }
 
+.approval-metric-card.is-approved {
+  border-color: rgba(34, 149, 109, 0.14);
+}
+
 .approval-metric-card.is-approved .approval-metric-icon {
-  background: rgba(34, 149, 109, 0.12);
+  background: linear-gradient(135deg, rgba(34, 149, 109, 0.14), rgba(230, 249, 241, 0.92));
   color: #1b7a59;
 }
 
@@ -216,8 +277,12 @@ function bucketTone(item) {
   background: #cd5c5c;
 }
 
+.approval-metric-card.is-rejected {
+  border-color: rgba(205, 92, 92, 0.14);
+}
+
 .approval-metric-card.is-rejected .approval-metric-icon {
-  background: rgba(205, 92, 92, 0.12);
+  background: linear-gradient(135deg, rgba(205, 92, 92, 0.14), rgba(255, 237, 237, 0.94));
   color: #b44646;
 }
 
@@ -225,8 +290,12 @@ function bucketTone(item) {
   background: #4867b7;
 }
 
+.approval-metric-card.is-total {
+  border-color: rgba(72, 103, 183, 0.14);
+}
+
 .approval-metric-card.is-total .approval-metric-icon {
-  background: rgba(72, 103, 183, 0.12);
+  background: linear-gradient(135deg, rgba(72, 103, 183, 0.14), rgba(236, 241, 255, 0.95));
   color: #39549a;
 }
 </style>

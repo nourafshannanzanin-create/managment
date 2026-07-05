@@ -371,9 +371,6 @@ a {
 }
 
 .topbar-shell {
-  position: sticky;
-  top: 0;
-  z-index: 20;
   min-height: 98px;
   padding: 20px 26px;
   display: flex;
@@ -2414,11 +2411,39 @@ body {
   border-radius: 16px;
   padding: 12px 14px;
   background: rgba(255, 255, 255, 0.72);
+  text-align: right;
+  cursor: pointer;
+  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
 }
 
-.access-selection-row input {
-  width: 18px;
-  height: 18px;
+.access-selection-row:hover {
+  border-color: rgba(72, 103, 183, 0.18);
+  background: rgba(248, 250, 255, 0.92);
+  transform: translateY(-1px);
+}
+
+.access-selection-row.is-selected {
+  border-color: rgba(72, 103, 183, 0.34);
+  background: linear-gradient(135deg, rgba(72, 103, 183, 0.12), rgba(219, 229, 255, 0.56));
+  box-shadow: 0 14px 30px rgba(72, 103, 183, 0.12);
+}
+
+.access-selection-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(82, 96, 126, 0.08);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.access-selection-row.is-selected .access-selection-state {
+  background: rgba(72, 103, 183, 0.16);
+  color: #314783;
 }
 
 .recipient-grid {
