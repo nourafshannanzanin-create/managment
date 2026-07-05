@@ -14,6 +14,7 @@ SECTION_USERS = "users"
 SECTION_REPORTS = "reports"
 SECTION_APPROVALS = "approvals"
 SECTION_EXPENSES = "expenses"
+SECTION_SETTINGS = "settings"
 
 
 def is_manager(user: User) -> bool:
@@ -72,6 +73,8 @@ def has_section_access(user: User, section_key: str) -> bool:
         return True
     if section_key == SECTION_EXPENSES:
         return True
+    if section_key == SECTION_SETTINGS:
+        return False
     return True
 
 
@@ -97,6 +100,10 @@ def can_approve_documents(user: User) -> bool:
 
 def can_access_expenses(user: User) -> bool:
     return has_section_access(user, SECTION_EXPENSES)
+
+
+def can_access_settings(user: User) -> bool:
+    return has_section_access(user, SECTION_SETTINGS)
 
 
 def attach_user(request: HttpRequest, user: User) -> None:

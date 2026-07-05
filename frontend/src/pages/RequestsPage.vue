@@ -6,10 +6,10 @@ import { useWorkflowHub } from '../stores/workflowHub'
 const { filteredRequests, openRequestDetail } = useWorkflowHub()
 
 const requestStats = computed(() => [
-  { label: 'کل درخواست‌ها', value: filteredRequests.value.length },
-  { label: 'در حال بررسی', value: filteredRequests.value.filter((item) => String(item.status || '').includes('بررسی')).length },
-  { label: 'تایید شده', value: filteredRequests.value.filter((item) => String(item.status || '').includes('تایید')).length },
-  { label: 'فوری و بحرانی', value: filteredRequests.value.filter((item) => ['high', 'critical'].includes(item.priority)).length },
+  { label: 'کل درخواست‌ها', value: filteredRequests.value.length, icon: 'assignment', note: 'در این نما', tone: 'is-total' },
+  { label: 'در حال بررسی', value: filteredRequests.value.filter((item) => String(item.status || '').includes('بررسی')).length, icon: 'pending_actions', note: 'نیازمند اقدام', tone: 'is-pending' },
+  { label: 'تایید شده', value: filteredRequests.value.filter((item) => String(item.status || '').includes('تایید')).length, icon: 'verified', note: 'گردش کامل شده', tone: 'is-approved' },
+  { label: 'فوری و بحرانی', value: filteredRequests.value.filter((item) => ['high', 'critical'].includes(item.priority)).length, icon: 'warning', note: 'اولویت بالا', tone: 'is-rejected' },
 ])
 
 function toneForStatus(status) {
@@ -33,9 +33,13 @@ function priorityLabel(priority) {
 <template>
   <section class="page-shell enterprise-page">
     <section class="metric-grid metric-grid-4">
-      <article v-for="item in requestStats" :key="item.label" class="metric-card">
-        <span class="metric-label">{{ item.label }}</span>
+      <article v-for="item in requestStats" :key="item.label" :class="['metric-card', 'approval-metric-card', item.tone]">
+        <div class="metric-card-headline">
+          <span class="metric-label">{{ item.label }}</span>
+          <span class="material-symbols-outlined approval-metric-icon">{{ item.icon }}</span>
+        </div>
         <strong>{{ item.value }}</strong>
+        <small class="approval-metric-note">{{ item.note }}</small>
       </article>
     </section>
 
@@ -55,6 +59,7 @@ function priorityLabel(priority) {
               <th>عنوان</th>
               <th>ثبت‌کننده</th>
               <th>مدیر مسئول</th>
+              <th>کارمندان ارجاعی</th>
               <th>وضعیت</th>
               <th>اولویت</th>
               <th>تاریخ</th>
@@ -70,6 +75,7 @@ function priorityLabel(priority) {
               </td>
               <td>{{ item.owner }}</td>
               <td>{{ item.manager }}</td>
+              <td>{{ (item.employeeAssignees || []).join('، ') || '-' }}</td>
               <td><span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span></td>
               <td>{{ priorityLabel(item.priority) }}</td>
               <td>{{ item.createdAt || item.deadline || '-' }}</td>
@@ -78,7 +84,7 @@ function priorityLabel(priority) {
           </tbody>
           <tbody v-else>
             <tr>
-              <td colspan="8" class="table-empty">در این بازه موردی برای نمایش وجود ندارد.</td>
+              <td colspan="9" class="table-empty">در این بازه موردی برای نمایش وجود ندارد.</td>
             </tr>
           </tbody>
         </table>

@@ -20,7 +20,9 @@ const items = computed(() => {
   } else if (state.currentUser.canAccessApprovals || state.currentUser.canApproveDocuments) {
     navItems.push({ to: '/approvals', label: 'تایید', icon: 'verified' })
   }
-  navItems.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
+  if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
+    navItems.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
+  }
   return navItems
 })
 </script>

@@ -2253,6 +2253,85 @@ body {
   font-size: 20px;
 }
 
+.approval-metric-card {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(36, 59, 107, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 248, 252, 0.94)),
+    var(--surface);
+  box-shadow: 0 18px 40px rgba(36, 59, 107, 0.08);
+}
+
+.approval-metric-card::after {
+  content: '';
+  position: absolute;
+  inset-inline: 18px;
+  bottom: 0;
+  height: 4px;
+  border-radius: 999px 999px 0 0;
+  background: rgba(36, 59, 107, 0.14);
+}
+
+.approval-metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-strong);
+}
+
+.approval-metric-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: rgba(36, 59, 107, 0.08);
+  color: var(--primary);
+  font-size: 20px;
+}
+
+.approval-metric-note {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.approval-metric-card.is-pending::after {
+  background: #d9a441;
+}
+
+.approval-metric-card.is-pending .approval-metric-icon {
+  background: rgba(217, 164, 65, 0.14);
+  color: #b57900;
+}
+
+.approval-metric-card.is-approved::after {
+  background: #22956d;
+}
+
+.approval-metric-card.is-approved .approval-metric-icon {
+  background: rgba(34, 149, 109, 0.12);
+  color: #1b7a59;
+}
+
+.approval-metric-card.is-rejected::after {
+  background: #cd5c5c;
+}
+
+.approval-metric-card.is-rejected .approval-metric-icon {
+  background: rgba(205, 92, 92, 0.12);
+  color: #b44646;
+}
+
+.approval-metric-card.is-total::after {
+  background: #4867b7;
+}
+
+.approval-metric-card.is-total .approval-metric-icon {
+  background: rgba(72, 103, 183, 0.12);
+  color: #39549a;
+}
+
 .empty-state-inline {
   min-height: 180px;
   border: 1px dashed var(--line-strong);

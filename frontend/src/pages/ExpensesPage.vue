@@ -8,10 +8,10 @@ const { filteredExpenses, openExpenseDetail, state } = useWorkflowHub()
 const expenseStats = computed(() => {
   const summary = state.expenseSummary || []
   return [
-    { label: 'هزینه امروز', value: summary[0]?.value || '0' },
-    { label: 'هزینه هفته', value: summary[1]?.value || '0' },
-    { label: 'هزینه ماه', value: summary[2]?.value || '0' },
-    { label: 'هزینه سال', value: summary[3]?.value || '0' },
+    { label: 'هزینه امروز', value: summary[0]?.value || '0', icon: 'today', note: 'ثبت روز جاری', tone: 'is-pending' },
+    { label: 'هزینه هفته', value: summary[1]?.value || '0', icon: 'date_range', note: 'هفتگی', tone: 'is-approved' },
+    { label: 'هزینه ماه', value: summary[2]?.value || '0', icon: 'calendar_month', note: 'جمع ماهانه', tone: 'is-total' },
+    { label: 'هزینه سال', value: summary[3]?.value || '0', icon: 'payments', note: 'جمع سالانه', tone: 'is-rejected' },
   ]
 })
 
@@ -27,9 +27,13 @@ function toneForStatus(status) {
 <template>
   <section v-if="state.currentUser.canAccessExpenses !== false" class="page-shell enterprise-page">
     <section class="metric-grid metric-grid-4">
-      <article v-for="item in expenseStats" :key="item.label" class="metric-card">
-        <span class="metric-label">{{ item.label }}</span>
+      <article v-for="item in expenseStats" :key="item.label" :class="['metric-card', 'approval-metric-card', item.tone]">
+        <div class="metric-card-headline">
+          <span class="metric-label">{{ item.label }}</span>
+          <span class="material-symbols-outlined approval-metric-icon">{{ item.icon }}</span>
+        </div>
         <strong>{{ item.value }}</strong>
+        <small class="approval-metric-note">{{ item.note }}</small>
       </article>
     </section>
 

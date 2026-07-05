@@ -67,6 +67,41 @@ const { state, submitUser } = useWorkflowHub()
         <input v-model="form.jobTitle" type="text" />
       </label>
 
+      <section class="surface-inline user-access-panel">
+        <div class="section-label-row compact">
+          <div>
+            <h3>دسترسی بخش‌ها</h3>
+            <p>مشخص کنید این کاربر به کدام بخش‌های مدیریتی دسترسی داشته باشد.</p>
+          </div>
+        </div>
+
+        <div class="modal-grid access-check-grid">
+          <label class="check-tile">
+            <input v-model="form.sectionAccess.reports" type="checkbox" />
+            <div>
+              <strong>گزارشات</strong>
+              <small>مشاهده گزارش‌های تحلیلی</small>
+            </div>
+          </label>
+
+          <label class="check-tile">
+            <input v-model="form.sectionAccess.users" type="checkbox" />
+            <div>
+              <strong>کاربران</strong>
+              <small>دسترسی به فهرست و مدیریت کاربران</small>
+            </div>
+          </label>
+
+          <label class="check-tile">
+            <input v-model="form.sectionAccess.settings" type="checkbox" />
+            <div>
+              <strong>تنظیمات</strong>
+              <small>ورود به تنظیمات سازمان و دسترسی‌ها</small>
+            </div>
+          </label>
+        </div>
+      </section>
+
       <div class="action-group modal-actions">
         <button class="action-btn tone-soft" @click="$emit('close')">
           <span class="material-symbols-outlined">close</span>
@@ -80,3 +115,50 @@ const { state, submitUser } = useWorkflowHub()
     </div>
   </BaseModal>
 </template>
+
+<style scoped>
+.user-access-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.section-label-row.compact h3,
+.section-label-row.compact p {
+  margin: 0;
+}
+
+.access-check-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.check-tile {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(36, 59, 107, 0.1);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.check-tile input {
+  margin-top: 4px;
+}
+
+.check-tile strong,
+.check-tile small {
+  display: block;
+}
+
+.check-tile small {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+@media (max-width: 760px) {
+  .access-check-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
