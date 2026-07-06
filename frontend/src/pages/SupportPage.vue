@@ -14,6 +14,7 @@ const {
   submitSupportFeedback,
   submitSupportWalletDeposit,
   markSupportTicketsSeen,
+  openProtectedFile,
 } = useWorkflowHub()
 
 const activeStatus = ref('all')
@@ -275,10 +276,10 @@ watch(
           </header>
 
           <section v-if="selectedTicket.attachments?.length" class="attachment-strip">
-            <a v-for="item in selectedTicket.attachments" :key="item.id" :href="item.fileUrl" target="_blank" rel="noreferrer">
+            <button v-for="item in selectedTicket.attachments" :key="item.id" type="button" @click="openProtectedFile(item.fileUrl, item.originalName)">
               <span class="material-symbols-outlined">attach_file</span>
               {{ item.originalName }}
-            </a>
+            </button>
           </section>
 
           <section class="message-thread">
@@ -689,16 +690,17 @@ watch(
   margin-bottom: 14px;
 }
 
-.attachment-strip a {
+.attachment-strip button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 9px 12px;
+  border: 0;
   border-radius: 14px;
   color: var(--support-ink);
   background: rgba(224, 155, 88, 0.14);
-  text-decoration: none;
   font-weight: 900;
+  cursor: pointer;
 }
 
 .message-thread {

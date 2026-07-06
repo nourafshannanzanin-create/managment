@@ -1,7 +1,7 @@
-import { computed, reactive } from 'vue'
+﻿import { computed, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { formatJalali, getTodayJalali, jalaliToIso } from '../utils/jalali'
+import { formatJalali, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
 import { repairPayload } from '../utils/stitch'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
@@ -53,6 +53,8 @@ function createExpenseForm() {
     amount: '0.00',
     expenseDate: formatJalali(getTodayJalali()),
     department: '',
+    managerAssigneeIds: [],
+    employeeAssigneeIds: [],
     invoice: null,
   }
 }
@@ -80,7 +82,7 @@ function createDocumentForm() {
     description: '',
     department: '',
     assigneeIds: [],
-    documentType: 'سند',
+    documentType: 'Ø³Ù†Ø¯',
     risk: 'medium',
     file: null,
   }
@@ -296,9 +298,36 @@ function resolveAssetUrl(rawUrl) {
   return `${API_ORIGIN}/${rawUrl}`
 }
 
+function formatNumber(value) {
+  const normalized = String(value ?? '').replace(/,/g, '')
+  const number = Number(normalized)
+  if (!Number.isFinite(number)) return String(value || '')
+  return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(number)
+}
+
+function normalizeDisplayDate(value) {
+  if (!value) return ''
+  const raw = String(value).slice(0, 10)
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? isoToJalali(raw) : value
+}
+
+function normalizeRequest(item) {
+  return {
+    ...item,
+    deadline: normalizeDisplayDate(item?.deadline),
+    createdAt: normalizeDisplayDate(item?.createdAt),
+    attachments: (item?.attachments || []).map((attachment) => ({
+      ...attachment,
+      fileUrl: resolveAssetUrl(attachment.fileUrl),
+    })),
+  }
+}
+
 function normalizeExpense(item) {
   return {
     ...item,
+    amount: formatNumber(item?.amountRaw ?? item?.amount),
+    submittedAt: normalizeDisplayDate(item?.submittedAt),
     invoiceUrl: resolveAssetUrl(item?.invoiceUrl),
   }
 }
@@ -309,6 +338,7 @@ function normalizeApproval(item) {
     : ''
   return {
     ...item,
+    uploadedAt: normalizeDisplayDate(item?.uploadedAt),
     previewUrl: resolveAssetUrl(item?.previewUrl),
     downloadUrl: resolveAssetUrl(`${item?.downloadUrl || ''}${hqDownloadQuery}`),
   }
@@ -522,28 +552,9 @@ const selectedExpense = computed(
 
 const selectedRequestTimeline = computed(() => requestDetailState.items[selectedState.requestId]?.timeline ?? [])
 
-const canApproveSelectedRequest = computed(() => {
-  const request = selectedRequest.value
-  if (!request) return false
-  const currentName = String(state.currentUser.name || '').trim()
-  const managerName = String(request.manager || '').trim()
-  const assignedManagers = Array.isArray(request.managerAssignees) ? request.managerAssignees : []
-  const isPrivileged = ['admin', 'executive_manager'].includes(String(state.currentUser.accessRole || ''))
-  const isManagerTarget = currentName && (managerName === currentName || assignedManagers.includes(currentName))
-  const status = String(request.status || '')
-  const isOpen = status.includes('ثبت') || status.includes('بررسی')
-  return isOpen && (isPrivileged || isManagerTarget)
-})
+const canApproveSelectedRequest = computed(() => Boolean(selectedRequest.value?.canApprove))
 
-const canApproveSelectedExpense = computed(() => {
-  const expense = selectedExpense.value
-  if (!expense) return false
-  const role = String(state.currentUser.accessRole || '')
-  const isPrivileged = ['admin', 'executive_manager', 'manager'].includes(role)
-  const status = String(expense.status || '')
-  const isOpen = status.includes('انتظار') || status.includes('بررسی')
-  return isOpen && isPrivileged
-})
+const canApproveSelectedExpense = computed(() => Boolean(selectedExpense.value?.canApprove))
 
 const canManageUsers = computed(() => state.currentUser.canManageUsers)
 const canAccessUsers = computed(() => state.currentUser.canAccessUsers || canManageUsers.value)
@@ -553,15 +564,15 @@ const canApproveDocuments = computed(() => state.currentUser.canApproveDocuments
 
 const visibleNavItems = computed(() => {
   const items = [
-    { to: '/dashboard', label: 'داشبورد', icon: 'dashboard' },
-    { to: '/requests', label: 'درخواست‌ها', icon: 'assignment' },
+    { to: '/dashboard', label: 'Ø¯Ø§Ø´Ø¨ÙˆØ±Ø¯', icon: 'dashboard' },
+    { to: '/requests', label: 'Ø¯Ø±Ø®ÙˆØ§Ø³Øªâ€ŒÙ‡Ø§', icon: 'assignment' },
   ]
-  if (canAccessApprovals.value) items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check' })
-  if (canViewReports.value) items.push({ to: '/reports', label: 'گزارشات', icon: 'monitoring' })
-  if (canAccessUsers.value) items.push({ to: '/users', label: 'کاربران', icon: 'group' })
+  if (canAccessApprovals.value) items.push({ to: '/approvals', label: 'ØªØ§ÛŒÛŒØ¯ÛŒÙ‡â€ŒÙ‡Ø§', icon: 'fact_check' })
+  if (canViewReports.value) items.push({ to: '/reports', label: 'Ú¯Ø²Ø§Ø±Ø´Ø§Øª', icon: 'monitoring' })
+  if (canAccessUsers.value) items.push({ to: '/users', label: 'Ú©Ø§Ø±Ø¨Ø±Ø§Ù†', icon: 'group' })
 
   if (state.currentUser.canAccessSettings || canManageUsers.value) {
-    items.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
+    items.push({ to: '/settings', label: 'ØªÙ†Ø¸ÛŒÙ…Ø§Øª', icon: 'settings' })
   }
   return items
 })
@@ -627,19 +638,19 @@ const userPeople = computed(() => [...new Set(state.users.flatMap((item) => [ite
 
 function priorityLabel(value) {
   return {
-    low: 'پایین',
-    medium: 'متوسط',
-    high: 'بالا',
-    critical: 'بحرانی',
-  }[value] || 'متوسط'
+    low: 'Ù¾Ø§ÛŒÛŒÙ†',
+    medium: 'Ù…ØªÙˆØ³Ø·',
+    high: 'Ø¨Ø§Ù„Ø§',
+    critical: 'Ø¨Ø­Ø±Ø§Ù†ÛŒ',
+  }[value] || 'Ù…ØªÙˆØ³Ø·'
 }
 
 function departmentLabel(value) {
-  return state.directories.departments.find((item) => item.code === value)?.name || 'بدون واحد'
+  return state.directories.departments.find((item) => item.code === value)?.name || 'Ø¨Ø¯ÙˆÙ† ÙˆØ§Ø­Ø¯'
 }
 
 function managerLabel(value) {
-  return state.directories.managers.find((item) => item.slug === value)?.name || 'تعیین نشده'
+  return state.directories.managers.find((item) => item.slug === value)?.name || 'ØªØ¹ÛŒÛŒÙ† Ù†Ø´Ø¯Ù‡'
 }
 
 const requestManagerAssigneeOptions = computed(() => {
@@ -652,7 +663,7 @@ function requestManagerAssigneeNames(ids = state.requestForm.managerAssigneeIds)
   const names = state.directories.managers
     .filter((item) => normalizedIds.includes(item.id))
     .map((item) => item.name)
-  return names.length ? names.join('، ') : 'تعیین نشده'
+  return names.length ? names.join('ØŒ ') : 'ØªØ¹ÛŒÛŒÙ† Ù†Ø´Ø¯Ù‡'
 }
 
 function requestEmployeeAssigneeNames(ids = state.requestForm.employeeAssigneeIds) {
@@ -660,7 +671,7 @@ function requestEmployeeAssigneeNames(ids = state.requestForm.employeeAssigneeId
   const names = state.users
     .filter((item) => item.accessRole === 'employee' && normalizedIds.includes(Number(item.id)))
     .map((item) => item.name)
-  return names.length ? names.join('، ') : 'تعیین نشده'
+  return names.length ? names.join('ØŒ ') : 'ØªØ¹ÛŒÛŒÙ† Ù†Ø´Ø¯Ù‡'
 }
 
 function setRequestManager(value) {
@@ -711,7 +722,7 @@ function hydrateBootstrap(payload) {
   replaceItems(state.stats, payload.stats)
   replaceItems(state.chartData, payload.chartData)
   replaceItems(state.pipeline, payload.pipeline)
-  replaceItems(state.requests, payload.requests)
+  replaceItems(state.requests, (payload.requests || []).map(normalizeRequest))
   replaceItems(state.expenses, (payload.expenses || []).map(normalizeExpense))
   replaceItems(state.approvals, (payload.approvals || []).map(normalizeApproval))
   replaceItems(state.users, payload.users)
@@ -783,6 +794,10 @@ const supportUnreadCount = computed(() => {
   }).length
 })
 
+const requestInboxCount = computed(() => state.requests.filter((item) => item.canApprove).length)
+const expenseInboxCount = computed(() => state.expenses.filter((item) => item.canApprove).length)
+const approvalInboxCount = computed(() => state.approvals.filter((item) => item.canApprove).length)
+
 function markSupportTicketsSeen(ticketIds = []) {
   if (state.currentUser.isHq) return
   const seenMap = readSupportSeenMap()
@@ -821,7 +836,7 @@ async function loadBootstrapData(force = false) {
     hydrateBootstrap(payload)
     state.bootstrapLoaded = true
   } catch (error) {
-    state.lastError = error.message || 'خطا در بارگذاری'
+    state.lastError = error.message || 'Ø®Ø·Ø§ Ø¯Ø± Ø¨Ø§Ø±Ú¯Ø°Ø§Ø±ÛŒ'
     if (error.message === 'UNAUTHORIZED') throw error
   } finally {
     state.appLoading = false
@@ -852,6 +867,10 @@ async function loadReports(force = false) {
   state.reportStatus = payload.requestStatus
   state.topSubmitters = payload.topSubmitters
   replaceItems(state.reports, (payload.reports || []).map(normalizeReport))
+  replaceItems(state.requests, (payload.requests || state.requests || []).map(normalizeRequest))
+  replaceItems(state.expenses, (payload.expenses || state.expenses || []).map(normalizeExpense))
+  replaceItems(state.approvals, (payload.approvals || state.approvals || []).map(normalizeApproval))
+  replaceItems(state.users, payload.users || state.users)
 }
 
 async function loadSettings(force = false) {
@@ -950,7 +969,7 @@ async function createSupportTicket(payload) {
     const response = await authorizedFetch(scopedApiPath('/support/tickets'), { method: 'POST', body: formData })
     hydrateSupportTicket(repairPayload(await response.json()))
     await loadSupportTickets(true)
-    state.support.message = 'تیکت ثبت شد.'
+    state.support.message = 'ØªÛŒÚ©Øª Ø«Ø¨Øª Ø´Ø¯.'
   } catch (error) {
     state.support.error = error.message || 'Support submit failed.'
     throw error
@@ -1030,8 +1049,8 @@ async function submitWalletTransaction(payload) {
     })
     hydrateWallet(repairPayload(await response.json()))
     state.wallet.message = payload.direction === 'out' || payload.type === 'withdraw'
-      ? 'برداشت ثبت شد.'
-      : 'شارژ ثبت شد.'
+      ? 'Ø¨Ø±Ø¯Ø§Ø´Øª Ø«Ø¨Øª Ø´Ø¯.'
+      : 'Ø´Ø§Ø±Ú˜ Ø«Ø¨Øª Ø´Ø¯.'
   } catch (error) {
     state.wallet.error = error.message || 'Wallet transaction failed.'
     throw error
@@ -1104,7 +1123,7 @@ async function createHqOrganization(payload) {
     })
     hydrateHq(repairPayload(await response.json()))
   } catch (error) {
-    state.lastError = error.message || 'ساخت مجموعه ناموفق بود.'
+    state.lastError = error.message || 'Ø³Ø§Ø®Øª Ù…Ø¬Ù…ÙˆØ¹Ù‡ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
     throw error
   } finally {
     state.hq.saving = false
@@ -1115,7 +1134,10 @@ async function exportReport(reportId, format = 'csv', downloadUrl = '') {
   const hqOrganizationQuery = state.currentUser.isHq && state.hq.selectedOrganizationId
     ? `&organizationId=${encodeURIComponent(state.hq.selectedOrganizationId)}`
     : ''
-  const requestPath = downloadUrl || (reportId ? `/reports/${reportId}/export?format=${encodeURIComponent(format)}${hqOrganizationQuery}` : '')
+  let requestPath = downloadUrl || (reportId ? `/reports/${reportId}/export?format=${encodeURIComponent(format)}` : '')
+  if (requestPath && hqOrganizationQuery) {
+    requestPath += requestPath.includes('?') ? hqOrganizationQuery : `?${hqOrganizationQuery.slice(1)}`
+  }
   if (!requestPath) return
   const response = await authorizedFetch(requestPath)
   const blob = await response.blob()
@@ -1185,7 +1207,7 @@ async function login(email, password) {
     })
     if (!response.ok) {
       const payload = repairPayload(await response.json())
-      throw new Error(payload.detail || 'ورود ناموفق بود.')
+      throw new Error(payload.detail || 'ÙˆØ±ÙˆØ¯ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.')
     }
     const payload = repairPayload(await response.json())
     state.authToken = payload.access_token
@@ -1403,10 +1425,10 @@ export function useWorkflowHub() {
     state.lastError = ''
     try {
       if (!String(state.requestForm.title || '').trim()) {
-        throw new Error('عنوان درخواست الزامی است.')
+        throw new Error('Ø¹Ù†ÙˆØ§Ù† Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.')
       }
       if (!state.requestForm.manager) {
-        throw new Error('انتخاب مدیر الزامی است.')
+        throw new Error('Ø§Ù†ØªØ®Ø§Ø¨ Ù…Ø¯ÛŒØ± Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.')
       }
 
       const formData = new FormData()
@@ -1424,7 +1446,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       closeRequestComposer()
     } catch (error) {
-      state.lastError = error.message || 'ثبت درخواست ناموفق بود.'
+      state.lastError = error.message || 'Ø«Ø¨Øª Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
       throw error
     } finally {
       state.requestSubmitting = false
@@ -1436,23 +1458,25 @@ export function useWorkflowHub() {
     state.lastError = ''
     try {
       if (!Number(state.expenseForm.amount || 0)) {
-        throw new Error('مبلغ هزینه باید بیشتر از صفر باشد.')
+        throw new Error('Ù…Ø¨Ù„Øº Ù‡Ø²ÛŒÙ†Ù‡ Ø¨Ø§ÛŒØ¯ Ø¨ÛŒØ´ØªØ± Ø§Ø² ØµÙØ± Ø¨Ø§Ø´Ø¯.')
       }
       if (!String(state.expenseForm.description || '').trim()) {
-        throw new Error('شرح هزینه الزامی است.')
+        throw new Error('Ø´Ø±Ø­ Ù‡Ø²ÛŒÙ†Ù‡ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.')
       }
       const formData = new FormData()
       formData.append('description', state.expenseForm.description)
       formData.append('amount', state.expenseForm.amount)
       formData.append('expenseDate', jalaliToIso(state.expenseForm.expenseDate))
       formData.append('department', state.expenseForm.department)
-      formData.append('action', action)
+      formData.append('action', 'refer')
+      formData.append('managerAssigneeIds', (state.expenseForm.managerAssigneeIds || []).join(','))
+      formData.append('employeeAssigneeIds', (state.expenseForm.employeeAssigneeIds || []).join(','))
       if (state.expenseForm.invoice) formData.append('invoice', state.expenseForm.invoice)
       await authorizedFetch('/expenses', { method: 'POST', body: formData })
       await loadBootstrapData(true)
       closeExpenseComposer()
     } catch (error) {
-      state.lastError = error.message || 'ثبت هزینه ناموفق بود.'
+      state.lastError = error.message || 'Ø«Ø¨Øª Ù‡Ø²ÛŒÙ†Ù‡ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
       throw error
     } finally {
       state.expenseSubmitting = false
@@ -1464,13 +1488,13 @@ export function useWorkflowHub() {
     state.lastError = ''
     try {
       if (!String(state.userForm.fullName || '').trim()) {
-        throw new Error('نام کامل کاربر الزامی است.')
+        throw new Error('Ù†Ø§Ù… Ú©Ø§Ù…Ù„ Ú©Ø§Ø±Ø¨Ø± Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.')
       }
       if (!String(state.userForm.email || '').trim()) {
-        throw new Error('ایمیل کاربر الزامی است.')
+        throw new Error('Ø§ÛŒÙ…ÛŒÙ„ Ú©Ø§Ø±Ø¨Ø± Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.')
       }
       if (state.userForm.password && String(state.userForm.password).length < 6) {
-        throw new Error('رمز عبور باید حداقل 6 کاراکتر باشد.')
+        throw new Error('Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø¨Ø§ÛŒØ¯ Ø­Ø¯Ø§Ù‚Ù„ 6 Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯.')
       }
       await authorizedFetch('/users', {
         method: 'POST',
@@ -1486,7 +1510,7 @@ export function useWorkflowHub() {
       }
       closeUserComposer()
     } catch (error) {
-      state.lastError = error.message || 'ایجاد کاربر ناموفق بود.'
+      state.lastError = error.message || 'Ø§ÛŒØ¬Ø§Ø¯ Ú©Ø§Ø±Ø¨Ø± Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
       throw error
     } finally {
       state.userSubmitting = false
@@ -1498,13 +1522,13 @@ export function useWorkflowHub() {
     state.lastError = ''
     try {
       if (!String(state.documentForm.title || '').trim()) {
-        throw new Error('عنوان سند الزامی است.')
+        throw new Error('Ø¹Ù†ÙˆØ§Ù† Ø³Ù†Ø¯ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.')
       }
       if (!state.documentForm.file) {
-        throw new Error('فایل سند الزامی است.')
+        throw new Error('ÙØ§ÛŒÙ„ Ø³Ù†Ø¯ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.')
       }
       if (!state.documentForm.assigneeIds.length) {
-        throw new Error('حداقل یک مدیر دریافت کننده را انتخاب کنید.')
+        throw new Error('Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ© Ù…Ø¯ÛŒØ± Ø¯Ø±ÛŒØ§ÙØª Ú©Ù†Ù†Ø¯Ù‡ Ø±Ø§ Ø§Ù†ØªØ®Ø§Ø¨ Ú©Ù†ÛŒØ¯.')
       }
       const formData = new FormData()
       formData.append('title', state.documentForm.title)
@@ -1518,7 +1542,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       closeDocumentComposer()
     } catch (error) {
-      state.lastError = error.message || 'ثبت سند ناموفق بود.'
+      state.lastError = error.message || 'Ø«Ø¨Øª Ø³Ù†Ø¯ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
       throw error
     } finally {
       state.documentSubmitting = false
@@ -1540,7 +1564,7 @@ export function useWorkflowHub() {
       closeSignatureComposer()
       await loadBootstrapData(true)
     } catch (error) {
-      state.lastError = error.message || 'ثبت امضا ناموفق بود.'
+      state.lastError = error.message || 'Ø«Ø¨Øª Ø§Ù…Ø¶Ø§ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
       throw error
     } finally {
       signatureState.loading = false
@@ -1555,7 +1579,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       await loadApprovalDetail(selectedApproval.value.id)
     } catch (error) {
-      state.lastError = error.message || 'تایید سند ناموفق بود.'
+      state.lastError = error.message || 'ØªØ§ÛŒÛŒØ¯ Ø³Ù†Ø¯ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
       throw error
     }
   }
@@ -1572,7 +1596,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       await loadApprovalDetail(selectedApproval.value.id)
     } catch (error) {
-      state.lastError = error.message || 'رد سند ناموفق بود.'
+      state.lastError = error.message || 'Ø±Ø¯ Ø³Ù†Ø¯ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
       throw error
     }
   }
@@ -1585,7 +1609,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       await loadRequestDetail(selectedRequest.value.id)
     } catch (error) {
-      state.lastError = error.message || 'تایید درخواست ناموفق بود.'
+      state.lastError = error.message || 'ØªØ§ÛŒÛŒØ¯ Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
       throw error
     }
   }
@@ -1602,7 +1626,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       await loadRequestDetail(selectedRequest.value.id)
     } catch (error) {
-      state.lastError = error.message || 'رد درخواست ناموفق بود.'
+      state.lastError = error.message || 'Ø±Ø¯ Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
       throw error
     }
   }
@@ -1615,7 +1639,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       await loadExpenseDetail(selectedExpense.value.id)
     } catch (error) {
-      state.lastError = error.message || 'تایید هزینه ناموفق بود.'
+      state.lastError = error.message || 'ØªØ§ÛŒÛŒØ¯ Ù‡Ø²ÛŒÙ†Ù‡ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
       throw error
     }
   }
@@ -1632,7 +1656,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       await loadExpenseDetail(selectedExpense.value.id)
     } catch (error) {
-      state.lastError = error.message || 'رد هزینه ناموفق بود.'
+      state.lastError = error.message || 'Ø±Ø¯ Ù‡Ø²ÛŒÙ†Ù‡ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
       throw error
     }
   }
@@ -1710,6 +1734,9 @@ export function useWorkflowHub() {
     submitSupportFeedback,
     submitSupportWalletDeposit,
     supportUnreadCount,
+    requestInboxCount,
+    expenseInboxCount,
+    approvalInboxCount,
     markSupportTicketsSeen,
     loadHqPanel,
     selectHqOrganization,
@@ -1757,6 +1784,8 @@ export function useWorkflowHub() {
 
   return singleton
 }
+
+
 
 
 

@@ -304,7 +304,7 @@ watch(
                 v-if="approval.canApprove"
                 class="action-btn tone-danger"
                 type="button"
-                :disabled="loading"
+                :disabled="loading || !rejectReason.trim()"
                 @click="handleReject"
               >
                 <span class="material-symbols-outlined">cancel</span>

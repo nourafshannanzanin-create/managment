@@ -283,3 +283,21 @@ onMounted(async () => {
     </div>
   </BaseModal>
 </template>
+
+<style scoped>
+.settings-stack {
+  gap: 10px;
+}
+
+.settings-stack .field-shell input {
+  min-height: 42px;
+}
+
+@media (min-width: 860px) {
+  .surface-block:nth-of-type(2) .settings-stack {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: end;
+  }
+}
+</style>
