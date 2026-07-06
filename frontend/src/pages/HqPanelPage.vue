@@ -27,7 +27,16 @@ const summaryCards = computed(() => [
 ])
 
 const reportRows = computed(() => state.hq.organizations || [])
-const ticketRows = computed(() => state.hq.tickets || [])
+
+function paymentTicketRank(ticket) {
+  return ticket?.category === 'financial' && ticket?.priority === 'urgent' && ticket?.subject === 'پرداخت کیف پول' ? 0 : 1
+}
+
+const ticketRows = computed(() => [...(state.hq.tickets || [])].sort((a, b) => {
+  const rankDiff = paymentTicketRank(a) - paymentTicketRank(b)
+  if (rankDiff !== 0) return rankDiff
+  return new Date(b.updatedAt) - new Date(a.updatedAt)
+}))
 
 function openOrganization(organizationId) {
   void selectHqOrganization(organizationId)

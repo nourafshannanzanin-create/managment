@@ -3,9 +3,13 @@ import { computed, onMounted, reactive, watch } from 'vue'
 
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const { state, loadWalletDashboard, submitWalletTransaction } = useWorkflowHub()
+const CARD_NUMBER = '6037991719847703'
+const CARD_HOLDER = 'میلاد دهستانی'
+const PAYMENT_SUBJECT = 'پرداخت کیف پول'
 
-const form = reactive({
+const { state, loadWalletDashboard, submitWalletTransaction, createSupportTicket } = useWorkflowHub()
+
+const transactionForm = reactive({
   open: false,
   direction: 'in',
   walletId: '',
@@ -13,11 +17,49 @@ const form = reactive({
   note: '',
 })
 
+const paymentSetup = reactive({
+  open: false,
+  walletId: '',
+  amount: '',
+  purpose: '',
+  method: 'card_to_card',
+})
+
+const paymentGuide = reactive({
+  open: false,
+  walletId: '',
+  amount: '',
+  purpose: '',
+  method: 'card_to_card',
+})
+
+const paymentForm = reactive({
+  open: false,
+  walletId: '',
+  amount: '',
+  purpose: '',
+  method: 'card_to_card',
+  date: '',
+  time: '',
+  referenceCode: '',
+  receipt: null,
+})
+
 const canUseWallet = computed(() => state.currentUser.isManager || state.currentUser.canUseHq)
 const needsOrganization = computed(() => state.currentUser.isHq && !state.hq.selectedOrganizationId)
 const wallets = computed(() => state.wallet.wallets || [])
 const transactions = computed(() => state.wallet.transactions || [])
-const activeWallet = computed(() => wallets.value.find((item) => String(item.id) === String(form.walletId)) || wallets.value[0] || null)
+const activeWallet = computed(() => {
+  const activeId = transactionForm.walletId || paymentSetup.walletId || paymentGuide.walletId || paymentForm.walletId
+  return wallets.value.find((item) => String(item.id) === String(activeId)) || wallets.value[0] || null
+})
+const usesManagerPaymentFlow = computed(() => state.currentUser.isManager && !state.currentUser.canUseHq)
+
+const paymentMethods = [
+  { key: 'app', label: 'آپ' },
+  { key: 'pos', label: 'دستگاه پرداخت' },
+  { key: 'card_to_card', label: 'کارت به کارت' },
+]
 
 const shortcuts = computed(() => [
   { label: 'شارژ', icon: 'add_card', direction: 'in', tone: 'deposit' },
@@ -31,29 +73,138 @@ const summaryCards = computed(() => [
   { label: 'ورودی', value: state.wallet.summary.depositsTotal, icon: 'south_west', tone: 'deposit' },
 ])
 
+const selectedPaymentMethodLabel = computed(
+  () => paymentMethods.find((item) => item.key === paymentForm.method)?.label || 'کارت به کارت',
+)
+
+function nowParts() {
+  const now = new Date()
+  const pad = (value) => String(value).padStart(2, '0')
+  return {
+    date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+    time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+  }
+}
+
 function openTransaction(direction) {
-  form.direction = direction
-  form.walletId = activeWallet.value?.id ? String(activeWallet.value.id) : ''
-  form.amount = ''
-  form.note = ''
-  form.open = true
   state.wallet.error = ''
   state.wallet.message = ''
+
+  const walletId = activeWallet.value?.id ? String(activeWallet.value.id) : ''
+  if (direction === 'in' && usesManagerPaymentFlow.value) {
+    paymentSetup.walletId = walletId
+    paymentSetup.amount = ''
+    paymentSetup.purpose = ''
+    paymentSetup.method = 'card_to_card'
+    paymentSetup.open = true
+    return
+  }
+
+  transactionForm.direction = direction
+  transactionForm.walletId = walletId
+  transactionForm.amount = ''
+  transactionForm.note = ''
+  transactionForm.open = true
 }
 
 function closeTransaction() {
-  form.open = false
+  transactionForm.open = false
+}
+
+function closePaymentSetup() {
+  paymentSetup.open = false
+}
+
+function closePaymentGuide() {
+  paymentGuide.open = false
+}
+
+function closePaymentForm() {
+  paymentForm.open = false
+  paymentForm.walletId = ''
+  paymentForm.amount = ''
+  paymentForm.purpose = ''
+  paymentForm.method = 'card_to_card'
+  paymentForm.date = ''
+  paymentForm.time = ''
+  paymentForm.referenceCode = ''
+  paymentForm.receipt = null
+}
+
+function continuePaymentFlow() {
+  if (paymentSetup.method === 'card_to_card') {
+    paymentGuide.walletId = paymentSetup.walletId
+    paymentGuide.amount = paymentSetup.amount
+    paymentGuide.purpose = paymentSetup.purpose
+    paymentGuide.method = paymentSetup.method
+    paymentGuide.open = true
+    paymentSetup.open = false
+    return
+  }
+
+  openPaymentForm()
+}
+
+function openPaymentForm() {
+  const current = nowParts()
+  paymentGuide.open = false
+  paymentSetup.open = false
+  paymentForm.walletId = paymentGuide.walletId || paymentSetup.walletId || (activeWallet.value?.id ? String(activeWallet.value.id) : '')
+  paymentForm.amount = paymentGuide.amount || paymentSetup.amount || ''
+  paymentForm.purpose = paymentGuide.purpose || paymentSetup.purpose || ''
+  paymentForm.method = paymentGuide.method || paymentSetup.method || 'card_to_card'
+  paymentForm.date = current.date
+  paymentForm.time = current.time
+  paymentForm.referenceCode = ''
+  paymentForm.receipt = null
+  paymentForm.open = true
+}
+
+function setReceipt(event) {
+  paymentForm.receipt = event.target.files?.[0] || null
 }
 
 async function submitTransaction() {
   await submitWalletTransaction({
-    direction: form.direction,
-    walletId: Number(form.walletId),
-    amount: form.amount,
-    note: form.note,
+    direction: transactionForm.direction,
+    walletId: Number(transactionForm.walletId),
+    amount: transactionForm.amount,
+    note: transactionForm.note,
   })
   closeTransaction()
 }
+
+async function submitPaymentTicket() {
+  const wallet = wallets.value.find((item) => String(item.id) === String(paymentForm.walletId)) || activeWallet.value
+  const message = [
+    'درخواست تایید پرداخت کیف پول',
+    `کیف پول: ${wallet?.name || '-'}`,
+    `WALLET_ID: ${wallet?.id || ''}`,
+    `روش پرداخت: ${selectedPaymentMethodLabel.value}`,
+    `بابت: ${paymentForm.purpose || '-'}`,
+    `تاریخ: ${paymentForm.date}`,
+    `ساعت: ${paymentForm.time}`,
+    `مبلغ: ${paymentForm.amount}`,
+    `کد تراکنش: ${paymentForm.referenceCode}`,
+    ...(paymentForm.method === 'card_to_card'
+      ? [`شماره کارت مقصد: ${CARD_NUMBER}`, `نام صاحب کارت: ${CARD_HOLDER}`]
+      : []),
+  ].join('\n')
+
+  await createSupportTicket({
+    subject: PAYMENT_SUBJECT,
+    message,
+    category: 'financial',
+    priority: 'urgent',
+    attachments: paymentForm.receipt ? [paymentForm.receipt] : [],
+  })
+
+  state.wallet.message = 'درخواست تایید پرداخت برای HQ ارسال شد.'
+  state.wallet.error = ''
+  closePaymentForm()
+}
+
+const ledgerItems = computed(() => [...transactions.value].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
 
 onMounted(() => {
   void loadWalletDashboard(true)
@@ -117,9 +268,9 @@ watch(
           <button
             v-for="wallet in wallets"
             :key="wallet.id"
-            :class="['wallet-tile', String(wallet.id) === String(form.walletId || activeWallet?.id) && 'is-active']"
+            :class="['wallet-tile', String(wallet.id) === String(transactionForm.walletId || paymentSetup.walletId || paymentGuide.walletId || paymentForm.walletId || activeWallet?.id) && 'is-active']"
             type="button"
-            @click="form.walletId = String(wallet.id)"
+            @click="transactionForm.walletId = String(wallet.id); paymentSetup.walletId = String(wallet.id); paymentGuide.walletId = String(wallet.id); paymentForm.walletId = String(wallet.id)"
           >
             <span class="material-symbols-outlined">{{ wallet.key === 'sms' ? 'sms' : 'account_balance' }}</span>
             <b>{{ wallet.name }}</b>
@@ -131,19 +282,19 @@ watch(
         <div class="wallet-ledger">
           <div class="ledger-head">
             <span>Ledger</span>
-            <b>{{ transactions.length }}</b>
+            <b>{{ ledgerItems.length }}</b>
           </div>
 
           <div v-if="state.wallet.loading" class="wallet-loading">
             <span class="material-symbols-outlined">progress_activity</span>
           </div>
 
-          <div v-else-if="!transactions.length" class="wallet-empty compact">
+          <div v-else-if="!ledgerItems.length" class="wallet-empty compact">
             <span class="material-symbols-outlined">receipt_long</span>
           </div>
 
           <div v-else class="ledger-list">
-            <article v-for="item in transactions" :key="item.id" class="ledger-row">
+            <article v-for="item in ledgerItems" :key="item.id" class="ledger-row">
               <div :class="['ledger-icon', item.direction]">
                 <span class="material-symbols-outlined">{{ item.direction === 'in' ? 'south_west' : 'north_east' }}</span>
               </div>
@@ -158,29 +309,29 @@ watch(
       </div>
     </template>
 
-    <div v-if="form.open" class="wallet-modal-backdrop" @click.self="closeTransaction">
+    <div v-if="transactionForm.open" class="wallet-modal-backdrop" @click.self="closeTransaction">
       <form class="wallet-modal" @submit.prevent="submitTransaction">
         <div class="modal-handle"></div>
         <div class="modal-title">
-          <span class="material-symbols-outlined">{{ form.direction === 'in' ? 'add_card' : 'payments' }}</span>
-          <strong>{{ form.direction === 'in' ? 'شارژ کیف پول' : 'برداشت از کیف پول' }}</strong>
+          <span class="material-symbols-outlined">{{ transactionForm.direction === 'in' ? 'add_card' : 'payments' }}</span>
+          <strong>{{ transactionForm.direction === 'in' ? 'شارژ کیف پول' : 'برداشت از کیف پول' }}</strong>
         </div>
 
         <label>
           <span>کیف پول</span>
-          <select v-model="form.walletId" required>
+          <select v-model="transactionForm.walletId" required>
             <option v-for="wallet in wallets" :key="wallet.id" :value="wallet.id">{{ wallet.name }}</option>
           </select>
         </label>
 
         <label>
           <span>مبلغ</span>
-          <input v-model="form.amount" inputmode="decimal" required placeholder="0" />
+          <input v-model="transactionForm.amount" inputmode="decimal" required placeholder="0" />
         </label>
 
         <label>
           <span>یادداشت</span>
-          <textarea v-model="form.note" rows="3"></textarea>
+          <textarea v-model="transactionForm.note" rows="3"></textarea>
         </label>
 
         <div class="modal-actions">
@@ -188,6 +339,127 @@ watch(
           <button class="action-btn tone-primary" type="submit" :disabled="state.wallet.submitting">
             <span class="material-symbols-outlined">check</span>
             ثبت
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div v-if="paymentSetup.open" class="wallet-modal-backdrop" @click.self="closePaymentSetup">
+      <form class="wallet-modal payment-request-modal" @submit.prevent="continuePaymentFlow">
+        <div class="modal-handle"></div>
+        <div class="modal-title">
+          <span class="material-symbols-outlined">payments</span>
+          <strong>مشخصات پرداخت</strong>
+        </div>
+
+        <div class="payment-grid">
+          <label>
+            <span>کیف پول</span>
+            <select v-model="paymentSetup.walletId" required>
+              <option v-for="wallet in wallets" :key="wallet.id" :value="wallet.id">{{ wallet.name }}</option>
+            </select>
+          </label>
+          <label>
+            <span>مبلغ</span>
+            <input v-model.trim="paymentSetup.amount" inputmode="decimal" required placeholder="0" />
+          </label>
+        </div>
+
+        <label>
+          <span>بابت چه چیزی</span>
+          <input v-model.trim="paymentSetup.purpose" required placeholder="مثلا شارژ پیامک یا موجودی اصلی" />
+        </label>
+
+        <label>
+          <span>روش پرداخت</span>
+          <select v-model="paymentSetup.method" required>
+            <option v-for="method in paymentMethods" :key="method.key" :value="method.key">{{ method.label }}</option>
+          </select>
+        </label>
+
+        <div class="modal-actions">
+          <button class="action-btn tone-soft" type="button" @click="closePaymentSetup">لغو</button>
+          <button class="action-btn tone-primary" type="submit">
+            <span class="material-symbols-outlined">arrow_back</span>
+            ادامه
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div v-if="paymentGuide.open" class="wallet-modal-backdrop" @click.self="closePaymentGuide">
+      <div class="wallet-modal payment-guide-modal">
+        <div class="modal-handle"></div>
+        <div class="modal-title">
+          <span class="material-symbols-outlined">credit_card</span>
+          <strong>پرداخت کارت به کارت</strong>
+        </div>
+
+        <div class="payment-summary-box">
+          <b>{{ wallets.find((item) => String(item.id) === String(paymentGuide.walletId))?.name || 'کیف پول' }}</b>
+          <small>مبلغ: {{ paymentGuide.amount }}</small>
+          <small>بابت: {{ paymentGuide.purpose }}</small>
+        </div>
+
+        <div class="payment-card-box">
+          <small>شماره کارت مقصد</small>
+          <strong>{{ CARD_NUMBER }}</strong>
+          <span>{{ CARD_HOLDER }}</span>
+        </div>
+
+        <div class="modal-actions">
+          <button class="action-btn tone-soft" type="button" @click="closePaymentGuide">بستن</button>
+          <button class="action-btn tone-primary" type="button" @click="openPaymentForm">
+            <span class="material-symbols-outlined">verified</span>
+            پرداخت کردم
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="paymentForm.open" class="wallet-modal-backdrop" @click.self="closePaymentForm">
+      <form class="wallet-modal payment-request-modal" @submit.prevent="submitPaymentTicket">
+        <div class="modal-handle"></div>
+        <div class="modal-title">
+          <span class="material-symbols-outlined">support_agent</span>
+          <strong>ثبت درخواست تایید پرداخت</strong>
+        </div>
+
+        <div class="payment-summary-box">
+          <b>{{ PAYMENT_SUBJECT }}</b>
+          <small>روش پرداخت: {{ selectedPaymentMethodLabel }}</small>
+          <small>بابت: {{ paymentForm.purpose || '-' }}</small>
+        </div>
+
+        <div class="payment-grid">
+          <label>
+            <span>تاریخ</span>
+            <input v-model.trim="paymentForm.date" required placeholder="1405-04-16" />
+          </label>
+          <label>
+            <span>ساعت</span>
+            <input v-model.trim="paymentForm.time" required placeholder="14:35" />
+          </label>
+          <label>
+            <span>مبلغ</span>
+            <input v-model.trim="paymentForm.amount" inputmode="decimal" required placeholder="0" />
+          </label>
+          <label>
+            <span>کد تراکنش</span>
+            <input v-model.trim="paymentForm.referenceCode" required dir="ltr" placeholder="پیگیری یا مرجع" />
+          </label>
+        </div>
+
+        <label>
+          <span>تصویر رسید</span>
+          <input type="file" accept="image/*,.pdf" @change="setReceipt" />
+        </label>
+
+        <div class="modal-actions">
+          <button class="action-btn tone-soft" type="button" @click="closePaymentForm">لغو</button>
+          <button class="action-btn tone-primary" type="submit" :disabled="state.support.submitting">
+            <span class="material-symbols-outlined">send</span>
+            ارسال برای HQ
           </button>
         </div>
       </form>
@@ -274,7 +546,9 @@ watch(
 .wallet-tile small,
 .ledger-row small,
 .ledger-head span,
-.wallet-modal label span {
+.wallet-modal label span,
+.payment-card-box small,
+.payment-summary-box small {
   color: var(--wallet-muted);
   font-weight: 800;
 }
@@ -484,13 +758,21 @@ watch(
 }
 
 .wallet-modal {
-  width: min(460px, 100%);
+  width: min(520px, 100%);
   display: grid;
   gap: 16px;
   padding: 22px;
   border-radius: 30px;
   background: #f8fbff;
   box-shadow: 0 30px 90px rgba(24, 41, 77, 0.28);
+}
+
+.payment-guide-modal {
+  width: min(460px, 100%);
+}
+
+.payment-request-modal {
+  width: min(620px, 100%);
 }
 
 .modal-handle {
@@ -525,6 +807,34 @@ watch(
   outline: none;
 }
 
+.payment-card-box,
+.payment-summary-box {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--wallet-line);
+}
+
+.payment-card-box strong,
+.payment-summary-box b {
+  color: var(--wallet-navy);
+  font-size: 1.2rem;
+  letter-spacing: 0.04em;
+}
+
+.payment-card-box span {
+  color: var(--wallet-ink);
+  font-weight: 800;
+}
+
+.payment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 @media (max-width: 980px) {
   .wallet-hero,
   .wallet-layout {
@@ -542,11 +852,13 @@ watch(
     border-radius: 26px;
   }
 
-  .wallet-summary-grid {
+  .wallet-summary-grid,
+  .payment-grid {
     grid-template-columns: 1fr;
   }
 
-  .ledger-row {
+  .ledger-row,
+  .modal-actions {
     flex-wrap: wrap;
   }
 }

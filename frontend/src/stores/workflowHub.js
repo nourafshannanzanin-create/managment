@@ -901,16 +901,18 @@ async function loadWalletDashboard(force = false) {
 
 async function loadSupportTickets(force = false) {
   if (!state.authToken) return
-  if (state.currentUser.isHq && !state.hq.selectedOrganizationId) {
-    resetSupportState()
-    return
-  }
   if (state.support.loaded && !force) return
   state.support.loading = true
   state.support.error = ''
   try {
-    const response = await authorizedFetch(scopedApiPath('/support/tickets'))
-    hydrateSupportTickets(repairPayload(await response.json()))
+    if (state.currentUser.isHq && !state.hq.selectedOrganizationId) {
+      const response = await authorizedFetch('/hq')
+      const payload = repairPayload(await response.json())
+      hydrateSupportTickets(payload.tickets || [])
+    } else {
+      const response = await authorizedFetch(scopedApiPath('/support/tickets'))
+      hydrateSupportTickets(repairPayload(await response.json()))
+    }
   } catch (error) {
     state.support.error = error.message || 'Support load failed.'
     throw error
@@ -989,6 +991,26 @@ async function submitSupportFeedback(ticketId, payload) {
     await loadSupportTickets(true)
   } catch (error) {
     state.support.error = error.message || 'Support feedback failed.'
+    throw error
+  } finally {
+    state.support.submitting = false
+  }
+}
+
+async function submitSupportWalletDeposit(ticketId, payload) {
+  state.support.submitting = true
+  state.support.error = ''
+  try {
+    const response = await authorizedFetch(`/support/tickets/${ticketId}/wallet-deposit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    hydrateSupportTicket(repairPayload(await response.json()))
+    await loadSupportTickets(true)
+    await loadWalletDashboard(true)
+  } catch (error) {
+    state.support.error = error.message || 'Support wallet deposit failed.'
     throw error
   } finally {
     state.support.submitting = false
@@ -1625,6 +1647,7 @@ export function useWorkflowHub() {
     createSupportTicket,
     submitSupportReply,
     submitSupportFeedback,
+    submitSupportWalletDeposit,
     supportUnreadCount,
     markSupportTicketsSeen,
     loadHqPanel,
