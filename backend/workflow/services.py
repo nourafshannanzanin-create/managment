@@ -33,6 +33,7 @@ from workflow.models import (
     SupportAttachment,
     SupportMessage,
     SupportTicket,
+    SupportTicketStatus,
     User,
     UserRole,
     Wallet,
@@ -658,6 +659,11 @@ def build_hq_payload() -> dict:
         .prefetch_related(Prefetch("approval_assignments", queryset=ApprovalAssignment.objects.select_related("approver")))
         .order_by("-uploaded_at")
     )
+    tickets_qs = list(
+        SupportTicket.objects.select_related("organization", "requester", "responded_by")
+        .prefetch_related("messages", "attachments")
+        .order_by("-updated_at", "-id")
+    )
     audits = list(AuditLog.objects.select_related("actor").order_by("-created_at")[:80])
 
     total_payments = sum(Decimal(item.amount) for item in expenses_qs)
@@ -665,11 +671,15 @@ def build_hq_payload() -> dict:
     approved_payments = sum(Decimal(item.amount) for item in expenses_qs if item.status == ExpenseStatus.APPROVED)
     open_requests = sum(1 for item in requests_qs if item.status in {RequestStatus.SUBMITTED, RequestStatus.UNDER_REVIEW})
     pending_documents = sum(1 for item in documents_qs if item.status in {DocumentStatus.PENDING, DocumentStatus.WAITING_SIGNATURE})
+    open_tickets = sum(1 for item in tickets_qs if item.status == SupportTicketStatus.OPEN)
+    pending_tickets = sum(1 for item in tickets_qs if item.status == SupportTicketStatus.PENDING)
+    answered_tickets = sum(1 for item in tickets_qs if item.status == SupportTicketStatus.ANSWERED)
 
     role_counts = Counter(item.role for item in users)
     payment_status = Counter(item.status for item in expenses_qs)
     request_status = Counter(item.status for item in requests_qs)
     document_status = Counter(item.status for item in documents_qs)
+    ticket_status = Counter(item.status for item in tickets_qs)
     organization_options = [{"id": item.id, "name": item.name, "code": item.code} for item in organizations]
 
     return {
@@ -684,6 +694,10 @@ def build_hq_payload() -> dict:
             "approvedPaymentTotal": format_money(approved_payments),
             "openRequests": open_requests,
             "pendingDocuments": pending_documents,
+            "tickets": len(tickets_qs),
+            "openTickets": open_tickets,
+            "pendingTickets": pending_tickets,
+            "answeredTickets": answered_tickets,
             "auditEvents": len(audits),
         },
         "organizations": [serialize_hq_organization(item) for item in organizations],
@@ -691,12 +705,14 @@ def build_hq_payload() -> dict:
         "requests": [serialize_request(item) for item in requests_qs],
         "payments": [serialize_expense(item) for item in expenses_qs],
         "documents": [serialize_approval(item) for item in documents_qs],
+        "tickets": [serialize_support_ticket(item) for item in tickets_qs],
         "audits": [serialize_hq_audit(item) for item in audits],
         "segments": {
             "roles": [{"key": key, "label": access_role_label(key), "count": value} for key, value in role_counts.items()],
             "payments": [{"key": key, "label": expense_status_label(key), "count": value} for key, value in payment_status.items()],
             "requests": [{"key": key, "label": request_status_label(key), "count": value} for key, value in request_status.items()],
             "documents": [{"key": key, "label": document_status_label(key), "count": value} for key, value in document_status.items()],
+            "tickets": [{"key": key, "label": support_status_label(key), "count": value} for key, value in ticket_status.items()],
         },
         "directories": {
             "organizations": organization_options,

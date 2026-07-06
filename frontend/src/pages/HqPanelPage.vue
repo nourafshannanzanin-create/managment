@@ -23,10 +23,11 @@ const summaryCards = computed(() => [
   { label: 'در انتظار', value: state.hq.summary.pendingPaymentTotal || '0', icon: 'pending_actions' },
   { label: 'درخواست باز', value: state.hq.summary.openRequests || 0, icon: 'assignment_late' },
   { label: 'سند باز', value: state.hq.summary.pendingDocuments || 0, icon: 'edit_document' },
-  { label: 'رخداد', value: state.hq.summary.auditEvents || 0, icon: 'history' },
+  { label: 'تیکت', value: state.hq.summary.tickets || 0, icon: 'support_agent' },
 ])
 
 const reportRows = computed(() => state.hq.organizations || [])
+const ticketRows = computed(() => state.hq.tickets || [])
 
 function openOrganization(organizationId) {
   void selectHqOrganization(organizationId)
@@ -62,125 +63,173 @@ onMounted(() => {
     </section>
 
     <template v-else>
-    <section class="hq-report-grid">
-      <article v-for="item in summaryCards" :key="item.label" class="hq-report-card">
-        <span class="material-symbols-outlined">{{ item.icon }}</span>
-        <strong>{{ item.value }}</strong>
-        <small>{{ item.label }}</small>
-      </article>
-    </section>
+      <section class="hq-report-grid">
+        <article v-for="item in summaryCards" :key="item.label" class="hq-report-card">
+          <span class="material-symbols-outlined">{{ item.icon }}</span>
+          <strong>{{ item.value }}</strong>
+          <small>{{ item.label }}</small>
+        </article>
+      </section>
 
-    <section class="surface-block hq-report-surface">
-      <div class="section-label-row">
-        <h3>مجموعه‌ها</h3>
-        <button class="icon-btn" type="button" :disabled="state.hq.loading" @click="loadHqPanel(true)">
-          <span class="material-symbols-outlined">sync</span>
-        </button>
-      </div>
-
-      <div class="table-shell">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>مجموعه</th>
-              <th>کد</th>
-              <th>کاربر</th>
-              <th>پرداخت</th>
-              <th>درخواست</th>
-              <th>سند</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="organization in reportRows" :key="organization.id">
-              <td>
-                <strong>{{ organization.name }}</strong>
-                <small class="table-muted">{{ organization.createdAt }}</small>
-              </td>
-              <td>{{ organization.code }}</td>
-              <td>{{ organization.activeUsers }} / {{ organization.users }}</td>
-              <td>{{ organization.paymentTotal }}</td>
-              <td>{{ organization.requests }}</td>
-              <td>{{ organization.documents }}</td>
-              <td>
-                <button class="action-btn tone-soft" type="button" @click="openOrganization(organization.id)">
-                  <span class="material-symbols-outlined">input</span>
-                  <span>انتخاب</span>
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="surface-block hq-create-surface">
-      <div class="section-label-row">
-        <h3>اضافه کردن مجموعه</h3>
-      </div>
-
-      <form class="hq-create-form" @submit.prevent="submitOrganization">
-        <label>
-          <span>نام مجموعه</span>
-          <input v-model="organizationForm.organizationName" required />
-        </label>
-        <label>
-          <span>کد مجموعه</span>
-          <input v-model="organizationForm.organizationCode" dir="ltr" placeholder="business-code" />
-        </label>
-        <label>
-          <span>نام مدیر</span>
-          <input v-model="organizationForm.managerName" required />
-        </label>
-        <label>
-          <span>نام کاربری مدیر</span>
-          <input v-model="organizationForm.managerUsername" dir="ltr" required />
-        </label>
-        <label>
-          <span>ایمیل مدیر</span>
-          <input v-model="organizationForm.managerEmail" dir="ltr" type="email" />
-        </label>
-        <label>
-          <span>تلفن مدیر</span>
-          <input v-model="organizationForm.managerPhone" dir="ltr" />
-        </label>
-        <label>
-          <span>رمز عبور مدیر</span>
-          <input v-model="organizationForm.managerPassword" dir="ltr" required type="password" />
-        </label>
-        <button class="action-btn tone-primary hq-create-submit" type="submit" :disabled="state.hq.saving">
-          <span class="material-symbols-outlined">domain_add</span>
-          <span>{{ state.hq.saving ? 'در حال ثبت' : 'ثبت مجموعه' }}</span>
-        </button>
-      </form>
-    </section>
-
-    <section class="hq-report-lower">
-      <article class="surface-block">
+      <section class="surface-block hq-report-surface">
         <div class="section-label-row">
-          <h3>نقش‌ها</h3>
+          <h3>مجموعه‌ها</h3>
+          <button class="icon-btn" type="button" :disabled="state.hq.loading" @click="loadHqPanel(true)">
+            <span class="material-symbols-outlined">sync</span>
+          </button>
         </div>
-        <div class="hq-segment-list">
-          <div v-for="item in state.hq.segments.roles" :key="item.key" class="hq-segment-row">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.count }}</strong>
-          </div>
-        </div>
-      </article>
 
-      <article class="surface-block">
+        <div class="table-shell">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>مجموعه</th>
+                <th>کد</th>
+                <th>کاربر</th>
+                <th>پرداخت</th>
+                <th>درخواست</th>
+                <th>سند</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="organization in reportRows" :key="organization.id">
+                <td>
+                  <strong>{{ organization.name }}</strong>
+                  <small class="table-muted">{{ organization.createdAt }}</small>
+                </td>
+                <td>{{ organization.code }}</td>
+                <td>{{ organization.activeUsers }} / {{ organization.users }}</td>
+                <td>{{ organization.paymentTotal }}</td>
+                <td>{{ organization.requests }}</td>
+                <td>{{ organization.documents }}</td>
+                <td>
+                  <button class="action-btn tone-soft" type="button" @click="openOrganization(organization.id)">
+                    <span class="material-symbols-outlined">input</span>
+                    <span>انتخاب</span>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="surface-block hq-create-surface">
         <div class="section-label-row">
-          <h3>پرداخت‌ها</h3>
+          <h3>اضافه کردن مجموعه</h3>
         </div>
-        <div class="hq-segment-list">
-          <div v-for="item in state.hq.segments.payments" :key="item.key" class="hq-segment-row">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.count }}</strong>
-          </div>
-        </div>
-      </article>
 
-    </section>
+        <form class="hq-create-form" @submit.prevent="submitOrganization">
+          <label>
+            <span>نام مجموعه</span>
+            <input v-model="organizationForm.organizationName" required />
+          </label>
+          <label>
+            <span>کد مجموعه</span>
+            <input v-model="organizationForm.organizationCode" dir="ltr" placeholder="business-code" />
+          </label>
+          <label>
+            <span>نام مدیر</span>
+            <input v-model="organizationForm.managerName" required />
+          </label>
+          <label>
+            <span>نام کاربری مدیر</span>
+            <input v-model="organizationForm.managerUsername" dir="ltr" required />
+          </label>
+          <label>
+            <span>ایمیل مدیر</span>
+            <input v-model="organizationForm.managerEmail" dir="ltr" type="email" />
+          </label>
+          <label>
+            <span>تلفن مدیر</span>
+            <input v-model="organizationForm.managerPhone" dir="ltr" />
+          </label>
+          <label>
+            <span>رمز عبور مدیر</span>
+            <input v-model="organizationForm.managerPassword" dir="ltr" required type="password" />
+          </label>
+          <button class="action-btn tone-primary hq-create-submit" type="submit" :disabled="state.hq.saving">
+            <span class="material-symbols-outlined">domain_add</span>
+            <span>{{ state.hq.saving ? 'در حال ثبت' : 'ثبت مجموعه' }}</span>
+          </button>
+        </form>
+      </section>
+
+      <section class="surface-block hq-report-surface">
+        <div class="section-label-row">
+          <h3>تیکت‌های HQ</h3>
+        </div>
+
+        <div class="table-shell">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>عنوان</th>
+                <th>مجموعه</th>
+                <th>ثبت‌کننده</th>
+                <th>دسته</th>
+                <th>وضعیت</th>
+                <th>آخرین به‌روزرسانی</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="ticket in ticketRows" :key="ticket.id">
+                <td>
+                  <strong>{{ ticket.subject }}</strong>
+                  <small class="table-muted">{{ ticket.lastMessagePreview }}</small>
+                </td>
+                <td>{{ ticket.organization }}</td>
+                <td>{{ ticket.requester || '-' }}</td>
+                <td>{{ ticket.categoryLabel }}</td>
+                <td>{{ ticket.statusLabel }}</td>
+                <td>{{ ticket.updatedAtIso }}</td>
+              </tr>
+              <tr v-if="!ticketRows.length">
+                <td colspan="6" class="table-empty">تیکتی ثبت نشده است.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="hq-report-lower">
+        <article class="surface-block">
+          <div class="section-label-row">
+            <h3>نقش‌ها</h3>
+          </div>
+          <div class="hq-segment-list">
+            <div v-for="item in state.hq.segments.roles" :key="item.key" class="hq-segment-row">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.count }}</strong>
+            </div>
+          </div>
+        </article>
+
+        <article class="surface-block">
+          <div class="section-label-row">
+            <h3>پرداخت‌ها</h3>
+          </div>
+          <div class="hq-segment-list">
+            <div v-for="item in state.hq.segments.payments" :key="item.key" class="hq-segment-row">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.count }}</strong>
+            </div>
+          </div>
+        </article>
+
+        <article class="surface-block">
+          <div class="section-label-row">
+            <h3>وضعیت تیکت‌ها</h3>
+          </div>
+          <div class="hq-segment-list">
+            <div v-for="item in state.hq.segments.tickets" :key="item.key" class="hq-segment-row">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.count }}</strong>
+            </div>
+          </div>
+        </article>
+      </section>
     </template>
   </section>
 </template>

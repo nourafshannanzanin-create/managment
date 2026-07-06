@@ -128,8 +128,9 @@ a {
   direction: rtl;
   padding: 24px 18px;
   display: grid;
-  grid-template-rows: auto auto auto 1fr auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 16px;
+  overflow: hidden;
   background:
     linear-gradient(180deg, rgba(245, 236, 227, 0.98), rgba(252, 248, 244, 0.96)),
     radial-gradient(circle at top center, rgba(199, 155, 120, 0.14), transparent 42%);
@@ -283,6 +284,11 @@ a {
   display: grid;
   gap: 8px;
   align-content: start;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-left: 4px;
+  scrollbar-gutter: stable;
 }
 
 .nav-link {
@@ -313,6 +319,23 @@ a {
 
 .nav-link-label {
   font-weight: 700;
+}
+
+.nav-link-badge {
+  margin-inline-start: auto;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #c65d45, #9f2f22);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 8px 18px rgba(159, 47, 34, 0.22);
 }
 
 .nav-link span:last-child,

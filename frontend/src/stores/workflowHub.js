@@ -7,6 +7,7 @@ import { repairPayload } from '../utils/stitch'
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 const API_ORIGIN = API_BASE_URL.replace(/\/api\/v1\/?$/, '')
 const TOKEN_KEY = 'workflow-hub-token'
+const SUPPORT_SEEN_KEY = 'workflow-hub-support-seen'
 
 function createCurrentUser() {
   return {
@@ -133,11 +134,30 @@ function createSupportState() {
     loading: false,
     detailLoading: false,
     submitting: false,
+    seenVersion: 0,
     error: '',
     message: '',
     tickets: [],
     selectedTicket: null,
   }
+}
+
+function getSupportSeenStorageKey() {
+  const userId = state.currentUser.id || 'guest'
+  const organization = state.currentUser.organization || 'global'
+  return `${SUPPORT_SEEN_KEY}:${userId}:${organization}`
+}
+
+function readSupportSeenMap() {
+  try {
+    return JSON.parse(localStorage.getItem(getSupportSeenStorageKey()) || '{}')
+  } catch {
+    return {}
+  }
+}
+
+function writeSupportSeenMap(payload) {
+  localStorage.setItem(getSupportSeenStorageKey(), JSON.stringify(payload))
 }
 
 const state = reactive({
@@ -311,8 +331,9 @@ function createHqState() {
     requests: [],
     payments: [],
     documents: [],
+    tickets: [],
     audits: [],
-    segments: { roles: [], payments: [], requests: [], documents: [] },
+    segments: { roles: [], payments: [], requests: [], documents: [], tickets: [] },
     directories: {
       organizations: [],
       departments: [],
@@ -722,6 +743,7 @@ function hydrateHq(payload) {
   replaceItems(state.hq.requests, payload.requests)
   replaceItems(state.hq.payments, payload.payments)
   replaceItems(state.hq.documents, payload.documents)
+  replaceItems(state.hq.tickets, payload.tickets)
   replaceItems(state.hq.audits, payload.audits)
   state.hq.segments = payload.segments || createHqState().segments
   state.hq.directories = payload.directories || createHqState().directories
@@ -748,6 +770,31 @@ function hydrateSupportTicket(payload) {
   const index = state.support.tickets.findIndex((item) => Number(item.id) === Number(payload.id))
   if (index >= 0) state.support.tickets[index] = { ...state.support.tickets[index], ...payload }
   else state.support.tickets.unshift(payload)
+}
+
+const supportUnreadCount = computed(() => {
+  if (state.currentUser.isHq) return 0
+  void state.support.seenVersion
+  const seenMap = readSupportSeenMap()
+  return (state.support.tickets || []).filter((ticket) => {
+    if (ticket.status !== 'answered') return false
+    const seenAt = seenMap[String(ticket.id)]
+    return seenAt !== ticket.updatedAt
+  }).length
+})
+
+function markSupportTicketsSeen(ticketIds = []) {
+  if (state.currentUser.isHq) return
+  const seenMap = readSupportSeenMap()
+  const ids = ticketIds.length ? ticketIds.map((item) => String(item)) : (state.support.tickets || []).map((item) => String(item.id))
+  ids.forEach((id) => {
+    const ticket = (state.support.tickets || []).find((item) => String(item.id) === id)
+    if (ticket?.status === 'answered' && ticket.updatedAt) {
+      seenMap[id] = ticket.updatedAt
+    }
+  })
+  writeSupportSeenMap(seenMap)
+  state.support.seenVersion += 1
 }
 
 function scopedApiPath(path) {
@@ -1091,6 +1138,11 @@ async function restoreSession() {
     return
   }
   await loadBootstrapData(true)
+  try {
+    await loadSupportTickets(true)
+  } catch (error) {
+    state.lastError = error.message || state.lastError
+  }
   if (canViewReports.value) {
     try {
       await loadReports(true)
@@ -1573,6 +1625,8 @@ export function useWorkflowHub() {
     createSupportTicket,
     submitSupportReply,
     submitSupportFeedback,
+    supportUnreadCount,
+    markSupportTicketsSeen,
     loadHqPanel,
     selectHqOrganization,
     createHqOrganization,

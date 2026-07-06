@@ -10,9 +10,10 @@ const {
   createSupportTicket,
   submitSupportReply,
   submitSupportFeedback,
+  markSupportTicketsSeen,
 } = useWorkflowHub()
 
-const activeStatus = ref('open')
+const activeStatus = ref('all')
 const activeCategory = ref('all')
 const query = ref('')
 const modalOpen = ref(false)
@@ -29,12 +30,17 @@ const form = reactive({
 const needsOrganization = computed(() => state.currentUser.isHq && !state.hq.selectedOrganizationId)
 const tickets = computed(() => state.support.tickets || [])
 const selectedTicket = computed(() => state.support.selectedTicket)
+const canCloseTicket = computed(() => state.currentUser.canUseHq)
+
 const statusCounts = computed(() => tickets.value.reduce((acc, item) => {
   acc[item.status] = (acc[item.status] || 0) + 1
   return acc
 }, { open: 0, pending: 0, answered: 0, closed: 0 }))
 
+const activeTicketCount = computed(() => (statusCounts.value.open || 0) + (statusCounts.value.pending || 0) + (statusCounts.value.answered || 0))
+
 const statusTabs = computed(() => [
+  { key: 'all', label: 'همه', icon: 'inbox', count: activeTicketCount.value },
   { key: 'open', label: 'باز', icon: 'radio_button_checked', count: statusCounts.value.open || 0 },
   { key: 'pending', label: 'در حال بررسی', icon: 'hourglass_top', count: statusCounts.value.pending || 0 },
   { key: 'answered', label: 'پاسخ داده شده', icon: 'mark_chat_read', count: statusCounts.value.answered || 0 },
@@ -60,21 +66,20 @@ const priorities = [
 const filteredTickets = computed(() => {
   const needle = query.value.trim().toLowerCase()
   return tickets.value.filter((ticket) => {
-    if (ticket.status !== activeStatus.value) return false
+    if (activeStatus.value === 'all') {
+      if (!['open', 'pending', 'answered'].includes(ticket.status)) return false
+    } else if (ticket.status !== activeStatus.value) {
+      return false
+    }
     if (activeCategory.value !== 'all' && ticket.category !== activeCategory.value) return false
     if (!needle) return true
     return `${ticket.id} ${ticket.subject} ${ticket.message} ${ticket.categoryLabel} ${ticket.lastMessagePreview}`.toLowerCase().includes(needle)
   })
 })
 
-const heroStats = computed(() => [
-  { label: 'باز', value: statusCounts.value.open || 0, icon: 'confirmation_number' },
-  { label: 'فعال', value: (statusCounts.value.open || 0) + (statusCounts.value.pending || 0), icon: 'forum' },
-  { label: 'پاسخ', value: statusCounts.value.answered || 0, icon: 'support_agent' },
-])
-
 function statusClass(status) {
   return {
+    all: 'all',
     open: 'open',
     pending: 'pending',
     answered: 'answered',
@@ -98,11 +103,21 @@ function setFiles(event) {
   form.attachments = Array.from(event.target.files || [])
 }
 
+function markCurrentAnsweredTicketsSeen() {
+  const answeredIds = (tickets.value || []).filter((ticket) => ticket.status === 'answered').map((ticket) => ticket.id)
+  if (answeredIds.length) {
+    markSupportTicketsSeen(answeredIds)
+  }
+}
+
 async function openTicket(ticketId) {
   await loadSupportTicketDetail(ticketId)
   replyBody.value = ''
   feedback.score = 0
   feedback.text = ''
+  if (selectedTicket.value?.status === 'answered') {
+    markSupportTicketsSeen([selectedTicket.value.id])
+  }
 }
 
 async function submitTicket() {
@@ -122,17 +137,23 @@ async function sendFeedback() {
   await submitSupportFeedback(selectedTicket.value.id, { score: feedback.score, feedback: feedback.text })
 }
 
-onMounted(async () => {
+async function hydrateSupportWorkspace() {
   await loadSupportTickets(true)
-  if (filteredTickets.value[0]) await openTicket(filteredTickets.value[0].id)
+  markCurrentAnsweredTicketsSeen()
+  if (filteredTickets.value[0]) {
+    await openTicket(filteredTickets.value[0].id)
+  }
+}
+
+onMounted(async () => {
+  await hydrateSupportWorkspace()
 })
 
 watch(
   () => state.hq.selectedOrganizationId,
   async () => {
     if (!state.currentUser.isHq) return
-    await loadSupportTickets(true)
-    if (filteredTickets.value[0]) await openTicket(filteredTickets.value[0].id)
+    await hydrateSupportWorkspace()
   },
 )
 </script>
@@ -148,13 +169,6 @@ watch(
         <div>
           <span class="support-kicker">SUPPORT DESK</span>
           <strong>مرکز رسیدگی</strong>
-        </div>
-        <div class="support-hero-stats">
-          <article v-for="item in heroStats" :key="item.label">
-            <span class="material-symbols-outlined">{{ item.icon }}</span>
-            <b>{{ item.value }}</b>
-            <small>{{ item.label }}</small>
-          </article>
         </div>
         <button class="support-primary" type="button" @click="modalOpen = true">
           <span class="material-symbols-outlined">add_circle</span>
@@ -269,7 +283,15 @@ watch(
             <section v-if="selectedTicket.status !== 'closed'" class="reply-box">
               <textarea v-model="replyBody" rows="4" placeholder="پاسخ..." />
               <div>
-                <button class="support-soft" type="button" :disabled="state.support.submitting" @click="sendReply(true)">بستن</button>
+                <button
+                  v-if="canCloseTicket"
+                  class="support-soft"
+                  type="button"
+                  :disabled="state.support.submitting"
+                  @click="sendReply(true)"
+                >
+                  بستن
+                </button>
                 <button class="support-primary" type="button" :disabled="state.support.submitting || !replyBody.trim()" @click="sendReply(false)">
                   ارسال
                 </button>
@@ -362,10 +384,10 @@ watch(
 }
 
 .support-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 18px;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 18px;
   overflow: hidden;
   padding: 24px;
   border-radius: 34px;
@@ -390,7 +412,6 @@ watch(
   line-height: 1;
 }
 
-.support-hero-stats,
 .support-status-grid,
 .support-chips,
 .modal-actions,
@@ -400,22 +421,6 @@ watch(
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.support-hero-stats article {
-  min-width: 86px;
-  display: grid;
-  gap: 4px;
-  justify-items: center;
-  padding: 14px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.72);
-}
-
-.support-hero-stats b,
-.support-status-card b {
-  color: var(--support-navy);
-  font-size: 1.4rem;
 }
 
 .support-primary,
@@ -458,7 +463,7 @@ watch(
 
 .support-status-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .support-status-card {
@@ -479,8 +484,14 @@ watch(
 }
 
 .support-status-card.is-active b,
-.support-status-card.is-active small {
+.support-status-card.is-active small,
+.support-status-card.is-active .material-symbols-outlined {
   color: #fff;
+}
+
+.support-status-card b {
+  color: var(--support-navy);
+  font-size: 1.4rem;
 }
 
 .support-workspace {
@@ -782,7 +793,7 @@ watch(
 }
 
 @media (max-width: 640px) {
-  .support-hero-stats,
+  .support-hero,
   .conversation-head,
   .reply-box div,
   .modal-grid {

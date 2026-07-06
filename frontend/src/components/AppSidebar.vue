@@ -10,7 +10,7 @@ defineProps({
 })
 
 const route = useRoute()
-const { state, logout } = useWorkflowHub()
+const { state, logout, supportUnreadCount } = useWorkflowHub()
 
 const navItems = computed(() => {
   const items = [
@@ -26,7 +26,7 @@ const navItems = computed(() => {
     items.push({ to: '/wallet', label: 'کیف پول', icon: 'account_balance_wallet' })
   }
 
-  items.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent' })
+  items.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
 
   if (state.currentUser.canAccessApprovals || state.currentUser.canApproveDocuments) {
     items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check' })
@@ -78,6 +78,7 @@ const navItems = computed(() => {
       >
         <span class="material-symbols-outlined">{{ item.icon }}</span>
         <span class="nav-link-label">{{ item.label }}</span>
+        <span v-if="item.badge" class="nav-link-badge">{{ item.badge }}</span>
       </RouterLink>
     </nav>
 
