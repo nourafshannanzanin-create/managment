@@ -4,7 +4,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import BaseModal from '../components/BaseModal.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const { state, updateUser } = useWorkflowHub()
+const { openUserComposer, state, updateUser } = useWorkflowHub()
 
 const searchQuery = ref('')
 const activeCategory = ref('all')
@@ -69,8 +69,8 @@ const filteredUsers = computed(() => {
 })
 
 const userStats = computed(() => [
-  { label: 'کل کاربران', value: state.users.length, icon: 'group', note: 'اعضای ثبت شده', tone: 'is-total' },
-  { label: 'فعال', value: state.users.filter((item) => item.isActive).length, icon: 'verified_user', note: 'کاربران فعال', tone: 'is-approved' },
+  { label: 'کل کاربران', value: state.users.length, icon: 'group', note: 'ثبت شده', tone: 'is-total' },
+  { label: 'فعال', value: state.users.filter((item) => item.isActive).length, icon: 'verified_user', note: 'حساب‌های فعال', tone: 'is-approved' },
   { label: 'مدیران', value: state.users.filter((item) => ['admin', 'executive_manager', 'manager'].includes(item.accessRole)).length, icon: 'badge', note: 'سطح مدیریتی', tone: 'is-pending' },
   { label: 'کارمندان', value: state.users.filter((item) => item.accessRole === 'employee').length, icon: 'person', note: 'نیروی اجرایی', tone: 'is-rejected' },
 ])
@@ -159,15 +159,30 @@ function userManagerOptions(userId) {
       </article>
     </section>
 
-    <section class="surface-block">
+    <section class="surface-block users-toolbar-panel">
       <div class="users-toolbar-stack">
+        <div class="users-toolbar-head">
+          <div>
+            <h3>فهرست کاربران</h3>
+            <p>کارت‌های کوچک، جمع‌وجور و مناسب برای مرور سریع اعضای سازمان.</p>
+          </div>
+
+          <div class="users-header-actions">
+            <span class="meta-pill">{{ filteredUsers.length }} نتیجه</span>
+            <button v-if="canManageUsers" class="action-btn tone-primary" type="button" @click="openUserComposer">
+              <span class="material-symbols-outlined">person_add</span>
+              <span>افزودن کاربر</span>
+            </button>
+          </div>
+        </div>
+
         <div class="filter-toolbar users-toolbar-primary">
-          <label class="search-shell search-shell-wide">
+          <label class="search-shell search-shell-wide users-search-shell">
             <span class="material-symbols-outlined">search</span>
             <input v-model="searchQuery" type="text" placeholder="جستجو در کاربران..." />
           </label>
 
-          <div class="chip-row">
+          <div class="chip-row users-chip-row">
             <button
               v-for="item in categoryButtons"
               :key="item.key"
@@ -194,35 +209,34 @@ function userManagerOptions(userId) {
       </div>
     </section>
 
-    <section class="surface-block">
-      <div class="section-label-row">
-        <div>
-          <h3>فهرست کاربران</h3>
-          <p>کارت‌ها جمع‌وجور شده‌اند و فقط نام، سمت و وضعیت هر کاربر را نشان می‌دهند.</p>
-        </div>
-        <span class="meta-pill">{{ filteredUsers.length }} نتیجه</span>
-      </div>
-
-      <div v-if="filteredUsers.length" class="user-directory-table">
+    <section class="surface-block users-grid-panel">
+      <div v-if="filteredUsers.length" class="user-directory-grid">
         <button
           v-for="item in filteredUsers"
           :key="item.id || item.email"
-          class="user-directory-row compact-user-card"
+          class="compact-user-card"
           type="button"
           @click="openUserDetails(item.id)"
         >
-          <div class="user-directory-main">
-            <div class="user-avatar">{{ (item.name || '?').slice(0, 1) }}</div>
-            <div class="user-card-copy">
-              <strong>{{ item.name }}</strong>
-              <small>{{ item.jobTitle || item.role }}</small>
+          <div class="user-card-head">
+            <div class="user-directory-main">
+              <div class="user-avatar">{{ (item.name || '?').slice(0, 1) }}</div>
+              <div class="user-card-copy">
+                <strong>{{ item.name }}</strong>
+                <small>{{ item.jobTitle || item.role }}</small>
+              </div>
             </div>
-          </div>
-          <div class="user-directory-meta compact-user-meta">
+
             <span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span>
+          </div>
+
+          <div class="user-card-details">
+            <span>{{ item.department || 'بدون بخش' }}</span>
+            <span>{{ item.manager || 'بدون مدیر' }}</span>
           </div>
         </button>
       </div>
+
       <div v-else class="empty-state-inline">
         <span class="material-symbols-outlined">group_off</span>
         <p>کاربری با این فیلترها پیدا نشد.</p>
@@ -397,61 +411,105 @@ function userManagerOptions(userId) {
 </template>
 
 <style scoped>
+.users-toolbar-panel,
+.users-grid-panel {
+  overflow: hidden;
+}
+
 .users-toolbar-stack {
   display: grid;
+  gap: 14px;
+}
+
+.users-toolbar-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.users-toolbar-head h3,
+.users-toolbar-head p {
+  margin: 0;
+}
+
+.users-toolbar-head p {
+  color: var(--muted);
+}
+
+.users-header-actions {
+  display: flex;
+  align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .users-toolbar-primary {
   display: flex;
   align-items: center;
   gap: 14px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
+  flex-wrap: wrap;
 }
 
-.users-toolbar-primary .search-shell {
-  min-width: 280px;
-  flex: 1 1 320px;
+.users-search-shell {
+  min-width: min(100%, 320px);
+  flex: 1 1 280px;
 }
 
-.users-toolbar-primary .chip-row,
+.users-chip-row,
 .users-toolbar-secondary {
   display: flex;
-  flex-wrap: nowrap;
   gap: 8px;
-  overflow-x: auto;
+  flex-wrap: wrap;
 }
 
-.user-directory-table {
+.user-directory-grid {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(220px, 240px);
-  gap: 12px;
-  overflow-x: auto;
-  padding-bottom: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
 }
 
 .compact-user-card {
   display: grid;
-  gap: 14px;
+  gap: 12px;
+  min-width: 0;
   padding: 14px;
-  min-height: 142px;
+  border: 1px solid rgba(38, 56, 92, 0.08);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 248, 252, 0.95)),
+    var(--surface);
+  box-shadow: 0 16px 34px rgba(28, 42, 76, 0.08);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  text-align: right;
 }
 
-.compact-user-card .user-directory-main {
+.compact-user-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(72, 103, 183, 0.18);
+  box-shadow: 0 20px 38px rgba(28, 42, 76, 0.12);
+}
+
+.user-card-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.user-directory-main {
+  display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.compact-user-meta {
-  justify-content: flex-start;
+  min-width: 0;
 }
 
 .user-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 18px;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: 16px;
   display: grid;
   place-items: center;
   background: linear-gradient(135deg, rgba(72, 103, 183, 0.14), rgba(216, 175, 140, 0.22));
@@ -461,15 +519,33 @@ function userManagerOptions(userId) {
 
 .user-card-copy {
   display: grid;
-  gap: 4px;
+  gap: 3px;
+  min-width: 0;
+}
+
+.user-card-copy strong,
+.user-card-copy small,
+.user-card-details span,
+.user-meta-copy strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .user-card-copy strong {
   color: #203255;
+  font-size: 15px;
 }
 
 .user-card-copy small {
   color: var(--muted);
+  font-size: 12px;
+}
+
+.user-card-details {
+  display: grid;
+  gap: 6px;
+  color: #59657f;
+  font-size: 12px;
 }
 
 .user-modal-shell {
@@ -502,6 +578,7 @@ function userManagerOptions(userId) {
 .user-meta-copy {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .user-hero-copy h2 {
@@ -649,6 +726,7 @@ function userManagerOptions(userId) {
 .check-tile small {
   margin-top: 4px;
   color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .user-modal-actions {
@@ -670,17 +748,21 @@ function userManagerOptions(userId) {
 }
 
 @media (max-width: 760px) {
+  .users-toolbar-head,
+  .user-card-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .user-directory-grid,
+  .user-meta-board,
+  .user-access-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .user-modal-shell {
     gap: 16px;
     padding: 0;
-  }
-
-  .users-toolbar-primary {
-    align-items: stretch;
-  }
-
-  .users-toolbar-primary .search-shell {
-    min-width: 240px;
   }
 
   .user-hero {
@@ -688,18 +770,10 @@ function userManagerOptions(userId) {
     border-radius: 22px;
   }
 
-  .user-meta-board,
-  .user-access-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .user-status-panel,
   .user-modal-actions {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .user-modal-actions {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

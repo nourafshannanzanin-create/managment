@@ -1,10 +1,8 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 
 import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
-
-const activeTab = ref('requests')
 
 const { exportReport, filteredReports, loadReports, state } = useWorkflowHub()
 
@@ -12,58 +10,8 @@ const reportStats = computed(() => [
   { label: 'جمع هزینه‌ها', value: state.reportSummary?.expenseTotal || '0', icon: 'payments', note: 'خلاصه مالی', tone: 'is-total' },
   { label: 'کاربران فعال', value: state.reportSummary?.users || 0, icon: 'verified_user', note: 'اعضای فعال', tone: 'is-approved' },
   { label: 'درخواست‌ها', value: state.reportSummary?.requests || 0, icon: 'pending_actions', note: 'ثبت عملیاتی', tone: 'is-pending' },
-  { label: 'گزارش آماده', value: filteredReports.value.length, icon: 'folder_copy', note: 'نمای کلی خروجی‌ها', tone: 'is-rejected' },
+  { label: 'گزارش آماده', value: filteredReports.value.length, icon: 'folder_copy', note: 'خروجی‌های قابل دانلود', tone: 'is-rejected' },
 ])
-
-const reportTabs = computed(() => [
-  {
-    key: 'requests',
-    label: 'درخواست‌ها',
-    rows: state.requests,
-    exportId: 'requests',
-    columns: [
-      { key: 'id', label: 'کد' },
-      { key: 'title', label: 'عنوان' },
-      { key: 'owner', label: 'ثبت‌کننده' },
-      { key: 'manager', label: 'مسئول' },
-      { key: 'status', label: 'وضعیت' },
-      { key: 'priority', label: 'اولویت' },
-      { key: 'createdAt', label: 'تاریخ' },
-    ],
-  },
-  {
-    key: 'expenses',
-    label: 'هزینه‌ها',
-    rows: state.expenses,
-    exportId: 'expenses',
-    columns: [
-      { key: 'id', label: 'کد' },
-      { key: 'title', label: 'عنوان' },
-      { key: 'owner', label: 'ثبت‌کننده' },
-      { key: 'amount', label: 'مبلغ' },
-      { key: 'category', label: 'دسته' },
-      { key: 'status', label: 'وضعیت' },
-      { key: 'submittedAt', label: 'تاریخ' },
-    ],
-  },
-  {
-    key: 'approvals',
-    label: 'تاییدها',
-    rows: state.approvals,
-    exportId: 'approvals',
-    columns: [
-      { key: 'id', label: 'کد' },
-      { key: 'title', label: 'عنوان' },
-      { key: 'owner', label: 'ثبت‌کننده' },
-      { key: 'type', label: 'نوع' },
-      { key: 'status', label: 'وضعیت' },
-      { key: 'risk', label: 'ریسک' },
-      { key: 'uploadedAt', label: 'تاریخ' },
-    ],
-  },
-])
-
-const currentTab = computed(() => reportTabs.value.find((item) => item.key === activeTab.value) || reportTabs.value[0])
 
 onMounted(() => {
   loadReports(true)
@@ -75,7 +23,7 @@ onMounted(() => {
     <PageHeader
       eyebrow="گزارشات"
       title="گزارش‌ها و خروجی‌های تحلیلی"
-      description="هر تب گزارش کامل همان بخش را با داده‌های آماده خروجی نمایش می‌دهد."
+      description="در این بخش فقط خلاصه و خروجی‌های آماده گزارش نمایش داده می‌شود."
     />
 
     <section class="metric-grid metric-grid-4">
@@ -92,49 +40,30 @@ onMounted(() => {
     <section class="surface-block">
       <div class="section-label-row">
         <div>
-          <h3>دسته‌بندی گزارش‌ها</h3>
-          <p>نمای تفکیکی برای درخواست‌ها، هزینه‌ها و تاییدها.</p>
+          <h3>خروجی‌های آماده</h3>
+          <p>نمای تفکیکی درخواست‌ها، هزینه‌ها و تاییدها از این صفحه حذف شده و فقط فایل‌های خروجی نمایش داده می‌شود.</p>
         </div>
-        <div class="chip-row">
-          <button
-            v-for="tab in reportTabs"
-            :key="tab.key"
-            :class="['filter-chip', activeTab === tab.key && 'is-active']"
-            type="button"
-            @click="activeTab = tab.key"
-          >
-            {{ tab.label }}
+        <span class="meta-pill">{{ filteredReports.length }} خروجی</span>
+      </div>
+
+      <div v-if="filteredReports.length" class="report-export-grid">
+        <article v-for="item in filteredReports" :key="item.title" class="report-export-card">
+          <div class="report-export-copy">
+            <strong>{{ item.title }}</strong>
+            <p>{{ item.description || 'خروجی آماده دریافت است.' }}</p>
+            <small class="table-muted">{{ item.export || 'CSV' }} · {{ item.generatedAt || '-' }}</small>
+          </div>
+
+          <button class="action-btn tone-primary" type="button" @click="exportReport('', 'csv', item.downloadUrl)">
+            <span class="material-symbols-outlined">download</span>
+            <span>دانلود</span>
           </button>
-        </div>
+        </article>
       </div>
 
-      <div class="report-tab-header">
-        <div>
-          <strong>{{ currentTab.label }}</strong>
-          <small class="table-muted">{{ currentTab.rows.length }} ردیف آماده گزارش</small>
-        </div>
-        <button class="action-btn tone-primary" type="button" @click="exportReport(currentTab.exportId, 'csv')">
-          <span class="material-symbols-outlined">download</span>
-          <span>دریافت خروجی {{ currentTab.label }}</span>
-        </button>
-      </div>
-
-      <div class="table-shell">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th v-for="column in currentTab.columns" :key="column.key">{{ column.label }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in currentTab.rows" :key="row.id">
-              <td v-for="column in currentTab.columns" :key="`${row.id}-${column.key}`">
-                <strong v-if="column.key === 'title' || column.key === 'id'">{{ row[column.key] || '-' }}</strong>
-                <span v-else>{{ row[column.key] || '-' }}</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div v-else class="empty-state-inline">
+        <span class="material-symbols-outlined">folder_off</span>
+        <p>خروجی‌ای برای این فیلترها پیدا نشد.</p>
       </div>
     </section>
   </section>
@@ -146,3 +75,39 @@ onMounted(() => {
     </article>
   </section>
 </template>
+
+<style scoped>
+.report-export-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.report-export-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(36, 59, 107, 0.1);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.report-export-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.report-export-copy strong,
+.report-export-copy p,
+.report-export-copy small {
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .report-export-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+</style>

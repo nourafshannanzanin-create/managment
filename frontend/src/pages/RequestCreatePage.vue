@@ -77,10 +77,10 @@ const {
           </label>
 
           <div class="priority-strip">
-            <button :class="['priority-chip', state.requestForm.priority === 'low' && 'is-active']" @click="state.requestForm.priority = 'low'">پایین</button>
-            <button :class="['priority-chip', state.requestForm.priority === 'medium' && 'is-active']" @click="state.requestForm.priority = 'medium'">متوسط</button>
-            <button :class="['priority-chip', state.requestForm.priority === 'high' && 'is-active']" @click="state.requestForm.priority = 'high'">بالا</button>
-            <button :class="['priority-chip', state.requestForm.priority === 'critical' && 'is-active']" @click="state.requestForm.priority = 'critical'">بحرانی</button>
+            <button :class="['priority-chip', state.requestForm.priority === 'low' && 'is-active']" type="button" @click="state.requestForm.priority = 'low'">پایین</button>
+            <button :class="['priority-chip', state.requestForm.priority === 'medium' && 'is-active']" type="button" @click="state.requestForm.priority = 'medium'">متوسط</button>
+            <button :class="['priority-chip', state.requestForm.priority === 'high' && 'is-active']" type="button" @click="state.requestForm.priority = 'high'">بالا</button>
+            <button :class="['priority-chip', state.requestForm.priority === 'critical' && 'is-active']" type="button" @click="state.requestForm.priority = 'critical'">بحرانی</button>
           </div>
         </div>
       </section>
@@ -103,7 +103,7 @@ const {
               <strong>{{ file.name }}</strong>
               <small>{{ Math.round(file.size / 1024) }} KB</small>
             </div>
-            <button class="icon-btn" @click="removeAttachment(index)">
+            <button class="icon-btn" type="button" @click="removeAttachment(index)">
               <span class="material-symbols-outlined">delete</span>
             </button>
           </article>
@@ -138,7 +138,7 @@ const {
           </div>
         </div>
 
-        <button class="action-btn tone-primary request-submit-btn" @click="submitRequest">
+        <button class="action-btn tone-primary request-submit-btn" type="button" @click="submitRequest">
           <span class="material-symbols-outlined">send</span>
           <span>ثبت</span>
         </button>

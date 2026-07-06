@@ -12,7 +12,7 @@ const emit = defineEmits(['close'])
     <Transition name="modal-fade">
       <div v-if="open" class="modal-layer" @click.self="emit('close')">
         <div :class="['modal-shell', `size-${size}`]">
-          <button class="icon-btn modal-close" @click="emit('close')">
+          <button class="icon-btn modal-close" type="button" @click="emit('close')">
             <span class="material-symbols-outlined">close</span>
           </button>
           <slot />

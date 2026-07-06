@@ -13,7 +13,7 @@ const props = defineProps({
 defineEmits(['close'])
 
 const rejectReason = ref('')
-const { canApproveSelectedExpense, approveSelectedExpense, rejectSelectedExpense } = useWorkflowHub()
+const { canApproveSelectedExpense, approveSelectedExpense, rejectSelectedExpense, openProtectedFile, state } = useWorkflowHub()
 
 const isApproved = computed(() => String(props.expense?.status || '').includes('تایید'))
 const isRejected = computed(() => String(props.expense?.status || '').includes('رد'))
@@ -129,10 +129,10 @@ async function handleInvoiceOpen(url) {
             </div>
 
             <div v-if="expense.invoiceUrl" class="expense-file-stage">
-              <a class="action-btn tone-primary" :href="expense.invoiceUrl" target="_blank" rel="noreferrer">
+              <button class="action-btn tone-primary" type="button" @click="handleInvoiceOpen(expense.invoiceUrl)">
                 <span class="material-symbols-outlined">description</span>
                 <span>مشاهده فاکتور</span>
-              </a>
+              </button>
             </div>
             <div v-else class="expense-file-empty">
               <div class="expense-file-badge">
@@ -155,6 +155,8 @@ async function handleInvoiceOpen(url) {
               <span>علت رد</span>
               <textarea v-model="rejectReason" class="field-shell expense-reject-textarea" rows="4" placeholder="در صورت نیاز علت رد را وارد کنید"></textarea>
             </label>
+
+            <p v-if="state.lastError" class="inline-error">{{ state.lastError }}</p>
 
             <div class="expense-action-row">
               <button class="action-btn tone-soft" type="button" @click="$emit('close')">
@@ -434,6 +436,12 @@ async function handleInvoiceOpen(url) {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.inline-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.92rem;
 }
 
 .expense-modal-shell.is-approved .expense-status-icon {

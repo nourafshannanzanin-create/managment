@@ -14,7 +14,7 @@ const props = defineProps({
 defineEmits(['close'])
 
 const rejectReason = ref('')
-const { canApproveSelectedRequest, approveSelectedRequest, rejectSelectedRequest } = useWorkflowHub()
+const { canApproveSelectedRequest, approveSelectedRequest, rejectSelectedRequest, state } = useWorkflowHub()
 
 const isApproved = computed(() => String(props.request?.status || '').includes('تایید'))
 const isRejected = computed(() => String(props.request?.status || '').includes('رد'))
@@ -148,6 +148,8 @@ async function handleReject() {
               <span>علت رد</span>
               <textarea v-model="rejectReason" class="field-shell request-reject-textarea" rows="4" placeholder="در صورت نیاز علت رد را وارد کنید"></textarea>
             </label>
+
+            <p v-if="state.lastError" class="inline-error">{{ state.lastError }}</p>
 
             <div class="request-action-row">
               <button class="action-btn tone-soft" type="button" @click="$emit('close')">
@@ -435,6 +437,12 @@ async function handleReject() {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.inline-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.92rem;
 }
 
 .request-modal-shell.is-approved .request-status-icon {

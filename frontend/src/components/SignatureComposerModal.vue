@@ -12,7 +12,7 @@ defineProps({
 defineEmits(['close'])
 
 const signatureDraft = ref('')
-const { signatureState, saveSignature } = useWorkflowHub()
+const { signatureState, saveSignature, state } = useWorkflowHub()
 const isEditing = computed(() => signatureState.hasSignature && Boolean(signatureState.signatureData))
 
 watch(
@@ -49,12 +49,14 @@ watch(
         <SignaturePad v-model="signatureDraft" />
       </section>
 
+      <p v-if="state.lastError" class="inline-error">{{ state.lastError }}</p>
+
       <div class="action-group modal-actions">
-        <button class="action-btn tone-soft" @click="$emit('close')">
+        <button class="action-btn tone-soft" type="button" @click="$emit('close')">
           <span class="material-symbols-outlined">close</span>
           <span>بستن</span>
         </button>
-        <button class="action-btn tone-primary" :disabled="signatureState.loading || !signatureDraft" @click="saveSignature(signatureDraft)">
+        <button class="action-btn tone-primary" type="button" :disabled="signatureState.loading || !signatureDraft" @click="saveSignature(signatureDraft)">
           <span class="material-symbols-outlined">draw</span>
           <span>{{ signatureState.loading ? 'در حال ذخیره...' : (isEditing ? 'ذخیره ویرایش' : 'ذخیره امضا') }}</span>
         </button>
@@ -62,3 +64,11 @@ watch(
     </div>
   </BaseModal>
 </template>
+
+<style scoped>
+.inline-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.92rem;
+}
+</style>

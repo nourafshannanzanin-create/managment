@@ -1283,36 +1283,43 @@ export function useWorkflowHub() {
   }
 
   function openRequestComposer() {
+    state.lastError = ''
     resetRequestForm()
     modalState.requestComposer = true
   }
 
   function closeRequestComposer() {
+    state.lastError = ''
     modalState.requestComposer = false
     resetRequestForm()
   }
 
   function openExpenseComposer() {
+    state.lastError = ''
     resetExpenseForm()
     modalState.expenseComposer = true
   }
 
   function closeExpenseComposer() {
+    state.lastError = ''
     modalState.expenseComposer = false
     resetExpenseForm()
   }
 
   function openUserComposer() {
+    state.lastError = ''
     resetUserForm()
     modalState.userComposer = true
   }
 
   function closeUserComposer() {
+    state.lastError = ''
     modalState.userComposer = false
     resetUserForm()
   }
 
   function openDocumentComposer() {
+    state.lastError = ''
     resetDocumentForm()
     if (state.directories.managers.length === 1) {
       state.documentForm.assigneeIds = [state.directories.managers[0].id]
@@ -1324,6 +1331,7 @@ export function useWorkflowHub() {
   }
 
   function closeDocumentComposer() {
+    state.lastError = ''
     modalState.documentComposer = false
     resetDocumentForm()
   }
@@ -1342,11 +1350,13 @@ export function useWorkflowHub() {
   }
 
   async function openSignatureComposer() {
+    state.lastError = ''
     await loadSignature()
     modalState.signatureComposer = true
   }
 
   function closeSignatureComposer() {
+    state.lastError = ''
     modalState.signatureComposer = false
   }
 
@@ -1366,10 +1376,13 @@ export function useWorkflowHub() {
     state.documentForm.file = file || null
   }
 
-  async function submitRequest(action = 'refer') {
+  async function submitRequest() {
     state.requestSubmitting = true
     state.lastError = ''
     try {
+      if (!String(state.requestForm.title || '').trim()) {
+        throw new Error('عنوان درخواست الزامی است.')
+      }
       if (!state.requestForm.manager) {
         throw new Error('انتخاب مدیر الزامی است.')
       }
@@ -1382,7 +1395,7 @@ export function useWorkflowHub() {
       formData.append('managerAssigneeIds', state.requestForm.managerAssigneeIds.join(','))
       formData.append('employeeAssigneeIds', state.requestForm.employeeAssigneeIds.join(','))
       formData.append('priority', state.requestForm.priority)
-      formData.append('action', action)
+      formData.append('action', 'refer')
       if (state.requestForm.deadline) formData.append('deadline', jalaliToIso(state.requestForm.deadline))
       state.requestForm.attachments.forEach((file) => formData.append('attachments', file))
       await authorizedFetch('/requests', { method: 'POST', body: formData })
@@ -1400,6 +1413,12 @@ export function useWorkflowHub() {
     state.expenseSubmitting = true
     state.lastError = ''
     try {
+      if (!Number(state.expenseForm.amount || 0)) {
+        throw new Error('مبلغ هزینه باید بیشتر از صفر باشد.')
+      }
+      if (!String(state.expenseForm.description || '').trim()) {
+        throw new Error('شرح هزینه الزامی است.')
+      }
       const formData = new FormData()
       formData.append('description', state.expenseForm.description)
       formData.append('amount', state.expenseForm.amount)
@@ -1422,6 +1441,15 @@ export function useWorkflowHub() {
     state.userSubmitting = true
     state.lastError = ''
     try {
+      if (!String(state.userForm.fullName || '').trim()) {
+        throw new Error('نام کامل کاربر الزامی است.')
+      }
+      if (!String(state.userForm.email || '').trim()) {
+        throw new Error('ایمیل کاربر الزامی است.')
+      }
+      if (state.userForm.password && String(state.userForm.password).length < 6) {
+        throw new Error('رمز عبور باید حداقل 6 کاراکتر باشد.')
+      }
       await authorizedFetch('/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1431,6 +1459,9 @@ export function useWorkflowHub() {
         }),
       })
       await loadBootstrapData(true)
+      if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
+        await loadSettings(true)
+      }
       closeUserComposer()
     } catch (error) {
       state.lastError = error.message || 'ایجاد کاربر ناموفق بود.'
@@ -1444,6 +1475,12 @@ export function useWorkflowHub() {
     state.documentSubmitting = true
     state.lastError = ''
     try {
+      if (!String(state.documentForm.title || '').trim()) {
+        throw new Error('عنوان سند الزامی است.')
+      }
+      if (!state.documentForm.file) {
+        throw new Error('فایل سند الزامی است.')
+      }
       if (!state.documentForm.assigneeIds.length) {
         throw new Error('حداقل یک مدیر دریافت کننده را انتخاب کنید.')
       }
@@ -1520,38 +1557,62 @@ export function useWorkflowHub() {
 
   async function approveSelectedRequest() {
     if (!selectedRequest.value) return
-    await authorizedFetch(hqScopedPath(`/requests/${selectedRequest.value.id}/approve`), { method: 'POST' })
-    await loadBootstrapData(true)
-    await loadRequestDetail(selectedRequest.value.id)
+    state.lastError = ''
+    try {
+      await authorizedFetch(hqScopedPath(`/requests/${selectedRequest.value.id}/approve`), { method: 'POST' })
+      await loadBootstrapData(true)
+      await loadRequestDetail(selectedRequest.value.id)
+    } catch (error) {
+      state.lastError = error.message || 'تایید درخواست ناموفق بود.'
+      throw error
+    }
   }
 
   async function rejectSelectedRequest(reason = '') {
     if (!selectedRequest.value) return
-    await authorizedFetch(hqScopedPath(`/requests/${selectedRequest.value.id}/reject`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason }),
-    })
-    await loadBootstrapData(true)
-    await loadRequestDetail(selectedRequest.value.id)
+    state.lastError = ''
+    try {
+      await authorizedFetch(hqScopedPath(`/requests/${selectedRequest.value.id}/reject`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      })
+      await loadBootstrapData(true)
+      await loadRequestDetail(selectedRequest.value.id)
+    } catch (error) {
+      state.lastError = error.message || 'رد درخواست ناموفق بود.'
+      throw error
+    }
   }
 
   async function approveSelectedExpense() {
     if (!selectedExpense.value) return
-    await authorizedFetch(hqScopedPath(`/expenses/${selectedExpense.value.id}/approve`), { method: 'POST' })
-    await loadBootstrapData(true)
-    await loadExpenseDetail(selectedExpense.value.id)
+    state.lastError = ''
+    try {
+      await authorizedFetch(hqScopedPath(`/expenses/${selectedExpense.value.id}/approve`), { method: 'POST' })
+      await loadBootstrapData(true)
+      await loadExpenseDetail(selectedExpense.value.id)
+    } catch (error) {
+      state.lastError = error.message || 'تایید هزینه ناموفق بود.'
+      throw error
+    }
   }
 
   async function rejectSelectedExpense(reason = '') {
     if (!selectedExpense.value) return
-    await authorizedFetch(hqScopedPath(`/expenses/${selectedExpense.value.id}/reject`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason }),
-    })
-    await loadBootstrapData(true)
-    await loadExpenseDetail(selectedExpense.value.id)
+    state.lastError = ''
+    try {
+      await authorizedFetch(hqScopedPath(`/expenses/${selectedExpense.value.id}/reject`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      })
+      await loadBootstrapData(true)
+      await loadExpenseDetail(selectedExpense.value.id)
+    } catch (error) {
+      state.lastError = error.message || 'رد هزینه ناموفق بود.'
+      throw error
+    }
   }
 
   async function updateUser(userId, payload) {

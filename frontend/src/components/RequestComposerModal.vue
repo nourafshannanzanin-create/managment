@@ -33,11 +33,20 @@ const employeeChoices = computed(() =>
   (state.users || []).filter((item) => item.accessRole === 'employee'),
 )
 
-const filteredManagers = computed(() => {
+const filteredPrimaryManagers = computed(() => {
   const query = referralSearch.value.trim().toLowerCase()
-  const items = referralTab.value === 'managers' ? managerChoices.value : requestManagerAssigneeOptions.value
-  if (!query) return items
-  return items.filter((item) => [item.name, item.role].join(' ').toLowerCase().includes(query))
+  if (!query) return managerChoices.value
+  return managerChoices.value.filter((item) =>
+    [item.name, item.role].join(' ').toLowerCase().includes(query),
+  )
+})
+
+const filteredManagerAssignees = computed(() => {
+  const query = referralSearch.value.trim().toLowerCase()
+  if (!query) return requestManagerAssigneeOptions.value
+  return requestManagerAssigneeOptions.value.filter((item) =>
+    [item.name, item.role].join(' ').toLowerCase().includes(query),
+  )
 })
 
 const filteredEmployees = computed(() => {
@@ -95,15 +104,17 @@ function openReferralPicker() {
           <span>بخش</span>
           <select v-model="form.department">
             <option value="">انتخاب بخش</option>
-            <option v-for="item in state.directories.departments" :key="item.code" :value="item.code">{{ item.name }}</option>
+            <option v-for="item in state.directories.departments" :key="item.code" :value="item.code">
+              {{ item.name }}
+            </option>
           </select>
         </label>
 
         <label class="field-shell">
-          <span>ارجاع</span>
+          <span>ارجاع گیرنده</span>
           <button class="action-btn tone-soft inline-open-btn" type="button" @click="openReferralPicker">
             <span class="material-symbols-outlined">group_add</span>
-            <span>انتخاب مدیر و کارمند</span>
+            <span>انتخاب مدیر و گیرنده‌ها</span>
           </button>
         </label>
 
@@ -156,22 +167,19 @@ function openReferralPicker() {
         </article>
       </div>
 
+      <p v-if="state.lastError" class="inline-error">{{ state.lastError }}</p>
+      <p class="request-flow-note">
+        درخواست بعد از ثبت، برای گیرنده‌های انتخاب‌شده ارجاع می‌شود و تایید نهایی در این مرحله انجام نمی‌شود.
+      </p>
+
       <div class="action-group modal-actions">
         <button class="action-btn tone-soft" type="button" @click="$emit('close')">
           <span class="material-symbols-outlined">close</span>
           <span>بستن</span>
         </button>
-        <button class="action-btn tone-danger" :disabled="submitting" type="button" @click="submitRequest('reject')">
-          <span class="material-symbols-outlined">cancel</span>
-          <span>{{ submitting ? 'در حال ثبت...' : 'رد' }}</span>
-        </button>
-        <button class="action-btn tone-primary" :disabled="submitting" type="button" @click="submitRequest('approve')">
-          <span class="material-symbols-outlined">check_circle</span>
-          <span>{{ submitting ? 'در حال ثبت...' : 'تایید' }}</span>
-        </button>
-        <button class="action-btn tone-soft" :disabled="submitting" type="button" @click="submitRequest('refer')">
+        <button class="action-btn tone-primary" :disabled="submitting" type="button" @click="submitRequest">
           <span class="material-symbols-outlined">send</span>
-          <span>{{ submitting ? 'در حال ثبت...' : 'ارجاع' }}</span>
+          <span>{{ submitting ? 'در حال ثبت...' : 'ثبت و ارجاع' }}</span>
         </button>
       </div>
     </div>
@@ -181,7 +189,7 @@ function openReferralPicker() {
     <div class="detail-layout">
       <div class="modal-headline">
         <p class="page-eyebrow">ارجاع درخواست</p>
-        <h2>انتخاب مدیر و کارمندان</h2>
+        <h2>انتخاب ارجاع گیرنده</h2>
       </div>
 
       <div class="filter-toolbar">
@@ -200,13 +208,13 @@ function openReferralPicker() {
         <div class="section-label-row">
           <div>
             <h3>مدیر اصلی</h3>
-            <p>یک مدیر اصلی برای درخواست انتخاب کنید.</p>
+            <p>درخواست ابتدا برای این مدیر ثبت و ارجاع می‌شود.</p>
           </div>
         </div>
 
         <div class="recipient-grid">
           <button
-            v-for="item in filteredManagers"
+            v-for="item in filteredPrimaryManagers"
             :key="`primary-${item.id}`"
             :class="['recipient-card', form.manager === item.slug && 'is-selected']"
             type="button"
@@ -226,13 +234,13 @@ function openReferralPicker() {
         <div class="section-label-row">
           <div>
             <h3>مدیران ارجاعی</h3>
-            <p>در صورت نیاز مدیران دیگری را هم برای پیگیری انتخاب کنید.</p>
+            <p>در صورت نیاز، مدیران دیگری را برای پیگیری موازی اضافه کنید.</p>
           </div>
         </div>
 
         <div class="recipient-grid">
           <button
-            v-for="item in requestManagerAssigneeOptions"
+            v-for="item in filteredManagerAssignees"
             :key="`manager-${item.id}`"
             :class="['recipient-card', isManagerSelected(item.id) && 'is-selected']"
             type="button"
@@ -254,7 +262,7 @@ function openReferralPicker() {
         <div class="section-label-row">
           <div>
             <h3>کارمندان ارجاعی</h3>
-            <p>نام کارمندان مورد نظر را برای پیگیری داخل درخواست ثبت کنید.</p>
+            <p>اگر نیاز به پیگیری اجرایی دارید، کارمندان مرتبط را هم اضافه کنید.</p>
           </div>
         </div>
 
@@ -291,3 +299,17 @@ function openReferralPicker() {
     </div>
   </BaseModal>
 </template>
+
+<style scoped>
+.inline-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.92rem;
+}
+
+.request-flow-note {
+  margin: 0;
+  color: #52607a;
+  font-size: 0.92rem;
+}
+</style>

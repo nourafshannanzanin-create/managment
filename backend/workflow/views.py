@@ -719,6 +719,17 @@ def normalize_slug(value: str) -> str:
     return normalized[:80]
 
 
+def build_unique_user_slug(base_value: str) -> str:
+    base_slug = normalize_slug(base_value) or "user"
+    slug = base_slug
+    suffix = 2
+    while User.objects.filter(slug=slug).exists():
+        suffix_text = f"-{suffix}"
+        slug = f"{base_slug[: max(1, 80 - len(suffix_text))]}{suffix_text}"
+        suffix += 1
+    return slug
+
+
 @require_auth
 @csrf_exempt
 @methods("POST")
@@ -948,6 +959,8 @@ def requests_view(request: HttpRequest):
     request_action = request.POST.get("action", "refer").strip().lower()
     deadline_raw = request.POST.get("deadline", "").strip()
     deadline = date.fromisoformat(deadline_raw) if deadline_raw else None
+    if request_action != "refer":
+        request_action = "refer"
     if request_action not in {"approve", "reject", "refer"}:
         return json_error("Ø§Ù‚Ø¯Ø§Ù… Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", status=422)
     if deadline and deadline > date.today():
@@ -1323,6 +1336,72 @@ def users_view(request: HttpRequest):
     sync_user_section_access(request.current_user, user, section_access_payload(payload))
     user = User.objects.select_related("department", "manager").get(pk=user.pk)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="user_created", entity_type="user", entity_code=str(user.id), detail=user.full_name, icon="group")
+    return json_response(serialize_user(user), status=201)
+
+
+@require_auth
+@csrf_exempt
+@methods("GET", "POST")
+def users_view(request: HttpRequest):
+    if request.method == "GET":
+        if not can_access_users(request.current_user):
+            return json_error("دسترسی کافی ندارید.", status=403)
+        users_qs = visible_users(request.current_user).select_related("department", "manager").order_by("created_at")
+        return json_response([serialize_user(item) for item in users_qs], safe=False)
+
+    if not can_manage_users(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+
+    payload = parse_json(request)
+    email = (payload.get("email") or "").strip().lower()
+    if not email:
+        return json_error("ایمیل الزامی است.", status=422)
+    if User.objects.filter(email=email).exists():
+        return json_error("این ایمیل قبلا ثبت شده است.", status=409)
+
+    role = payload.get("accessRole", UserRole.EMPLOYEE)
+    if role not in dict(UserRole.choices):
+        return json_error("نقش کاربر معتبر نیست.", status=422)
+
+    department = Department.objects.filter(code=payload.get("department", "")).first()
+    manager = User.objects.filter(pk=payload.get("managerId")).first() if payload.get("managerId") else None
+    full_name = (payload.get("fullName") or "").strip()
+    if not full_name:
+        return json_error("نام کامل الزامی است.", status=422)
+
+    password = payload.get("password") or "UserSecret123!"
+    if len(password) < 6:
+        return json_error("رمز عبور باید حداقل 6 کاراکتر باشد.", status=422)
+    if manager and manager.role == UserRole.EMPLOYEE:
+        return json_error("مدیر مستقیم باید از سطح مدیریتی انتخاب شود.", status=422)
+
+    user = User.objects.create(
+        slug=build_unique_user_slug(email.split("@", 1)[0]),
+        full_name=full_name,
+        email=email,
+        phone=None,
+        password_hash=get_password_hash(password),
+        role=role,
+        job_title=(payload.get("jobTitle") or ("مدیر" if role != UserRole.EMPLOYEE else "کارمند")).strip(),
+        avatar=(full_name[:2] if full_name else "NA").upper(),
+        bio="",
+        is_active=True,
+        department=department,
+        manager=manager,
+    )
+    organization = OrganizationMembership.objects.select_related("organization").get(user=request.current_user).organization
+    OrganizationMembership.objects.create(organization=organization, user=user, display_title=user.job_title)
+    sync_user_section_access(request.current_user, user, section_access_payload(payload))
+    user = User.objects.select_related("department", "manager").get(pk=user.pk)
+    AuditLog.objects.create(
+        actor=request.current_user,
+        actor_name=request.current_user.full_name,
+        action="user_created",
+        entity_type="user",
+        entity_code=str(user.id),
+        detail=user.full_name,
+        icon="group",
+    )
     return json_response(serialize_user(user), status=201)
 
 

@@ -54,20 +54,22 @@ const { state, setExpenseInvoice, submitExpense } = useWorkflowHub()
         <textarea v-model="form.description" rows="4"></textarea>
       </label>
 
+      <p v-if="state.lastError" class="inline-error">{{ state.lastError }}</p>
+
       <div class="action-group modal-actions">
-        <button class="action-btn tone-soft" @click="$emit('close')">
+        <button class="action-btn tone-soft" type="button" @click="$emit('close')">
           <span class="material-symbols-outlined">close</span>
           <span>بستن</span>
         </button>
-        <button class="action-btn tone-danger" :disabled="submitting" @click="submitExpense('reject')">
+        <button class="action-btn tone-danger" :disabled="submitting" type="button" @click="submitExpense('reject')">
           <span class="material-symbols-outlined">cancel</span>
           <span>{{ submitting ? 'در حال ثبت...' : 'رد' }}</span>
         </button>
-        <button class="action-btn tone-primary" :disabled="submitting" @click="submitExpense('approve')">
+        <button class="action-btn tone-primary" :disabled="submitting" type="button" @click="submitExpense('approve')">
           <span class="material-symbols-outlined">check_circle</span>
           <span>{{ submitting ? 'در حال ثبت...' : 'تایید' }}</span>
         </button>
-        <button class="action-btn tone-soft" :disabled="submitting" @click="submitExpense('refer')">
+        <button class="action-btn tone-soft" :disabled="submitting" type="button" @click="submitExpense('refer')">
           <span class="material-symbols-outlined">payments</span>
           <span>{{ submitting ? 'در حال ثبت...' : 'ارجاع' }}</span>
         </button>
@@ -75,3 +77,11 @@ const { state, setExpenseInvoice, submitExpense } = useWorkflowHub()
     </div>
   </BaseModal>
 </template>
+
+<style scoped>
+.inline-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.92rem;
+}
+</style>

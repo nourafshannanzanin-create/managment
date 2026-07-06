@@ -102,12 +102,14 @@ const { state, submitUser } = useWorkflowHub()
         </div>
       </section>
 
+      <p v-if="state.lastError" class="inline-error">{{ state.lastError }}</p>
+
       <div class="action-group modal-actions">
-        <button class="action-btn tone-soft" @click="$emit('close')">
+        <button class="action-btn tone-soft" type="button" @click="$emit('close')">
           <span class="material-symbols-outlined">close</span>
           <span>بستن</span>
         </button>
-        <button class="action-btn tone-primary" :disabled="submitting" @click="submitUser">
+        <button class="action-btn tone-primary" type="button" :disabled="submitting" @click="submitUser">
           <span class="material-symbols-outlined">person_add</span>
           <span>{{ submitting ? 'در حال ایجاد...' : 'ایجاد کاربر' }}</span>
         </button>
@@ -154,6 +156,12 @@ const { state, submitUser } = useWorkflowHub()
 .check-tile small {
   margin-top: 4px;
   color: var(--muted);
+}
+
+.inline-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.92rem;
 }
 
 @media (max-width: 760px) {
