@@ -3,6 +3,8 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 
 import { useWorkflowHub } from '../stores/workflowHub'
 
+const PAYMENT_TICKET_SUBJECT = 'پرداخت کیف پول'
+
 const {
   state,
   loadSupportTickets,
@@ -10,6 +12,7 @@ const {
   createSupportTicket,
   submitSupportReply,
   submitSupportFeedback,
+  submitSupportWalletDeposit,
   markSupportTicketsSeen,
 } = useWorkflowHub()
 
@@ -17,8 +20,10 @@ const activeStatus = ref('all')
 const activeCategory = ref('all')
 const query = ref('')
 const modalOpen = ref(false)
+const walletDepositModalOpen = ref(false)
 const replyBody = ref('')
 const feedback = reactive({ score: 0, text: '' })
+const walletDepositForm = reactive({ amount: '' })
 const form = reactive({
   subject: '',
   message: '',
@@ -27,7 +32,6 @@ const form = reactive({
   attachments: [],
 })
 
-const needsOrganization = computed(() => state.currentUser.isHq && !state.hq.selectedOrganizationId)
 const tickets = computed(() => state.support.tickets || [])
 const selectedTicket = computed(() => state.support.selectedTicket)
 const canCloseTicket = computed(() => state.currentUser.canUseHq)
@@ -63,6 +67,12 @@ const priorities = [
   { key: 'urgent', label: 'فوری' },
 ]
 
+function paymentTicketRank(ticket) {
+  return ticket?.category === 'financial' && ticket?.priority === 'urgent' && ticket?.subject === PAYMENT_TICKET_SUBJECT ? 0 : 1
+}
+
+const canDepositToWallet = computed(() => state.currentUser.canUseHq && paymentTicketRank(selectedTicket.value) === 0)
+
 const filteredTickets = computed(() => {
   const needle = query.value.trim().toLowerCase()
   return tickets.value.filter((ticket) => {
@@ -73,7 +83,11 @@ const filteredTickets = computed(() => {
     }
     if (activeCategory.value !== 'all' && ticket.category !== activeCategory.value) return false
     if (!needle) return true
-    return `${ticket.id} ${ticket.subject} ${ticket.message} ${ticket.categoryLabel} ${ticket.lastMessagePreview}`.toLowerCase().includes(needle)
+    return `${ticket.id} ${ticket.subject} ${ticket.message} ${ticket.categoryLabel} ${ticket.organization} ${ticket.lastMessagePreview}`.toLowerCase().includes(needle)
+  }).sort((a, b) => {
+    const rankDiff = paymentTicketRank(a) - paymentTicketRank(b)
+    if (rankDiff !== 0) return rankDiff
+    return new Date(b.updatedAt) - new Date(a.updatedAt)
   })
 })
 
@@ -137,6 +151,18 @@ async function sendFeedback() {
   await submitSupportFeedback(selectedTicket.value.id, { score: feedback.score, feedback: feedback.text })
 }
 
+function openWalletDepositModal() {
+  walletDepositForm.amount = ''
+  walletDepositModalOpen.value = true
+}
+
+async function submitWalletDeposit() {
+  if (!selectedTicket.value?.id) return
+  await submitSupportWalletDeposit(selectedTicket.value.id, { amount: walletDepositForm.amount })
+  walletDepositModalOpen.value = false
+  walletDepositForm.amount = ''
+}
+
 async function hydrateSupportWorkspace() {
   await loadSupportTickets(true)
   markCurrentAnsweredTicketsSeen()
@@ -160,27 +186,8 @@ watch(
 
 <template>
   <section class="support-page">
-    <div v-if="needsOrganization" class="support-empty">
-      <span class="material-symbols-outlined">corporate_fare</span>
-    </div>
-
-    <template v-else>
-      <section class="support-hero">
-        <div>
-          <span class="support-kicker">SUPPORT DESK</span>
-          <strong>مرکز رسیدگی</strong>
-        </div>
-        <button class="support-primary" type="button" @click="modalOpen = true">
-          <span class="material-symbols-outlined">add_circle</span>
-          ثبت تیکت
-        </button>
-      </section>
-
-      <div v-if="state.support.error || state.support.message" class="support-alert" :class="{ danger: state.support.error }">
-        {{ state.support.error || state.support.message }}
-      </div>
-
-      <section class="support-status-grid">
+    <section class="support-hero">
+      <div class="support-hero-actions">
         <button
           v-for="item in statusTabs"
           :key="item.key"
@@ -192,134 +199,152 @@ watch(
           <b>{{ item.count }}</b>
           <small>{{ item.label }}</small>
         </button>
-      </section>
+      </div>
+      <button class="support-primary" type="button" @click="modalOpen = true">
+        <span class="material-symbols-outlined">add_circle</span>
+        ثبت تیکت
+      </button>
+    </section>
 
-      <section class="support-workspace">
-        <aside class="support-inbox">
-          <div class="support-tools">
-            <input v-model="query" placeholder="جستجو" />
-            <div class="support-chips">
-              <button
-                v-for="item in categories"
-                :key="item.key"
-                :class="{ active: activeCategory === item.key }"
-                type="button"
-                @click="activeCategory = item.key"
-              >
-                {{ item.label }}
-              </button>
-            </div>
-          </div>
+    <div v-if="state.support.error || state.support.message" class="support-alert" :class="{ danger: state.support.error }">
+      {{ state.support.error || state.support.message }}
+    </div>
 
-          <div v-if="state.support.loading" class="support-empty compact">
-            <span class="material-symbols-outlined">progress_activity</span>
-          </div>
-
-          <div v-else-if="!filteredTickets.length" class="support-empty compact">
-            <span class="material-symbols-outlined">inbox</span>
-          </div>
-
-          <div v-else class="ticket-list">
+    <section class="support-workspace">
+      <aside class="support-inbox">
+        <div class="support-tools">
+          <input v-model="query" placeholder="جستجو" />
+          <div class="support-chips">
             <button
-              v-for="ticket in filteredTickets"
-              :key="ticket.id"
-              :class="['ticket-row', selectedTicket?.id === ticket.id && 'is-active']"
+              v-for="item in categories"
+              :key="item.key"
+              :class="{ active: activeCategory === item.key }"
               type="button"
-              @click="openTicket(ticket.id)"
+              @click="activeCategory = item.key"
             >
-              <span :class="['ticket-dot', statusClass(ticket.status)]"></span>
-              <b>{{ ticket.subject }}</b>
-              <small>{{ ticket.lastMessagePreview }}</small>
-              <em>#{{ ticket.id }} · {{ ticket.categoryLabel }} · {{ ticket.priorityLabel }}</em>
+              {{ item.label }}
             </button>
           </div>
-        </aside>
+        </div>
 
-        <main class="support-conversation">
-          <div v-if="state.support.detailLoading" class="support-empty compact">
-            <span class="material-symbols-outlined">progress_activity</span>
-          </div>
+        <div v-if="state.support.loading" class="support-empty compact">
+          <span class="material-symbols-outlined">progress_activity</span>
+        </div>
 
-          <div v-else-if="!selectedTicket" class="support-empty compact">
-            <span class="material-symbols-outlined">chat</span>
-          </div>
+        <div v-else-if="!filteredTickets.length" class="support-empty compact">
+          <span class="material-symbols-outlined">inbox</span>
+        </div>
 
-          <template v-else>
-            <header class="conversation-head">
-              <div>
-                <span :class="['status-pill', statusClass(selectedTicket.status)]">{{ selectedTicket.statusLabel }}</span>
-                <h3>{{ selectedTicket.subject }}</h3>
-              </div>
-              <div class="conversation-meta">
-                <span>{{ selectedTicket.categoryLabel }}</span>
-                <span>{{ selectedTicket.priorityLabel }}</span>
-                <span>#{{ selectedTicket.id }}</span>
-              </div>
-            </header>
+        <div v-else class="ticket-list">
+          <button
+            v-for="ticket in filteredTickets"
+            :key="ticket.id"
+            :class="['ticket-row', selectedTicket?.id === ticket.id && 'is-active']"
+            type="button"
+            @click="openTicket(ticket.id)"
+          >
+            <span :class="['ticket-dot', statusClass(ticket.status)]"></span>
+            <b>{{ ticket.subject }}</b>
+            <small>{{ ticket.organization }} · {{ ticket.lastMessagePreview }}</small>
+            <em>#{{ ticket.id }} · {{ ticket.categoryLabel }} · {{ ticket.priorityLabel }}</em>
+          </button>
+        </div>
+      </aside>
 
-            <section v-if="selectedTicket.attachments?.length" class="attachment-strip">
-              <a v-for="item in selectedTicket.attachments" :key="item.id" :href="item.fileUrl" target="_blank" rel="noreferrer">
-                <span class="material-symbols-outlined">attach_file</span>
-                {{ item.originalName }}
-              </a>
-            </section>
+      <main class="support-conversation">
+        <div v-if="state.support.detailLoading" class="support-empty compact">
+          <span class="material-symbols-outlined">progress_activity</span>
+        </div>
 
-            <section class="message-thread">
-              <article
-                v-for="message in selectedTicket.messages || []"
-                :key="message.id"
-                :class="['message-row', messageClass(message)]"
-              >
-                <div :class="['message-bubble', messageClass(message)]">
-                  <div>
-                    <b>{{ message.sender }}</b>
-                    <small>{{ message.time }}</small>
-                  </div>
-                  <p>{{ message.body }}</p>
+        <div v-else-if="!selectedTicket" class="support-empty compact">
+          <span class="material-symbols-outlined">chat</span>
+        </div>
+
+        <template v-else>
+          <header class="conversation-head">
+            <div>
+              <span :class="['status-pill', statusClass(selectedTicket.status)]">{{ selectedTicket.statusLabel }}</span>
+              <h3>{{ selectedTicket.subject }}</h3>
+            </div>
+            <div class="conversation-meta">
+              <span>{{ selectedTicket.organization }}</span>
+              <span>{{ selectedTicket.categoryLabel }}</span>
+              <span>{{ selectedTicket.priorityLabel }}</span>
+              <span>#{{ selectedTicket.id }}</span>
+            </div>
+          </header>
+
+          <section v-if="selectedTicket.attachments?.length" class="attachment-strip">
+            <a v-for="item in selectedTicket.attachments" :key="item.id" :href="item.fileUrl" target="_blank" rel="noreferrer">
+              <span class="material-symbols-outlined">attach_file</span>
+              {{ item.originalName }}
+            </a>
+          </section>
+
+          <section class="message-thread">
+            <article
+              v-for="message in selectedTicket.messages || []"
+              :key="message.id"
+              :class="['message-row', messageClass(message)]"
+            >
+              <div :class="['message-bubble', messageClass(message)]">
+                <div>
+                  <b>{{ message.sender }}</b>
+                  <small>{{ message.time }}</small>
                 </div>
-              </article>
-            </section>
-
-            <section v-if="selectedTicket.status !== 'closed'" class="reply-box">
-              <textarea v-model="replyBody" rows="4" placeholder="پاسخ..." />
-              <div>
-                <button
-                  v-if="canCloseTicket"
-                  class="support-soft"
-                  type="button"
-                  :disabled="state.support.submitting"
-                  @click="sendReply(true)"
-                >
-                  بستن
-                </button>
-                <button class="support-primary" type="button" :disabled="state.support.submitting || !replyBody.trim()" @click="sendReply(false)">
-                  ارسال
-                </button>
+                <p>{{ message.body }}</p>
               </div>
-            </section>
+            </article>
+          </section>
 
-            <section v-else class="feedback-box">
-              <div class="stars">
-                <button
-                  v-for="score in 5"
-                  :key="score"
-                  :class="{ active: feedback.score >= score || selectedTicket.customerSatisfaction >= score }"
-                  type="button"
-                  :disabled="!!selectedTicket.customerSatisfaction"
-                  @click="feedback.score = score"
-                >
-                  ★
-                </button>
-              </div>
-              <textarea v-if="!selectedTicket.customerSatisfaction" v-model="feedback.text" rows="3" placeholder="نظر کوتاه..." />
-              <button v-if="!selectedTicket.customerSatisfaction" class="support-primary" type="button" :disabled="!feedback.score" @click="sendFeedback">
-                ثبت نظر
+          <section v-if="selectedTicket.status !== 'closed'" class="reply-box">
+            <textarea v-model="replyBody" rows="4" placeholder="پاسخ..." />
+            <div>
+              <button
+                v-if="canDepositToWallet"
+                class="support-soft"
+                type="button"
+                :disabled="state.support.submitting"
+                @click="openWalletDepositModal"
+              >
+                واریز
               </button>
-            </section>
-          </template>
-        </main>
-      </section>
-    </template>
+              <button
+                v-if="canCloseTicket"
+                class="support-soft"
+                type="button"
+                :disabled="state.support.submitting"
+                @click="sendReply(true)"
+              >
+                بستن
+              </button>
+              <button class="support-primary" type="button" :disabled="state.support.submitting || !replyBody.trim()" @click="sendReply(false)">
+                ارسال
+              </button>
+            </div>
+          </section>
+
+          <section v-else class="feedback-box">
+            <div class="stars">
+              <button
+                v-for="score in 5"
+                :key="score"
+                :class="{ active: feedback.score >= score || selectedTicket.customerSatisfaction >= score }"
+                type="button"
+                :disabled="!!selectedTicket.customerSatisfaction"
+                @click="feedback.score = score"
+              >
+                ★
+              </button>
+            </div>
+            <textarea v-if="!selectedTicket.customerSatisfaction" v-model="feedback.text" rows="3" placeholder="نظر کوتاه..." />
+            <button v-if="!selectedTicket.customerSatisfaction" class="support-primary" type="button" :disabled="!feedback.score" @click="sendFeedback">
+              ثبت نظر
+            </button>
+          </section>
+        </template>
+      </main>
+    </section>
 
     <div v-if="modalOpen" class="support-modal-backdrop" @click.self="modalOpen = false">
       <form class="support-modal" @submit.prevent="submitTicket">
@@ -356,6 +381,21 @@ watch(
         <div class="modal-actions">
           <button class="support-soft" type="button" @click="modalOpen = false">لغو</button>
           <button class="support-primary" type="submit" :disabled="state.support.submitting">ثبت</button>
+        </div>
+      </form>
+    </div>
+
+    <div v-if="walletDepositModalOpen" class="support-modal-backdrop" @click.self="walletDepositModalOpen = false">
+      <form class="support-modal" @submit.prevent="submitWalletDeposit">
+        <div class="modal-handle"></div>
+        <h3>واریز به کیف پول</h3>
+        <label>
+          <span>مبلغ</span>
+          <input v-model.trim="walletDepositForm.amount" inputmode="decimal" required placeholder="0" />
+        </label>
+        <div class="modal-actions">
+          <button class="support-soft" type="button" @click="walletDepositModalOpen = false">لغو</button>
+          <button class="support-primary" type="submit" :disabled="state.support.submitting">تایید</button>
         </div>
       </form>
     </div>
@@ -397,7 +437,14 @@ watch(
     linear-gradient(135deg, #f8fbff 0%, #eff4fb 48%, #fbfdff 100%);
 }
 
-.support-kicker,
+.support-hero-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .conversation-meta span,
 .support-modal label span {
   color: var(--support-muted);
@@ -405,14 +452,12 @@ watch(
   font-weight: 900;
 }
 
-.support-hero strong {
-  display: block;
-  color: var(--support-navy);
-  font-size: clamp(2.2rem, 6vw, 4.8rem);
-  line-height: 1;
+.support-primary,
+.support-soft,
+.support-chips button {
+  cursor: pointer;
 }
 
-.support-status-grid,
 .support-chips,
 .modal-actions,
 .reply-box div,
@@ -434,7 +479,6 @@ watch(
   justify-content: center;
   gap: 8px;
   font-weight: 900;
-  cursor: pointer;
 }
 
 .support-primary {
@@ -461,21 +505,19 @@ watch(
   background: #fff1f2;
 }
 
-.support-status-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
 .support-status-card {
-  display: grid;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 54px;
+  padding: 0 14px;
+  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
-  min-height: 130px;
-  padding: 18px;
-  border-radius: 26px;
-  text-align: start;
+  text-align: center;
   color: var(--support-ink);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.94));
-  cursor: pointer;
 }
 
 .support-status-card.is-active {
@@ -491,7 +533,11 @@ watch(
 
 .support-status-card b {
   color: var(--support-navy);
-  font-size: 1.4rem;
+  font-size: 1rem;
+}
+
+.support-status-card small {
+  white-space: nowrap;
 }
 
 .support-workspace {
@@ -541,7 +587,6 @@ watch(
   color: var(--support-muted);
   background: rgba(55, 99, 168, 0.08);
   font-weight: 900;
-  cursor: pointer;
 }
 
 .support-chips button.active {
@@ -787,8 +832,13 @@ watch(
     grid-template-columns: 1fr;
   }
 
-  .support-status-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .support-hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .support-hero-actions {
+    flex-wrap: wrap;
   }
 }
 
@@ -801,8 +851,9 @@ watch(
     grid-template-columns: 1fr;
   }
 
-  .support-status-grid {
-    grid-template-columns: 1fr;
+  .support-hero-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

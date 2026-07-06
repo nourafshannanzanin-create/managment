@@ -19,6 +19,7 @@ urlpatterns = [
     path("support/tickets", views.support_tickets_view),
     path("support/tickets/<int:ticket_id>", views.support_ticket_detail_view),
     path("support/tickets/<int:ticket_id>/messages", views.support_ticket_message_view),
+    path("support/tickets/<int:ticket_id>/wallet-deposit", views.support_ticket_wallet_deposit_view),
     path("support/tickets/<int:ticket_id>/feedback", views.support_ticket_feedback_view),
     path("requests", views.requests_view),
     path("requests/<str:request_code>", views.request_detail_view),

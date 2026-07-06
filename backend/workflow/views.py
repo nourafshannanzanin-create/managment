@@ -245,6 +245,16 @@ def parse_wallet_amount(value) -> Decimal | None:
     return amount if amount > 0 else None
 
 
+def support_ticket_wallet_id(ticket: SupportTicket) -> int | None:
+    for line in (ticket.message or "").splitlines():
+        if not line.startswith("WALLET_ID:"):
+            continue
+        raw_value = line.split(":", 1)[1].strip()
+        if raw_value.isdigit():
+            return int(raw_value)
+    return None
+
+
 def scoped_support_organization(request: HttpRequest) -> Organization | None:
     return resolve_wallet_organization(request)
 
@@ -252,7 +262,12 @@ def scoped_support_organization(request: HttpRequest) -> Organization | None:
 def scoped_support_tickets(request: HttpRequest):
     organization = scoped_support_organization(request)
     if request.current_user.slug == HQ_USERNAME and organization is None:
-        return SupportTicket.objects.none()
+        return (
+            SupportTicket.objects.all()
+            .select_related("organization", "requester", "responded_by")
+            .prefetch_related("messages", "attachments")
+            .order_by("-updated_at", "-id")
+        )
     if organization is None:
         return SupportTicket.objects.none()
     return (
@@ -710,6 +725,85 @@ def support_ticket_feedback_view(request: HttpRequest, ticket_id: int):
     ticket.customer_feedback = (payload.get("feedback") or "").strip()
     ticket.updated_at = timezone.now()
     ticket.save(update_fields=["customer_satisfaction", "customer_feedback", "updated_at"])
+    return json_response(serialize_support_ticket(ticket, include_detail=True))
+
+
+@require_auth
+@methods("POST")
+def support_ticket_wallet_deposit_view(request: HttpRequest, ticket_id: int):
+    denied = ensure_hq_admin(request.current_user)
+    if denied:
+        return denied
+
+    ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
+    if ticket is None:
+        return json_error("تیکت پیدا نشد.", status=404)
+    if ticket.category != SupportTicketCategory.FINANCIAL:
+        return json_error("این تیکت برای واریز کیف پول نیست.", status=409)
+
+    wallet_id = support_ticket_wallet_id(ticket)
+    if wallet_id is None:
+        return json_error("شناسه کیف پول در تیکت ثبت نشده است.", status=422)
+
+    payload = parse_json(request)
+    amount = parse_wallet_amount(payload.get("amount"))
+    if amount is None:
+        return json_error("مبلغ معتبر نیست.", status=422)
+
+    now_value = timezone.now()
+    with transaction.atomic():
+        wallet = (
+            Wallet.objects.select_for_update()
+            .filter(pk=wallet_id, organization=ticket.organization, is_active=True)
+            .first()
+        )
+        if wallet is None:
+            return json_error("کیف پول پیدا نشد.", status=404)
+
+        next_balance = Decimal(wallet.balance) + amount
+        wallet.balance = next_balance
+        wallet.updated_at = now_value
+        wallet.save(update_fields=["balance", "updated_at"])
+
+        WalletTransaction.objects.create(
+            organization=ticket.organization,
+            wallet=wallet,
+            actor=request.current_user,
+            direction="in",
+            transaction_type="support_ticket_deposit",
+            amount=amount,
+            balance_after=next_balance,
+            note=f"support_ticket:{ticket.id}",
+            reference_id=str(payload.get("referenceId") or ticket.id),
+        )
+
+        SupportMessage.objects.create(
+            ticket=ticket,
+            sender=request.current_user,
+            sender_name=request.current_user.full_name,
+            sender_platform_role="hq_support",
+            body=f"واریز کیف پول انجام شد. مبلغ: {format_money(amount)}",
+        )
+
+        ticket.status = SupportTicketStatus.ANSWERED
+        ticket.responded_by = request.current_user
+        ticket.responded_at = now_value
+        if ticket.first_response_at is None:
+            ticket.first_response_at = now_value
+        ticket.updated_at = now_value
+        ticket.save(update_fields=["status", "responded_by", "responded_at", "first_response_at", "updated_at"])
+
+        AuditLog.objects.create(
+            actor=request.current_user,
+            actor_name=request.current_user.full_name,
+            action="support_ticket_wallet_deposit",
+            entity_type="wallet",
+            entity_code=wallet.key,
+            detail=f"{ticket.organization.code}:{ticket.id}:{format_money(amount)}",
+            icon="account_balance_wallet",
+        )
+
+    ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
     return json_response(serialize_support_ticket(ticket, include_detail=True))
 
 
