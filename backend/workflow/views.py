@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import mimetypes
@@ -105,8 +105,53 @@ def json_response(payload, status=200, safe=True):
     return JsonResponse(payload, status=status, safe=safe, json_dumps_params=JSON_KWARGS)
 
 
-def json_error(detail: str, status=400):
-    return json_response({"detail": detail}, status=status)
+ERROR_FIELD_PATTERNS = [
+    ("title", "عنوان", ("عنوان",)),
+    ("description", "شرح", ("شرح", "توضیح")),
+    ("manager", "ارجاع گیرنده", ("مدیر", "ارجاع", "گیرنده")),
+    ("amount", "مبلغ", ("مبلغ", "هزینه")),
+    ("fullName", "نام کامل", ("نام کامل", "نام کاربر")),
+    ("email", "ایمیل", ("ایمیل",)),
+    ("password", "رمز عبور", ("رمز عبور",)),
+    ("file", "فایل", ("فایل", "پیوست", "سند")),
+    ("signatureData", "امضا", ("امضا",)),
+    ("organizationName", "نام سازمان", ("سازمان", "مجموعه")),
+]
+
+
+def error_title(status: int) -> str:
+    if status == 401:
+        return "نیاز به ورود مجدد"
+    if status == 403:
+        return "دسترسی کافی نیست"
+    if status == 404:
+        return "موردی پیدا نشد"
+    if status == 409:
+        return "تداخل در اطلاعات"
+    if status == 422:
+        return "اطلاعات فرم نیاز به اصلاح دارد"
+    if status >= 500:
+        return "خطای داخلی سامانه"
+    return "خطا در انجام عملیات"
+
+
+def infer_error_fields(detail: str) -> list[dict]:
+    fields = []
+    for key, label, patterns in ERROR_FIELD_PATTERNS:
+        if any(pattern in detail for pattern in patterns):
+            fields.append({"field": key, "label": label, "message": detail})
+    return fields
+
+
+def json_error(detail: str, status=400, fields=None, title: str | None = None, suggestion: str | None = None):
+    normalized_fields = fields if fields is not None else infer_error_fields(detail)
+    payload = {
+        "detail": detail,
+        "title": title or error_title(status),
+        "fields": normalized_fields,
+        "suggestion": suggestion or ("فیلدهای مشخص شده را اصلاح کنید و دوباره ثبت کنید." if normalized_fields else "اطلاعات را بررسی کنید و دوباره تلاش کنید."),
+    }
+    return json_response(payload, status=status)
 
 
 def parse_json(request: HttpRequest) -> dict:
@@ -116,31 +161,7 @@ def parse_json(request: HttpRequest) -> dict:
         return {}
 
 
-USER_SECTION_KEYS = ("reports", "users", "settings")
-
-
-def section_access_payload(payload: dict) -> dict[str, bool]:
-    access = payload.get("sectionAccess") or {}
-    return {key: bool(access.get(key)) for key in USER_SECTION_KEYS}
-
-
-def sync_user_section_access(actor: User, user: User, access_map: dict[str, bool]) -> None:
-    organization = get_user_organization(actor)
-    for section_key, allowed in access_map.items():
-        SectionAccessGrant.objects.filter(
-            organization=organization,
-            section_key=section_key,
-            user=user,
-        ).delete()
-        if allowed and user.id != actor.id:
-            SectionAccessGrant.objects.create(
-                organization=organization,
-                section_key=section_key,
-                user=user,
-            )
-
-
-USER_SECTION_KEYS = ("reports", "users", "settings")
+USER_SECTION_KEYS = ("users", "approvals", "expenses", "reports", "settings")
 
 
 def section_access_payload(payload: dict) -> dict[str, bool]:
@@ -178,16 +199,16 @@ def build_settings_profile_payload(user: User, organization_id: int | None = Non
     recent_logins = list(
         AuditLog.objects.filter(actor_id__in=organization_users_qs.values_list("id", flat=True), action="login").order_by("-created_at")[:3]
     )
-    recent_session_label = "Ø¨Ø¯ÙˆÙ† Ù†Ø´Ø³Øª Ø§Ø®ÛŒØ±"
+    recent_session_label = "بدون نشست اخیر"
     if recent_logins:
-        recent_session_label = f"{len(recent_logins)} Ø¯Ø³ØªÚ¯Ø§Ù‡ ÙØ¹Ø§Ù„ Ø´Ù†Ø§Ø³Ø§ÛŒÛŒ Ø´Ø¯"
+        recent_session_label = f"{len(recent_logins)} دستگاه فعال شناسایی شد"
 
     sections = [
-        {"key": "users", "title": "Ø­Ø³Ø§Ø¨ Ú©Ø§Ø±Ø¨Ø±ÛŒ", "description": "Ù…Ø¯ÛŒØ±ÛŒØª Ù†Ù‚Ø´ Ù‡Ø§ Ùˆ Ø¯Ø³ØªØ±Ø³ÛŒ", "route": "/users"},
-        {"key": "approvals", "title": "Ø§Ø³Ù†Ø§Ø¯", "description": "Ú¯Ø±Ø¯Ø´ Ú©Ø§Ø± Ø§Ù…Ø¶Ø§ÛŒ Ø¯ÛŒØ¬ÛŒØªØ§Ù„", "route": "/approvals"},
-        {"key": "expenses", "title": "Ù‡Ø²ÛŒÙ†Ù‡ Ù‡Ø§", "description": "Ø«Ø¨ØªØŒ Ù¾ÛŒÚ¯ÛŒØ±ÛŒ Ùˆ Ú©Ù†ØªØ±Ù„ Ù‡Ø²ÛŒÙ†Ù‡", "route": "/expenses"},
-        {"key": "reports", "title": "Ú¯Ø²Ø§Ø±Ø´Ø§Øª", "description": "Ù†Ù…Ø§ÛŒ Ù…Ø¯ÛŒØ±ÛŒØªÛŒ Ùˆ ØªØ­Ù„ÛŒÙ„ Ø¹Ù…Ù„Ú©Ø±Ø¯", "route": "/reports"},
-        {"key": "settings", "title": "ØªÙ†Ø¸ÛŒÙ…Ø§Øª", "description": "Ù…Ø¯ÛŒØ±ÛŒØª Ù¾Ø±ÙˆÙØ§ÛŒÙ„ Ø³Ø§Ø²Ù…Ø§Ù† Ùˆ Ø¯Ø³ØªØ±Ø³ÛŒâ€ŒÙ‡Ø§", "route": "/settings"},
+        {"key": "users", "title": "کاربران", "description": "مدیریت فهرست کاربران، نقش‌ها و دسترسی‌ها", "route": "/users"},
+        {"key": "approvals", "title": "تاییدیه‌ها", "description": "گردش اسناد، امضا و تصمیم‌های مدیریتی", "route": "/approvals"},
+        {"key": "expenses", "title": "هزینه‌ها", "description": "ثبت، ارجاع، بررسی و کنترل هزینه‌ها", "route": "/expenses"},
+        {"key": "reports", "title": "گزارشات", "description": "نمای مدیریتی و تحلیل عملکرد سازمان", "route": "/reports"},
+        {"key": "settings", "title": "تنظیمات", "description": "مدیریت پروفایل سازمان و دسترسی‌ها", "route": "/settings"},
     ]
     section_payload = []
     for section in sections:
@@ -197,7 +218,7 @@ def build_settings_profile_payload(user: User, organization_id: int | None = Non
                 "id": grant.user.id,
                 "name": grant.user.full_name,
                 "role": grant.user.job_title,
-                "department": grant.user.department.name if grant.user.department else "Ø¨Ø¯ÙˆÙ† ÙˆØ§Ø­Ø¯",
+                "department": grant.user.department.name if grant.user.department else "بدون واحد",
             }
             for grant in grants
         ]
@@ -217,7 +238,7 @@ def build_settings_profile_payload(user: User, organization_id: int | None = Non
                 "id": item.id,
                 "name": item.full_name,
                 "role": item.job_title,
-                "department": item.department.name if item.department else "Ø¨Ø¯ÙˆÙ† ÙˆØ§Ø­Ø¯",
+                "department": item.department.name if item.department else "بدون واحد",
             }
             for item in organization_users_qs
         ],
@@ -349,16 +370,16 @@ def require_auth(view_func):
     def wrapped(request: HttpRequest, *args, **kwargs):
         header = request.headers.get("Authorization", "")
         if not header.startswith("Bearer "):
-            return json_error("ØªÙˆÚ©Ù† Ù†Ø§Ù…Ø¹ØªØ¨Ø± Ø§Ø³Øª.", status=401)
+            return json_error("توکن نامعتبر است.", status=401)
         token = header.split(" ", 1)[1].strip()
         try:
             payload = decode_token(token)
             user_id = int(payload.get("sub"))
         except Exception:
-            return json_error("ØªÙˆÚ©Ù† Ù†Ø§Ù…Ø¹ØªØ¨Ø± Ø§Ø³Øª.", status=401)
+            return json_error("توکن نامعتبر است.", status=401)
         user = User.objects.select_related("department", "manager").filter(pk=user_id, is_active=True).first()
         if user is None:
-            return json_error("Ú©Ø§Ø±Ø¨Ø± Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", status=401)
+            return json_error("کاربر معتبر نیست.", status=401)
         attach_user(request, user)
         return view_func(request, *args, **kwargs)
 
@@ -406,11 +427,11 @@ def login_view(request: HttpRequest):
     if user is None:
         user = User.objects.select_related("department").filter(slug=email).first()
     if user is None or not verify_password(password, user.password_hash):
-        return json_error("Ø§ÛŒÙ…ÛŒÙ„ ÛŒØ§ Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ù†Ø§Ø¯Ø±Ø³Øª Ø§Ø³Øª.", status=401)
+        return json_error("ایمیل یا رمز عبور نادرست است.", status=401)
     ensure_signature(user)
     user.last_login_at = timezone.now()
     user.save(update_fields=["last_login_at"])
-    AuditLog.objects.create(actor=user, actor_name=user.full_name, action="login", entity_type="user", detail="ÙˆØ±ÙˆØ¯ Ø¨Ù‡ Ø³ÛŒØ³ØªÙ…", icon="login")
+    AuditLog.objects.create(actor=user, actor_name=user.full_name, action="login", entity_type="user", detail="ورود به سیستم", icon="login")
     token = create_access_token(str(user.id), {"role": user.role})
     return json_response({"access_token": token, "token_type": "bearer", "user": serialize_current_user(user)})
 
@@ -433,7 +454,7 @@ def bootstrap_view(request: HttpRequest):
 
 def ensure_hq_admin(user: User):
     if user.slug != HQ_USERNAME:
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ HQ ÙÙ‚Ø· Ø¨Ø±Ø§ÛŒ Ø­Ø³Ø§Ø¨ HQ ÙØ¹Ø§Ù„ Ø§Ø³Øª.", status=403)
+        return json_error("دسترسی HQ فقط برای حساب HQ فعال است.", status=403)
     return None
 
 
@@ -540,7 +561,7 @@ def hq_panel_view(request: HttpRequest):
 @methods("GET")
 def wallet_view(request: HttpRequest):
     if not user_can_access_wallet(request.current_user):
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
 
     organization = resolve_wallet_organization(request)
     if request.current_user.slug == HQ_USERNAME and organization is None:
@@ -565,7 +586,7 @@ def wallet_view(request: HttpRequest):
             }
         )
     if organization is None:
-        return json_error("Ù…Ø¬Ù…ÙˆØ¹Ù‡ Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("مجموعه پیدا نشد.", status=404)
     return json_response(wallet_dashboard_payload(organization))
 
 
@@ -573,12 +594,12 @@ def wallet_view(request: HttpRequest):
 @methods("POST")
 def wallet_transaction_view(request: HttpRequest):
     if not user_can_access_wallet(request.current_user):
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
 
     payload = parse_json(request)
     organization = resolve_wallet_organization(request, payload)
     if organization is None:
-        return json_error("Ù…Ø¬Ù…ÙˆØ¹Ù‡ Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("مجموعه پیدا نشد.", status=404)
 
     direction = str(payload.get("direction") or payload.get("type") or "").strip()
     if direction in {"deposit", "charge", "in"}:
@@ -588,11 +609,11 @@ def wallet_transaction_view(request: HttpRequest):
         direction = "out"
         transaction_type = "withdraw"
     else:
-        return json_error("Ù†ÙˆØ¹ ØªØ±Ø§Ú©Ù†Ø´ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", status=422)
+        return json_error("نوع تراکنش معتبر نیست.", status=422)
 
     amount = parse_wallet_amount(payload.get("amount"))
     if amount is None:
-        return json_error("Ù…Ø¨Ù„Øº Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", status=422)
+        return json_error("مبلغ معتبر نیست.", status=422)
 
     wallet_id = payload.get("walletId")
     with transaction.atomic():
@@ -602,12 +623,12 @@ def wallet_transaction_view(request: HttpRequest):
             .first()
         )
         if wallet is None:
-            return json_error("Ú©ÛŒÙ Ù¾ÙˆÙ„ Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+            return json_error("کیف پول پیدا نشد.", status=404)
 
         current_balance = Decimal(wallet.balance)
         next_balance = current_balance + amount if direction == "in" else current_balance - amount
         if next_balance < 0:
-            return json_error("Ù…ÙˆØ¬ÙˆØ¯ÛŒ Ú©ÛŒÙ Ù¾ÙˆÙ„ Ú©Ø§ÙÛŒ Ù†ÛŒØ³Øª.", status=409)
+            return json_error("موجودی کیف پول کافی نیست.", status=409)
 
         wallet.balance = next_balance
         wallet.updated_at = timezone.now()
@@ -644,7 +665,7 @@ def support_tickets_view(request: HttpRequest):
     if request.current_user.slug == HQ_USERNAME and organization is None:
         return json_response([], safe=False)
     if organization is None:
-        return json_error("Ù…Ø¬Ù…ÙˆØ¹Ù‡ Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("مجموعه پیدا نشد.", status=404)
 
     if request.method == "GET":
         tickets = scoped_support_tickets(request)
@@ -655,11 +676,11 @@ def support_tickets_view(request: HttpRequest):
     category = (request.POST.get("category") or SupportTicketCategory.TECHNICAL).strip()
     priority = (request.POST.get("priority") or SupportTicketPriority.MEDIUM).strip()
     if not subject or not message:
-        return json_error("Ø¹Ù†ÙˆØ§Ù† Ùˆ Ù…ØªÙ† ØªÛŒÚ©Øª Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.", status=422)
+        return json_error("عنوان و متن تیکت الزامی است.", status=422)
     if category not in SupportTicketCategory.values:
-        return json_error("Ø¯Ø³ØªÙ‡â€ŒØ¨Ù†Ø¯ÛŒ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", status=422)
+        return json_error("دسته‌بندی معتبر نیست.", status=422)
     if priority not in SupportTicketPriority.values:
-        return json_error("Ø§ÙˆÙ„ÙˆÛŒØª Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", status=422)
+        return json_error("اولویت معتبر نیست.", status=422)
 
     with transaction.atomic():
         ticket = SupportTicket.objects.create(
@@ -707,7 +728,7 @@ def support_tickets_view(request: HttpRequest):
 def support_ticket_detail_view(request: HttpRequest, ticket_id: int):
     ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
     if ticket is None:
-        return json_error("ØªÛŒÚ©Øª Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("تیکت پیدا نشد.", status=404)
     return json_response(serialize_support_ticket(ticket, include_detail=True))
 
 
@@ -716,15 +737,15 @@ def support_ticket_detail_view(request: HttpRequest, ticket_id: int):
 def support_ticket_message_view(request: HttpRequest, ticket_id: int):
     ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
     if ticket is None:
-        return json_error("ØªÛŒÚ©Øª Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("تیکت پیدا نشد.", status=404)
     if ticket.status == SupportTicketStatus.CLOSED:
-        return json_error("Ø§ÛŒÙ† ØªÛŒÚ©Øª Ø¨Ø³ØªÙ‡ Ø´Ø¯Ù‡ Ø§Ø³Øª.", status=409)
+        return json_error("این تیکت بسته شده است.", status=409)
 
     payload = parse_json(request)
     body = (payload.get("body") or "").strip()
     close_ticket = bool(payload.get("close"))
     if not body and not close_ticket:
-        return json_error("Ù…ØªÙ† Ù¾ÛŒØ§Ù… Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.", status=422)
+        return json_error("متن پیام الزامی است.", status=422)
 
     now_value = timezone.now()
     with transaction.atomic():
@@ -759,9 +780,9 @@ def support_ticket_message_view(request: HttpRequest, ticket_id: int):
 def support_ticket_feedback_view(request: HttpRequest, ticket_id: int):
     ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
     if ticket is None:
-        return json_error("ØªÛŒÚ©Øª Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("تیکت پیدا نشد.", status=404)
     if ticket.status != SupportTicketStatus.CLOSED:
-        return json_error("Ø§Ù…ØªÛŒØ§Ø²Ø¯Ù‡ÛŒ ÙÙ‚Ø· Ø¨Ø±Ø§ÛŒ ØªÛŒÚ©Øª Ø¨Ø³ØªÙ‡ Ø´Ø¯Ù‡ ÙØ¹Ø§Ù„ Ø§Ø³Øª.", status=409)
+        return json_error("امتیازدهی فقط برای تیکت بسته شده فعال است.", status=409)
 
     payload = parse_json(request)
     try:
@@ -769,7 +790,7 @@ def support_ticket_feedback_view(request: HttpRequest, ticket_id: int):
     except (TypeError, ValueError):
         score = 0
     if score < 1 or score > 5:
-        return json_error("Ø§Ù…ØªÛŒØ§Ø² Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", status=422)
+        return json_error("امتیاز معتبر نیست.", status=422)
 
     ticket.customer_satisfaction = score
     ticket.customer_feedback = (payload.get("feedback") or "").strip()
@@ -787,18 +808,18 @@ def support_ticket_wallet_deposit_view(request: HttpRequest, ticket_id: int):
 
     ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
     if ticket is None:
-        return json_error("ØªÛŒÚ©Øª Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("تیکت پیدا نشد.", status=404)
     if ticket.category != SupportTicketCategory.FINANCIAL:
-        return json_error("Ø§ÛŒÙ† ØªÛŒÚ©Øª Ø¨Ø±Ø§ÛŒ ÙˆØ§Ø±ÛŒØ² Ú©ÛŒÙ Ù¾ÙˆÙ„ Ù†ÛŒØ³Øª.", status=409)
+        return json_error("این تیکت برای واریز کیف پول نیست.", status=409)
 
     wallet_id = support_ticket_wallet_id(ticket)
     if wallet_id is None:
-        return json_error("Ø´Ù†Ø§Ø³Ù‡ Ú©ÛŒÙ Ù¾ÙˆÙ„ Ø¯Ø± ØªÛŒÚ©Øª Ø«Ø¨Øª Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.", status=422)
+        return json_error("شناسه کیف پول در تیکت ثبت نشده است.", status=422)
 
     payload = parse_json(request)
     amount = parse_wallet_amount(payload.get("amount"))
     if amount is None:
-        return json_error("Ù…Ø¨Ù„Øº Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", status=422)
+        return json_error("مبلغ معتبر نیست.", status=422)
 
     now_value = timezone.now()
     with transaction.atomic():
@@ -808,7 +829,7 @@ def support_ticket_wallet_deposit_view(request: HttpRequest, ticket_id: int):
             .first()
         )
         if wallet is None:
-            return json_error("Ú©ÛŒÙ Ù¾ÙˆÙ„ Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+            return json_error("کیف پول پیدا نشد.", status=404)
 
         next_balance = Decimal(wallet.balance) + amount
         wallet.balance = next_balance
@@ -832,7 +853,7 @@ def support_ticket_wallet_deposit_view(request: HttpRequest, ticket_id: int):
             sender=request.current_user,
             sender_name=request.current_user.full_name,
             sender_platform_role="hq_support",
-            body=f"ÙˆØ§Ø±ÛŒØ² Ú©ÛŒÙ Ù¾ÙˆÙ„ Ø§Ù†Ø¬Ø§Ù… Ø´Ø¯. Ù…Ø¨Ù„Øº: {format_money(amount)}",
+            body=f"واریز کیف پول انجام شد. مبلغ: {format_money(amount)}",
         )
 
         ticket.status = SupportTicketStatus.ANSWERED
@@ -892,28 +913,28 @@ def hq_organization_create_view(request: HttpRequest):
     manager_phone = (payload.get("managerPhone") or "").strip()
 
     if not organization_name:
-        return json_error("Ù†Ø§Ù… Ù…Ø¬Ù…ÙˆØ¹Ù‡ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.", status=422)
+        return json_error("نام مجموعه الزامی است.", status=422)
     if not organization_code:
-        return json_error("Ú©Ø¯ Ù…Ø¬Ù…ÙˆØ¹Ù‡ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", status=422)
+        return json_error("کد مجموعه معتبر نیست.", status=422)
     if not manager_name or not manager_username or not manager_password:
-        return json_error("Ù†Ø§Ù… Ù…Ø¯ÛŒØ±ØŒ Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ùˆ Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.", status=422)
+        return json_error("نام مدیر، نام کاربری و رمز عبور الزامی است.", status=422)
     if len(manager_password) < 6:
-        return json_error("Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø¨Ø§ÛŒØ¯ Ø­Ø¯Ø§Ù‚Ù„ Û¶ Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯.", status=422)
+        return json_error("رمز عبور باید حداقل ۶ کاراکتر باشد.", status=422)
     if not manager_email:
         manager_email = f"{manager_username}@{organization_code}.local"
 
     if Organization.objects.filter(code=organization_code).exists():
-        return json_error("Ú©Ø¯ Ù…Ø¬Ù…ÙˆØ¹Ù‡ Ù‚Ø¨Ù„Ø§ Ø«Ø¨Øª Ø´Ø¯Ù‡ Ø§Ø³Øª.", status=409)
+        return json_error("کد مجموعه قبلا ثبت شده است.", status=409)
     if Organization.objects.filter(name=organization_name).exists():
-        return json_error("Ù†Ø§Ù… Ù…Ø¬Ù…ÙˆØ¹Ù‡ Ù‚Ø¨Ù„Ø§ Ø«Ø¨Øª Ø´Ø¯Ù‡ Ø§Ø³Øª.", status=409)
+        return json_error("نام مجموعه قبلا ثبت شده است.", status=409)
     if User.objects.filter(slug=manager_username).exists():
-        return json_error("Ù†Ø§Ù… Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù…Ø¯ÛŒØ± Ù‚Ø¨Ù„Ø§ Ø«Ø¨Øª Ø´Ø¯Ù‡ Ø§Ø³Øª.", status=409)
+        return json_error("نام کاربری مدیر قبلا ثبت شده است.", status=409)
     if User.objects.filter(email=manager_email).exists():
-        return json_error("Ø§ÛŒÙ…ÛŒÙ„ Ù…Ø¯ÛŒØ± Ù‚Ø¨Ù„Ø§ Ø«Ø¨Øª Ø´Ø¯Ù‡ Ø§Ø³Øª.", status=409)
+        return json_error("ایمیل مدیر قبلا ثبت شده است.", status=409)
 
     department, _ = Department.objects.get_or_create(
         code=f"{organization_code}-admin",
-        defaults={"name": f"Ù…Ø¯ÛŒØ±ÛŒØª {organization_name}"},
+        defaults={"name": f"مدیریت {organization_name}"},
     )
     with transaction.atomic():
         organization = Organization.objects.create(code=organization_code, name=organization_name)
@@ -924,7 +945,7 @@ def hq_organization_create_view(request: HttpRequest):
             phone=manager_phone or None,
             password_hash=get_password_hash(manager_password),
             role=UserRole.ADMIN,
-            job_title="Ù…Ø¯ÛŒØ± Ù…Ø¬Ù…ÙˆØ¹Ù‡",
+            job_title="مدیر مجموعه",
             avatar=(manager_name[:2] if manager_name else "AD").upper(),
             bio="",
             is_active=True,
@@ -947,7 +968,7 @@ def hq_organization_update_view(request: HttpRequest, organization_id: int):
         return denied
     organization = Organization.objects.filter(pk=organization_id).first()
     if organization is None:
-        return json_error("Ø³Ø§Ø²Ù…Ø§Ù† Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("سازمان پیدا نشد.", status=404)
     payload = parse_json(request)
     name = (payload.get("name") or "").strip()
     code = (payload.get("code") or "").strip()
@@ -969,7 +990,7 @@ def hq_user_update_view(request: HttpRequest, user_id: int):
         return denied
     target = User.objects.select_related("organization_membership").filter(pk=user_id).first()
     if target is None:
-        return json_error("Ú©Ø§Ø±Ø¨Ø± Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("کاربر پیدا نشد.", status=404)
     payload = parse_json(request)
     if "name" in payload:
         target.full_name = (payload.get("name") or target.full_name).strip()
@@ -1010,7 +1031,7 @@ def hq_request_update_view(request: HttpRequest, request_code: str):
         return denied
     target = Request.objects.filter(code=request_code).first()
     if target is None:
-        return json_error("Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("درخواست پیدا نشد.", status=404)
     payload = parse_json(request)
     if "title" in payload:
         target.title = (payload.get("title") or target.title).strip()
@@ -1026,7 +1047,7 @@ def hq_request_update_view(request: HttpRequest, request_code: str):
         target.manager = User.objects.filter(pk=payload.get("managerId")).first() if payload.get("managerId") else None
     target.updated_at = timezone.now()
     target.save()
-    RequestTimeline.objects.create(request=target, action="hq_updated", note="ÙˆÛŒØ±Ø§ÛŒØ´ HQ", actor_name=request.current_user.full_name)
+    RequestTimeline.objects.create(request=target, action="hq_updated", note="ویرایش HQ", actor_name=request.current_user.full_name)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="hq_request_updated", entity_type="request", entity_code=target.code, detail=target.title, icon="tune")
     return json_response(build_hq_payload())
 
@@ -1040,12 +1061,15 @@ def hq_payment_update_view(request: HttpRequest, expense_code: str):
         return denied
     target = Expense.objects.filter(code=expense_code).first()
     if target is None:
-        return json_error("Ù¾Ø±Ø¯Ø§Ø®Øª Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("پرداخت پیدا نشد.", status=404)
     payload = parse_json(request)
     if "title" in payload:
         target.title = (payload.get("title") or target.title).strip()
     if "amount" in payload:
-        target.amount = payload.get("amount") or target.amount
+        amount = parse_wallet_amount(payload.get("amount"))
+        if amount is None:
+            return json_error("مبلغ معتبر نیست.", status=422)
+        target.amount = amount
     if "status" in payload and payload.get("status") in dict(ExpenseStatus.choices):
         target.status = payload.get("status")
     if "category" in payload and payload.get("category") in dict(ExpenseCategory.choices):
@@ -1069,7 +1093,7 @@ def hq_document_update_view(request: HttpRequest, document_code: str):
         return denied
     target = Document.objects.filter(code=document_code).first()
     if target is None:
-        return json_error("Ø³Ù†Ø¯ Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("سند پیدا نشد.", status=404)
     payload = parse_json(request)
     if "title" in payload:
         target.title = (payload.get("title") or target.title).strip()
@@ -1109,9 +1133,9 @@ def requests_view(request: HttpRequest):
     if request_action != "refer":
         request_action = "refer"
     if request_action not in {"approve", "reject", "refer"}:
-        return json_error("Ã˜Â§Ã™â€šÃ˜Â¯Ã˜Â§Ã™â€¦ Ã˜Â¯Ã˜Â±Ã˜Â®Ã™Ë†Ã˜Â§Ã˜Â³Ã˜Âª Ã™â€¦Ã˜Â¹Ã˜ÂªÃ˜Â¨Ã˜Â± Ã™â€ Ã›Å’Ã˜Â³Ã˜Âª.", status=422)
+        return json_error("اقدام درخواست معتبر نیست.", status=422)
     if deadline and deadline > date.today():
-        return json_error("Ø§Ù†ØªØ®Ø§Ø¨ ØªØ§Ø±ÛŒØ® Ù‡Ø§ÛŒ Ø¢ÛŒÙ†Ø¯Ù‡ Ù…Ø¬Ø§Ø² Ù†ÛŒØ³Øª.", status=422)
+        return json_error("انتخاب تاریخ های آینده مجاز نیست.", status=422)
     department = Department.objects.filter(code=department_code).first()
     manager = User.objects.filter(slug=manager_slug).first() if manager_slug else None
     assigned_managers = list(User.objects.filter(pk__in=manager_assignee_ids)) if manager_assignee_ids else []
@@ -1122,9 +1146,9 @@ def requests_view(request: HttpRequest):
         "refer": RequestStatus.UNDER_REVIEW,
     }
     timeline_by_action = {
-        "approve": ("approved", "Ã˜ÂªÃ˜Â§Ã›Å’Ã›Å’Ã˜Â¯ Ã˜Â¯Ã˜Â±Ã˜Â®Ã™Ë†Ã˜Â§Ã˜Â³Ã˜Âª"),
-        "reject": ("rejected", "Ã˜Â±Ã˜Â¯ Ã˜Â¯Ã˜Â±Ã˜Â®Ã™Ë†Ã˜Â§Ã˜Â³Ã˜Âª"),
-        "refer": ("referred", "Ã˜Â§Ã˜Â±Ã˜Â¬Ã˜Â§Ã˜Â¹ Ã˜Â¯Ã˜Â±Ã˜Â®Ã™Ë†Ã˜Â§Ã˜Â³Ã˜Âª"),
+        "approve": ("approved", "تایید درخواست"),
+        "reject": ("rejected", "رد درخواست"),
+        "refer": ("referred", "ارجاع درخواست"),
     }
 
     timeline_by_action = {
@@ -1134,16 +1158,16 @@ def requests_view(request: HttpRequest):
     }
 
     if manager_assignee_ids and manager is None:
-        return json_error("Ù…Ø¯ÛŒØ± Ø§ØµÙ„ÛŒ Ø¨Ø§ÛŒØ¯ Ø¨Ù‡ Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ø§Ø±Ø¬Ø§Ø¹ Ø´ÙˆØ¯.", status=422)
+        return json_error("مدیر اصلی باید به درخواست ارجاع شود.", status=422)
     if manager_assignee_ids and (len(assigned_managers) != len(manager_assignee_ids) or any(not is_manager(item) for item in assigned_managers)):
-        return json_error("Ù…Ø¯ÛŒØ±Ø§Ù† Ø§Ø±Ø¬Ø§Ø¹ÛŒ Ø¨Ø§ÛŒØ¯ Ø§Ø² Ù…Ø¯ÛŒØ±Ø§Ù† Ù…Ø¬Ø§Ø² Ø§Ù†ØªØ®Ø§Ø¨ Ø´ÙˆÙ†Ø¯.", status=422)
+        return json_error("مدیران ارجاعی باید از مدیران مجاز انتخاب شوند.", status=422)
     if employee_assignee_ids and (len(assigned_employees) != len(employee_assignee_ids) or any(is_manager(item) for item in assigned_employees)):
-        return json_error("Ú©Ø§Ø±Ù…Ù†Ø¯Ø§Ù† Ø§Ø±Ø¬Ø§Ø¹ÛŒ Ø¨Ø§ÛŒØ¯ Ø§Ø² Ù…ÛŒØ§Ù† Ú©Ø§Ø±Ù…Ù†Ø¯Ø§Ù† Ù…Ø¬Ø§Ø² Ø§Ù†ØªØ®Ø§Ø¨ Ø´ÙˆÙ†Ø¯.", status=422)
+        return json_error("کارمندان ارجاعی باید از میان کارمندان مجاز انتخاب شوند.", status=422)
     if manager and any(item.slug == manager.slug for item in assigned_managers):
-        return json_error("Ù…Ø¯ÛŒØ± Ø§ØµÙ„ÛŒ Ù†Ø¨Ø§ÛŒØ¯ Ø¯Ø± ÙÙ‡Ø±Ø³Øª Ù…Ø¯ÛŒØ±Ø§Ù† Ø§Ø±Ø¬Ø§Ø¹ÛŒ ØªÚ©Ø±Ø§Ø± Ø´ÙˆØ¯.", status=422)
+        return json_error("مدیر اصلی نباید در فهرست مدیران ارجاعی تکرار شود.", status=422)
     request_obj = Request.objects.create(
         code=next_code("REQ"),
-        title=title or "Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ø¬Ø¯ÛŒØ¯",
+        title=title or "درخواست جدید",
         description=description or "",
         priority=priority,
         status=status_by_action[request_action],
@@ -1164,22 +1188,22 @@ def requests_view(request: HttpRequest):
             status=ApprovalAssignmentStatus.PENDING,
         )
 
-    RequestTimeline.objects.create(request=request_obj, action="created", note="Ø§ÛŒØ¬Ø§Ø¯ Ø¯Ø±Ø®ÙˆØ§Ø³Øª", actor_name=request.current_user.full_name)
-    RequestTimeline.objects.create(request=request_obj, action="submitted", note="Ø«Ø¨Øª Ø¯Ø±Ø®ÙˆØ§Ø³Øª", actor_name=request.current_user.full_name)
+    RequestTimeline.objects.create(request=request_obj, action="created", note="ایجاد درخواست", actor_name=request.current_user.full_name)
+    RequestTimeline.objects.create(request=request_obj, action="submitted", note="ثبت درخواست", actor_name=request.current_user.full_name)
     action_name, action_note = timeline_by_action[request_action]
     RequestTimeline.objects.create(request=request_obj, action=action_name, note=action_note, actor_name=request.current_user.full_name)
     if assigned_managers:
         RequestTimeline.objects.create(
             request=request_obj,
             action="manager_referrals",
-            note=f"Ø§Ø±Ø¬Ø§Ø¹ Ø¨Ù‡ Ù…Ø¯ÛŒØ±Ø§Ù†: {', '.join(item.full_name for item in assigned_managers)}",
+            note=f"ارجاع به مدیران: {', '.join(item.full_name for item in assigned_managers)}",
             actor_name=request.current_user.full_name,
         )
     if assigned_employees:
         RequestTimeline.objects.create(
             request=request_obj,
             action="employee_referrals",
-            note=f"Ø§Ø±Ø¬Ø§Ø¹ Ø¨Ù‡ Ú©Ø§Ø±Ù…Ù†Ø¯Ø§Ù†: {', '.join(item.full_name for item in assigned_employees)}",
+            note=f"ارجاع به کارمندان: {', '.join(item.full_name for item in assigned_employees)}",
             actor_name=request.current_user.full_name,
         )
     for file_obj in request.FILES.getlist("attachments"):
@@ -1296,7 +1320,8 @@ def expenses_view(request: HttpRequest):
         return json_error("انتخاب تاریخ آینده مجاز نیست.", status=422)
     if not description:
         return json_error("شرح هزینه الزامی است.", status=422)
-    if parse_wallet_amount(amount) is None:
+    parsed_amount = parse_wallet_amount(amount)
+    if parsed_amount is None:
         return json_error("مبلغ معتبر نیست.", status=422)
 
     department_code = request.POST.get("department", "").strip()
@@ -1316,7 +1341,7 @@ def expenses_view(request: HttpRequest):
     expense = Expense.objects.create(
         code=next_code("EXP"),
         title=(description[:180] or "هزینه جدید"),
-        amount=amount,
+        amount=parsed_amount,
         category=ExpenseCategory.MISCELLANEOUS,
         status=ExpenseStatus.UNDER_REVIEW,
         progress=10,
@@ -1403,16 +1428,16 @@ def expense_reject_view(request: HttpRequest, expense_code: str):
 @methods("GET")
 def expenses_summary_view(request: HttpRequest):
     if not can_access_expenses(request.current_user):
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
     items = list(visible_expenses(request.current_user))
     today = date.today()
     week_start = today - timedelta(days=today.weekday())
     return json_response(
         [
-            {"label": "Ø§Ù…Ø±ÙˆØ²", "value": format_money(sum(item.amount for item in items if item.expense_date == today))},
-            {"label": "Ø§ÛŒÙ† Ù‡ÙØªÙ‡", "value": format_money(sum(item.amount for item in items if item.expense_date >= week_start))},
-            {"label": "Ø§ÛŒÙ† Ù…Ø§Ù‡", "value": format_money(sum(item.amount for item in items if item.expense_date.month == today.month))},
-            {"label": "Ø§Ù…Ø³Ø§Ù„", "value": format_money(sum(item.amount for item in items if item.expense_date.year == today.year))},
+            {"label": "امروز", "value": format_money(sum(item.amount for item in items if item.expense_date == today))},
+            {"label": "این هفته", "value": format_money(sum(item.amount for item in items if item.expense_date >= week_start))},
+            {"label": "این ماه", "value": format_money(sum(item.amount for item in items if item.expense_date.month == today.month))},
+            {"label": "امسال", "value": format_money(sum(item.amount for item in items if item.expense_date.year == today.year))},
         ],
         safe=False,
     )
@@ -1424,35 +1449,35 @@ def expenses_summary_view(request: HttpRequest):
 def users_view(request: HttpRequest):
     if request.method == "GET":
         if not can_access_users(request.current_user):
-            return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+            return json_error("دسترسی کافی ندارید.", status=403)
         users_qs = visible_users(request.current_user).select_related("department", "manager").order_by("created_at")
         return json_response([serialize_user(item) for item in users_qs], safe=False)
 
     if not can_manage_users(request.current_user):
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
 
     payload = parse_json(request)
     email = (payload.get("email") or "").strip().lower()
     if not email:
-        return json_error("Ø§ÛŒÙ…ÛŒÙ„ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.", status=422)
+        return json_error("ایمیل الزامی است.", status=422)
     if User.objects.filter(email=email).exists():
-        return json_error("Ø§ÛŒÙ† Ø§ÛŒÙ…ÛŒÙ„ Ù‚Ø¨Ù„Ø§ Ø«Ø¨Øª Ø´Ø¯Ù‡ Ø§Ø³Øª.", status=409)
+        return json_error("این ایمیل قبلا ثبت شده است.", status=409)
 
     role = payload.get("accessRole", UserRole.EMPLOYEE)
     if role not in dict(UserRole.choices):
-        return json_error("Ù†Ù‚Ø´ Ú©Ø§Ø±Ø¨Ø± Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", status=422)
+        return json_error("نقش کاربر معتبر نیست.", status=422)
 
     department = Department.objects.filter(code=payload.get("department", "")).first()
     manager = User.objects.filter(pk=payload.get("managerId")).first() if payload.get("managerId") else None
     full_name = (payload.get("fullName") or "").strip()
     if not full_name:
-        return json_error("Ù†Ø§Ù… Ú©Ø§Ù…Ù„ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.", status=422)
+        return json_error("نام کامل الزامی است.", status=422)
 
     password = payload.get("password") or "UserSecret123!"
     if len(password) < 6:
-        return json_error("Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø¨Ø§ÛŒØ¯ Ø­Ø¯Ø§Ù‚Ù„ 6 Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯.", status=422)
+        return json_error("رمز عبور باید حداقل 6 کاراکتر باشد.", status=422)
     if manager and manager.role == UserRole.EMPLOYEE:
-        return json_error("Ù…Ø¯ÛŒØ± Ù…Ø³ØªÙ‚ÛŒÙ… Ø¨Ø§ÛŒØ¯ Ø§Ø² Ø³Ø·Ø­ Ù…Ø¯ÛŒØ±ÛŒØªÛŒ Ø§Ù†ØªØ®Ø§Ø¨ Ø´ÙˆØ¯.", status=422)
+        return json_error("مدیر مستقیم باید از سطح مدیریتی انتخاب شود.", status=422)
 
     user = User.objects.create(
         slug=build_unique_user_slug(email.split("@", 1)[0]),
@@ -1461,7 +1486,7 @@ def users_view(request: HttpRequest):
         phone=None,
         password_hash=get_password_hash(password),
         role=role,
-        job_title=(payload.get("jobTitle") or ("Ù…Ø¯ÛŒØ±" if role != UserRole.EMPLOYEE else "Ú©Ø§Ø±Ù…Ù†Ø¯")).strip(),
+        job_title=(payload.get("jobTitle") or ("مدیر" if role != UserRole.EMPLOYEE else "کارمند")).strip(),
         avatar=(full_name[:2] if full_name else "NA").upper(),
         bio="",
         is_active=True,
@@ -1489,27 +1514,27 @@ def users_view(request: HttpRequest):
 @methods("PATCH")
 def user_detail_view(request: HttpRequest, user_id: int):
     if not can_manage_users(request.current_user):
-        return json_error("Ã˜Â¯Ã˜Â³Ã˜ÂªÃ˜Â±Ã˜Â³Ã›Å’ ÃšÂ©Ã˜Â§Ã™ÂÃ›Å’ Ã™â€ Ã˜Â¯Ã˜Â§Ã˜Â±Ã›Å’Ã˜Â¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
 
     allowed_ids = set(visible_users(request.current_user).values_list("id", flat=True))
     if user_id not in allowed_ids:
-        return json_error("ÃšÂ©Ã˜Â§Ã˜Â±Ã˜Â¨Ã˜Â± Ã™â€¦Ã™Ë†Ã˜Â±Ã˜Â¯ Ã™â€ Ã˜Â¸Ã˜Â± Ã›Å’Ã˜Â§Ã™ÂÃ˜Âª Ã™â€ Ã˜Â´Ã˜Â¯.", status=404)
+        return json_error("کاربر مورد نظر یافت نشد.", status=404)
 
     user = User.objects.select_related("department", "manager").filter(pk=user_id).first()
     if not user:
-        return json_error("ÃšÂ©Ã˜Â§Ã˜Â±Ã˜Â¨Ã˜Â± Ã™â€¦Ã™Ë†Ã˜Â±Ã˜Â¯ Ã™â€ Ã˜Â¸Ã˜Â± Ã›Å’Ã˜Â§Ã™ÂÃ˜Âª Ã™â€ Ã˜Â´Ã˜Â¯.", status=404)
+        return json_error("کاربر مورد نظر یافت نشد.", status=404)
 
     payload = parse_json(request)
     email = (payload.get("email") or user.email).strip().lower()
     if User.objects.exclude(pk=user.pk).filter(email=email).exists():
-        return json_error("Ã˜Â§Ã›Å’Ã™â€  Ã˜Â§Ã›Å’Ã™â€¦Ã›Å’Ã™â€ž Ã™â€šÃ˜Â¨Ã™â€žÃ˜Â§ Ã˜Â«Ã˜Â¨Ã˜Âª Ã˜Â´Ã˜Â¯Ã™â€¡ Ã˜Â§Ã˜Â³Ã˜Âª.", status=409)
+        return json_error("این ایمیل قبلا ثبت شده است.", status=409)
 
     manager_id = payload.get("managerId")
     manager = None
     if manager_id:
         manager = User.objects.filter(pk=manager_id).first()
         if not manager or manager.id == user.id or manager.id not in allowed_ids:
-            return json_error("Ã™â€¦Ã˜Â¯Ã›Å’Ã˜Â± Ã˜Â§Ã™â€ Ã˜ÂªÃ˜Â®Ã˜Â§Ã˜Â¨ Ã˜Â´Ã˜Â¯Ã™â€¡ Ã™â€¦Ã˜Â¹Ã˜ÂªÃ˜Â¨Ã˜Â± Ã™â€ Ã›Å’Ã˜Â³Ã˜Âª.", status=422)
+            return json_error("مدیر انتخاب شده معتبر نیست.", status=422)
 
     department = None
     department_code = (payload.get("department") or payload.get("departmentCode") or "").strip()
@@ -1552,7 +1577,7 @@ def user_detail_view(request: HttpRequest, user_id: int):
 @methods("GET")
 def reports_view(request: HttpRequest):
     if not can_view_reports(request.current_user):
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
     return json_response(visible_reports_payload(request.current_user))
 
 
@@ -1560,12 +1585,12 @@ def reports_view(request: HttpRequest):
 @methods("GET")
 def report_export_view(request: HttpRequest, report_key: str):
     if not can_view_reports(request.current_user):
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
     export_format = (request.GET.get("format") or "csv").strip().lower()
     organization_id_raw = request.GET.get("organizationId")
     organization_id = int(organization_id_raw) if organization_id_raw and organization_id_raw.isdigit() else None
     if export_format != "csv":
-        return json_error("ÙØ±Ù…Øª Ø®Ø±ÙˆØ¬ÛŒ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", status=422)
+        return json_error("فرمت خروجی معتبر نیست.", status=422)
     try:
         file_name, content = render_report_export(
             report_key,
@@ -1590,7 +1615,7 @@ def report_export_view(request: HttpRequest, report_key: str):
 @methods("GET")
 def approvals_view(request: HttpRequest):
     if not can_access_approvals(request.current_user):
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
     return json_response([serialize_approval(item, request.current_user) for item in visible_approvals(request.current_user)], safe=False)
 
 
@@ -1598,7 +1623,7 @@ def approvals_view(request: HttpRequest):
 @methods("GET")
 def approvals_metrics_view(request: HttpRequest):
     if not can_access_approvals(request.current_user):
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
     return json_response(approval_metrics(request.current_user))
 
 
@@ -1607,7 +1632,7 @@ def approvals_metrics_view(request: HttpRequest):
 @methods("GET", "POST")
 def approvals_signature_view(request: HttpRequest):
     if not can_approve_documents(request.current_user):
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
     signature = ensure_signature(request.current_user)
     if request.method == "GET":
         has_signature = has_saved_signature(signature.signature_data)
@@ -1616,7 +1641,7 @@ def approvals_signature_view(request: HttpRequest):
     payload = parse_json(request)
     signature_data = (payload.get("signatureData") or "").strip()
     if not has_saved_signature(signature_data):
-        return json_error("Ø§Ù…Ø¶Ø§ÛŒ Ù…Ø¹ØªØ¨Ø± Ø«Ø¨Øª Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.", status=422)
+        return json_error("امضای معتبر ثبت نشده است.", status=422)
     signature.signature_data = signature_data
     signature.updated_at = timezone.now()
     signature.save(update_fields=["signature_data", "updated_at"])
@@ -1628,23 +1653,23 @@ def approvals_signature_view(request: HttpRequest):
 @methods("POST")
 def documents_create_view(request: HttpRequest):
     if not can_access_approvals(request.current_user):
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
     title = request.POST.get("title", "").strip()
     description = request.POST.get("description", "").strip()
     department_code = request.POST.get("department", "").strip()
-    document_type = request.POST.get("documentType", "Ø³Ù†Ø¯").strip()
+    document_type = request.POST.get("documentType", "سند").strip()
     risk = request.POST.get("risk", DocumentRisk.MEDIUM)
     assignee_ids = [int(item) for item in request.POST.get("assigneeIds", "").split(",") if item.strip()]
     file_obj = request.FILES.get("file")
     if not assignee_ids:
-        return json_error("Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ© Ù…Ø¯ÛŒØ± Ø¨Ø§ÛŒØ¯ Ø§Ù†ØªØ®Ø§Ø¨ Ø´ÙˆØ¯.", status=422)
+        return json_error("حداقل یک مدیر باید انتخاب شود.", status=422)
     approvers = list(User.objects.filter(pk__in=assignee_ids))
     if not approvers or any(not is_manager(item) for item in approvers):
-        return json_error("Ø§Ø±Ø¬Ø§Ø¹ Ø³Ù†Ø¯ ÙÙ‚Ø· Ø¨Ù‡ Ù…Ø¯ÛŒØ± Ù…Ø¬Ø§Ø² Ø§Ø³Øª.", status=422)
+        return json_error("ارجاع سند فقط به مدیر مجاز است.", status=422)
 
     document = Document.objects.create(
         code=next_code("DOC"),
-        title=title or "Ø³Ù†Ø¯ Ø¬Ø¯ÛŒØ¯",
+        title=title or "سند جدید",
         document_type=document_type,
         description=description,
         status=DocumentStatus.PENDING,
@@ -1665,10 +1690,10 @@ def documents_create_view(request: HttpRequest):
 @methods("GET")
 def approval_detail_view(request: HttpRequest, document_code: str):
     if not can_access_approvals(request.current_user):
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
     document = scoped_documents(request).filter(code=document_code).first()
     if document is None:
-        return json_error("Ø³Ù†Ø¯ Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("سند پیدا نشد.", status=404)
     return json_response(serialize_approval(document, request.current_user))
 
 
@@ -1676,14 +1701,14 @@ def approval_detail_view(request: HttpRequest, document_code: str):
 @methods("GET")
 def approval_download_view(request: HttpRequest, document_code: str):
     if not can_access_approvals(request.current_user):
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
     document = scoped_documents(request).filter(code=document_code).first()
     if document is None or not document.file_name:
-        return json_error("Ø³Ù†Ø¯ Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("سند پیدا نشد.", status=404)
 
     document_path = Path(settings.MEDIA_ROOT) / document.file_name
     if not document_path.exists():
-        return json_error("ÙØ§ÛŒÙ„ Ø³Ù†Ø¯ Ù…ÙˆØ¬ÙˆØ¯ Ù†ÛŒØ³Øª.", status=404)
+        return json_error("فایل سند موجود نیست.", status=404)
 
     content_type, _ = mimetypes.guess_type(document_path.name)
     download_name = f"{document.code}{document_path.suffix.lower()}"
@@ -1697,13 +1722,13 @@ def approval_download_view(request: HttpRequest, document_code: str):
 @methods("POST")
 def approval_approve_view(request: HttpRequest, document_code: str):
     if not can_approve_documents(request.current_user):
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
     document = scoped_documents(request).filter(code=document_code).first()
     if document is None:
-        return json_error("Ø³Ù†Ø¯ Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("سند پیدا نشد.", status=404)
     if request.current_user.slug == HQ_USERNAME and request.GET.get("organizationId"):
         if document.status == DocumentStatus.REJECTED:
-            return json_error("Ø§ÛŒÙ† Ø³Ù†Ø¯ Ù‚Ø¨Ù„Ø§ Ø±Ø¯ Ø´Ø¯Ù‡ Ø§Ø³Øª.", status=409)
+            return json_error("این سند قبلا رد شده است.", status=409)
         now_value = timezone.now()
         document.approval_assignments.filter(status=ApprovalAssignmentStatus.PENDING).update(
             status=ApprovalAssignmentStatus.APPROVED,
@@ -1719,16 +1744,16 @@ def approval_approve_view(request: HttpRequest, document_code: str):
         return json_response({"status": "approved", "document": document.code})
     assignment = document.approval_assignments.filter(approver=request.current_user).first()
     if assignment is None:
-        return json_error("Ø§ÛŒÙ† Ø³Ù†Ø¯ Ø¨Ù‡ Ø´Ù…Ø§ Ø§Ø±Ø¬Ø§Ø¹ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.", status=403)
+        return json_error("این سند به شما ارجاع نشده است.", status=403)
     if assignment.status == ApprovalAssignmentStatus.REJECTED:
-        return json_error("Ø§ÛŒÙ† Ø§Ø±Ø¬Ø§Ø¹ Ù‚Ø¨Ù„Ø§ Ø±Ø¯ Ø´Ø¯Ù‡ Ø§Ø³Øª Ùˆ Ø¯ÛŒÚ¯Ø± Ù‚Ø§Ø¨Ù„ ØªØ§ÛŒÛŒØ¯ Ù†ÛŒØ³Øª.", status=409)
+        return json_error("این ارجاع قبلا رد شده است و دیگر قابل تایید نیست.", status=409)
     if assignment.status == ApprovalAssignmentStatus.APPROVED:
         return json_response({"status": "approved", "document": document.code})
     signature = ensure_signature(request.current_user)
     if not has_saved_signature(signature.signature_data):
         return json_error("\u0627\u0645\u0636\u0627\u06cc \u062f\u06cc\u062c\u06cc\u062a\u0627\u0644 \u0645\u0639\u062a\u0628\u0631 \u062e\u0648\u062f \u0631\u0627 \u062b\u0628\u062a \u06a9\u0646\u06cc\u062f.", status=422)
     if document.status == DocumentStatus.REJECTED:
-        return json_error("Ø§ÛŒÙ† Ø³Ù†Ø¯ Ù‚Ø¨Ù„Ø§ Ø±Ø¯ Ø´Ø¯Ù‡ Ø§Ø³Øª Ùˆ Ø¯ÛŒÚ¯Ø± Ù‚Ø§Ø¨Ù„ ØªØ§ÛŒÛŒØ¯ Ù†ÛŒØ³Øª.", status=409)
+        return json_error("این سند قبلا رد شده است و دیگر قابل تایید نیست.", status=409)
 
     try:
         with transaction.atomic():
@@ -1744,7 +1769,7 @@ def approval_approve_view(request: HttpRequest, document_code: str):
     except (ValueError, FileNotFoundError) as exc:
         return json_error(str(exc), status=422)
     except Exception:
-        return json_error("Ø§Ù…Ø¶Ø§ÛŒ Ø³Ù†Ø¯ Ø¨Ø§ Ø®Ø·Ø§ Ù…ÙˆØ§Ø¬Ù‡ Ø´Ø¯.", status=500)
+        return json_error("امضای سند با خطا مواجه شد.", status=500)
     return json_response({"status": "approved", "document": document.code})
 
 
@@ -1753,17 +1778,17 @@ def approval_approve_view(request: HttpRequest, document_code: str):
 @methods("POST")
 def approval_reject_view(request: HttpRequest, document_code: str):
     if not can_approve_documents(request.current_user):
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
     payload = parse_json(request)
     document = scoped_documents(request).filter(code=document_code).first()
     if document is None:
-        return json_error("Ø³Ù†Ø¯ Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+        return json_error("سند پیدا نشد.", status=404)
     reason = (payload.get("reason") or "").strip()
     if not reason:
         return json_error("علت رد الزامی است.", status=422)
     if request.current_user.slug == HQ_USERNAME and request.GET.get("organizationId"):
         if document.status == DocumentStatus.APPROVED:
-            return json_error("Ø§ÛŒÙ† Ø³Ù†Ø¯ Ù‚Ø¨Ù„Ø§ ØªØ§ÛŒÛŒØ¯ Ø´Ø¯Ù‡ Ø§Ø³Øª.", status=409)
+            return json_error("این سند قبلا تایید شده است.", status=409)
         now_value = timezone.now()
         document.approval_assignments.filter(status=ApprovalAssignmentStatus.PENDING).update(
             status=ApprovalAssignmentStatus.REJECTED,
@@ -1780,13 +1805,13 @@ def approval_reject_view(request: HttpRequest, document_code: str):
         return json_response({"status": "rejected", "document": document.code})
     assignment = document.approval_assignments.filter(approver=request.current_user).first()
     if assignment is None:
-        return json_error("Ø§ÛŒÙ† Ø³Ù†Ø¯ Ø¨Ù‡ Ø´Ù…Ø§ Ø§Ø±Ø¬Ø§Ø¹ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.", status=403)
+        return json_error("این سند به شما ارجاع نشده است.", status=403)
     if assignment.status == ApprovalAssignmentStatus.APPROVED:
-        return json_error("Ø§ÛŒÙ† Ø§Ø±Ø¬Ø§Ø¹ Ù‚Ø¨Ù„Ø§ ØªØ§ÛŒÛŒØ¯ Ø´Ø¯Ù‡ Ø§Ø³Øª Ùˆ Ø¯ÛŒÚ¯Ø± Ù‚Ø§Ø¨Ù„ Ø±Ø¯ Ù†ÛŒØ³Øª.", status=409)
+        return json_error("این ارجاع قبلا تایید شده است و دیگر قابل رد نیست.", status=409)
     if assignment.status == ApprovalAssignmentStatus.REJECTED:
         return json_response({"status": "rejected", "document": document.code})
     if document.status == DocumentStatus.REJECTED:
-        return json_error("Ø§ÛŒÙ† Ø³Ù†Ø¯ Ù‚Ø¨Ù„Ø§ Ø±Ø¯ Ø´Ø¯Ù‡ Ø§Ø³Øª.", status=409)
+        return json_error("این سند قبلا رد شده است.", status=409)
     reason = (payload.get("reason") or "").strip()
     assignment.status = ApprovalAssignmentStatus.REJECTED
     assignment.decision_note = reason
@@ -1809,7 +1834,7 @@ def settings_profile_view(request: HttpRequest):
         return json_response(build_settings_profile_payload(request.current_user, organization_id))
 
     if not can_manage_users(request.current_user):
-        return json_error("Ø¯Ø³ØªØ±Ø³ÛŒ Ú©Ø§ÙÛŒ Ù†Ø¯Ø§Ø±ÛŒØ¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
 
     payload = parse_json(request)
     if organization_id is None:
@@ -1818,13 +1843,15 @@ def settings_profile_view(request: HttpRequest):
     if request.current_user.slug == HQ_USERNAME and organization_id:
         organization = Organization.objects.exclude(code="hq-control").filter(pk=organization_id).first()
         if organization is None:
-            return json_error("Ù…Ø¬Ù…ÙˆØ¹Ù‡ Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.", status=404)
+            return json_error("مجموعه پیدا نشد.", status=404)
     else:
         organization = get_user_organization(request.current_user)
     preference, _ = OrganizationPreference.objects.get_or_create(organization=organization)
     section_key = (payload.get("sectionKey") or "").strip()
 
     if section_key:
+        if section_key not in USER_SECTION_KEYS:
+            return json_error("بخش دسترسی معتبر نیست.", status=422)
         allowed_user_ids = [int(item) for item in payload.get("allowedUserIds", []) if str(item).strip().isdigit()]
         if request.current_user.slug == HQ_USERNAME and organization_id:
             allowed_ids = set(User.objects.filter(organization_membership__organization=organization).values_list("id", flat=True))
@@ -1841,7 +1868,7 @@ def settings_profile_view(request: HttpRequest):
     elif "departments" in payload:
         departments_payload = payload.get("departments") or []
         if not isinstance(departments_payload, list):
-            return json_error("ÙÙ‡Ø±Ø³Øª Ø¨Ø®Ø´â€ŒÙ‡Ø§ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.", status=422)
+            return json_error("فهرست بخش‌ها معتبر نیست.", status=422)
         for item in departments_payload:
             if not isinstance(item, dict):
                 continue
@@ -1854,7 +1881,7 @@ def settings_profile_view(request: HttpRequest):
                 if department is None:
                     continue
                 if Department.objects.exclude(pk=department.pk).filter(name=name).exists():
-                    return json_error("Ù†Ø§Ù… Ø¨Ø®Ø´ ØªÚ©Ø±Ø§Ø±ÛŒ Ø§Ø³Øª.", status=409)
+                    return json_error("نام بخش تکراری است.", status=409)
                 department.name = name
                 department.save(update_fields=["name"])
             else:
@@ -1865,12 +1892,12 @@ def settings_profile_view(request: HttpRequest):
                     code = f"{base_code}-{index}"
                     index += 1
                 if Department.objects.filter(name=name).exists():
-                    return json_error("Ù†Ø§Ù… Ø¨Ø®Ø´ ØªÚ©Ø±Ø§Ø±ÛŒ Ø§Ø³Øª.", status=409)
+                    return json_error("نام بخش تکراری است.", status=409)
                 Department.objects.create(code=code, name=name)
     else:
         organization_name = (payload.get("organizationName") or "").strip()
         if not organization_name:
-            return json_error("Ù†Ø§Ù… Ø³Ø§Ø²Ù…Ø§Ù† Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.", status=422)
+            return json_error("نام سازمان الزامی است.", status=422)
         organization.name = organization_name
         organization.save(update_fields=["name"])
 
@@ -1895,13 +1922,13 @@ def settings_profile_view(request: HttpRequest):
 @methods("GET")
 def settings_view(request: HttpRequest):
     if not can_access_settings(request.current_user) and not can_manage_users(request.current_user):
-        return json_error("Ã˜Â¯Ã˜Â³Ã˜ÂªÃ˜Â±Ã˜Â³Ã›Å’ ÃšÂ©Ã˜Â§Ã™ÂÃ›Å’ Ã™â€ Ã˜Â¯Ã˜Â§Ã˜Â±Ã›Å’Ã˜Â¯.", status=403)
+        return json_error("دسترسی کافی ندارید.", status=403)
     return json_response(
         [
-            {"title": "Ø­Ø³Ø§Ø¨ Ú©Ø§Ø±Ø¨Ø±ÛŒ", "description": "Ù…Ø¯ÛŒØ±ÛŒØª Ù†Ù‚Ø´ Ù‡Ø§ Ùˆ Ø¯Ø³ØªØ±Ø³ÛŒ"},
-            {"title": "Ø§Ø³Ù†Ø§Ø¯", "description": "Ú¯Ø±Ø¯Ø´ Ú©Ø§Ø± Ø§Ù…Ø¶Ø§ÛŒ Ø¯ÛŒØ¬ÛŒØªØ§Ù„"},
-            {"title": "Ù‡Ø²ÛŒÙ†Ù‡ Ù‡Ø§", "description": "Ø«Ø¨ØªØŒ Ù¾ÛŒÚ¯ÛŒØ±ÛŒ Ùˆ Ú©Ù†ØªØ±Ù„ Ù‡Ø²ÛŒÙ†Ù‡"},
-            {"title": "Ú¯Ø²Ø§Ø±Ø´Ø§Øª", "description": "ØªØ­Ù„ÛŒÙ„ Ù…Ø¯ÛŒØ±ÛŒØªÛŒ"},
+            {"title": "حساب کاربری", "description": "مدیریت نقش ها و دسترسی"},
+            {"title": "اسناد", "description": "گردش کار امضای دیجیتال"},
+            {"title": "هزینه ها", "description": "ثبت، پیگیری و کنترل هزینه"},
+            {"title": "گزارشات", "description": "تحلیل مدیریتی"},
         ],
         safe=False,
     )

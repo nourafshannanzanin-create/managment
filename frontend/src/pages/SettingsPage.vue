@@ -9,12 +9,22 @@ const accessModalOpen = ref(false)
 const selectedSectionKey = ref('')
 const selectedUserIds = ref([])
 const userSearch = ref('')
+const sectionSearch = ref('')
 const newDepartmentName = ref('')
 const activeLetter = ref('همه')
 
 const { loadSettings, saveSettings, state } = useWorkflowHub()
 
 const selectedSection = computed(() => state.settings.sections.find((item) => item.key === selectedSectionKey.value) || null)
+
+const filteredSettingsSections = computed(() => {
+  const query = sectionSearch.value.trim().toLowerCase()
+  if (!query) return state.settings.sections
+  return state.settings.sections.filter((item) =>
+    [item.title, item.description, item.key]
+      .some((field) => String(field || '').toLowerCase().includes(query)),
+  )
+})
 
 const availableLetters = computed(() => {
   const letters = new Set(
@@ -192,7 +202,12 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div v-if="state.settings.sections.length" class="settings-access-table">
+      <label class="search-shell search-shell-wide settings-section-search">
+        <span class="material-symbols-outlined">search</span>
+        <input v-model="sectionSearch" type="text" placeholder="جستجو در بخش‌ها..." />
+      </label>
+
+      <div v-if="filteredSettingsSections.length" class="settings-access-table">
         <div class="settings-access-table-head">
           <span>بخش</span>
           <span>شرح</span>
@@ -201,7 +216,7 @@ onMounted(async () => {
         </div>
 
         <button
-          v-for="item in state.settings.sections"
+          v-for="item in filteredSettingsSections"
           :key="item.key"
           class="settings-access-table-row"
           type="button"
@@ -215,7 +230,7 @@ onMounted(async () => {
       </div>
       <div v-else class="empty-state-inline">
         <span class="material-symbols-outlined">rule</span>
-        <p>بخشی برای تنظیم دسترسی دریافت نشد.</p>
+        <p>{{ state.settings.sections.length ? 'بخشی مطابق جستجو پیدا نشد.' : 'بخشی برای تنظیم دسترسی دریافت نشد.' }}</p>
       </div>
     </section>
   </section>
@@ -291,6 +306,11 @@ onMounted(async () => {
 
 .settings-stack .field-shell input {
   min-height: 42px;
+}
+
+.settings-section-search {
+  margin-bottom: 14px;
+  max-width: 420px;
 }
 
 @media (min-width: 860px) {

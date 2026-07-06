@@ -1,13 +1,14 @@
-﻿<script setup>
+<script setup>
 import { computed, onMounted, reactive, watch } from 'vue'
 
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
+import { formatAmountInput } from '../utils/amount'
 import { formatJalali, getTodayJalali } from '../utils/jalali'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const CARD_NUMBER = '6037991719847703'
-const CARD_HOLDER = 'Ù…ÛŒÙ„Ø§Ø¯ Ø¯Ù‡Ø³ØªØ§Ù†ÛŒ'
-const PAYMENT_SUBJECT = 'Ù¾Ø±Ø¯Ø§Ø®Øª Ú©ÛŒÙ Ù¾ÙˆÙ„'
+const CARD_HOLDER = 'میلاد دهستانی'
+const PAYMENT_SUBJECT = 'پرداخت کیف پول'
 
 const { state, loadWalletDashboard, submitWalletTransaction, createSupportTicket } = useWorkflowHub()
 
@@ -62,25 +63,25 @@ const activeWallet = computed(() => {
 const usesManagerPaymentFlow = computed(() => state.currentUser.isManager && !state.currentUser.canUseHq)
 
 const paymentMethods = [
-  { key: 'app', label: 'Ø¢Ù¾' },
-  { key: 'pos', label: 'Ø¯Ø³ØªÚ¯Ø§Ù‡ Ù¾Ø±Ø¯Ø§Ø®Øª' },
-  { key: 'card_to_card', label: 'Ú©Ø§Ø±Øª Ø¨Ù‡ Ú©Ø§Ø±Øª' },
+  { key: 'app', label: 'آپ' },
+  { key: 'pos', label: 'دستگاه پرداخت' },
+  { key: 'card_to_card', label: 'کارت به کارت' },
 ]
 
 const shortcuts = computed(() => [
-  { label: 'Ø´Ø§Ø±Ú˜', icon: 'add_card', direction: 'in', tone: 'deposit' },
-  { label: 'Ø¨Ø±Ø¯Ø§Ø´Øª', icon: 'payments', direction: 'out', tone: 'withdraw' },
+  { label: 'شارژ', icon: 'add_card', direction: 'in', tone: 'deposit' },
+  { label: 'برداشت', icon: 'payments', direction: 'out', tone: 'withdraw' },
 ])
 
 const summaryCards = computed(() => [
-  { label: 'Ú©Ù„ Ù…ÙˆØ¬ÙˆØ¯ÛŒ', value: state.wallet.summary.totalBalance, icon: 'account_balance_wallet', tone: 'primary' },
-  { label: 'Ø§ØµÙ„ÛŒ', value: state.wallet.summary.mainBalance, icon: 'account_balance', tone: 'main' },
-  { label: 'Ù¾ÛŒØ§Ù…Ú©', value: state.wallet.summary.smsBalance, icon: 'sms', tone: 'sms' },
-  { label: 'ÙˆØ±ÙˆØ¯ÛŒ', value: state.wallet.summary.depositsTotal, icon: 'south_west', tone: 'deposit' },
+  { label: 'کل موجودی', value: state.wallet.summary.totalBalance, icon: 'account_balance_wallet', tone: 'primary' },
+  { label: 'اصلی', value: state.wallet.summary.mainBalance, icon: 'account_balance', tone: 'main' },
+  { label: 'پیامک', value: state.wallet.summary.smsBalance, icon: 'sms', tone: 'sms' },
+  { label: 'ورودی', value: state.wallet.summary.depositsTotal, icon: 'south_west', tone: 'deposit' },
 ])
 
 const selectedPaymentMethodLabel = computed(
-  () => paymentMethods.find((item) => item.key === paymentForm.method)?.label || 'Ú©Ø§Ø±Øª Ø¨Ù‡ Ú©Ø§Ø±Øª',
+  () => paymentMethods.find((item) => item.key === paymentForm.method)?.label || 'کارت به کارت',
 )
 
 function nowParts() {
@@ -178,15 +179,15 @@ async function submitTransaction() {
     const sourceWallet = wallets.value.find((item) => String(item.id) === String(transactionForm.walletId))
     const targetWallet = wallets.value.find((item) => String(item.id) === String(transactionForm.targetWalletId))
     const message = [
-      'Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ø¨Ø±Ø¯Ø§Ø´Øª Ú©ÛŒÙ Ù¾ÙˆÙ„',
-      `Ú©ÛŒÙ Ù¾ÙˆÙ„ Ù…Ø¨Ø¯Ø§: ${sourceWallet?.name || '-'}`,
-      `Ù…Ø¨Ù„Øº: ${transactionForm.amount}`,
-      `Ù…Ù‚ØµØ¯: ${transactionForm.destinationType === 'wallet' ? `Ø§Ù†ØªÙ‚Ø§Ù„ Ø¨Ù‡ ${targetWallet?.name || '-'}` : 'Ø­Ø³Ø§Ø¨ Ø¨Ø§Ù†Ú©ÛŒ'}`,
-      ...(transactionForm.destinationType === 'bank' ? [`Ø´Ù…Ø§Ø±Ù‡ Ø´Ø¨Ø§: ${transactionForm.iban || '-'}`] : []),
-      `ØªÙˆØ¶ÛŒØ­Ø§Øª: ${transactionForm.note || '-'}`,
+      'درخواست برداشت کیف پول',
+      `کیف پول مبدا: ${sourceWallet?.name || '-'}`,
+      `مبلغ: ${transactionForm.amount}`,
+      `مقصد: ${transactionForm.destinationType === 'wallet' ? `انتقال به ${targetWallet?.name || '-'}` : 'حساب بانکی'}`,
+      ...(transactionForm.destinationType === 'bank' ? [`شماره شبا: ${transactionForm.iban || '-'}`] : []),
+      `توضیحات: ${transactionForm.note || '-'}`,
     ].join('\n')
-    await createSupportTicket({ subject: 'Ø¨Ø±Ø¯Ø§Ø´Øª Ú©ÛŒÙ Ù¾ÙˆÙ„', message, category: 'financial', priority: 'urgent', attachments: [] })
-    state.wallet.message = 'Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ø¨Ø±Ø¯Ø§Ø´Øª Ø¨Ø±Ø§ÛŒ Ù¾Ø´ØªÛŒØ¨Ø§Ù†ÛŒ Ø§Ø±Ø³Ø§Ù„ Ø´Ø¯.'
+    await createSupportTicket({ subject: 'برداشت کیف پول', message, category: 'financial', priority: 'urgent', attachments: [] })
+    state.wallet.message = 'درخواست برداشت برای پشتیبانی ارسال شد.'
     closeTransaction()
     return
   }
@@ -202,17 +203,17 @@ async function submitTransaction() {
 async function submitPaymentTicket() {
   const wallet = wallets.value.find((item) => String(item.id) === String(paymentForm.walletId)) || activeWallet.value
   const message = [
-    'Ø¯Ø±Ø®ÙˆØ§Ø³Øª ØªØ§ÛŒÛŒØ¯ Ù¾Ø±Ø¯Ø§Ø®Øª Ú©ÛŒÙ Ù¾ÙˆÙ„',
-    `Ú©ÛŒÙ Ù¾ÙˆÙ„: ${wallet?.name || '-'}`,
+    'درخواست تایید پرداخت کیف پول',
+    `کیف پول: ${wallet?.name || '-'}`,
     `WALLET_ID: ${wallet?.id || ''}`,
-    `Ø±ÙˆØ´ Ù¾Ø±Ø¯Ø§Ø®Øª: ${selectedPaymentMethodLabel.value}`,
-    `Ø¨Ø§Ø¨Øª: ${paymentForm.purpose || '-'}`,
-    `ØªØ§Ø±ÛŒØ®: ${paymentForm.date}`,
-    `Ø³Ø§Ø¹Øª: ${paymentForm.time}`,
-    `Ù…Ø¨Ù„Øº: ${paymentForm.amount}`,
-    `Ú©Ø¯ ØªØ±Ø§Ú©Ù†Ø´: ${paymentForm.referenceCode}`,
+    `روش پرداخت: ${selectedPaymentMethodLabel.value}`,
+    `بابت: ${paymentForm.purpose || '-'}`,
+    `تاریخ: ${paymentForm.date}`,
+    `ساعت: ${paymentForm.time}`,
+    `مبلغ: ${paymentForm.amount}`,
+    `کد تراکنش: ${paymentForm.referenceCode}`,
     ...(paymentForm.method === 'card_to_card'
-      ? [`Ø´Ù…Ø§Ø±Ù‡ Ú©Ø§Ø±Øª Ù…Ù‚ØµØ¯: ${CARD_NUMBER}`, `Ù†Ø§Ù… ØµØ§Ø­Ø¨ Ú©Ø§Ø±Øª: ${CARD_HOLDER}`]
+      ? [`شماره کارت مقصد: ${CARD_NUMBER}`, `نام صاحب کارت: ${CARD_HOLDER}`]
       : []),
   ].join('\n')
 
@@ -224,7 +225,7 @@ async function submitPaymentTicket() {
     attachments: paymentForm.receipt ? [paymentForm.receipt] : [],
   })
 
-  state.wallet.message = 'Ø¯Ø±Ø®ÙˆØ§Ø³Øª ØªØ§ÛŒÛŒØ¯ Ù¾Ø±Ø¯Ø§Ø®Øª Ø¨Ø±Ø§ÛŒ HQ Ø§Ø±Ø³Ø§Ù„ Ø´Ø¯.'
+  state.wallet.message = 'درخواست تایید پرداخت برای HQ ارسال شد.'
   state.wallet.error = ''
   closePaymentForm()
 }
@@ -325,7 +326,7 @@ watch(
               </div>
               <div>
                 <b>{{ item.walletName }}</b>
-                <small>{{ item.actor }} Â· {{ item.time }}</small>
+                <small>{{ item.actor }} · {{ item.time }}</small>
               </div>
               <strong :class="item.direction">{{ item.direction === 'in' ? '+' : '-' }}{{ item.amount }}</strong>
             </article>
@@ -339,51 +340,51 @@ watch(
         <div class="modal-handle"></div>
         <div class="modal-title">
           <span class="material-symbols-outlined">{{ transactionForm.direction === 'in' ? 'add_card' : 'payments' }}</span>
-          <strong>{{ transactionForm.direction === 'in' ? 'Ø´Ø§Ø±Ú˜ Ú©ÛŒÙ Ù¾ÙˆÙ„' : 'Ø¨Ø±Ø¯Ø§Ø´Øª Ø§Ø² Ú©ÛŒÙ Ù¾ÙˆÙ„' }}</strong>
+          <strong>{{ transactionForm.direction === 'in' ? 'شارژ کیف پول' : 'برداشت از کیف پول' }}</strong>
         </div>
 
         <label>
-          <span>Ú©ÛŒÙ Ù¾ÙˆÙ„</span>
+          <span>کیف پول</span>
           <select v-model="transactionForm.walletId" required>
             <option v-for="wallet in wallets" :key="wallet.id" :value="wallet.id">{{ wallet.name }}</option>
           </select>
         </label>
 
         <label>
-          <span>Ù…Ø¨Ù„Øº</span>
-          <input v-model="transactionForm.amount" inputmode="decimal" required placeholder="0" />
+          <span>مبلغ</span>
+          <input v-model="transactionForm.amount" inputmode="decimal" required placeholder="0" @input="transactionForm.amount = formatAmountInput($event.target.value)" />
         </label>
 
         <label>
-          <span>ÛŒØ§Ø¯Ø¯Ø§Ø´Øª</span>
+          <span>یادداشت</span>
           <textarea v-model="transactionForm.note" rows="3"></textarea>
         </label>
 
         <template v-if="transactionForm.direction === 'out' && usesManagerPaymentFlow">
           <label>
-            <span>Ù…Ù‚ØµØ¯</span>
+            <span>مقصد</span>
             <select v-model="transactionForm.destinationType">
-              <option value="bank">Ø­Ø³Ø§Ø¨ Ø¨Ø§Ù†Ú©ÛŒ</option>
-              <option value="wallet">Ú©ÛŒÙ Ù¾ÙˆÙ„ Ø¯ÛŒÚ¯Ø±</option>
+              <option value="bank">حساب بانکی</option>
+              <option value="wallet">کیف پول دیگر</option>
             </select>
           </label>
           <label v-if="transactionForm.destinationType === 'wallet'">
-            <span>Ú©ÛŒÙ Ù¾ÙˆÙ„ Ù…Ù‚ØµØ¯</span>
+            <span>کیف پول مقصد</span>
             <select v-model="transactionForm.targetWalletId">
               <option v-for="wallet in wallets.filter((item) => String(item.id) !== String(transactionForm.walletId))" :key="wallet.id" :value="wallet.id">{{ wallet.name }}</option>
             </select>
           </label>
           <label v-else>
-            <span>Ø´Ù…Ø§Ø±Ù‡ Ø´Ø¨Ø§</span>
+            <span>شماره شبا</span>
             <input v-model.trim="transactionForm.iban" dir="ltr" placeholder="IR..." required />
           </label>
         </template>
 
         <div class="modal-actions">
-          <button class="action-btn tone-soft" type="button" @click="closeTransaction">Ù„ØºÙˆ</button>
+          <button class="action-btn tone-soft" type="button" @click="closeTransaction">لغو</button>
           <button class="action-btn tone-primary" type="submit" :disabled="state.wallet.submitting">
             <span class="material-symbols-outlined">check</span>
-            Ø«Ø¨Øª
+            ثبت
           </button>
         </div>
       </form>
@@ -394,39 +395,39 @@ watch(
         <div class="modal-handle"></div>
         <div class="modal-title">
           <span class="material-symbols-outlined">payments</span>
-          <strong>Ù…Ø´Ø®ØµØ§Øª Ù¾Ø±Ø¯Ø§Ø®Øª</strong>
+          <strong>مشخصات پرداخت</strong>
         </div>
 
         <div class="payment-grid">
           <label>
-            <span>Ú©ÛŒÙ Ù¾ÙˆÙ„</span>
+            <span>کیف پول</span>
             <select v-model="paymentSetup.walletId" required>
               <option v-for="wallet in (usesManagerPaymentFlow ? mainWallets : wallets)" :key="wallet.id" :value="wallet.id">{{ wallet.name }}</option>
             </select>
           </label>
           <label>
-            <span>Ù…Ø¨Ù„Øº</span>
-            <input v-model.trim="paymentSetup.amount" inputmode="decimal" required placeholder="0" />
+            <span>مبلغ</span>
+            <input v-model.trim="paymentSetup.amount" inputmode="decimal" required placeholder="0" @input="paymentSetup.amount = formatAmountInput($event.target.value)" />
           </label>
         </div>
 
         <label>
-          <span>Ø¨Ø§Ø¨Øª Ú†Ù‡ Ú†ÛŒØ²ÛŒ</span>
-          <input v-model.trim="paymentSetup.purpose" required placeholder="Ù…Ø«Ù„Ø§ Ø´Ø§Ø±Ú˜ Ù¾ÛŒØ§Ù…Ú© ÛŒØ§ Ù…ÙˆØ¬ÙˆØ¯ÛŒ Ø§ØµÙ„ÛŒ" />
+          <span>بابت چه چیزی</span>
+          <input v-model.trim="paymentSetup.purpose" required placeholder="مثلا شارژ پیامک یا موجودی اصلی" />
         </label>
 
         <label>
-          <span>Ø±ÙˆØ´ Ù¾Ø±Ø¯Ø§Ø®Øª</span>
+          <span>روش پرداخت</span>
           <select v-model="paymentSetup.method" required>
             <option v-for="method in paymentMethods" :key="method.key" :value="method.key">{{ method.label }}</option>
           </select>
         </label>
 
         <div class="modal-actions">
-          <button class="action-btn tone-soft" type="button" @click="closePaymentSetup">Ù„ØºÙˆ</button>
+          <button class="action-btn tone-soft" type="button" @click="closePaymentSetup">لغو</button>
           <button class="action-btn tone-primary" type="submit">
             <span class="material-symbols-outlined">arrow_back</span>
-            Ø§Ø¯Ø§Ù…Ù‡
+            ادامه
           </button>
         </div>
       </form>
@@ -437,26 +438,26 @@ watch(
         <div class="modal-handle"></div>
         <div class="modal-title">
           <span class="material-symbols-outlined">credit_card</span>
-          <strong>Ù¾Ø±Ø¯Ø§Ø®Øª Ú©Ø§Ø±Øª Ø¨Ù‡ Ú©Ø§Ø±Øª</strong>
+          <strong>پرداخت کارت به کارت</strong>
         </div>
 
         <div class="payment-summary-box">
-          <b>{{ wallets.find((item) => String(item.id) === String(paymentGuide.walletId))?.name || 'Ú©ÛŒÙ Ù¾ÙˆÙ„' }}</b>
-          <small>Ù…Ø¨Ù„Øº: {{ paymentGuide.amount }}</small>
-          <small>Ø¨Ø§Ø¨Øª: {{ paymentGuide.purpose }}</small>
+          <b>{{ wallets.find((item) => String(item.id) === String(paymentGuide.walletId))?.name || 'کیف پول' }}</b>
+          <small>مبلغ: {{ paymentGuide.amount }}</small>
+          <small>بابت: {{ paymentGuide.purpose }}</small>
         </div>
 
         <div class="payment-card-box">
-          <small>Ø´Ù…Ø§Ø±Ù‡ Ú©Ø§Ø±Øª Ù…Ù‚ØµØ¯</small>
+          <small>شماره کارت مقصد</small>
           <strong>{{ CARD_NUMBER }}</strong>
           <span>{{ CARD_HOLDER }}</span>
         </div>
 
         <div class="modal-actions">
-          <button class="action-btn tone-soft" type="button" @click="closePaymentGuide">Ø¨Ø³ØªÙ†</button>
+          <button class="action-btn tone-soft" type="button" @click="closePaymentGuide">بستن</button>
           <button class="action-btn tone-primary" type="button" @click="openPaymentForm">
             <span class="material-symbols-outlined">verified</span>
-            Ù¾Ø±Ø¯Ø§Ø®Øª Ú©Ø±Ø¯Ù…
+            پرداخت کردم
           </button>
         </div>
       </div>
@@ -467,45 +468,45 @@ watch(
         <div class="modal-handle"></div>
         <div class="modal-title">
           <span class="material-symbols-outlined">support_agent</span>
-          <strong>Ø«Ø¨Øª Ø¯Ø±Ø®ÙˆØ§Ø³Øª ØªØ§ÛŒÛŒØ¯ Ù¾Ø±Ø¯Ø§Ø®Øª</strong>
+          <strong>ثبت درخواست تایید پرداخت</strong>
         </div>
 
         <div class="payment-summary-box">
           <b>{{ PAYMENT_SUBJECT }}</b>
-          <small>Ø±ÙˆØ´ Ù¾Ø±Ø¯Ø§Ø®Øª: {{ selectedPaymentMethodLabel }}</small>
-          <small>Ø¨Ø§Ø¨Øª: {{ paymentForm.purpose || '-' }}</small>
-          <small>ÙÛŒÙ„Ø¯Ù‡Ø§ Ø±Ø§ Ø¨Ø± Ø§Ø³Ø§Ø³ Ø±Ø³ÛŒØ¯ Ù¾Ø±Ø¯Ø§Ø®ØªÛŒ Ø®ÙˆØ¯ ØªÚ©Ù…ÛŒÙ„ Ú©Ù†ÛŒØ¯.</small>
+          <small>روش پرداخت: {{ selectedPaymentMethodLabel }}</small>
+          <small>بابت: {{ paymentForm.purpose || '-' }}</small>
+          <small>فیلدها را بر اساس رسید پرداختی خود تکمیل کنید.</small>
         </div>
 
         <div class="payment-grid">
           <label>
-            <span>ØªØ§Ø±ÛŒØ®</span>
+            <span>تاریخ</span>
             <ShamsiDatePicker v-model="paymentForm.date" model-type="jalali" placeholder="1405/04/16" />
           </label>
           <label>
-            <span>Ø³Ø§Ø¹Øª</span>
+            <span>ساعت</span>
             <input v-model.trim="paymentForm.time" required placeholder="14:35" />
           </label>
           <label>
-            <span>Ù…Ø¨Ù„Øº</span>
-            <input v-model.trim="paymentForm.amount" inputmode="decimal" required placeholder="0" />
+            <span>مبلغ</span>
+            <input v-model.trim="paymentForm.amount" inputmode="decimal" required placeholder="0" @input="paymentForm.amount = formatAmountInput($event.target.value)" />
           </label>
           <label>
-            <span>Ú©Ø¯ ØªØ±Ø§Ú©Ù†Ø´</span>
-            <input v-model.trim="paymentForm.referenceCode" required dir="ltr" placeholder="Ù¾ÛŒÚ¯ÛŒØ±ÛŒ ÛŒØ§ Ù…Ø±Ø¬Ø¹" />
+            <span>کد تراکنش</span>
+            <input v-model.trim="paymentForm.referenceCode" required dir="ltr" placeholder="پیگیری یا مرجع" />
           </label>
         </div>
 
         <label>
-          <span>ØªØµÙˆÛŒØ± Ø±Ø³ÛŒØ¯</span>
+          <span>تصویر رسید</span>
           <input type="file" accept="image/*,.pdf" @change="setReceipt" />
         </label>
 
         <div class="modal-actions">
-          <button class="action-btn tone-soft" type="button" @click="closePaymentForm">Ù„ØºÙˆ</button>
+          <button class="action-btn tone-soft" type="button" @click="closePaymentForm">لغو</button>
           <button class="action-btn tone-primary" type="submit" :disabled="state.support.submitting">
             <span class="material-symbols-outlined">send</span>
-            Ø§Ø±Ø³Ø§Ù„ Ø¨Ø±Ø§ÛŒ HQ
+            ارسال برای HQ
           </button>
         </div>
       </form>
@@ -523,6 +524,7 @@ watch(
   --wallet-line: rgba(32, 58, 105, 0.08);
   display: grid;
   gap: 18px;
+  font-size: 13px;
 }
 
 .wallet-hero {
@@ -582,9 +584,10 @@ watch(
 
 .wallet-hero-balance strong {
   color: var(--wallet-navy);
-  font-size: clamp(2.4rem, 8vw, 5rem);
+  font-size: clamp(1.85rem, 4.8vw, 3.35rem);
+  font-weight: 760;
   line-height: 1;
-  letter-spacing: -0.08em;
+  letter-spacing: -0.04em;
 }
 
 .wallet-hero-balance small,
@@ -596,7 +599,7 @@ watch(
 .payment-card-box small,
 .payment-summary-box small {
   color: var(--wallet-muted);
-  font-weight: 800;
+  font-weight: 650;
 }
 
 .wallet-actions {
@@ -620,6 +623,11 @@ watch(
   cursor: pointer;
 }
 
+.wallet-action b {
+  font-size: 0.92rem;
+  font-weight: 750;
+}
+
 .wallet-action.withdraw {
   color: var(--wallet-navy);
   background: #f1c56f;
@@ -630,7 +638,7 @@ watch(
   border-radius: 18px;
   color: #254f85;
   background: rgba(55, 99, 168, 0.1);
-  font-weight: 900;
+  font-weight: 750;
 }
 
 .wallet-alert.danger {
@@ -661,7 +669,8 @@ watch(
 
 .wallet-summary-card strong {
   color: var(--wallet-navy);
-  font-size: 1.35rem;
+  font-size: 1.06rem;
+  font-weight: 740;
 }
 
 .wallet-layout {
@@ -698,7 +707,14 @@ watch(
 
 .wallet-tile strong {
   grid-column: 1 / -1;
-  font-size: 1.45rem;
+  font-size: 1.12rem;
+  font-weight: 740;
+}
+
+.wallet-tile b,
+.ledger-row b,
+.ledger-head b {
+  font-weight: 740;
 }
 
 .wallet-ledger {
@@ -789,7 +805,7 @@ watch(
 
 .wallet-empty .material-symbols-outlined,
 .wallet-loading .material-symbols-outlined {
-  font-size: 3.4rem;
+  font-size: 2.55rem;
 }
 
 .wallet-modal-backdrop {
@@ -832,7 +848,8 @@ watch(
 .modal-title {
   justify-content: flex-start;
   color: var(--wallet-navy);
-  font-size: 1.1rem;
+  font-size: 0.98rem;
+  font-weight: 740;
 }
 
 .wallet-modal label {
@@ -866,13 +883,14 @@ watch(
 .payment-card-box strong,
 .payment-summary-box b {
   color: var(--wallet-navy);
-  font-size: 1.2rem;
+  font-size: 1.02rem;
+  font-weight: 740;
   letter-spacing: 0.04em;
 }
 
 .payment-card-box span {
   color: var(--wallet-ink);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .payment-grid {

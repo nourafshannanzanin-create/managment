@@ -2,7 +2,9 @@
 import { computed, ref } from 'vue'
 
 import BaseModal from './BaseModal.vue'
+import ErrorNotice from './ErrorNotice.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
+import { formatAmountInput } from '../utils/amount'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const props = defineProps({
@@ -17,7 +19,7 @@ const referralOpen = ref(false)
 const referralTab = ref('managers')
 const referralSearch = ref('')
 
-const { state, setExpenseInvoice, submitExpense } = useWorkflowHub()
+const { state, fieldHasError, setExpenseInvoice, submitExpense } = useWorkflowHub()
 
 const managerChoices = computed(() => state.directories.managers || [])
 const employeeChoices = computed(() => (state.users || []).filter((item) => item.accessRole === 'employee'))
@@ -48,15 +50,15 @@ function selectedNames() {
       <div class="modal-headline"><p class="page-eyebrow">هزینه جدید</p><h2>ثبت و ارجاع هزینه</h2></div>
 
       <div class="modal-grid two-col">
-        <label class="field-shell"><span>مبلغ</span><input v-model="form.amount" inputmode="decimal" placeholder="0" /></label>
+        <label :class="['field-shell', fieldHasError('amount') && 'has-error']"><span>مبلغ</span><input v-model="form.amount" inputmode="decimal" placeholder="0" @input="form.amount = formatAmountInput($event.target.value)" /></label>
         <label class="field-shell"><span>تاریخ</span><ShamsiDatePicker v-model="form.expenseDate" model-type="jalali" /></label>
         <label class="field-shell"><span>بخش</span><select v-model="form.department"><option value="">انتخاب بخش</option><option v-for="item in state.directories.departments" :key="item.code" :value="item.code">{{ item.name }}</option></select></label>
         <label class="field-shell"><span>ارجاع گیرنده</span><button class="action-btn tone-soft inline-open-btn" type="button" @click="referralOpen = true"><span class="material-symbols-outlined">group_add</span><span>{{ selectedNames() }}</span></button></label>
       </div>
 
-      <label class="field-shell"><span>شرح</span><textarea v-model="form.description" rows="4" /></label>
+      <label :class="['field-shell', fieldHasError('description') && 'has-error']"><span>شرح</span><textarea v-model="form.description" rows="4" /></label>
       <label class="upload-pad compact-upload"><input type="file" accept="image/*,.pdf" @change="setExpenseInvoice($event.target.files?.[0])" /><span class="material-symbols-outlined">receipt_long</span><strong>{{ form.invoice?.name || 'افزودن فاکتور' }}</strong><small>اختیاری</small></label>
-      <p v-if="state.lastError" class="inline-error">{{ state.lastError }}</p>
+      <ErrorNotice :error="state.lastErrorDetails" compact />
       <div class="modal-actions"><button class="action-btn tone-soft" type="button" @click="$emit('close')"><span class="material-symbols-outlined">close</span><span>بستن</span></button><button class="action-btn tone-primary" :disabled="submitting" type="button" @click="submitExpense('refer')"><span class="material-symbols-outlined">send</span><span>{{ submitting ? 'در حال ثبت...' : 'ثبت و ارجاع' }}</span></button></div>
     </div>
   </BaseModal>

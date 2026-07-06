@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 
 import BaseModal from './BaseModal.vue'
+import ErrorNotice from './ErrorNotice.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 defineProps({
@@ -15,7 +16,7 @@ defineEmits(['close'])
 const activeRecipientTab = ref('managers')
 const recipientSearch = ref('')
 
-const { state, setDocumentFile, submitDocument } = useWorkflowHub()
+const { state, fieldHasError, setDocumentFile, submitDocument } = useWorkflowHub()
 
 const recipientGroups = computed(() => {
   const managerDirectory = state.directories.managers.map((item) => ({
@@ -76,7 +77,7 @@ function isSelected(id) {
       </div>
 
       <div class="modal-grid two-col">
-        <label class="field-shell">
+        <label :class="['field-shell', fieldHasError('title') && 'has-error']">
           <span>عنوان</span>
           <input v-model="form.title" type="text" />
         </label>
@@ -111,14 +112,14 @@ function isSelected(id) {
         </label>
       </div>
 
-      <label class="upload-pad compact-upload">
+      <label :class="['upload-pad compact-upload', fieldHasError('file') && 'has-error']">
         <input type="file" accept="image/*,.pdf" @change="setDocumentFile($event.target.files?.[0])" />
         <span class="material-symbols-outlined">upload_file</span>
         <strong>{{ form.file?.name || 'افزودن فایل سند' }}</strong>
         <small>فایل PDF یا تصویر</small>
       </label>
 
-      <section class="surface-inline">
+      <section :class="['surface-inline', fieldHasError('assigneeIds') && 'has-error']">
         <div class="section-label-row">
           <div>
             <h3>گیرنده سند تایید</h3>
@@ -178,7 +179,7 @@ function isSelected(id) {
         </div>
       </section>
 
-      <p v-if="state.lastError" class="inline-error">{{ state.lastError }}</p>
+      <ErrorNotice :error="state.lastErrorDetails" compact />
 
       <div class="action-group modal-actions">
         <button class="action-btn tone-soft" type="button" @click="$emit('close')">

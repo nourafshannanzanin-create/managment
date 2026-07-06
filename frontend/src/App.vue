@@ -1,11 +1,12 @@
 <script setup>
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 
 import ApprovalDetailModal from './components/ApprovalDetailModal.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import AppTopNav from './components/AppTopNav.vue'
 import DocumentComposerModal from './components/DocumentComposerModal.vue'
+import ErrorNotice from './components/ErrorNotice.vue'
 import ExpenseComposerModal from './components/ExpenseComposerModal.vue'
 import ExpenseDetailModal from './components/ExpenseDetailModal.vue'
 import RequestComposerModal from './components/RequestComposerModal.vue'
@@ -28,6 +29,7 @@ const {
   selectedApproval,
   selectedRequestTimeline,
   restoreSession,
+  loadSupportTickets,
   closeRequestDetail,
   closeExpenseDetail,
   closeApprovalDetail,
@@ -40,6 +42,7 @@ const {
 } = hub
 
 const isAuthRoute = computed(() => route.path === '/login')
+let hqSupportRefreshTimer = null
 
 watch(
   () => route.fullPath,
@@ -48,8 +51,18 @@ watch(
   },
 )
 
-onMounted(() => {
-  restoreSession()
+onMounted(async () => {
+  await restoreSession()
+  hqSupportRefreshTimer = window.setInterval(() => {
+    if (!state.authToken || !state.currentUser.isHq || state.support.loading) return
+    void loadSupportTickets(true)
+  }, 30000)
+})
+
+onUnmounted(() => {
+  if (hqSupportRefreshTimer) {
+    window.clearInterval(hqSupportRefreshTimer)
+  }
 })
 </script>
 
@@ -62,6 +75,10 @@ onMounted(() => {
       <div class="shell-main">
         <AppTopNav />
         <main class="shell-content">
+          <ErrorNotice
+            v-if="state.lastErrorDetails && !modalState.requestComposer && !modalState.expenseComposer && !modalState.userComposer && !modalState.documentComposer"
+            :error="state.lastErrorDetails"
+          />
           <RouterView v-slot="{ Component }">
             <component :is="Component" :key="route.fullPath" />
           </RouterView>

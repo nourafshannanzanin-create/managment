@@ -2,10 +2,11 @@
 import { computed, ref } from 'vue'
 
 import BaseModal from './BaseModal.vue'
+import ErrorNotice from './ErrorNotice.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
-defineProps({
+const props = defineProps({
   open: { type: Boolean, default: false },
   form: { type: Object, required: true },
   submitting: { type: Boolean, default: false },
@@ -13,76 +14,63 @@ defineProps({
 
 defineEmits(['close'])
 
-const referralPickerOpen = ref(false)
+const referralOpen = ref(false)
 const referralTab = ref('managers')
 const referralSearch = ref('')
 
 const {
   state,
-  requestManagerAssigneeOptions,
-  requestManagerAssigneeNames,
-  requestEmployeeAssigneeNames,
-  setRequestManager,
+  fieldHasError,
   setRequestFiles,
   removeAttachment,
   submitRequest,
 } = useWorkflowHub()
 
 const managerChoices = computed(() => state.directories.managers || [])
-const employeeChoices = computed(() =>
-  (state.users || []).filter((item) => item.accessRole === 'employee'),
-)
+const employeeChoices = computed(() => (state.users || []).filter((item) => item.accessRole === 'employee'))
 
-const filteredPrimaryManagers = computed(() => {
+const filteredManagers = computed(() => {
   const query = referralSearch.value.trim().toLowerCase()
-  if (!query) return managerChoices.value
   return managerChoices.value.filter((item) =>
-    [item.name, item.role].join(' ').toLowerCase().includes(query),
-  )
-})
-
-const filteredManagerAssignees = computed(() => {
-  const query = referralSearch.value.trim().toLowerCase()
-  if (!query) return requestManagerAssigneeOptions.value
-  return requestManagerAssigneeOptions.value.filter((item) =>
-    [item.name, item.role].join(' ').toLowerCase().includes(query),
+    !query || `${item.name} ${item.role}`.toLowerCase().includes(query),
   )
 })
 
 const filteredEmployees = computed(() => {
   const query = referralSearch.value.trim().toLowerCase()
-  if (!query) return employeeChoices.value
   return employeeChoices.value.filter((item) =>
-    [item.name, item.role, item.department].join(' ').toLowerCase().includes(query),
+    !query || `${item.name} ${item.role} ${item.department}`.toLowerCase().includes(query),
   )
 })
 
-function toggleEmployeeAssignee(id) {
-  const current = new Set((state.requestForm.employeeAssigneeIds || []).map(Number))
-  if (current.has(Number(id))) current.delete(Number(id))
-  else current.add(Number(id))
-  state.requestForm.employeeAssigneeIds = [...current]
+function toggle(listKey, id) {
+  const current = new Set((props.form[listKey] || []).map(Number))
+  const numericId = Number(id)
+  if (current.has(numericId)) current.delete(numericId)
+  else current.add(numericId)
+  props.form[listKey] = [...current]
+
+  if (listKey === 'managerAssigneeIds') {
+    const selectedManagers = managerChoices.value.filter((item) => props.form[listKey].map(Number).includes(Number(item.id)))
+    const currentManagerSelected = selectedManagers.some((item) => item.slug === props.form.manager)
+    props.form.manager = currentManagerSelected ? props.form.manager : selectedManagers[0]?.slug || ''
+  }
 }
 
-function isEmployeeSelected(id) {
-  return (state.requestForm.employeeAssigneeIds || []).map(Number).includes(Number(id))
+function selectedNames() {
+  const managerIds = (props.form.managerAssigneeIds || []).map(Number)
+  const employeeIds = (props.form.employeeAssigneeIds || []).map(Number)
+  const names = [
+    ...managerChoices.value.filter((item) => managerIds.includes(Number(item.id))).map((item) => item.name),
+    ...employeeChoices.value.filter((item) => employeeIds.includes(Number(item.id))).map((item) => item.name),
+  ]
+  return names.length ? names.join('، ') : 'تعیین نشده'
 }
 
-function toggleManagerAssignee(id) {
-  const current = new Set((state.requestForm.managerAssigneeIds || []).map(Number))
-  if (current.has(Number(id))) current.delete(Number(id))
-  else current.add(Number(id))
-  state.requestForm.managerAssigneeIds = [...current]
-}
-
-function isManagerSelected(id) {
-  return (state.requestForm.managerAssigneeIds || []).map(Number).includes(Number(id))
-}
-
-function openReferralPicker() {
+function openReferral() {
   referralSearch.value = ''
   referralTab.value = 'managers'
-  referralPickerOpen.value = true
+  referralOpen.value = true
 }
 </script>
 
@@ -91,11 +79,11 @@ function openReferralPicker() {
     <div class="detail-layout">
       <div class="modal-headline">
         <p class="page-eyebrow">درخواست جدید</p>
-        <h2>ثبت درخواست سازمانی</h2>
+        <h2>ثبت و ارجاع درخواست</h2>
       </div>
 
       <div class="modal-grid two-col request-composer-grid">
-        <label class="field-shell">
+        <label :class="['field-shell', fieldHasError('title') && 'has-error']">
           <span>عنوان</span>
           <input v-model="form.title" type="text" />
         </label>
@@ -110,24 +98,15 @@ function openReferralPicker() {
           </select>
         </label>
 
-        <label class="field-shell">
+        <label :class="['field-shell', fieldHasError('manager') && 'has-error']">
           <span>ارجاع گیرنده</span>
-          <button class="action-btn tone-soft inline-open-btn" type="button" @click="openReferralPicker">
+          <button class="action-btn tone-soft inline-open-btn" type="button" @click="openReferral">
             <span class="material-symbols-outlined">group_add</span>
-            <span>انتخاب مدیر و گیرنده‌ها</span>
+            <span>{{ selectedNames() }}</span>
           </button>
         </label>
 
-        <div class="field-shell referral-summary-shell">
-          <span>خلاصه ارجاع</span>
-          <div class="referral-summary-list">
-            <small>مدیر اصلی: {{ managerChoices.find((item) => item.slug === form.manager)?.name || 'تعیین نشده' }}</small>
-            <small>مدیران ارجاعی: {{ requestManagerAssigneeNames() }}</small>
-            <small>کارمندان ارجاعی: {{ requestEmployeeAssigneeNames() }}</small>
-          </div>
-        </div>
-
-        <label class="field-shell">
+        <label :class="['field-shell', fieldHasError('description') && 'has-error']">
           <span>تاریخ</span>
           <ShamsiDatePicker v-model="form.deadline" model-type="jalali" placeholder="1405/04/01" />
         </label>
@@ -167,7 +146,7 @@ function openReferralPicker() {
         </article>
       </div>
 
-      <p v-if="state.lastError" class="inline-error">{{ state.lastError }}</p>
+      <ErrorNotice :error="state.lastErrorDetails" compact />
       <p class="request-flow-note">
         درخواست بعد از ثبت، برای گیرنده‌های انتخاب‌شده ارجاع می‌شود و تایید نهایی در این مرحله انجام نمی‌شود.
       </p>
@@ -185,11 +164,11 @@ function openReferralPicker() {
     </div>
   </BaseModal>
 
-  <BaseModal :open="referralPickerOpen" size="detail" @close="referralPickerOpen = false">
+  <BaseModal :open="referralOpen" size="detail" @close="referralOpen = false">
     <div class="detail-layout">
       <div class="modal-headline">
         <p class="page-eyebrow">ارجاع درخواست</p>
-        <h2>انتخاب ارجاع گیرنده</h2>
+        <h2>انتخاب گیرنده ها</h2>
       </div>
 
       <div class="filter-toolbar">
@@ -200,101 +179,31 @@ function openReferralPicker() {
 
         <label class="search-shell search-shell-wide">
           <span class="material-symbols-outlined">search</span>
-          <input v-model="referralSearch" type="text" placeholder="جستجو در نام‌ها..." />
+          <input v-model="referralSearch" placeholder="جستجو" />
         </label>
       </div>
 
-      <section v-if="referralTab === 'managers'" class="surface-inline recipient-selector">
-        <div class="section-label-row">
-          <div>
-            <h3>مدیر اصلی</h3>
-            <p>درخواست ابتدا برای این مدیر ثبت و ارجاع می‌شود.</p>
+      <div class="recipient-grid">
+        <button
+          v-for="item in (referralTab === 'managers' ? filteredManagers : filteredEmployees)"
+          :key="item.id"
+          :class="[
+            'recipient-card',
+            (referralTab === 'managers' ? form.managerAssigneeIds : form.employeeAssigneeIds).map(Number).includes(Number(item.id)) && 'is-selected',
+          ]"
+          type="button"
+          @click="toggle(referralTab === 'managers' ? 'managerAssigneeIds' : 'employeeAssigneeIds', item.id)"
+        >
+          <div class="recipient-card-main">
+            <strong>{{ item.name }}</strong>
+            <small>{{ item.role || item.department }}</small>
           </div>
-        </div>
-
-        <div class="recipient-grid">
-          <button
-            v-for="item in filteredPrimaryManagers"
-            :key="`primary-${item.id}`"
-            :class="['recipient-card', form.manager === item.slug && 'is-selected']"
-            type="button"
-            @click="setRequestManager(item.slug)"
-          >
-            <div class="recipient-card-main">
-              <strong>{{ item.name }}</strong>
-              <small>{{ item.role || 'مدیر' }}</small>
-            </div>
-            <div class="recipient-card-meta">
-              <span>مدیر اصلی</span>
-              <span class="material-symbols-outlined">{{ form.manager === item.slug ? 'check_circle' : 'radio_button_unchecked' }}</span>
-            </div>
-          </button>
-        </div>
-
-        <div class="section-label-row">
-          <div>
-            <h3>مدیران ارجاعی</h3>
-            <p>در صورت نیاز، مدیران دیگری را برای پیگیری موازی اضافه کنید.</p>
-          </div>
-        </div>
-
-        <div class="recipient-grid">
-          <button
-            v-for="item in filteredManagerAssignees"
-            :key="`manager-${item.id}`"
-            :class="['recipient-card', isManagerSelected(item.id) && 'is-selected']"
-            type="button"
-            @click="toggleManagerAssignee(item.id)"
-          >
-            <div class="recipient-card-main">
-              <strong>{{ item.name }}</strong>
-              <small>{{ item.role || 'مدیر' }}</small>
-            </div>
-            <div class="recipient-card-meta">
-              <span>ارجاع مدیریتی</span>
-              <span class="material-symbols-outlined">{{ isManagerSelected(item.id) ? 'check_circle' : 'add_circle' }}</span>
-            </div>
-          </button>
-        </div>
-      </section>
-
-      <section v-else class="surface-inline recipient-selector">
-        <div class="section-label-row">
-          <div>
-            <h3>کارمندان ارجاعی</h3>
-            <p>اگر نیاز به پیگیری اجرایی دارید، کارمندان مرتبط را هم اضافه کنید.</p>
-          </div>
-        </div>
-
-        <div class="recipient-grid">
-          <button
-            v-for="item in filteredEmployees"
-            :key="`employee-${item.id}`"
-            :class="['recipient-card', isEmployeeSelected(item.id) && 'is-selected']"
-            type="button"
-            @click="toggleEmployeeAssignee(item.id)"
-          >
-            <div class="recipient-card-main">
-              <strong>{{ item.name }}</strong>
-              <small>{{ item.role || 'کارمند' }}</small>
-            </div>
-            <div class="recipient-card-meta">
-              <span>{{ item.department || 'بدون بخش' }}</span>
-              <span class="material-symbols-outlined">{{ isEmployeeSelected(item.id) ? 'check_circle' : 'add_circle' }}</span>
-            </div>
-          </button>
-        </div>
-      </section>
+          <span class="material-symbols-outlined">check_circle</span>
+        </button>
+      </div>
 
       <div class="modal-actions">
-        <button class="action-btn tone-soft" type="button" @click="referralPickerOpen = false">
-          <span class="material-symbols-outlined">close</span>
-          <span>بستن</span>
-        </button>
-        <button class="action-btn tone-primary" type="button" @click="referralPickerOpen = false">
-          <span class="material-symbols-outlined">done</span>
-          <span>ثبت انتخاب‌ها</span>
-        </button>
+        <button class="action-btn tone-primary" type="button" @click="referralOpen = false">ثبت انتخاب ها</button>
       </div>
     </div>
   </BaseModal>
@@ -311,5 +220,11 @@ function openReferralPicker() {
   margin: 0;
   color: #52607a;
   font-size: 0.92rem;
+}
+
+@media (max-width: 760px) {
+  .modal-grid.two-col {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

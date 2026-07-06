@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import csv
 from collections import Counter, defaultdict
@@ -43,7 +43,7 @@ from workflow.models import (
     WalletTransaction,
 )
 
-PERSIAN_WEEK_DAYS = ["Ø´Ù†Ø¨Ù‡", "ÛŒÚ©Ø´Ù†Ø¨Ù‡", "Ø¯ÙˆØ´Ù†Ø¨Ù‡", "Ø³Ù‡ Ø´Ù†Ø¨Ù‡", "Ú†Ù‡Ø§Ø±Ø´Ù†Ø¨Ù‡", "Ù¾Ù†Ø¬ Ø´Ù†Ø¨Ù‡", "Ø¬Ù…Ø¹Ù‡"]
+PERSIAN_WEEK_DAYS = ["شنبه", "یکشنبه", "دوشنبه", "سه شنبه", "چهارشنبه", "پنج شنبه", "جمعه"]
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
 PDF_EXTENSIONS = {".pdf"}
 HQ_USERNAME = "milad_dhs"
@@ -68,29 +68,29 @@ def relative_time(value: datetime) -> str:
     delta = now() - value.astimezone(timezone.utc)
     minutes = int(delta.total_seconds() // 60)
     if minutes < 60:
-        return "Ø§Ø®ÛŒØ±Ø§"
+        return "اخیرا"
     hours = minutes // 60
     if hours < 24:
-        return "Ø§Ù…Ø±ÙˆØ²"
+        return "امروز"
     days = hours // 24
     if days < 7:
-        return f"{days} Ø±ÙˆØ² Ù‚Ø¨Ù„"
+        return f"{days} روز قبل"
     return value.date().isoformat()
 
 
 def access_role_label(role: str) -> str:
     return {
-        UserRole.ADMIN: "Ù…Ø¯ÛŒØ±Ø¹Ø§Ù…Ù„",
-        UserRole.EXECUTIVE_MANAGER: "Ù…Ø¯ÛŒØ± Ø§Ø±Ø´Ø¯",
-        UserRole.MANAGER: "Ù…Ø¯ÛŒØ±",
-        UserRole.EMPLOYEE: "Ú©Ø§Ø±Ù…Ù†Ø¯",
+        UserRole.ADMIN: "مدیرعامل",
+        UserRole.EXECUTIVE_MANAGER: "مدیر ارشد",
+        UserRole.MANAGER: "مدیر",
+        UserRole.EMPLOYEE: "کارمند",
     }[role]
 
 
 def normalize_person_name(value: str | None) -> str:
     if not value:
         return ""
-    return value.replace("Ø¢Ø±Ù…Ø§Ù† Ú©Ø±ÛŒÙ…ÛŒ", "Ø§Ù…ÛŒØ¯ Ú©Ø±ÛŒÙ…ÛŒ")
+    return value.replace("آرمان کریمی", "امید کریمی")
 
 
 def priority_label(value: str) -> str:
@@ -189,8 +189,8 @@ def serialize_user(user: User) -> dict:
         "role": access_role_label(user.role),
         "accessRole": user.role,
         "departmentCode": user.department.code if user.department else "",
-        "department": user.department.name if user.department else "Ø¨Ø¯ÙˆÙ† ÙˆØ§Ø­Ø¯",
-        "manager": normalize_person_name(user.manager.full_name) if user.manager else "ØªØ¹ÛŒÛŒÙ† Ù†Ø´Ø¯Ù‡",
+        "department": user.department.name if user.department else "\u0628\u062f\u0648\u0646 \u0648\u0627\u062d\u062f",
+        "manager": normalize_person_name(user.manager.full_name) if user.manager else "\u062a\u0639\u06cc\u06cc\u0646 \u0646\u0634\u062f\u0647",
         "kpi": user.job_title,
         "managerId": user.manager_id,
         "avatar": user.avatar,
@@ -199,16 +199,16 @@ def serialize_user(user: User) -> dict:
         "joinedAt": format_date(user.created_at.date()),
         "joinedAtIso": format_date(user.created_at.date()),
         "isActive": user.is_active,
-        "status": "ÙØ¹Ø§Ù„" if user.is_active else "ØºÛŒØ±ÙØ¹Ø§Ù„",
+        "status": "\u0641\u0639\u0627\u0644" if user.is_active else "\u063a\u06cc\u0631\u0641\u0639\u0627\u0644",
     }
 
 
 def settings_cards() -> list[dict]:
     return [
-        {"title": "Ø­Ø³Ø§Ø¨ Ú©Ø§Ø±Ø¨Ø±ÛŒ", "description": "Ù…Ø¯ÛŒØ±ÛŒØª Ù†Ù‚Ø´ Ù‡Ø§ Ùˆ Ø¯Ø³ØªØ±Ø³ÛŒ"},
-        {"title": "Ø§Ø³Ù†Ø§Ø¯", "description": "Ú¯Ø±Ø¯Ø´ Ú©Ø§Ø± Ø§Ù…Ø¶Ø§ÛŒ Ø¯ÛŒØ¬ÛŒØªØ§Ù„"},
-        {"title": "Ù‡Ø²ÛŒÙ†Ù‡ Ù‡Ø§", "description": "Ø«Ø¨ØªØŒ Ù¾ÛŒÚ¯ÛŒØ±ÛŒ Ùˆ Ú©Ù†ØªØ±Ù„ Ù‡Ø²ÛŒÙ†Ù‡"},
-        {"title": "Ú¯Ø²Ø§Ø±Ø´Ø§Øª", "description": "Ù†Ù…Ø§ÛŒ Ù…Ø¯ÛŒØ±ÛŒØªÛŒ Ùˆ ØªØ­Ù„ÛŒÙ„ Ø¹Ù…Ù„Ú©Ø±Ø¯"},
+        {"title": "حساب کاربری", "description": "مدیریت نقش ها و دسترسی"},
+        {"title": "اسناد", "description": "گردش کار امضای دیجیتال"},
+        {"title": "هزینه ها", "description": "ثبت، پیگیری و کنترل هزینه"},
+        {"title": "گزارشات", "description": "نمای مدیریتی و تحلیل عملکرد"},
     ]
 
 
@@ -222,9 +222,9 @@ def visible_settings_payload(user: User) -> dict:
     recent_logins = list(
         AuditLog.objects.filter(actor_id__in=visible_users(user).values_list("id", flat=True), action="login").order_by("-created_at")[:3]
     )
-    recent_session_label = "Ø¨Ø¯ÙˆÙ† Ù†Ø´Ø³Øª Ø§Ø®ÛŒØ±"
+    recent_session_label = "بدون نشست اخیر"
     if recent_logins:
-        recent_session_label = f"{len(recent_logins)} Ø¯Ø³ØªÚ¯Ø§Ù‡ ÙØ¹Ø§Ù„ Ø´Ù†Ø§Ø³Ø§ÛŒÛŒ Ø´Ø¯"
+        recent_session_label = f"{len(recent_logins)} دستگاه فعال شناسایی شد"
 
     return {
         "organizationName": organization.name if organization else "",
@@ -254,8 +254,8 @@ def serialize_request(request_obj: Request) -> dict:
     return {
         "id": request_obj.code,
         "title": request_obj.title,
-        "owner": normalize_person_name(request_obj.requester.full_name) if request_obj.requester else "Ù†Ø§Ù…Ø´Ø®Øµ",
-        "manager": normalize_person_name(request_obj.manager.full_name) if request_obj.manager else "ØªØ¹ÛŒÛŒÙ† Ù†Ø´Ø¯Ù‡",
+        "owner": normalize_person_name(request_obj.requester.full_name) if request_obj.requester else "نامشخص",
+        "manager": normalize_person_name(request_obj.manager.full_name) if request_obj.manager else "تعیین نشده",
         "managerAssignees": [normalize_person_name(item.full_name) for item in request_obj.assigned_managers.all()],
         "managerAssigneeIds": [item.id for item in request_obj.assigned_managers.all()],
         "employeeAssignees": [normalize_person_name(item.full_name) for item in request_obj.assigned_employees.all()],
@@ -264,7 +264,7 @@ def serialize_request(request_obj: Request) -> dict:
         "priorityValue": request_obj.priority,
         "status": request_status_label(request_obj.status),
         "statusValue": request_obj.status,
-        "department": request_obj.department.name if request_obj.department else "Ø¨Ø¯ÙˆÙ† ÙˆØ§Ø­Ø¯",
+        "department": request_obj.department.name if request_obj.department else "بدون واحد",
         "departmentCode": request_obj.department.code if request_obj.department else "",
         "deadline": format_date(request_obj.deadline),
         "deadlineIso": format_date(request_obj.deadline),
@@ -319,11 +319,11 @@ def serialize_expense(expense: Expense) -> dict:
         "amountRaw": float(expense.amount),
         "category": expense_category_label(expense.category),
         "categoryValue": expense.category,
-        "owner": normalize_person_name(expense.owner.full_name) if expense.owner else "Ù†Ø§Ù…Ø´Ø®Øµ",
+        "owner": normalize_person_name(expense.owner.full_name) if expense.owner else "نامشخص",
         "status": expense_status_label(expense.status),
         "statusValue": expense.status,
         "progress": expense.progress,
-        "department": expense.department.name if expense.department else "Ø¨Ø¯ÙˆÙ† ÙˆØ§Ø­Ø¯",
+        "department": expense.department.name if expense.department else "بدون واحد",
         "departmentCode": expense.department.code if expense.department else "",
         "submittedAt": format_date(expense.expense_date),
         "createdAtIso": format_date(expense.expense_date),
@@ -349,8 +349,8 @@ def serialize_expense(expense: Expense) -> dict:
 
 def ensure_organization_wallets(organization: Organization) -> list[Wallet]:
     defaults = [
-        ("main", "Ú©ÛŒÙ Ù¾ÙˆÙ„ Ø§ØµÙ„ÛŒ", Decimal("1000000")),
-        ("sms", "Ú©ÛŒÙ Ù¾ÙˆÙ„ Ù¾ÛŒØ§Ù…Ú©", Decimal("250000")),
+        ("main", "کیف پول اصلی", Decimal("1000000")),
+        ("sms", "کیف پول پیامک", Decimal("250000")),
     ]
     wallets = []
     for key, name, threshold in defaults:
@@ -437,29 +437,29 @@ def wallet_dashboard_payload(organization: Organization) -> dict:
 
 def support_status_label(value: str) -> str:
     return {
-        "open": "Ø¨Ø§Ø²",
-        "pending": "Ø¯Ø± Ø­Ø§Ù„ Ø¨Ø±Ø±Ø³ÛŒ",
-        "answered": "Ù¾Ø§Ø³Ø® Ø¯Ø§Ø¯Ù‡ Ø´Ø¯Ù‡",
-        "closed": "Ø¨Ø³ØªÙ‡ Ø´Ø¯Ù‡",
+        "open": "باز",
+        "pending": "در حال بررسی",
+        "answered": "پاسخ داده شده",
+        "closed": "بسته شده",
     }.get(value, value)
 
 
 def support_category_label(value: str) -> str:
     return {
-        "technical": "ÙÙ†ÛŒ",
-        "financial": "Ù…Ø§Ù„ÛŒ",
-        "operations": "Ø¹Ù…Ù„ÛŒØ§Øª",
-        "account": "Ø­Ø³Ø§Ø¨ Ú©Ø§Ø±Ø¨Ø±ÛŒ",
-        "other": "Ø³Ø§ÛŒØ±",
+        "technical": "فنی",
+        "financial": "مالی",
+        "operations": "عملیات",
+        "account": "حساب کاربری",
+        "other": "سایر",
     }.get(value, value)
 
 
 def support_priority_label(value: str) -> str:
     return {
-        "low": "Ú©Ù…",
-        "medium": "Ù…ØªÙˆØ³Ø·",
-        "high": "Ø²ÛŒØ§Ø¯",
-        "urgent": "ÙÙˆØ±ÛŒ",
+        "low": "کم",
+        "medium": "متوسط",
+        "high": "زیاد",
+        "urgent": "فوری",
     }.get(value, value)
 
 
@@ -531,11 +531,11 @@ def serialize_approval(document: Document, current_user: User | None = None) -> 
     return {
         "id": document.code,
         "title": document.title,
-        "owner": normalize_person_name(document.owner.full_name) if document.owner else "Ù†Ø§Ù…Ø´Ø®Øµ",
+        "owner": normalize_person_name(document.owner.full_name) if document.owner else "نامشخص",
         "type": document.document_type,
         "status": document_status_label(document.status),
         "statusValue": document.status,
-        "department": document.department.name if document.department else "Ø¨Ø¯ÙˆÙ† ÙˆØ§Ø­Ø¯",
+        "department": document.department.name if document.department else "بدون واحد",
         "departmentCode": document.department.code if document.department else "",
         "uploadedAt": format_date(document.uploaded_at.date()),
         "uploadedAtIso": format_date(document.uploaded_at.date()),
@@ -599,13 +599,13 @@ def visible_approvals(user: User):
 
 
 def report_catalog(user: User) -> list[dict]:
-    owner = normalize_person_name(user.full_name) or "Ù…Ø¯ÛŒØ±Ø¹Ø§Ù…Ù„"
+    owner = normalize_person_name(user.full_name) or "مدیرعامل"
     today = date.today().isoformat()
     return [
         {
             "id": "requests",
-            "title": "Ú¯Ø²Ø§Ø±Ø´ Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù‡Ø§",
-            "description": "Ù†Ù…Ø§ÛŒ Ú©Ù„ÛŒ Ø¬Ø±ÛŒØ§Ù† Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù‡Ø§ Ùˆ ÙˆØ¶Ø¹ÛŒØª Ù¾ÛŒÚ¯ÛŒØ±ÛŒ Ø¢Ù† Ù‡Ø§",
+            "title": "گزارش درخواست ها",
+            "description": "نمای کلی جریان درخواست ها و وضعیت پیگیری آن ها",
             "export": "CSV / Excel",
             "owner": owner,
             "generatedAt": today,
@@ -614,8 +614,8 @@ def report_catalog(user: User) -> list[dict]:
         },
         {
             "id": "expenses",
-            "title": "Ú¯Ø²Ø§Ø±Ø´ Ù‡Ø²ÛŒÙ†Ù‡ Ù‡Ø§",
-            "description": "ØªØ­Ù„ÛŒÙ„ Ù‡Ø²ÛŒÙ†Ù‡ Ù‡Ø§ÛŒ Ø³Ø§Ø²Ù…Ø§Ù† Ø¨Ø± Ø§Ø³Ø§Ø³ Ø«Ø¨Øª Ú©Ù†Ù†Ø¯Ù‡ Ùˆ Ù…Ø¨Ù„Øº",
+            "title": "گزارش هزینه ها",
+            "description": "تحلیل هزینه های سازمان بر اساس ثبت کننده و مبلغ",
             "export": "CSV / Excel",
             "owner": owner,
             "generatedAt": today,
@@ -624,8 +624,8 @@ def report_catalog(user: User) -> list[dict]:
         },
         {
             "id": "approvals",
-            "title": "Ú¯Ø²Ø§Ø±Ø´ ØªØ§ÛŒÛŒØ¯Ù‡Ø§",
-            "description": "Ø¹Ù…Ù„Ú©Ø±Ø¯ Ù…Ø¯ÛŒØ±Ø§Ù† Ø¯Ø± ØªØ§ÛŒÛŒØ¯ØŒ Ø±Ø¯ Ùˆ Ú¯Ø±Ø¯Ø´ Ø§Ø³Ù†Ø§Ø¯",
+            "title": "گزارش تاییدها",
+            "description": "عملکرد مدیران در تایید، رد و گردش اسناد",
             "export": "CSV / Excel",
             "owner": owner,
             "generatedAt": today,
@@ -932,9 +932,9 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
     reports = []
     if can_view_reports(user):
         reports = [
-            {"title": "Ú¯Ø²Ø§Ø±Ø´ Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù‡Ø§", "description": "Ù†Ù…Ø§ÛŒ Ú©Ù„ÛŒ Ø¬Ø±ÛŒØ§Ù† Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù‡Ø§", "export": "CSV / Excel", "owner": "Ù…Ø¯ÛŒØ±Ø¹Ø§Ù…Ù„", "generatedAt": date.today().isoformat(), "generatedAtIso": date.today().isoformat()},
-            {"title": "Ú¯Ø²Ø§Ø±Ø´ Ù‡Ø²ÛŒÙ†Ù‡ Ù‡Ø§", "description": "ØªØ­Ù„ÛŒÙ„ Ù‡Ø²ÛŒÙ†Ù‡ Ù‡Ø§ÛŒ Ø³Ø§Ø²Ù…Ø§Ù†", "export": "CSV / Excel", "owner": "Ù…Ø¯ÛŒØ±Ø¹Ø§Ù…Ù„", "generatedAt": date.today().isoformat(), "generatedAtIso": date.today().isoformat()},
-            {"title": "Ú¯Ø²Ø§Ø±Ø´ ØªØ§ÛŒÛŒØ¯Ù‡Ø§", "description": "Ø¹Ù…Ù„Ú©Ø±Ø¯ Ù…Ø¯ÛŒØ±Ø§Ù† Ø¯Ø± ØªØ§ÛŒÛŒØ¯ Ø§Ø³Ù†Ø§Ø¯", "export": "CSV / Excel", "owner": "Ù…Ø¯ÛŒØ±Ø¹Ø§Ù…Ù„", "generatedAt": date.today().isoformat(), "generatedAtIso": date.today().isoformat()},
+            {"title": "گزارش درخواست ها", "description": "نمای کلی جریان درخواست ها", "export": "CSV / Excel", "owner": "مدیرعامل", "generatedAt": date.today().isoformat(), "generatedAtIso": date.today().isoformat()},
+            {"title": "گزارش هزینه ها", "description": "تحلیل هزینه های سازمان", "export": "CSV / Excel", "owner": "مدیرعامل", "generatedAt": date.today().isoformat(), "generatedAtIso": date.today().isoformat()},
+            {"title": "گزارش تاییدها", "description": "عملکرد مدیران در تایید اسناد", "export": "CSV / Excel", "owner": "مدیرعامل", "generatedAt": date.today().isoformat(), "generatedAtIso": date.today().isoformat()},
         ]
 
     reports = report_catalog(user) if can_view_reports(user) else []
@@ -957,10 +957,10 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
         if user.slug == HQ_USERNAME
         else [],
         "stats": [
-            {"id": "active", "label": "Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù‡Ø§", "value": str(active_requests), "detail": "", "tone": "primary", "icon": "assignment"},
-            {"id": "pending", "label": "ØªØ§ÛŒÛŒØ¯Ù‡Ø§", "value": str(metrics["pending"]), "detail": "", "tone": "warning", "icon": "pending_actions"},
-            {"id": "monthly", "label": "Ù‡Ø²ÛŒÙ†Ù‡ Ù…Ø§Ù‡", "value": format_money(month_total), "detail": "", "tone": "secondary", "icon": "payments"},
-            {"id": "approved", "label": "Ø§Ø³Ù†Ø§Ø¯ ØªØ§ÛŒÛŒØ¯", "value": str(metrics["approved"]), "detail": "", "tone": "success", "icon": "fact_check"},
+            {"id": "active", "label": "درخواست ها", "value": str(active_requests), "detail": "", "tone": "primary", "icon": "assignment"},
+            {"id": "pending", "label": "تاییدها", "value": str(metrics["pending"]), "detail": "", "tone": "warning", "icon": "pending_actions"},
+            {"id": "monthly", "label": "هزینه ماه", "value": format_money(month_total), "detail": "", "tone": "secondary", "icon": "payments"},
+            {"id": "approved", "label": "اسناد تایید", "value": str(metrics["approved"]), "detail": "", "tone": "success", "icon": "fact_check"},
         ],
         "chartData": chart_data,
         "pipeline": pipeline,
@@ -982,17 +982,17 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
         ],
         "insights": [],
         "expenseSummary": [
-            {"label": "Ø§Ù…Ø±ÙˆØ²", "value": format_money(today_total)},
-            {"label": "Ø§ÛŒÙ† Ù‡ÙØªÙ‡", "value": format_money(week_total)},
-            {"label": "Ø§ÛŒÙ† Ù…Ø§Ù‡", "value": format_money(month_total)},
-            {"label": "Ø§Ù…Ø³Ø§Ù„", "value": format_money(year_total)},
+            {"label": "امروز", "value": format_money(today_total)},
+            {"label": "این هفته", "value": format_money(week_total)},
+            {"label": "این ماه", "value": format_money(month_total)},
+            {"label": "امسال", "value": format_money(year_total)},
         ],
         "approvalMetrics": metrics,
         "settingsCards": [
-            {"title": "Ø­Ø³Ø§Ø¨ Ú©Ø§Ø±Ø¨Ø±ÛŒ", "description": "Ù…Ø¯ÛŒØ±ÛŒØª Ù†Ù‚Ø´ Ù‡Ø§ Ùˆ Ø¯Ø³ØªØ±Ø³ÛŒ"},
-            {"title": "Ø§Ø³Ù†Ø§Ø¯", "description": "Ú¯Ø±Ø¯Ø´ Ú©Ø§Ø± Ø§Ù…Ø¶Ø§ÛŒ Ø¯ÛŒØ¬ÛŒØªØ§Ù„"},
-            {"title": "Ù‡Ø²ÛŒÙ†Ù‡ Ù‡Ø§", "description": "Ø«Ø¨ØªØŒ Ù¾ÛŒÚ¯ÛŒØ±ÛŒ Ùˆ Ú©Ù†ØªØ±Ù„ Ù‡Ø²ÛŒÙ†Ù‡"},
-            {"title": "Ú¯Ø²Ø§Ø±Ø´Ø§Øª", "description": "Ù†Ù…Ø§ÛŒ Ù…Ø¯ÛŒØ±ÛŒØªÛŒ Ùˆ ØªØ­Ù„ÛŒÙ„ Ø¹Ù…Ù„Ú©Ø±Ø¯"},
+            {"title": "حساب کاربری", "description": "مدیریت نقش ها و دسترسی"},
+            {"title": "اسناد", "description": "گردش کار امضای دیجیتال"},
+            {"title": "هزینه ها", "description": "ثبت، پیگیری و کنترل هزینه"},
+            {"title": "گزارشات", "description": "نمای مدیریتی و تحلیل عملکرد"},
         ],
         "directories": {
             "departments": [{"code": item.code, "name": item.name} for item in departments],
@@ -1162,17 +1162,19 @@ def serialize_user(user: User) -> dict:
         "email": user.email,
         "role": access_role_label(user.role),
         "accessRole": user.role,
-        "department": user.department.name if user.department else "Ø¨Ø¯ÙˆÙ† ÙˆØ§Ø­Ø¯",
-        "manager": normalize_person_name(user.manager.full_name) if user.manager else "ØªØ¹ÛŒÛŒÙ† Ù†Ø´Ø¯Ù‡",
+        "department": user.department.name if user.department else "بدون واحد",
+        "manager": normalize_person_name(user.manager.full_name) if user.manager else "تعیین نشده",
         "jobTitle": user.job_title,
         "kpi": user.job_title,
         "joinedAt": format_date(user.created_at.date()),
         "joinedAtIso": format_date(user.created_at.date()),
-        "status": "ÙØ¹Ø§Ù„" if user.is_active else "ØºÛŒØ±ÙØ¹Ø§Ù„",
+        "status": "فعال" if user.is_active else "غیرفعال",
         "isActive": user.is_active,
         "managerId": user.manager_id,
         "departmentCode": user.department.code if user.department else "",
         "sectionAccess": {
+            "approvals": "approvals" in section_access,
+            "expenses": "expenses" in section_access,
             "reports": "reports" in section_access,
             "users": "users" in section_access,
             "settings": "settings" in section_access,

@@ -1,5 +1,6 @@
 <script setup>
 import BaseModal from './BaseModal.vue'
+import ErrorNotice from './ErrorNotice.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 defineProps({
@@ -10,7 +11,15 @@ defineProps({
 
 defineEmits(['close'])
 
-const { state, submitUser } = useWorkflowHub()
+const { state, fieldHasError, submitUser } = useWorkflowHub()
+
+const sectionAccessOptions = [
+  { key: 'users', title: 'کاربران', description: 'دسترسی به فهرست و مدیریت کاربران' },
+  { key: 'approvals', title: 'تاییدیه‌ها', description: 'مشاهده و بررسی اسناد و تاییدیه‌ها' },
+  { key: 'expenses', title: 'هزینه‌ها', description: 'ثبت، مشاهده و پیگیری هزینه‌ها' },
+  { key: 'reports', title: 'گزارشات', description: 'مشاهده گزارش‌های تحلیلی و مدیریتی' },
+  { key: 'settings', title: 'تنظیمات', description: 'ورود به تنظیمات سازمان و دسترسی‌ها' },
+]
 </script>
 
 <template>
@@ -22,17 +31,17 @@ const { state, submitUser } = useWorkflowHub()
       </div>
 
       <div class="modal-grid two-col">
-        <label class="field-shell">
+        <label :class="['field-shell', fieldHasError('fullName') && 'has-error']">
           <span>نام کامل</span>
           <input v-model="form.fullName" type="text" />
         </label>
 
-        <label class="field-shell">
+        <label :class="['field-shell', fieldHasError('email') && 'has-error']">
           <span>ایمیل</span>
           <input v-model="form.email" type="email" />
         </label>
 
-        <label class="field-shell">
+        <label :class="['field-shell', fieldHasError('password') && 'has-error']">
           <span>رمز عبور</span>
           <input v-model="form.password" type="password" />
         </label>
@@ -71,38 +80,22 @@ const { state, submitUser } = useWorkflowHub()
         <div class="section-label-row compact">
           <div>
             <h3>دسترسی بخش‌ها</h3>
-            <p>مشخص کنید این کاربر به کدام بخش‌های مدیریتی دسترسی داشته باشد.</p>
+            <p>مشخص کنید این کاربر به کدام بخش‌های سایت دسترسی داشته باشد.</p>
           </div>
         </div>
 
         <div class="modal-grid access-check-grid">
-          <label class="check-tile">
-            <input v-model="form.sectionAccess.reports" type="checkbox" />
+          <label v-for="item in sectionAccessOptions" :key="item.key" class="check-tile">
+            <input v-model="form.sectionAccess[item.key]" type="checkbox" />
             <div>
-              <strong>گزارشات</strong>
-              <small>مشاهده گزارش‌های تحلیلی</small>
-            </div>
-          </label>
-
-          <label class="check-tile">
-            <input v-model="form.sectionAccess.users" type="checkbox" />
-            <div>
-              <strong>کاربران</strong>
-              <small>دسترسی به فهرست و مدیریت کاربران</small>
-            </div>
-          </label>
-
-          <label class="check-tile">
-            <input v-model="form.sectionAccess.settings" type="checkbox" />
-            <div>
-              <strong>تنظیمات</strong>
-              <small>ورود به تنظیمات سازمان و دسترسی‌ها</small>
+              <strong>{{ item.title }}</strong>
+              <small>{{ item.description }}</small>
             </div>
           </label>
         </div>
       </section>
 
-      <p v-if="state.lastError" class="inline-error">{{ state.lastError }}</p>
+      <ErrorNotice :error="state.lastErrorDetails" compact />
 
       <div class="action-group modal-actions">
         <button class="action-btn tone-soft" type="button" @click="$emit('close')">
@@ -139,7 +132,7 @@ const { state, submitUser } = useWorkflowHub()
   gap: 12px;
   align-items: start;
   padding: 14px;
-  border-radius: 18px;
+  border-radius: 8px;
   border: 1px solid rgba(36, 59, 107, 0.1);
   background: rgba(255, 255, 255, 0.74);
 }

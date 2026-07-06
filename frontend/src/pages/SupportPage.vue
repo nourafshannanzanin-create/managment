@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 
+import { formatAmountInput } from '../utils/amount'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const PAYMENT_TICKET_SUBJECT = 'پرداخت کیف پول'
@@ -392,7 +393,7 @@ watch(
         <h3>واریز به کیف پول</h3>
         <label>
           <span>مبلغ</span>
-          <input v-model.trim="walletDepositForm.amount" inputmode="decimal" required placeholder="0" />
+          <input v-model.trim="walletDepositForm.amount" inputmode="decimal" required placeholder="0" @input="walletDepositForm.amount = formatAmountInput($event.target.value)" />
         </label>
         <div class="modal-actions">
           <button class="support-soft" type="button" @click="walletDepositModalOpen = false">لغو</button>

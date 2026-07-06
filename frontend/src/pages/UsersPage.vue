@@ -22,11 +22,21 @@ const editableUser = reactive({
   jobTitle: '',
   isActive: true,
   sectionAccess: {
+    approvals: false,
+    expenses: false,
     reports: false,
     users: false,
     settings: false,
   },
 })
+
+const sectionAccessOptions = [
+  { key: 'users', title: 'کاربران', description: 'دسترسی به لیست و مدیریت کاربران' },
+  { key: 'approvals', title: 'تاییدیه‌ها', description: 'مشاهده و بررسی تاییدیه‌ها' },
+  { key: 'expenses', title: 'هزینه‌ها', description: 'ثبت، مشاهده و پیگیری هزینه‌ها' },
+  { key: 'reports', title: 'گزارشات', description: 'نمایش گزارش‌های مدیریتی' },
+  { key: 'settings', title: 'تنظیمات', description: 'ورود به تنظیمات و سطح دسترسی‌ها' },
+]
 
 const categoryButtons = [
   { key: 'all', label: 'همه' },
@@ -88,6 +98,8 @@ watch(selectedUser, (user) => {
     jobTitle: user?.jobTitle || user?.role || '',
     isActive: Boolean(user?.isActive),
     sectionAccess: {
+      approvals: Boolean(user?.sectionAccess?.approvals),
+      expenses: Boolean(user?.sectionAccess?.expenses),
       reports: Boolean(user?.sectionAccess?.reports),
       users: Boolean(user?.sectionAccess?.users),
       settings: Boolean(user?.sectionAccess?.settings),
@@ -351,27 +363,11 @@ function userManagerOptions(userId) {
         </label>
 
         <div class="user-access-grid">
-          <label class="check-tile">
-            <input v-model="editableUser.sectionAccess.reports" type="checkbox" :disabled="!canManageUsers" />
+          <label v-for="item in sectionAccessOptions" :key="item.key" class="check-tile">
+            <input v-model="editableUser.sectionAccess[item.key]" type="checkbox" :disabled="!canManageUsers" />
             <div>
-              <strong>گزارشات</strong>
-              <small>نمایش گزارش‌های مدیریتی</small>
-            </div>
-          </label>
-
-          <label class="check-tile">
-            <input v-model="editableUser.sectionAccess.users" type="checkbox" :disabled="!canManageUsers" />
-            <div>
-              <strong>کاربران</strong>
-              <small>دسترسی به لیست و مدیریت کاربران</small>
-            </div>
-          </label>
-
-          <label class="check-tile">
-            <input v-model="editableUser.sectionAccess.settings" type="checkbox" :disabled="!canManageUsers" />
-            <div>
-              <strong>تنظیمات</strong>
-              <small>ورود به تنظیمات و سطح دسترسی‌ها</small>
+              <strong>{{ item.title }}</strong>
+              <small>{{ item.description }}</small>
             </div>
           </label>
         </div>

@@ -1394,6 +1394,91 @@ a {
   color: var(--danger);
 }
 
+.error-notice {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(180, 35, 24, 0.18);
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(255, 247, 237, 0.98), rgba(255, 241, 242, 0.94)),
+    radial-gradient(circle at top right, rgba(180, 35, 24, 0.12), transparent 32%);
+  color: #7a271a;
+  box-shadow: 0 16px 36px rgba(180, 35, 24, 0.09);
+}
+
+.error-notice.is-compact {
+  padding: 12px 14px;
+  border-radius: 16px;
+}
+
+.error-notice-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  background: rgba(180, 35, 24, 0.12);
+  color: #b42318;
+}
+
+.error-notice-copy {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.error-notice-copy strong,
+.error-notice-copy p,
+.error-notice-copy small {
+  margin: 0;
+}
+
+.error-notice-copy p {
+  line-height: 1.8;
+}
+
+.error-notice-copy small {
+  color: #9f3b2d;
+  font-weight: 800;
+}
+
+.error-field-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.error-field-list span {
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(180, 35, 24, 0.08);
+  color: #8a2a20;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.field-shell.has-error {
+  border-color: rgba(180, 35, 24, 0.38);
+  background: rgba(255, 241, 242, 0.78);
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.08), var(--shadow-soft);
+}
+
+.upload-pad.has-error,
+.surface-inline.has-error {
+  border-color: rgba(180, 35, 24, 0.38);
+  background: rgba(255, 241, 242, 0.68);
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.08), var(--shadow-soft);
+}
+
+.shell-content > .error-notice {
+  width: min(100%, var(--container-width));
+  margin: 0 auto 16px;
+}
+
 .access-denied-card {
   border-radius: 30px;
   padding: 36px;

@@ -1,6 +1,8 @@
-﻿import { computed, reactive } from 'vue'
+import { computed, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { normalizeAmountValue } from '../utils/amount'
+import { AppError, appErrorFromResponse, createValidationError, hasFieldError, normalizeError } from '../utils/errors'
 import { formatJalali, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
 import { repairPayload } from '../utils/stitch'
 
@@ -69,6 +71,8 @@ function createUserForm() {
     managerId: '',
     jobTitle: '',
     sectionAccess: {
+      approvals: false,
+      expenses: false,
       reports: false,
       users: false,
       settings: false,
@@ -82,7 +86,7 @@ function createDocumentForm() {
     description: '',
     department: '',
     assigneeIds: [],
-    documentType: 'Ø³Ù†Ø¯',
+    documentType: 'سند',
     risk: 'medium',
     file: null,
   }
@@ -168,6 +172,7 @@ const state = reactive({
   bootstrapLoaded: false,
   appLoading: false,
   lastError: '',
+  lastErrorDetails: null,
   loginPending: false,
   mobileMenuOpen: false,
   currentUser: createCurrentUser(),
@@ -291,6 +296,22 @@ function replaceItems(target, items) {
   target.splice(0, target.length, ...(items || []))
 }
 
+function clearLastError() {
+  state.lastError = ''
+  state.lastErrorDetails = null
+}
+
+function setLastError(error, fallback = 'خطا در انجام عملیات') {
+  const normalized = normalizeError(error, fallback)
+  state.lastError = normalized.message
+  state.lastErrorDetails = normalized
+  return normalized
+}
+
+function fieldHasError(field) {
+  return hasFieldError(state.lastErrorDetails, field)
+}
+
 function resolveAssetUrl(rawUrl) {
   if (!rawUrl) return ''
   if (/^https?:\/\//i.test(rawUrl) || rawUrl.startsWith('data:')) return rawUrl
@@ -299,7 +320,7 @@ function resolveAssetUrl(rawUrl) {
 }
 
 function formatNumber(value) {
-  const normalized = String(value ?? '').replace(/,/g, '')
+  const normalized = normalizeAmountValue(value)
   const number = Number(normalized)
   if (!Number.isFinite(number)) return String(value || '')
   return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(number)
@@ -419,18 +440,22 @@ async function authorizedFetchUrl(rawUrl, options = {}) {
 
   if (response.status === 401) {
     clearSessionState()
-    throw new Error('UNAUTHORIZED')
+    throw new AppError({
+      status: 401,
+      title: 'نشست منقضی شده است',
+      message: 'برای ادامه کار دوباره وارد سامانه شوید.',
+      suggestion: 'صفحه ورود را باز کنید و دوباره وارد حساب شوید.',
+    })
   }
 
   if (!response.ok) {
-    let detail = `Request failed: ${response.status}`
+    let payload = null
     try {
-      const payload = repairPayload(await response.json())
-      detail = payload.detail || detail
+      payload = repairPayload(await response.json())
     } catch {
       // ignore parse failure
     }
-    throw new Error(detail)
+    throw appErrorFromResponse(payload || {}, response.status)
   }
 
   return response
@@ -486,7 +511,7 @@ function clearSessionState() {
   state.authToken = ''
   state.bootstrapLoaded = false
   state.sessionReady = true
-  state.lastError = ''
+  clearLastError()
   resetCurrentUser()
   replaceItems(state.stats, [])
   replaceItems(state.chartData, [])
@@ -564,15 +589,15 @@ const canApproveDocuments = computed(() => state.currentUser.canApproveDocuments
 
 const visibleNavItems = computed(() => {
   const items = [
-    { to: '/dashboard', label: 'Ø¯Ø§Ø´Ø¨ÙˆØ±Ø¯', icon: 'dashboard' },
-    { to: '/requests', label: 'Ø¯Ø±Ø®ÙˆØ§Ø³Øªâ€ŒÙ‡Ø§', icon: 'assignment' },
+    { to: '/dashboard', label: 'داشبورد', icon: 'dashboard' },
+    { to: '/requests', label: 'درخواست‌ها', icon: 'assignment' },
   ]
-  if (canAccessApprovals.value) items.push({ to: '/approvals', label: 'ØªØ§ÛŒÛŒØ¯ÛŒÙ‡â€ŒÙ‡Ø§', icon: 'fact_check' })
-  if (canViewReports.value) items.push({ to: '/reports', label: 'Ú¯Ø²Ø§Ø±Ø´Ø§Øª', icon: 'monitoring' })
-  if (canAccessUsers.value) items.push({ to: '/users', label: 'Ú©Ø§Ø±Ø¨Ø±Ø§Ù†', icon: 'group' })
+  if (canAccessApprovals.value) items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check' })
+  if (canViewReports.value) items.push({ to: '/reports', label: 'گزارشات', icon: 'monitoring' })
+  if (canAccessUsers.value) items.push({ to: '/users', label: 'کاربران', icon: 'group' })
 
   if (state.currentUser.canAccessSettings || canManageUsers.value) {
-    items.push({ to: '/settings', label: 'ØªÙ†Ø¸ÛŒÙ…Ø§Øª', icon: 'settings' })
+    items.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
   }
   return items
 })
@@ -638,19 +663,19 @@ const userPeople = computed(() => [...new Set(state.users.flatMap((item) => [ite
 
 function priorityLabel(value) {
   return {
-    low: 'Ù¾Ø§ÛŒÛŒÙ†',
-    medium: 'Ù…ØªÙˆØ³Ø·',
-    high: 'Ø¨Ø§Ù„Ø§',
-    critical: 'Ø¨Ø­Ø±Ø§Ù†ÛŒ',
-  }[value] || 'Ù…ØªÙˆØ³Ø·'
+    low: 'پایین',
+    medium: 'متوسط',
+    high: 'بالا',
+    critical: 'بحرانی',
+  }[value] || 'متوسط'
 }
 
 function departmentLabel(value) {
-  return state.directories.departments.find((item) => item.code === value)?.name || 'Ø¨Ø¯ÙˆÙ† ÙˆØ§Ø­Ø¯'
+  return state.directories.departments.find((item) => item.code === value)?.name || 'بدون واحد'
 }
 
 function managerLabel(value) {
-  return state.directories.managers.find((item) => item.slug === value)?.name || 'ØªØ¹ÛŒÛŒÙ† Ù†Ø´Ø¯Ù‡'
+  return state.directories.managers.find((item) => item.slug === value)?.name || 'تعیین نشده'
 }
 
 const requestManagerAssigneeOptions = computed(() => {
@@ -663,7 +688,7 @@ function requestManagerAssigneeNames(ids = state.requestForm.managerAssigneeIds)
   const names = state.directories.managers
     .filter((item) => normalizedIds.includes(item.id))
     .map((item) => item.name)
-  return names.length ? names.join('ØŒ ') : 'ØªØ¹ÛŒÛŒÙ† Ù†Ø´Ø¯Ù‡'
+  return names.length ? names.join('، ') : 'تعیین نشده'
 }
 
 function requestEmployeeAssigneeNames(ids = state.requestForm.employeeAssigneeIds) {
@@ -671,7 +696,7 @@ function requestEmployeeAssigneeNames(ids = state.requestForm.employeeAssigneeId
   const names = state.users
     .filter((item) => item.accessRole === 'employee' && normalizedIds.includes(Number(item.id)))
     .map((item) => item.name)
-  return names.length ? names.join('ØŒ ') : 'ØªØ¹ÛŒÛŒÙ† Ù†Ø´Ø¯Ù‡'
+  return names.length ? names.join('، ') : 'تعیین نشده'
 }
 
 function setRequestManager(value) {
@@ -698,18 +723,22 @@ async function authorizedFetch(path, options = {}) {
 
   if (response.status === 401) {
     clearSessionState()
-    throw new Error('UNAUTHORIZED')
+    throw new AppError({
+      status: 401,
+      title: 'نشست منقضی شده است',
+      message: 'برای ادامه کار دوباره وارد سامانه شوید.',
+      suggestion: 'صفحه ورود را باز کنید و دوباره وارد حساب شوید.',
+    })
   }
 
   if (!response.ok) {
-    let detail = `Request failed: ${response.status}`
+    let payload = null
     try {
-      const payload = repairPayload(await response.json())
-      detail = payload.detail || detail
+      payload = repairPayload(await response.json())
     } catch {
       // ignore parse failure
     }
-    throw new Error(detail)
+    throw appErrorFromResponse(payload || {}, response.status)
   }
 
   return response
@@ -784,7 +813,12 @@ function hydrateSupportTicket(payload) {
 }
 
 const supportUnreadCount = computed(() => {
-  if (state.currentUser.isHq) return 0
+  if (state.currentUser.isHq) {
+    const tickets = (state.support.tickets?.length ? state.support.tickets : state.hq.tickets) || []
+    const actionableTickets = tickets.filter((ticket) => ['open', 'pending'].includes(ticket.status)).length
+    if (actionableTickets) return actionableTickets
+    return Number(state.hq.summary.openTickets || 0) + Number(state.hq.summary.pendingTickets || 0)
+  }
   void state.support.seenVersion
   const seenMap = readSupportSeenMap()
   return (state.support.tickets || []).filter((ticket) => {
@@ -826,7 +860,7 @@ async function loadBootstrapData(force = false) {
   if (state.bootstrapLoaded && !force) return
 
   state.appLoading = true
-  state.lastError = ''
+  clearLastError()
   try {
     const organizationQuery = state.currentUser.isHq && state.hq.selectedOrganizationId
       ? `?organizationId=${encodeURIComponent(state.hq.selectedOrganizationId)}`
@@ -836,8 +870,8 @@ async function loadBootstrapData(force = false) {
     hydrateBootstrap(payload)
     state.bootstrapLoaded = true
   } catch (error) {
-    state.lastError = error.message || 'Ø®Ø·Ø§ Ø¯Ø± Ø¨Ø§Ø±Ú¯Ø°Ø§Ø±ÛŒ'
-    if (error.message === 'UNAUTHORIZED') throw error
+    setLastError(error, 'خطا در بارگذاری')
+    if (error.status === 401) throw error
   } finally {
     state.appLoading = false
     state.sessionReady = true
@@ -927,6 +961,7 @@ async function loadSupportTickets(force = false) {
     if (state.currentUser.isHq && !state.hq.selectedOrganizationId) {
       const response = await authorizedFetch('/hq')
       const payload = repairPayload(await response.json())
+      hydrateHq(payload)
       hydrateSupportTickets(payload.tickets || [])
     } else {
       const response = await authorizedFetch(scopedApiPath('/support/tickets'))
@@ -969,7 +1004,7 @@ async function createSupportTicket(payload) {
     const response = await authorizedFetch(scopedApiPath('/support/tickets'), { method: 'POST', body: formData })
     hydrateSupportTicket(repairPayload(await response.json()))
     await loadSupportTickets(true)
-    state.support.message = 'ØªÛŒÚ©Øª Ø«Ø¨Øª Ø´Ø¯.'
+    state.support.message = 'تیکت ثبت شد.'
   } catch (error) {
     state.support.error = error.message || 'Support submit failed.'
     throw error
@@ -1020,10 +1055,11 @@ async function submitSupportWalletDeposit(ticketId, payload) {
   state.support.submitting = true
   state.support.error = ''
   try {
+    const requestPayload = { ...payload, amount: normalizeAmountValue(payload?.amount) }
     const response = await authorizedFetch(`/support/tickets/${ticketId}/wallet-deposit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(requestPayload),
     })
     hydrateSupportTicket(repairPayload(await response.json()))
     await loadSupportTickets(true)
@@ -1042,15 +1078,16 @@ async function submitWalletTransaction(payload) {
   state.wallet.error = ''
   state.wallet.message = ''
   try {
+    const requestPayload = { ...payload, amount: normalizeAmountValue(payload.amount) }
     const response = await authorizedFetch(scopedApiPath('/wallet/transactions'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(requestPayload),
     })
     hydrateWallet(repairPayload(await response.json()))
     state.wallet.message = payload.direction === 'out' || payload.type === 'withdraw'
-      ? 'Ø¨Ø±Ø¯Ø§Ø´Øª Ø«Ø¨Øª Ø´Ø¯.'
-      : 'Ø´Ø§Ø±Ú˜ Ø«Ø¨Øª Ø´Ø¯.'
+      ? 'برداشت ثبت شد.'
+      : 'شارژ ثبت شد.'
   } catch (error) {
     state.wallet.error = error.message || 'Wallet transaction failed.'
     throw error
@@ -1097,10 +1134,13 @@ async function saveHqEntity(type, id, payload) {
   state.hq.saving = true
   state.lastError = ''
   try {
+    const requestPayload = type === 'payment' && 'amount' in payload
+      ? { ...payload, amount: normalizeAmountValue(payload.amount) }
+      : payload
     const response = await authorizedFetch(endpoints[type], {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(requestPayload),
     })
     hydrateHq(repairPayload(await response.json()))
   } catch (error) {
@@ -1123,7 +1163,7 @@ async function createHqOrganization(payload) {
     })
     hydrateHq(repairPayload(await response.json()))
   } catch (error) {
-    state.lastError = error.message || 'Ø³Ø§Ø®Øª Ù…Ø¬Ù…ÙˆØ¹Ù‡ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
+    state.lastError = error.message || 'ساخت مجموعه ناموفق بود.'
     throw error
   } finally {
     state.hq.saving = false
@@ -1198,7 +1238,7 @@ async function restoreSession() {
 
 async function login(email, password) {
   state.loginPending = true
-  state.lastError = ''
+  clearLastError()
   try {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
@@ -1207,7 +1247,7 @@ async function login(email, password) {
     })
     if (!response.ok) {
       const payload = repairPayload(await response.json())
-      throw new Error(payload.detail || 'ÙˆØ±ÙˆØ¯ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.')
+      throw appErrorFromResponse(payload, response.status, 'ورود ناموفق بود.')
     }
     const payload = repairPayload(await response.json())
     state.authToken = payload.access_token
@@ -1215,6 +1255,9 @@ async function login(email, password) {
     state.bootstrapLoaded = false
     await loadBootstrapData(true)
     return true
+  } catch (error) {
+    setLastError(error, 'ورود ناموفق بود.')
+    return false
   } finally {
     state.loginPending = false
     state.sessionReady = true
@@ -1327,43 +1370,43 @@ export function useWorkflowHub() {
   }
 
   function openRequestComposer() {
-    state.lastError = ''
+    clearLastError()
     resetRequestForm()
     modalState.requestComposer = true
   }
 
   function closeRequestComposer() {
-    state.lastError = ''
+    clearLastError()
     modalState.requestComposer = false
     resetRequestForm()
   }
 
   function openExpenseComposer() {
-    state.lastError = ''
+    clearLastError()
     resetExpenseForm()
     modalState.expenseComposer = true
   }
 
   function closeExpenseComposer() {
-    state.lastError = ''
+    clearLastError()
     modalState.expenseComposer = false
     resetExpenseForm()
   }
 
   function openUserComposer() {
-    state.lastError = ''
+    clearLastError()
     resetUserForm()
     modalState.userComposer = true
   }
 
   function closeUserComposer() {
-    state.lastError = ''
+    clearLastError()
     modalState.userComposer = false
     resetUserForm()
   }
 
   function openDocumentComposer() {
-    state.lastError = ''
+    clearLastError()
     resetDocumentForm()
     if (state.directories.managers.length === 1) {
       state.documentForm.assigneeIds = [state.directories.managers[0].id]
@@ -1375,7 +1418,7 @@ export function useWorkflowHub() {
   }
 
   function closeDocumentComposer() {
-    state.lastError = ''
+    clearLastError()
     modalState.documentComposer = false
     resetDocumentForm()
   }
@@ -1394,13 +1437,13 @@ export function useWorkflowHub() {
   }
 
   async function openSignatureComposer() {
-    state.lastError = ''
+    clearLastError()
     await loadSignature()
     modalState.signatureComposer = true
   }
 
   function closeSignatureComposer() {
-    state.lastError = ''
+    clearLastError()
     modalState.signatureComposer = false
   }
 
@@ -1422,13 +1465,13 @@ export function useWorkflowHub() {
 
   async function submitRequest() {
     state.requestSubmitting = true
-    state.lastError = ''
+    clearLastError()
     try {
       if (!String(state.requestForm.title || '').trim()) {
-        throw new Error('Ø¹Ù†ÙˆØ§Ù† Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.')
+        throw createValidationError('عنوان درخواست الزامی است.', [{ field: 'title', message: 'عنوان درخواست را وارد کنید.' }])
       }
       if (!state.requestForm.manager) {
-        throw new Error('Ø§Ù†ØªØ®Ø§Ø¨ Ù…Ø¯ÛŒØ± Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.')
+        throw createValidationError('حداقل یک مدیر ارجاع گیرنده باید انتخاب شود.', [{ field: 'manager', message: 'از بخش ارجاع گیرنده یک مدیر انتخاب کنید.' }])
       }
 
       const formData = new FormData()
@@ -1446,7 +1489,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       closeRequestComposer()
     } catch (error) {
-      state.lastError = error.message || 'Ø«Ø¨Øª Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
+      setLastError(error, 'ثبت درخواست ناموفق بود.')
       throw error
     } finally {
       state.requestSubmitting = false
@@ -1455,17 +1498,18 @@ export function useWorkflowHub() {
 
   async function submitExpense(action = 'refer') {
     state.expenseSubmitting = true
-    state.lastError = ''
+    clearLastError()
     try {
-      if (!Number(state.expenseForm.amount || 0)) {
-        throw new Error('Ù…Ø¨Ù„Øº Ù‡Ø²ÛŒÙ†Ù‡ Ø¨Ø§ÛŒØ¯ Ø¨ÛŒØ´ØªØ± Ø§Ø² ØµÙØ± Ø¨Ø§Ø´Ø¯.')
+      const amountValue = normalizeAmountValue(state.expenseForm.amount)
+      if (!Number(amountValue || 0)) {
+        throw createValidationError('مبلغ هزینه باید بیشتر از صفر باشد.', [{ field: 'amount', message: 'یک مبلغ معتبر و بزرگ تر از صفر وارد کنید.' }])
       }
       if (!String(state.expenseForm.description || '').trim()) {
-        throw new Error('Ø´Ø±Ø­ Ù‡Ø²ÛŒÙ†Ù‡ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.')
+        throw createValidationError('شرح هزینه الزامی است.', [{ field: 'description', message: 'شرح هزینه را وارد کنید.' }])
       }
       const formData = new FormData()
       formData.append('description', state.expenseForm.description)
-      formData.append('amount', state.expenseForm.amount)
+      formData.append('amount', amountValue)
       formData.append('expenseDate', jalaliToIso(state.expenseForm.expenseDate))
       formData.append('department', state.expenseForm.department)
       formData.append('action', 'refer')
@@ -1476,7 +1520,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       closeExpenseComposer()
     } catch (error) {
-      state.lastError = error.message || 'Ø«Ø¨Øª Ù‡Ø²ÛŒÙ†Ù‡ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
+      setLastError(error, 'ثبت هزینه ناموفق بود.')
       throw error
     } finally {
       state.expenseSubmitting = false
@@ -1485,16 +1529,16 @@ export function useWorkflowHub() {
 
   async function submitUser() {
     state.userSubmitting = true
-    state.lastError = ''
+    clearLastError()
     try {
       if (!String(state.userForm.fullName || '').trim()) {
-        throw new Error('Ù†Ø§Ù… Ú©Ø§Ù…Ù„ Ú©Ø§Ø±Ø¨Ø± Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.')
+        throw createValidationError('نام کامل کاربر الزامی است.', [{ field: 'fullName', message: 'نام و نام خانوادگی را وارد کنید.' }])
       }
       if (!String(state.userForm.email || '').trim()) {
-        throw new Error('Ø§ÛŒÙ…ÛŒÙ„ Ú©Ø§Ø±Ø¨Ø± Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.')
+        throw createValidationError('ایمیل کاربر الزامی است.', [{ field: 'email', message: 'ایمیل کاربر را وارد کنید.' }])
       }
       if (state.userForm.password && String(state.userForm.password).length < 6) {
-        throw new Error('Ø±Ù…Ø² Ø¹Ø¨ÙˆØ± Ø¨Ø§ÛŒØ¯ Ø­Ø¯Ø§Ù‚Ù„ 6 Ú©Ø§Ø±Ø§Ú©ØªØ± Ø¨Ø§Ø´Ø¯.')
+        throw createValidationError('رمز عبور باید حداقل 6 کاراکتر باشد.', [{ field: 'password', message: 'رمز عبور کوتاه است.' }])
       }
       await authorizedFetch('/users', {
         method: 'POST',
@@ -1510,7 +1554,7 @@ export function useWorkflowHub() {
       }
       closeUserComposer()
     } catch (error) {
-      state.lastError = error.message || 'Ø§ÛŒØ¬Ø§Ø¯ Ú©Ø§Ø±Ø¨Ø± Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
+      setLastError(error, 'ایجاد کاربر ناموفق بود.')
       throw error
     } finally {
       state.userSubmitting = false
@@ -1519,16 +1563,16 @@ export function useWorkflowHub() {
 
   async function submitDocument() {
     state.documentSubmitting = true
-    state.lastError = ''
+    clearLastError()
     try {
       if (!String(state.documentForm.title || '').trim()) {
-        throw new Error('Ø¹Ù†ÙˆØ§Ù† Ø³Ù†Ø¯ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.')
+        throw createValidationError('عنوان سند الزامی است.', [{ field: 'title', message: 'عنوان سند را وارد کنید.' }])
       }
       if (!state.documentForm.file) {
-        throw new Error('ÙØ§ÛŒÙ„ Ø³Ù†Ø¯ Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª.')
+        throw createValidationError('فایل سند الزامی است.', [{ field: 'file', message: 'فایل سند را انتخاب کنید.' }])
       }
       if (!state.documentForm.assigneeIds.length) {
-        throw new Error('Ø­Ø¯Ø§Ù‚Ù„ ÛŒÚ© Ù…Ø¯ÛŒØ± Ø¯Ø±ÛŒØ§ÙØª Ú©Ù†Ù†Ø¯Ù‡ Ø±Ø§ Ø§Ù†ØªØ®Ø§Ø¨ Ú©Ù†ÛŒØ¯.')
+        throw createValidationError('حداقل یک مدیر دریافت کننده را انتخاب کنید.', [{ field: 'assigneeIds', message: 'یک مدیر دریافت کننده انتخاب کنید.' }])
       }
       const formData = new FormData()
       formData.append('title', state.documentForm.title)
@@ -1542,7 +1586,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       closeDocumentComposer()
     } catch (error) {
-      state.lastError = error.message || 'Ø«Ø¨Øª Ø³Ù†Ø¯ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
+      setLastError(error, 'ثبت سند ناموفق بود.')
       throw error
     } finally {
       state.documentSubmitting = false
@@ -1564,7 +1608,7 @@ export function useWorkflowHub() {
       closeSignatureComposer()
       await loadBootstrapData(true)
     } catch (error) {
-      state.lastError = error.message || 'Ø«Ø¨Øª Ø§Ù…Ø¶Ø§ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
+      state.lastError = error.message || 'ثبت امضا ناموفق بود.'
       throw error
     } finally {
       signatureState.loading = false
@@ -1579,7 +1623,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       await loadApprovalDetail(selectedApproval.value.id)
     } catch (error) {
-      state.lastError = error.message || 'ØªØ§ÛŒÛŒØ¯ Ø³Ù†Ø¯ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
+      state.lastError = error.message || 'تایید سند ناموفق بود.'
       throw error
     }
   }
@@ -1596,7 +1640,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       await loadApprovalDetail(selectedApproval.value.id)
     } catch (error) {
-      state.lastError = error.message || 'Ø±Ø¯ Ø³Ù†Ø¯ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
+      state.lastError = error.message || 'رد سند ناموفق بود.'
       throw error
     }
   }
@@ -1609,7 +1653,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       await loadRequestDetail(selectedRequest.value.id)
     } catch (error) {
-      state.lastError = error.message || 'ØªØ§ÛŒÛŒØ¯ Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
+      state.lastError = error.message || 'تایید درخواست ناموفق بود.'
       throw error
     }
   }
@@ -1626,7 +1670,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       await loadRequestDetail(selectedRequest.value.id)
     } catch (error) {
-      state.lastError = error.message || 'Ø±Ø¯ Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
+      state.lastError = error.message || 'رد درخواست ناموفق بود.'
       throw error
     }
   }
@@ -1639,7 +1683,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       await loadExpenseDetail(selectedExpense.value.id)
     } catch (error) {
-      state.lastError = error.message || 'ØªØ§ÛŒÛŒØ¯ Ù‡Ø²ÛŒÙ†Ù‡ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
+      state.lastError = error.message || 'تایید هزینه ناموفق بود.'
       throw error
     }
   }
@@ -1656,7 +1700,7 @@ export function useWorkflowHub() {
       await loadBootstrapData(true)
       await loadExpenseDetail(selectedExpense.value.id)
     } catch (error) {
-      state.lastError = error.message || 'Ø±Ø¯ Ù‡Ø²ÛŒÙ†Ù‡ Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.'
+      state.lastError = error.message || 'رد هزینه ناموفق بود.'
       throw error
     }
   }
@@ -1718,6 +1762,9 @@ export function useWorkflowHub() {
     toggleSidebar,
     updatePageFilter,
     resetPageFilters,
+    clearLastError,
+    setLastError,
+    fieldHasError,
     login,
     logout,
     restoreSession,

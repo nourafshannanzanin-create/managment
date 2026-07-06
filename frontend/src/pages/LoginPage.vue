@@ -1,6 +1,7 @@
 <script setup>
 import { reactive } from 'vue'
 
+import ErrorNotice from '../components/ErrorNotice.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const form = reactive({
@@ -104,7 +105,7 @@ async function handleLogin() {
             />
           </label>
 
-          <p v-if="state.lastError" class="stitch-error">{{ state.lastError }}</p>
+          <ErrorNotice :error="state.lastErrorDetails" compact />
 
           <div class="stitch-form-meta">
             <a href="#" @click.prevent>فراموشی رمز عبور؟</a>
