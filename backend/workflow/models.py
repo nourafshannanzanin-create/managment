@@ -302,6 +302,20 @@ class RequestTimeline(TimeStampedModel):
         db_table = "request_timeline"
 
 
+class RequestApprovalAssignment(TimeStampedModel):
+    request = models.ForeignKey(Request, on_delete=models.CASCADE, related_name="approval_assignments")
+    approver = models.ForeignKey(User, on_delete=models.CASCADE, related_name="request_approval_assignments")
+    status = models.CharField(max_length=32, choices=ApprovalAssignmentStatus.choices, default=ApprovalAssignmentStatus.PENDING)
+    decision_note = models.TextField(blank=True, null=True)
+    acted_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = "request_approval_assignments"
+        constraints = [
+            models.UniqueConstraint(fields=["request", "approver"], name="uq_request_approver"),
+        ]
+
+
 class Expense(models.Model):
     code = models.CharField(max_length=40, unique=True, db_index=True)
     title = models.CharField(max_length=180)
@@ -318,6 +332,20 @@ class Expense(models.Model):
 
     class Meta:
         db_table = "expenses"
+
+
+class ExpenseApprovalAssignment(TimeStampedModel):
+    expense = models.ForeignKey(Expense, on_delete=models.CASCADE, related_name="approval_assignments")
+    approver = models.ForeignKey(User, on_delete=models.CASCADE, related_name="expense_approval_assignments")
+    status = models.CharField(max_length=32, choices=ApprovalAssignmentStatus.choices, default=ApprovalAssignmentStatus.PENDING)
+    decision_note = models.TextField(blank=True, null=True)
+    acted_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = "expense_approval_assignments"
+        constraints = [
+            models.UniqueConstraint(fields=["expense", "approver"], name="uq_expense_approver"),
+        ]
 
 
 class Document(models.Model):

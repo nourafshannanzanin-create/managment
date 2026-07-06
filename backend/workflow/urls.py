@@ -23,6 +23,7 @@ urlpatterns = [
     path("support/tickets/<int:ticket_id>/feedback", views.support_ticket_feedback_view),
     path("requests", views.requests_view),
     path("requests/<str:request_code>", views.request_detail_view),
+    path("requests/<str:request_code>/attachments/<int:attachment_id>", views.request_attachment_view),
     path("requests/<str:request_code>/approve", views.request_approve_view),
     path("requests/<str:request_code>/reject", views.request_reject_view),
     path("expenses", views.expenses_view),
