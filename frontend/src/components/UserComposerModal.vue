@@ -11,14 +11,14 @@ defineProps({
 
 defineEmits(['close'])
 
-const { state, fieldHasError, submitUser } = useWorkflowHub()
+const { availableManagerDirectory, state, fieldHasError, submitUser } = useWorkflowHub()
 
 const sectionAccessOptions = [
-  { key: 'users', title: 'کاربران', description: 'دسترسی به فهرست و مدیریت کاربران' },
-  { key: 'approvals', title: 'تاییدیه‌ها', description: 'مشاهده و بررسی اسناد و تاییدیه‌ها' },
-  { key: 'expenses', title: 'هزینه‌ها', description: 'ثبت، مشاهده و پیگیری هزینه‌ها' },
-  { key: 'reports', title: 'گزارشات', description: 'مشاهده گزارش‌های تحلیلی و مدیریتی' },
-  { key: 'settings', title: 'تنظیمات', description: 'ورود به تنظیمات سازمان و دسترسی‌ها' },
+  { key: 'users', title: 'کاربران' },
+  { key: 'approvals', title: 'تاییدیه‌ها' },
+  { key: 'expenses', title: 'هزینه‌ها' },
+  { key: 'reports', title: 'گزارشات' },
+  { key: 'settings', title: 'تنظیمات' },
 ]
 </script>
 
@@ -66,7 +66,7 @@ const sectionAccessOptions = [
           <span>مدیر مستقیم</span>
           <select v-model="form.managerId">
             <option value="">بدون مدیر</option>
-            <option v-for="item in state.directories.managers" :key="item.id" :value="item.id">{{ item.name }}</option>
+            <option v-for="item in availableManagerDirectory()" :key="item.id" :value="item.id">{{ item.name }}</option>
           </select>
         </label>
       </div>
@@ -79,8 +79,7 @@ const sectionAccessOptions = [
       <section class="surface-inline user-access-panel">
         <div class="section-label-row compact">
           <div>
-            <h3>دسترسی بخش‌ها</h3>
-            <p>مشخص کنید این کاربر به کدام بخش‌های سایت دسترسی داشته باشد.</p>
+            <h3>دسترسی به بخش‌ها</h3>
           </div>
         </div>
 
@@ -89,7 +88,6 @@ const sectionAccessOptions = [
             <input v-model="form.sectionAccess[item.key]" type="checkbox" />
             <div>
               <strong>{{ item.title }}</strong>
-              <small>{{ item.description }}</small>
             </div>
           </label>
         </div>
@@ -141,14 +139,8 @@ const sectionAccessOptions = [
   margin-top: 4px;
 }
 
-.check-tile strong,
-.check-tile small {
+.check-tile strong {
   display: block;
-}
-
-.check-tile small {
-  margin-top: 4px;
-  color: var(--muted);
 }
 
 .inline-error {
@@ -159,7 +151,7 @@ const sectionAccessOptions = [
 
 @media (max-width: 760px) {
   .access-check-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

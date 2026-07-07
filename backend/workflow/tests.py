@@ -5,6 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from django.conf import settings
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 
 from workflow.access import ensure_default_organization
@@ -15,7 +16,10 @@ from workflow.models import (
     Document,
     DocumentRisk,
     DocumentStatus,
+    Organization,
     OrganizationMembership,
+    RegistrationRequest,
+    SupportTicket,
     User,
     UserRole,
     UserSignature,
@@ -107,3 +111,57 @@ class ApprovalFlowTests(TestCase):
         self.assertEqual(assignment.signed_signature_data, SIGNATURE_DATA_URL)
         self.assertIn("-signed-", document.file_name or "")
         self.assertTrue((Path(settings.MEDIA_ROOT) / document.file_name).exists())
+
+
+class RegistrationTests(TestCase):
+    def setUp(self):
+        self.temp_dir = TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+        self.override = override_settings(MEDIA_ROOT=self.temp_dir.name, MEDIA_URL="/media/")
+        self.override.enable()
+        self.addCleanup(self.override.disable)
+
+    def test_register_endpoint_creates_review_ticket_then_hq_approves(self):
+        client = Client()
+
+        response = client.post(
+            "/api/v1/auth/register",
+            data={
+                "organizationName": "مجموعه تست ثبت نام",
+                "managerName": "مدیر تست ثبت نام",
+                "managerUsername": "test-manager",
+                "managerPhone": "09120000000",
+                "managerPassword": "secret123",
+                "documents": SimpleUploadedFile("license.pdf", b"test-license", content_type="application/pdf"),
+            },
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertFalse(Organization.objects.filter(code="test-org").exists())
+        self.assertFalse(User.objects.filter(slug="test-manager").exists())
+        registration = RegistrationRequest.objects.select_related("ticket").get()
+        self.assertEqual(registration.status, "pending")
+        self.assertEqual(registration.ticket.attachments.count(), 1)
+        self.assertNotEqual(registration.manager_password_hash, "secret123")
+
+        hq_user = User.objects.get(slug="milad_dhs")
+        client.defaults["HTTP_AUTHORIZATION"] = f"Bearer {create_access_token(str(hq_user.id), {'role': hq_user.role})}"
+        approve_response = client.post(
+            f"/api/v1/support/tickets/{registration.ticket_id}/approve-registration",
+            data={"companyCode": "test-org"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(approve_response.status_code, 200)
+        self.assertTrue(Organization.objects.filter(code="test-org").exists())
+        self.assertTrue(User.objects.filter(slug="test-manager").exists())
+        registration.refresh_from_db()
+        self.assertEqual(registration.status, "approved")
+        self.assertEqual(SupportTicket.objects.get(pk=registration.ticket_id).status, "closed")
+
+        duplicate_response = client.post(
+            f"/api/v1/support/tickets/{registration.ticket_id}/approve-registration",
+            data={"companyCode": "another-code"},
+            content_type="application/json",
+        )
+        self.assertEqual(duplicate_response.status_code, 409)

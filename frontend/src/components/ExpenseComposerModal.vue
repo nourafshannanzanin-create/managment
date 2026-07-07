@@ -19,10 +19,10 @@ const referralOpen = ref(false)
 const referralTab = ref('managers')
 const referralSearch = ref('')
 
-const { state, fieldHasError, setExpenseInvoice, submitExpense } = useWorkflowHub()
+const { state, fieldHasError, setExpenseInvoice, submitExpense, availableRecipientUsers } = useWorkflowHub()
 
 const managerChoices = computed(() => state.directories.managers || [])
-const employeeChoices = computed(() => (state.users || []).filter((item) => item.accessRole === 'employee'))
+const employeeChoices = computed(() => availableRecipientUsers().filter((item) => item.accessRole === 'employee'))
 const filteredManagers = computed(() => managerChoices.value.filter((item) => !referralSearch.value || `${item.name} ${item.role}`.toLowerCase().includes(referralSearch.value.toLowerCase())))
 const filteredEmployees = computed(() => employeeChoices.value.filter((item) => !referralSearch.value || `${item.name} ${item.role} ${item.department}`.toLowerCase().includes(referralSearch.value.toLowerCase())))
 
@@ -50,7 +50,7 @@ function selectedNames() {
       <div class="modal-headline"><p class="page-eyebrow">هزینه جدید</p><h2>ثبت و ارجاع هزینه</h2></div>
 
       <div class="modal-grid two-col">
-        <label :class="['field-shell', fieldHasError('amount') && 'has-error']"><span>مبلغ</span><input v-model="form.amount" inputmode="decimal" placeholder="0" @input="form.amount = formatAmountInput($event.target.value)" /></label>
+        <label :class="['field-shell', fieldHasError('amount') && 'has-error']"><span>مبلغ (تومان)</span><input v-model="form.amount" inputmode="decimal" placeholder="0" @input="form.amount = formatAmountInput($event.target.value)" /></label>
         <label class="field-shell"><span>تاریخ</span><ShamsiDatePicker v-model="form.expenseDate" model-type="jalali" /></label>
         <label class="field-shell"><span>بخش</span><select v-model="form.department"><option value="">انتخاب بخش</option><option v-for="item in state.directories.departments" :key="item.code" :value="item.code">{{ item.name }}</option></select></label>
         <label class="field-shell"><span>ارجاع گیرنده</span><button class="action-btn tone-soft inline-open-btn" type="button" @click="referralOpen = true"><span class="material-symbols-outlined">group_add</span><span>{{ selectedNames() }}</span></button></label>
@@ -77,5 +77,6 @@ function selectedNames() {
 
 <style scoped>
 .inline-error { margin: 0; color: #b42318; }
-@media (max-width: 760px) { .modal-grid.two-col { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .modal-grid.two-col { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) { .modal-grid.two-col { grid-template-columns: 1fr; } }
 </style>

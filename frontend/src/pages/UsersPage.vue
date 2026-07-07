@@ -4,7 +4,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import BaseModal from '../components/BaseModal.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const { openUserComposer, state, updateUser } = useWorkflowHub()
+const { availableManagerDirectory, openUserComposer, state, updateUser } = useWorkflowHub()
 
 const searchQuery = ref('')
 const activeCategory = ref('all')
@@ -31,11 +31,11 @@ const editableUser = reactive({
 })
 
 const sectionAccessOptions = [
-  { key: 'users', title: 'کاربران', description: 'دسترسی به لیست و مدیریت کاربران' },
-  { key: 'approvals', title: 'تاییدیه‌ها', description: 'مشاهده و بررسی تاییدیه‌ها' },
-  { key: 'expenses', title: 'هزینه‌ها', description: 'ثبت، مشاهده و پیگیری هزینه‌ها' },
-  { key: 'reports', title: 'گزارشات', description: 'نمایش گزارش‌های مدیریتی' },
-  { key: 'settings', title: 'تنظیمات', description: 'ورود به تنظیمات و سطح دسترسی‌ها' },
+  { key: 'users', title: 'کاربران' },
+  { key: 'approvals', title: 'تاییدیه‌ها' },
+  { key: 'expenses', title: 'هزینه‌ها' },
+  { key: 'reports', title: 'گزارشات' },
+  { key: 'settings', title: 'تنظیمات' },
 ]
 
 const categoryButtons = [
@@ -79,10 +79,10 @@ const filteredUsers = computed(() => {
 })
 
 const userStats = computed(() => [
-  { label: 'کل کاربران', value: state.users.length, icon: 'group', note: 'ثبت شده', tone: 'is-total' },
-  { label: 'فعال', value: state.users.filter((item) => item.isActive).length, icon: 'verified_user', note: 'حساب‌های فعال', tone: 'is-approved' },
-  { label: 'مدیران', value: state.users.filter((item) => ['admin', 'executive_manager', 'manager'].includes(item.accessRole)).length, icon: 'badge', note: 'سطح مدیریتی', tone: 'is-pending' },
-  { label: 'کارمندان', value: state.users.filter((item) => item.accessRole === 'employee').length, icon: 'person', note: 'نیروی اجرایی', tone: 'is-rejected' },
+  { label: 'کل کاربران', value: state.users.length, icon: 'group', note: '', tone: 'is-total' },
+  { label: 'فعال', value: state.users.filter((item) => item.isActive).length, icon: 'verified_user', note: '', tone: 'is-approved' },
+  { label: 'مدیران', value: state.users.filter((item) => ['admin', 'executive_manager', 'manager'].includes(item.accessRole)).length, icon: 'badge', note: '', tone: 'is-pending' },
+  { label: 'کارمندان', value: state.users.filter((item) => item.accessRole === 'employee').length, icon: 'person', note: '', tone: 'is-rejected' },
 ])
 
 const selectedUser = computed(() => state.users.find((item) => item.id === selectedUserId.value) || null)
@@ -154,7 +154,7 @@ async function toggleSelectedUserStatus() {
 }
 
 function userManagerOptions(userId) {
-  return state.directories.managers.filter((item) => item.id !== userId)
+  return availableManagerDirectory(userId)
 }
 </script>
 
@@ -167,7 +167,6 @@ function userManagerOptions(userId) {
           <span class="material-symbols-outlined approval-metric-icon">{{ item.icon }}</span>
         </div>
         <strong>{{ item.value }}</strong>
-        <small class="approval-metric-note">{{ item.note }}</small>
       </article>
     </section>
 
@@ -176,15 +175,10 @@ function userManagerOptions(userId) {
         <div class="users-toolbar-head">
           <div>
             <h3>فهرست کاربران</h3>
-            <p>کارت‌های کوچک، جمع‌وجور و مناسب برای مرور سریع اعضای سازمان.</p>
           </div>
 
           <div class="users-header-actions">
             <span class="meta-pill">{{ filteredUsers.length }} نتیجه</span>
-            <button v-if="canManageUsers" class="action-btn tone-primary" type="button" @click="openUserComposer">
-              <span class="material-symbols-outlined">person_add</span>
-              <span>افزودن کاربر</span>
-            </button>
           </div>
         </div>
 
@@ -284,7 +278,6 @@ function userManagerOptions(userId) {
           </div>
           <div class="user-status-copy">
             <strong>{{ selectedUser.status || '-' }}</strong>
-            <p>همه گزینه‌های ویرایش، تغییر دسترسی و فعال‌سازی یا غیرفعال‌سازی از همین پنجره در دسترس هستند.</p>
           </div>
         </div>
       </section>
@@ -312,7 +305,6 @@ function userManagerOptions(userId) {
         <div class="section-label-row">
           <div>
             <h3>ویرایش کاربر</h3>
-            <p>در صورت نیاز اطلاعات، نقش، دسترسی‌ها و وضعیت این کاربر را به‌روزرسانی کنید.</p>
           </div>
         </div>
 
@@ -367,7 +359,6 @@ function userManagerOptions(userId) {
             <input v-model="editableUser.sectionAccess[item.key]" type="checkbox" :disabled="!canManageUsers" />
             <div>
               <strong>{{ item.title }}</strong>
-              <small>{{ item.description }}</small>
             </div>
           </label>
         </div>
@@ -449,8 +440,8 @@ function userManagerOptions(userId) {
 }
 
 .users-search-shell {
-  min-width: min(100%, 320px);
-  flex: 1 1 280px;
+  min-width: min(100%, 220px);
+  flex: 0 1 240px;
 }
 
 .users-chip-row,
@@ -654,7 +645,7 @@ function userManagerOptions(userId) {
 
 .user-meta-board {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -753,7 +744,7 @@ function userManagerOptions(userId) {
   .user-directory-grid,
   .user-meta-board,
   .user-access-grid {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .user-modal-shell {
@@ -770,6 +761,17 @@ function userManagerOptions(userId) {
   .user-modal-actions {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 420px) {
+  .user-directory-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .user-meta-board,
+  .user-access-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

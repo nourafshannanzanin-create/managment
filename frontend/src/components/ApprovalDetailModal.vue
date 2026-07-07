@@ -14,12 +14,16 @@ defineEmits(['close'])
 
 const rejectReason = ref('')
 const rejectOpen = ref(false)
+const referOpen = ref(false)
+const referSearch = ref('')
 const previewObjectUrl = ref('')
 const previewLoading = ref(false)
 
 const {
   approveSelectedDocument,
+  availableManagerDirectory,
   rejectSelectedDocument,
+  referSelectedDocument,
   loadSignature,
   openSignatureComposer,
   signatureState,
@@ -44,6 +48,12 @@ const statusTone = computed(() => {
   if (isRejected.value) return 'is-rejected'
   return 'is-pending'
 })
+const managerChoices = computed(() => availableManagerDirectory())
+const filteredManagers = computed(() => {
+  const query = referSearch.value.trim().toLowerCase()
+  return managerChoices.value.filter((item) => !query || `${item.name} ${item.role}`.toLowerCase().includes(query))
+})
+const referAssigneeIds = ref([])
 
 const statusIcon = computed(() => {
   if (isApproved.value) return 'verified'
@@ -117,11 +127,27 @@ async function handleDownload() {
   await downloadProtectedFile(downloadUrl.value, props.approval?.id || 'document')
 }
 
+function toggleAssignee(id) {
+  const next = new Set(referAssigneeIds.value.map(Number))
+  const numericId = Number(id)
+  if (next.has(numericId)) next.delete(numericId)
+  else next.add(numericId)
+  referAssigneeIds.value = [...next]
+}
+
+async function handleRefer() {
+  await referSelectedDocument({ assigneeIds: referAssigneeIds.value })
+  referOpen.value = false
+}
+
 watch(
   () => [props.open, props.approval?.id, props.approval?.canApprove, previewUrl.value, previewKind.value],
   async ([open, _, canApprove]) => {
     rejectReason.value = ''
     rejectOpen.value = false
+    referOpen.value = false
+    referSearch.value = ''
+    referAssigneeIds.value = []
     revokePreviewObjectUrl()
     if (!open) return
     state.lastError = ''
@@ -285,6 +311,16 @@ watch(
               </button>
               <button
                 v-if="approval.canApprove"
+                class="action-btn tone-soft"
+                type="button"
+                :disabled="loading"
+                @click="referOpen = true"
+              >
+                <span class="material-symbols-outlined">forward</span>
+                <span>ارجاع</span>
+              </button>
+              <button
+                v-if="approval.canApprove"
                 class="action-btn tone-danger"
                 type="button"
                 :disabled="loading"
@@ -341,6 +377,38 @@ watch(
           <span class="material-symbols-outlined">cancel</span>
           <span>ثبت رد</span>
         </button>
+      </div>
+    </div>
+  </BaseModal>
+
+  <BaseModal :open="referOpen" size="detail" @close="referOpen = false">
+    <div class="detail-layout">
+      <div class="modal-headline">
+        <p class="page-eyebrow">ارجاع سند</p>
+        <h2>انتخاب مدیر جدید</h2>
+      </div>
+      <label class="search-shell search-shell-wide">
+        <span class="material-symbols-outlined">search</span>
+        <input v-model="referSearch" placeholder="جستجو در مدیران" />
+      </label>
+      <div class="recipient-grid">
+        <button
+          v-for="item in filteredManagers"
+          :key="item.id"
+          :class="['recipient-card', referAssigneeIds.map(Number).includes(Number(item.id)) && 'is-selected']"
+          type="button"
+          @click="toggleAssignee(item.id)"
+        >
+          <div class="recipient-card-main">
+            <strong>{{ item.name }}</strong>
+            <small>{{ item.role }}</small>
+          </div>
+          <span class="material-symbols-outlined">check_circle</span>
+        </button>
+      </div>
+      <div class="modal-actions">
+        <button class="action-btn tone-soft" type="button" @click="referOpen = false">بستن</button>
+        <button class="action-btn tone-primary" type="button" :disabled="!referAssigneeIds.length" @click="handleRefer">ثبت ارجاع</button>
       </div>
     </div>
   </BaseModal>
@@ -476,7 +544,7 @@ watch(
 
 .approval-meta-board {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -746,7 +814,7 @@ watch(
   }
 
   .approval-meta-board {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .approval-status-panel,
@@ -754,19 +822,41 @@ watch(
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .signature-readiness-card > .action-btn {
+    width: 100%;
+  }
+
   .approval-preview-frame {
     min-height: 420px;
   }
 
   .approval-surface-head,
-  .approval-file-actions,
   .approval-action-row {
     justify-content: stretch;
   }
 
   .approval-file-actions,
   .approval-action-row {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .approval-file-actions > *,
+  .approval-action-row > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .approval-file-actions > :only-child,
+  .approval-action-row > :only-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 420px) {
+  .approval-meta-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

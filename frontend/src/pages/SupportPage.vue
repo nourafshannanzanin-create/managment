@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 
 import { formatAmountInput } from '../utils/amount'
@@ -14,6 +14,8 @@ const {
   submitSupportReply,
   submitSupportFeedback,
   submitSupportWalletDeposit,
+  submitSupportBankWithdrawComplete,
+  submitSupportRegistrationApproval,
   markSupportTicketsSeen,
   openProtectedFile,
 } = useWorkflowHub()
@@ -23,9 +25,13 @@ const activeCategory = ref('all')
 const query = ref('')
 const modalOpen = ref(false)
 const walletDepositModalOpen = ref(false)
+const bankWithdrawModalOpen = ref(false)
+const registrationModalOpen = ref(false)
 const replyBody = ref('')
 const feedback = reactive({ score: 0, text: '' })
 const walletDepositForm = reactive({ amount: '' })
+const bankWithdrawForm = reactive({ amount: '' })
+const registrationForm = reactive({ companyCode: '' })
 const form = reactive({
   subject: '',
   message: '',
@@ -74,6 +80,10 @@ function paymentTicketRank(ticket) {
 }
 
 const canDepositToWallet = computed(() => state.currentUser.canUseHq && paymentTicketRank(selectedTicket.value) === 0)
+const canCompleteWalletTransfer = computed(() => state.currentUser.canUseHq && selectedTicket.value?.actionMeta?.actionType === 'wallet_withdrawal' && selectedTicket.value?.actionMeta?.destinationType === 'wallet')
+const canCompleteBankWithdraw = computed(() => state.currentUser.canUseHq && selectedTicket.value?.actionMeta?.actionType === 'wallet_withdrawal' && selectedTicket.value?.actionMeta?.destinationType === 'bank')
+const isRegistrationTicket = computed(() => selectedTicket.value?.actionMeta?.actionType === 'organization_registration')
+const canApproveRegistration = computed(() => state.currentUser.canUseHq && isRegistrationTicket.value && selectedTicket.value?.actionMeta?.canApprove)
 
 const filteredTickets = computed(() => {
   const needle = query.value.trim().toLowerCase()
@@ -154,8 +164,13 @@ async function sendFeedback() {
 }
 
 function openWalletDepositModal() {
-  walletDepositForm.amount = ''
+  walletDepositForm.amount = selectedTicket.value?.actionMeta?.amount || ''
   walletDepositModalOpen.value = true
+}
+
+function openBankWithdrawModal() {
+  bankWithdrawForm.amount = selectedTicket.value?.actionMeta?.amount || ''
+  bankWithdrawModalOpen.value = true
 }
 
 async function submitWalletDeposit() {
@@ -163,6 +178,24 @@ async function submitWalletDeposit() {
   await submitSupportWalletDeposit(selectedTicket.value.id, { amount: walletDepositForm.amount })
   walletDepositModalOpen.value = false
   walletDepositForm.amount = ''
+}
+
+async function submitBankWithdraw() {
+  if (!selectedTicket.value?.id) return
+  await submitSupportBankWithdrawComplete(selectedTicket.value.id, { amount: bankWithdrawForm.amount })
+  bankWithdrawModalOpen.value = false
+  bankWithdrawForm.amount = ''
+}
+
+function openRegistrationModal() {
+  registrationForm.companyCode = ''
+  registrationModalOpen.value = true
+}
+
+async function approveRegistration() {
+  if (!selectedTicket.value?.id) return
+  const ok = await submitSupportRegistrationApproval(selectedTicket.value.id, registrationForm.companyCode)
+  if (ok) registrationModalOpen.value = false
 }
 
 async function hydrateSupportWorkspace() {
@@ -283,6 +316,15 @@ watch(
             </button>
           </section>
 
+          <section v-if="isRegistrationTicket" class="registration-summary">
+            <div><span>نام مجموعه</span><b>{{ selectedTicket.actionMeta.organizationName }}</b></div>
+            <div><span>نام مدیر</span><b>{{ selectedTicket.actionMeta.managerName }}</b></div>
+            <div><span>نام کاربری</span><b dir="ltr">{{ selectedTicket.actionMeta.managerUsername }}</b></div>
+            <div><span>تلفن</span><b dir="ltr">{{ selectedTicket.actionMeta.managerPhone }}</b></div>
+            <div><span>ایمیل</span><b dir="ltr">{{ selectedTicket.actionMeta.managerEmail || 'وارد نشده' }}</b></div>
+            <div><span>کد شرکت</span><b dir="ltr">{{ selectedTicket.actionMeta.companyCode || 'در انتظار بررسی' }}</b></div>
+          </section>
+
           <section class="message-thread">
             <article
               v-for="message in selectedTicket.messages || []"
@@ -302,15 +344,10 @@ watch(
           <section v-if="selectedTicket.status !== 'closed'" class="reply-box">
             <textarea v-model="replyBody" rows="4" placeholder="پاسخ..." />
             <div>
-              <button
-                v-if="canDepositToWallet"
-                class="support-soft"
-                type="button"
-                :disabled="state.support.submitting"
-                @click="openWalletDepositModal"
-              >
-                واریز
-              </button>
+              <button v-if="canDepositToWallet" class="support-soft" type="button" :disabled="state.support.submitting" @click="openWalletDepositModal">واریز</button>
+              <button v-if="canCompleteWalletTransfer" class="support-soft" type="button" :disabled="state.support.submitting" @click="openWalletDepositModal">انتقال کیف پول</button>
+              <button v-if="canCompleteBankWithdraw" class="support-soft" type="button" :disabled="state.support.submitting" @click="openBankWithdrawModal">برداشت شبا</button>
+              <button v-if="canApproveRegistration" class="support-primary" type="button" :disabled="state.support.submitting" @click="openRegistrationModal">ثبت نام</button>
               <button
                 v-if="canCloseTicket"
                 class="support-soft"
@@ -392,12 +429,45 @@ watch(
         <div class="modal-handle"></div>
         <h3>واریز به کیف پول</h3>
         <label>
-          <span>مبلغ</span>
+          <span>مبلغ (تومان)</span>
           <input v-model.trim="walletDepositForm.amount" inputmode="decimal" required placeholder="0" @input="walletDepositForm.amount = formatAmountInput($event.target.value)" />
         </label>
         <div class="modal-actions">
           <button class="support-soft" type="button" @click="walletDepositModalOpen = false">لغو</button>
           <button class="support-primary" type="submit" :disabled="state.support.submitting">تایید</button>
+        </div>
+      </form>
+    </div>
+    <div v-if="bankWithdrawModalOpen" class="support-modal-backdrop" @click.self="bankWithdrawModalOpen = false">
+      <form class="support-modal" @submit.prevent="submitBankWithdraw">
+        <div class="modal-handle"></div>
+        <h3>ثبت برداشت بانکی</h3>
+        <label>
+          <span>شماره شبا</span>
+          <input :value="selectedTicket?.actionMeta?.iban || '-'" dir="ltr" readonly />
+        </label>
+        <label>
+          <span>مبلغ (تومان)</span>
+          <input v-model.trim="bankWithdrawForm.amount" inputmode="decimal" required placeholder="0" @input="bankWithdrawForm.amount = formatAmountInput($event.target.value)" />
+        </label>
+        <div class="modal-actions">
+          <button class="support-soft" type="button" @click="bankWithdrawModalOpen = false">لغو</button>
+          <button class="support-primary" type="submit" :disabled="state.support.submitting">ثبت برداشت</button>
+        </div>
+      </form>
+    </div>
+    <div v-if="registrationModalOpen" class="support-modal-backdrop" @click.self="registrationModalOpen = false">
+      <form class="support-modal" @submit.prevent="approveRegistration">
+        <div class="modal-handle"></div>
+        <h3>تأیید و ساخت مجموعه</h3>
+        <p>پس از تطبیق اطلاعات با مدارک، کد شرکت را وارد کنید. مجموعه و حساب مدیر به‌صورت هم‌زمان ساخته می‌شوند.</p>
+        <label>
+          <span>کد شرکت</span>
+          <input v-model.trim="registrationForm.companyCode" dir="ltr" required placeholder="company-code" />
+        </label>
+        <div class="modal-actions">
+          <button class="support-soft" type="button" @click="registrationModalOpen = false">لغو</button>
+          <button class="support-primary" type="submit" :disabled="state.support.submitting || !registrationForm.companyCode">ثبت نام</button>
         </div>
       </form>
     </div>
@@ -415,6 +485,21 @@ watch(
   display: grid;
   gap: 18px;
 }
+
+.registration-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 20px;
+  padding: 16px;
+  border: 1px solid rgba(55, 99, 168, 0.14);
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(55, 99, 168, 0.08), rgba(224, 155, 88, 0.08));
+}
+.registration-summary div { display: grid; gap: 5px; min-width: 0; }
+.registration-summary span { color: var(--support-muted); font-size: .75rem; font-weight: 800; }
+.registration-summary b { overflow-wrap: anywhere; color: var(--support-ink); }
+@media (max-width: 720px) { .registration-summary { grid-template-columns: 1fr 1fr; } }
 
 .support-hero,
 .support-status-card,

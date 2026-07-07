@@ -10,7 +10,8 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.management import call_command
-from django.db import connection, transaction
+from django.db import IntegrityError, connection, transaction
+from django.db.models import Q
 from django.db.utils import OperationalError, ProgrammingError
 from django.http import FileResponse, HttpRequest, HttpResponse, HttpResponseNotAllowed, JsonResponse
 from django.utils import timezone
@@ -53,6 +54,7 @@ from workflow.models import (
     RequestPriority,
     RequestStatus,
     RequestTimeline,
+    RegistrationRequest,
     SectionAccessGrant,
     SupportAttachment,
     SupportMessage,
@@ -90,6 +92,7 @@ from workflow.services import (
     visible_expenses,
     visible_reports_payload,
     visible_requests,
+    visible_department_catalog,
 )
 
 JSON_KWARGS = {"ensure_ascii": False}
@@ -244,7 +247,7 @@ def build_settings_profile_payload(user: User, organization_id: int | None = Non
         ],
         "departments": [
             {"id": item.id, "code": item.code, "name": item.name}
-            for item in Department.objects.exclude(code__in=["hq-control", "hq"]).exclude(name__iexact="HQ").order_by("name")
+            for item in visible_department_catalog()
         ],
         "canEdit": can_manage_users(user),
     }
@@ -282,6 +285,16 @@ def support_ticket_wallet_id(ticket: SupportTicket) -> int | None:
     return None
 
 
+def support_ticket_withdrawal_source_wallet_id(ticket: SupportTicket) -> int | None:
+    for line in (ticket.message or "").splitlines():
+        if not line.startswith("SOURCE_WALLET_ID:"):
+            continue
+        raw_value = line.split(":", 1)[1].strip()
+        if raw_value.isdigit():
+            return int(raw_value)
+    return None
+
+
 def scoped_support_organization(request: HttpRequest) -> Organization | None:
     return resolve_wallet_organization(request)
 
@@ -291,15 +304,18 @@ def scoped_support_tickets(request: HttpRequest):
     if request.current_user.slug == HQ_USERNAME and organization is None:
         return (
             SupportTicket.objects.all()
-            .select_related("organization", "requester", "responded_by")
+            .select_related("organization", "requester", "responded_by", "registration_request")
             .prefetch_related("messages", "attachments")
             .order_by("-updated_at", "-id")
         )
     if organization is None:
         return SupportTicket.objects.none()
+    ticket_filter = Q(organization=organization)
+    if request.current_user.slug == HQ_USERNAME:
+        ticket_filter |= Q(registration_request__isnull=False)
     return (
-        SupportTicket.objects.filter(organization=organization)
-        .select_related("organization", "requester", "responded_by")
+        SupportTicket.objects.filter(ticket_filter)
+        .select_related("organization", "requester", "responded_by", "registration_request")
         .prefetch_related("messages", "attachments")
         .order_by("-updated_at", "-id")
     )
@@ -436,6 +452,138 @@ def login_view(request: HttpRequest):
     return json_response({"access_token": token, "token_type": "bearer", "user": serialize_current_user(user)})
 
 
+def create_organization_with_manager(payload: dict, actor: User | None = None) -> Organization:
+    organization_name = (payload.get("organizationName") or "").strip()
+    organization_code = normalize_slug(payload.get("organizationCode") or organization_name)
+    manager_name = (payload.get("managerName") or "").strip()
+    manager_username = normalize_slug(payload.get("managerUsername") or "")
+    manager_email = (payload.get("managerEmail") or "").strip().lower()
+    manager_password = payload.get("managerPassword") or ""
+    manager_phone = (payload.get("managerPhone") or "").strip()
+
+    if not organization_name:
+        raise ValueError("نام مجموعه الزامی است.")
+    if not organization_code:
+        raise ValueError("کد مجموعه معتبر نیست.")
+    if not manager_name or not manager_username or not manager_password:
+        raise ValueError("نام مدیر، نام کاربری و رمز عبور الزامی است.")
+    if len(manager_password) < 6:
+        raise ValueError("رمز عبور باید حداقل 6 کاراکتر باشد.")
+    if not manager_email:
+        manager_email = f"{manager_username}@{organization_code}.local"
+    if Organization.objects.filter(code=organization_code).exists():
+        raise IntegrityError("کد مجموعه قبلا ثبت شده است.")
+    if Organization.objects.filter(name=organization_name).exists():
+        raise IntegrityError("نام مجموعه قبلا ثبت شده است.")
+    if User.objects.filter(slug=manager_username).exists():
+        raise IntegrityError("نام کاربری مدیر قبلا ثبت شده است.")
+    if User.objects.filter(email=manager_email).exists():
+        raise IntegrityError("ایمیل مدیر قبلا ثبت شده است.")
+
+    with transaction.atomic():
+        organization = Organization.objects.create(code=organization_code, name=organization_name)
+        manager = User.objects.create(
+            slug=manager_username,
+            full_name=manager_name,
+            email=manager_email,
+            phone=manager_phone or None,
+            password_hash=get_password_hash(manager_password),
+            role=UserRole.ADMIN,
+            job_title="مدیر مجموعه",
+            avatar=(manager_name[:2] if manager_name else "AD").upper(),
+            bio="",
+            is_active=True,
+            department=None,
+        )
+        OrganizationMembership.objects.create(organization=organization, user=manager, display_title=manager.job_title)
+        OrganizationPreference.objects.get_or_create(organization=organization)
+        UserSignature.objects.get_or_create(user=manager, defaults={"signature_data": ""})
+        AuditLog.objects.create(
+            actor=actor,
+            actor_name=actor.full_name if actor else manager.full_name,
+            action="hq_organization_created" if actor else "organization_registered",
+            entity_type="organization",
+            entity_code=organization.code,
+            detail=organization.name,
+            icon="domain_add",
+        )
+    return organization
+
+
+@csrf_exempt
+@methods("POST")
+def register_view(request: HttpRequest):
+    startup_ready()
+    payload = request.POST
+    organization_name = (payload.get("organizationName") or "").strip()
+    manager_name = (payload.get("managerName") or "").strip()
+    manager_username = normalize_slug(payload.get("managerUsername") or "")
+    manager_email = (payload.get("managerEmail") or "").strip().lower()
+    manager_phone = (payload.get("managerPhone") or "").strip()
+    manager_password = payload.get("managerPassword") or ""
+    documents = request.FILES.getlist("documents")
+
+    if not organization_name or not manager_name or not manager_username or not manager_phone or not manager_password:
+        return json_error("نام مجموعه، نام مدیر، نام کاربری، تلفن و رمز عبور الزامی است.", status=422)
+    if len(manager_password) < 6:
+        return json_error("رمز عبور باید حداقل ۶ کاراکتر باشد.", status=422)
+    if not documents:
+        return json_error("بارگذاری حداقل یک مدرک یا تصویر جواز الزامی است.", status=422)
+    for document in documents:
+        content_type = (getattr(document, "content_type", "") or "").lower()
+        if content_type != "application/pdf" and not content_type.startswith("image/"):
+            return json_error("مدارک فقط باید تصویر یا فایل PDF باشند.", status=422)
+        if (getattr(document, "size", 0) or 0) > 10 * 1024 * 1024:
+            return json_error("حجم هر مدرک نباید بیشتر از ۱۰ مگابایت باشد.", status=422)
+    if Organization.objects.filter(name=organization_name).exists() or RegistrationRequest.objects.filter(organization_name=organization_name, status="pending").exists():
+        return json_error("برای این نام مجموعه قبلاً درخواست ثبت شده است.", status=409)
+    if User.objects.filter(slug=manager_username).exists() or RegistrationRequest.objects.filter(manager_username=manager_username, status="pending").exists():
+        return json_error("این نام کاربری قبلاً استفاده شده است.", status=409)
+    if manager_email and (User.objects.filter(email=manager_email).exists() or RegistrationRequest.objects.filter(manager_email=manager_email, status="pending").exists()):
+        return json_error("این ایمیل قبلاً استفاده شده است.", status=409)
+
+    with transaction.atomic():
+        hq_organization, _ = Organization.objects.get_or_create(code="hq-control", defaults={"name": "HQ"})
+        message = "\n".join([
+            "درخواست خودکار ثبت مجموعه",
+            f"نام مجموعه: {organization_name}",
+            f"نام مدیر: {manager_name}",
+            f"نام کاربری مدیر: {manager_username}",
+            f"ایمیل مدیر: {manager_email or '-'}",
+            f"تلفن مدیر: {manager_phone}",
+            f"تعداد مدارک: {len(documents)}",
+        ])
+        ticket = SupportTicket.objects.create(
+            organization=hq_organization,
+            subject=f"ثبت‌نام مجموعه {organization_name}",
+            message=message,
+            category=SupportTicketCategory.ACCOUNT,
+            priority=SupportTicketPriority.HIGH,
+            status=SupportTicketStatus.OPEN,
+            updated_at=timezone.now(),
+        )
+        SupportMessage.objects.create(ticket=ticket, sender_name=manager_name, sender_platform_role="registration", body=message)
+        RegistrationRequest.objects.create(
+            ticket=ticket,
+            organization_name=organization_name,
+            manager_name=manager_name,
+            manager_username=manager_username,
+            manager_email=manager_email,
+            manager_phone=manager_phone,
+            manager_password_hash=get_password_hash(manager_password),
+        )
+        for document in documents:
+            stored_name = save_uploaded_file(document)
+            SupportAttachment.objects.create(
+                ticket=ticket,
+                original_name=document.name,
+                stored_name=stored_name,
+                mime_type=getattr(document, "content_type", "") or "",
+                size_bytes=getattr(document, "size", 0) or 0,
+            )
+    return json_response({"ok": True, "message": "درخواست ثبت‌نام ارسال شد و پس از بررسی مدارک فعال می‌شود.", "ticketId": ticket.id}, status=201)
+
+
 @require_auth
 @methods("GET")
 def me_view(request: HttpRequest):
@@ -507,6 +655,108 @@ def scoped_documents(request: HttpRequest):
         )
         .order_by("-uploaded_at")
     )
+
+
+def parse_id_list(raw_value: str) -> list[int]:
+    return [int(item) for item in str(raw_value or "").split(",") if item.strip().isdigit()]
+
+
+def request_referral_users(request: HttpRequest, manager_slug: str, manager_assignee_ids: list[int], employee_assignee_ids: list[int]) -> tuple[User | None, list[User], list[User]]:
+    manager = User.objects.filter(slug=manager_slug).first() if manager_slug else None
+    assigned_managers = list(User.objects.filter(pk__in=manager_assignee_ids)) if manager_assignee_ids else []
+    assigned_employees = list(User.objects.filter(pk__in=employee_assignee_ids)) if employee_assignee_ids else []
+    if manager_assignee_ids and manager is None:
+        raise ValueError("مدیر اصلی باید به درخواست ارجاع شود.")
+    if manager_assignee_ids and (len(assigned_managers) != len(manager_assignee_ids) or any(not is_manager(item) for item in assigned_managers)):
+        raise ValueError("مدیران ارجاعی باید از مدیران مجاز انتخاب شوند.")
+    if employee_assignee_ids and (len(assigned_employees) != len(employee_assignee_ids) or any(is_manager(item) for item in assigned_employees)):
+        raise ValueError("کارمندان ارجاعی باید از میان کارمندان مجاز انتخاب شوند.")
+    if manager:
+        assigned_managers = [item for item in assigned_managers if item.slug != manager.slug]
+    return manager, assigned_managers, assigned_employees
+
+
+def create_request_referrals(request_obj: Request, actor: User, manager: User | None, assigned_managers: list[User], assigned_employees: list[User]) -> None:
+    if manager is not None:
+        request_obj.manager = manager
+        request_obj.save(update_fields=["manager"])
+    if assigned_managers:
+        request_obj.assigned_managers.add(*assigned_managers)
+    if assigned_employees:
+        request_obj.assigned_employees.add(*assigned_employees)
+    created_assignments = []
+    for approver in unique_users([manager] if manager else [], assigned_managers, assigned_employees):
+        assignment, created = RequestApprovalAssignment.objects.get_or_create(
+            request=request_obj,
+            approver=approver,
+            defaults={"status": ApprovalAssignmentStatus.PENDING},
+        )
+        if not created and assignment.status != ApprovalAssignmentStatus.PENDING:
+            assignment.status = ApprovalAssignmentStatus.PENDING
+            assignment.decision_note = ""
+            assignment.acted_at = None
+            assignment.save(update_fields=["status", "decision_note", "acted_at"])
+        created_assignments.append((assignment, created))
+    if any(created for _, created in created_assignments):
+        request_obj.status = RequestStatus.UNDER_REVIEW
+        request_obj.updated_at = timezone.now()
+        request_obj.save(update_fields=["status", "updated_at"])
+    RequestTimeline.objects.create(request=request_obj, action="referred", note="ارجاع مجدد درخواست", actor_name=actor.full_name)
+    if assigned_managers:
+        RequestTimeline.objects.create(request=request_obj, action="manager_referrals", note=f"ارجاع به مدیران: {', '.join(item.full_name for item in assigned_managers)}", actor_name=actor.full_name)
+    if assigned_employees:
+        RequestTimeline.objects.create(request=request_obj, action="employee_referrals", note=f"ارجاع به کارمندان: {', '.join(item.full_name for item in assigned_employees)}", actor_name=actor.full_name)
+
+
+def create_expense_referrals(expense: Expense, actor: User, manager_assignee_ids: list[int], employee_assignee_ids: list[int]) -> None:
+    assignee_ids = manager_assignee_ids + employee_assignee_ids
+    assignees = list(User.objects.filter(pk__in=assignee_ids, organization_membership__organization=get_user_organization(actor)))
+    if not assignees or len(assignees) != len(assignee_ids):
+        raise ValueError("حداقل یک ارجاع گیرنده معتبر انتخاب کنید.")
+    new_assignment_created = False
+    for approver in unique_users(assignees):
+        assignment, created = ExpenseApprovalAssignment.objects.get_or_create(
+            expense=expense,
+            approver=approver,
+            defaults={"status": ApprovalAssignmentStatus.PENDING},
+        )
+        if not created and assignment.status != ApprovalAssignmentStatus.PENDING:
+            assignment.status = ApprovalAssignmentStatus.PENDING
+            assignment.decision_note = ""
+            assignment.acted_at = None
+            assignment.save(update_fields=["status", "decision_note", "acted_at"])
+        new_assignment_created = new_assignment_created or created
+    if new_assignment_created:
+        expense.status = ExpenseStatus.UNDER_REVIEW
+        expense.save(update_fields=["status"])
+    AuditLog.objects.create(actor=actor, actor_name=actor.full_name, action="expense_referred", entity_type="expense", entity_code=expense.code, detail=expense.title, icon="forward_to_inbox")
+
+
+def create_document_referrals(document: Document, actor: User, assignee_ids: list[int]) -> None:
+    approvers = list(User.objects.filter(pk__in=assignee_ids))
+    if not approvers or len(approvers) != len(assignee_ids) or any(not is_manager(item) for item in approvers):
+        raise ValueError("ارجاع سند فقط به مدیر مجاز است.")
+    created_any = False
+    for approver in unique_users(approvers):
+        assignment, created = ApprovalAssignment.objects.get_or_create(
+            document=document,
+            approver=approver,
+            defaults={"status": ApprovalAssignmentStatus.PENDING},
+        )
+        if not created and assignment.status != ApprovalAssignmentStatus.PENDING:
+            assignment.status = ApprovalAssignmentStatus.PENDING
+            assignment.decision_note = ""
+            assignment.signed_signature_data = ""
+            assignment.acted_at = None
+            assignment.save(update_fields=["status", "decision_note", "signed_signature_data", "acted_at"])
+        created_any = created_any or created
+    if created_any and document.status == DocumentStatus.REJECTED:
+        document.status = DocumentStatus.PENDING
+        document.rejection_reason = ""
+        document.rejected_at = None
+        document.approved_at = None
+        document.save(update_fields=["status", "rejection_reason", "rejected_at", "approved_at"])
+    AuditLog.objects.create(actor=actor, actor_name=actor.full_name, action="document_referred", entity_type="document", entity_code=document.code, detail=document.title, icon="forward_to_inbox")
 
 
 def update_request_status_from_assignments(request_obj: Request) -> None:
@@ -878,6 +1128,179 @@ def support_ticket_wallet_deposit_view(request: HttpRequest, ticket_id: int):
     return json_response(serialize_support_ticket(ticket, include_detail=True))
 
 
+@require_auth
+@methods("POST")
+def support_ticket_approve_registration_view(request: HttpRequest, ticket_id: int):
+    denied = ensure_hq_admin(request.current_user)
+    if denied:
+        return denied
+    company_code = normalize_slug(parse_json(request).get("companyCode") or "")
+    if not company_code:
+        return json_error("کد شرکت الزامی است.", status=422)
+
+    now_value = timezone.now()
+    with transaction.atomic():
+        registration = RegistrationRequest.objects.select_for_update().select_related("ticket").filter(ticket_id=ticket_id).first()
+        if registration is None:
+            return json_error("این تیکت درخواست ثبت‌نام نیست.", status=404)
+        if registration.status != "pending":
+            return json_error("این درخواست قبلاً بررسی شده است.", status=409)
+        manager_email = registration.manager_email or f"{registration.manager_username}@{company_code}.local"
+        if Organization.objects.filter(code=company_code).exists():
+            return json_error("این کد شرکت قبلاً ثبت شده است.", status=409)
+        if Organization.objects.filter(name=registration.organization_name).exists():
+            return json_error("این نام مجموعه قبلاً ثبت شده است.", status=409)
+        if User.objects.filter(slug=registration.manager_username).exists():
+            return json_error("نام کاربری مدیر قبلاً ثبت شده است.", status=409)
+        if User.objects.filter(email=manager_email).exists():
+            return json_error("ایمیل مدیر قبلاً ثبت شده است.", status=409)
+
+        organization = Organization.objects.create(code=company_code, name=registration.organization_name)
+        manager = User.objects.create(
+            slug=registration.manager_username,
+            full_name=registration.manager_name,
+            email=manager_email,
+            phone=registration.manager_phone,
+            password_hash=registration.manager_password_hash,
+            role=UserRole.ADMIN,
+            job_title="مدیر مجموعه",
+            avatar=(registration.manager_name[:2] or "AD").upper(),
+            bio="",
+            is_active=True,
+        )
+        OrganizationMembership.objects.create(organization=organization, user=manager, display_title=manager.job_title)
+        OrganizationPreference.objects.get_or_create(organization=organization)
+        UserSignature.objects.get_or_create(user=manager, defaults={"signature_data": ""})
+
+        registration.status = "approved"
+        registration.company_code = company_code
+        registration.reviewed_by = request.current_user
+        registration.reviewed_at = now_value
+        registration.created_organization = organization
+        registration.save(update_fields=["status", "company_code", "reviewed_by", "reviewed_at", "created_organization"])
+        ticket = registration.ticket
+        SupportMessage.objects.create(ticket=ticket, sender=request.current_user, sender_name=request.current_user.full_name, sender_platform_role="hq_support", body=f"ثبت‌نام تأیید شد و مجموعه با کد {company_code} ساخته شد.")
+        ticket.status = SupportTicketStatus.CLOSED
+        ticket.responded_by = request.current_user
+        ticket.responded_at = now_value
+        ticket.first_response_at = ticket.first_response_at or now_value
+        ticket.closed_at = now_value
+        ticket.updated_at = now_value
+        ticket.save(update_fields=["status", "responded_by", "responded_at", "first_response_at", "closed_at", "updated_at"])
+        AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="registration_approved", entity_type="organization", entity_code=company_code, detail=registration.organization_name, icon="domain_add")
+
+    ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
+    return json_response(serialize_support_ticket(ticket, include_detail=True))
+
+
+@require_auth
+@methods("POST")
+def support_ticket_wallet_deposit_view(request: HttpRequest, ticket_id: int):
+    denied = ensure_hq_admin(request.current_user)
+    if denied:
+        return denied
+    ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
+    if ticket is None:
+        return json_error("تیکت پیدا نشد.", status=404)
+    if ticket.category != SupportTicketCategory.FINANCIAL:
+        return json_error("این تیکت برای عملیات کیف پول نیست.", status=409)
+    payload = parse_json(request)
+    amount = parse_wallet_amount(payload.get("amount"))
+    if amount is None:
+        return json_error("مبلغ معتبر نیست.", status=422)
+    action_meta = serialize_support_ticket(ticket).get("actionMeta") or {}
+    now_value = timezone.now()
+    with transaction.atomic():
+        if action_meta.get("actionType") == "wallet_withdrawal" and action_meta.get("destinationType") == "wallet":
+            source_wallet_id = support_ticket_withdrawal_source_wallet_id(ticket)
+            target_wallet_id = action_meta.get("targetWalletId")
+            if not source_wallet_id or not target_wallet_id:
+                return json_error("اطلاعات برداشت کامل نیست.", status=422)
+            source_wallet = Wallet.objects.select_for_update().filter(pk=source_wallet_id, organization=ticket.organization, is_active=True).first()
+            target_wallet = Wallet.objects.select_for_update().filter(pk=target_wallet_id, organization=ticket.organization, is_active=True).first()
+            if source_wallet is None or target_wallet is None:
+                return json_error("کیف پول مبدا یا مقصد پیدا نشد.", status=404)
+            if Decimal(source_wallet.balance) < amount:
+                return json_error("موجودی کیف پول مبدا کافی نیست.", status=409)
+            source_wallet.balance = Decimal(source_wallet.balance) - amount
+            source_wallet.updated_at = now_value
+            source_wallet.save(update_fields=["balance", "updated_at"])
+            target_wallet.balance = Decimal(target_wallet.balance) + amount
+            target_wallet.updated_at = now_value
+            target_wallet.save(update_fields=["balance", "updated_at"])
+            WalletTransaction.objects.create(organization=ticket.organization, wallet=source_wallet, actor=request.current_user, direction="out", transaction_type="support_ticket_withdrawal", amount=amount, balance_after=source_wallet.balance, note=f"support_ticket:{ticket.id}:wallet_transfer_out", reference_id=str(payload.get("referenceId") or ticket.id))
+            WalletTransaction.objects.create(organization=ticket.organization, wallet=target_wallet, actor=request.current_user, direction="in", transaction_type="support_ticket_deposit", amount=amount, balance_after=target_wallet.balance, note=f"support_ticket:{ticket.id}:wallet_transfer_in", reference_id=str(payload.get("referenceId") or ticket.id))
+            entity_code = target_wallet.key
+            message_body = f"انتقال بین کیف پول ها انجام شد. مبلغ: {format_money(amount)}"
+        else:
+            wallet_id = support_ticket_wallet_id(ticket)
+            if wallet_id is None:
+                return json_error("شناسه کیف پول در تیکت ثبت نشده است.", status=422)
+            wallet = Wallet.objects.select_for_update().filter(pk=wallet_id, organization=ticket.organization, is_active=True).first()
+            if wallet is None:
+                return json_error("کیف پول پیدا نشد.", status=404)
+            next_balance = Decimal(wallet.balance) + amount
+            wallet.balance = next_balance
+            wallet.updated_at = now_value
+            wallet.save(update_fields=["balance", "updated_at"])
+            WalletTransaction.objects.create(organization=ticket.organization, wallet=wallet, actor=request.current_user, direction="in", transaction_type="support_ticket_deposit", amount=amount, balance_after=next_balance, note=f"support_ticket:{ticket.id}", reference_id=str(payload.get("referenceId") or ticket.id))
+            entity_code = wallet.key
+            message_body = f"واریز کیف پول انجام شد. مبلغ: {format_money(amount)}"
+        SupportMessage.objects.create(ticket=ticket, sender=request.current_user, sender_name=request.current_user.full_name, sender_platform_role="hq_support", body=message_body)
+        ticket.status = SupportTicketStatus.ANSWERED
+        ticket.responded_by = request.current_user
+        ticket.responded_at = now_value
+        if ticket.first_response_at is None:
+            ticket.first_response_at = now_value
+        ticket.updated_at = now_value
+        ticket.save(update_fields=["status", "responded_by", "responded_at", "first_response_at", "updated_at"])
+        AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="support_ticket_wallet_deposit", entity_type="wallet", entity_code=entity_code, detail=f"{ticket.organization.code}:{ticket.id}:{format_money(amount)}", icon="account_balance_wallet")
+    ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
+    return json_response(serialize_support_ticket(ticket, include_detail=True))
+
+
+@require_auth
+@methods("POST")
+def support_ticket_bank_withdraw_complete_view(request: HttpRequest, ticket_id: int):
+    denied = ensure_hq_admin(request.current_user)
+    if denied:
+        return denied
+    ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
+    if ticket is None:
+        return json_error("تیکت پیدا نشد.", status=404)
+    action_meta = serialize_support_ticket(ticket).get("actionMeta") or {}
+    if action_meta.get("actionType") != "wallet_withdrawal" or action_meta.get("destinationType") != "bank":
+        return json_error("این تیکت از نوع برداشت بانکی نیست.", status=409)
+    payload = parse_json(request)
+    amount = parse_wallet_amount(payload.get("amount") or action_meta.get("amount"))
+    if amount is None:
+        return json_error("مبلغ معتبر نیست.", status=422)
+    source_wallet_id = support_ticket_withdrawal_source_wallet_id(ticket)
+    if source_wallet_id is None:
+        return json_error("کیف پول مبدا در تیکت ثبت نشده است.", status=422)
+    now_value = timezone.now()
+    with transaction.atomic():
+        source_wallet = Wallet.objects.select_for_update().filter(pk=source_wallet_id, organization=ticket.organization, is_active=True).first()
+        if source_wallet is None:
+            return json_error("کیف پول مبدا پیدا نشد.", status=404)
+        if Decimal(source_wallet.balance) < amount:
+            return json_error("موجودی کیف پول مبدا کافی نیست.", status=409)
+        source_wallet.balance = Decimal(source_wallet.balance) - amount
+        source_wallet.updated_at = now_value
+        source_wallet.save(update_fields=["balance", "updated_at"])
+        WalletTransaction.objects.create(organization=ticket.organization, wallet=source_wallet, actor=request.current_user, direction="out", transaction_type="support_ticket_bank_withdrawal", amount=amount, balance_after=source_wallet.balance, note=f"support_ticket:{ticket.id}:bank_withdrawal", reference_id=str(payload.get("referenceId") or ticket.id))
+        SupportMessage.objects.create(ticket=ticket, sender=request.current_user, sender_name=request.current_user.full_name, sender_platform_role="hq_support", body=f"درخواست شما با موفقیت برداشت شد و مبلغ {format_money(amount)} به حساب شما با شماره شبا {action_meta.get('iban') or '-'} واریز شد.")
+        ticket.status = SupportTicketStatus.ANSWERED
+        ticket.responded_by = request.current_user
+        ticket.responded_at = now_value
+        if ticket.first_response_at is None:
+            ticket.first_response_at = now_value
+        ticket.updated_at = now_value
+        ticket.save(update_fields=["status", "responded_by", "responded_at", "first_response_at", "updated_at"])
+    ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
+    return json_response(serialize_support_ticket(ticket, include_detail=True))
+
+
 def normalize_slug(value: str) -> str:
     normalized = "".join(char.lower() if char.isalnum() else "-" for char in value.strip())
     normalized = "-".join(part for part in normalized.split("-") if part)
@@ -903,6 +1326,32 @@ def build_internal_user_email(username: str) -> str:
         email = f"{normalized_username}-{suffix}@workflow.local"
         suffix += 1
     return email
+
+
+def organization_identity_conflict(code: str, name: str, exclude_id: int | None = None) -> HttpResponse | None:
+    code_qs = Organization.objects.filter(code=code)
+    name_qs = Organization.objects.filter(name=name)
+    if exclude_id is not None:
+        code_qs = code_qs.exclude(pk=exclude_id)
+        name_qs = name_qs.exclude(pk=exclude_id)
+    if code_qs.exists():
+        return json_error("کد مجموعه قبلا ثبت شده است.", status=409)
+    if name_qs.exists():
+        return json_error("نام مجموعه قبلا ثبت شده است.", status=409)
+    return None
+
+
+def user_identity_conflict(username: str, email: str, exclude_id: int | None = None) -> HttpResponse | None:
+    username_qs = User.objects.filter(slug=username)
+    email_qs = User.objects.filter(email=email)
+    if exclude_id is not None:
+        username_qs = username_qs.exclude(pk=exclude_id)
+        email_qs = email_qs.exclude(pk=exclude_id)
+    if username_qs.exists():
+        return json_error("این نام کاربری قبلا ثبت شده است.", status=409)
+    if email_qs.exists():
+        return json_error("شناسه داخلی کاربر تکراری است.", status=409)
+    return None
 
 
 @require_auth
@@ -932,6 +1381,9 @@ def hq_organization_create_view(request: HttpRequest):
         return json_error("رمز عبور باید حداقل ۶ کاراکتر باشد.", status=422)
     if not manager_email:
         manager_email = f"{manager_username}@{organization_code}.local"
+    conflict = organization_identity_conflict(organization_code, organization_name)
+    if conflict:
+        return conflict
 
     if Organization.objects.filter(code=organization_code).exists():
         return json_error("کد مجموعه قبلا ثبت شده است.", status=409)
@@ -972,6 +1424,22 @@ def hq_organization_create_view(request: HttpRequest):
 @require_auth
 @csrf_exempt
 @methods("POST")
+def hq_organization_create_view(request: HttpRequest):
+    denied = ensure_hq_admin(request.current_user)
+    if denied:
+        return denied
+    try:
+        create_organization_with_manager(parse_json(request), actor=request.current_user)
+    except ValueError as exc:
+        return json_error(str(exc), status=422)
+    except IntegrityError as exc:
+        return json_error(str(exc), status=409)
+    return json_response(build_hq_payload(), status=201)
+
+
+@require_auth
+@csrf_exempt
+@methods("POST")
 def hq_organization_update_view(request: HttpRequest, organization_id: int):
     denied = ensure_hq_admin(request.current_user)
     if denied:
@@ -981,12 +1449,18 @@ def hq_organization_update_view(request: HttpRequest, organization_id: int):
         return json_error("سازمان پیدا نشد.", status=404)
     payload = parse_json(request)
     name = (payload.get("name") or "").strip()
-    code = (payload.get("code") or "").strip()
+    code = normalize_slug(payload.get("code") or organization.code)
+    conflict = organization_identity_conflict(code, name or organization.name, exclude_id=organization.id)
+    if conflict:
+        return conflict
     if name:
         organization.name = name
     if code:
         organization.code = code
-    organization.save(update_fields=["name", "code"])
+    try:
+        organization.save(update_fields=["name", "code"])
+    except IntegrityError:
+        return json_error("کد یا نام مجموعه تکراری است.", status=409)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="hq_organization_updated", entity_type="organization", entity_code=organization.code, detail=organization.name, icon="admin_panel_settings")
     return json_response(build_hq_payload())
 
@@ -1004,6 +1478,8 @@ def hq_user_update_view(request: HttpRequest, user_id: int):
     payload = parse_json(request)
     if "name" in payload:
         target.full_name = (payload.get("name") or target.full_name).strip()
+    if "username" in payload or "slug" in payload:
+        target.slug = normalize_slug(payload.get("username") or payload.get("slug") or target.slug)
     if "email" in payload:
         target.email = (payload.get("email") or target.email).strip().lower()
     if "phone" in payload:
@@ -1019,8 +1495,14 @@ def hq_user_update_view(request: HttpRequest, user_id: int):
         target.manager = User.objects.filter(pk=manager_id).first() if manager_id else None
     if "isActive" in payload:
         target.is_active = bool(payload.get("isActive"))
+    conflict = user_identity_conflict(target.slug, target.email, exclude_id=target.id)
+    if conflict:
+        return conflict
     target.avatar = (target.full_name[:2] if target.full_name else target.avatar or "NA").upper()
-    target.save()
+    try:
+        target.save()
+    except IntegrityError:
+        return json_error("نام کاربری یا شناسه کاربر تکراری است.", status=409)
 
     organization_id = payload.get("organizationId")
     if organization_id:
@@ -1310,6 +1792,34 @@ def request_reject_view(request: HttpRequest, request_code: str):
 
 @require_auth
 @csrf_exempt
+@methods("POST")
+def request_refer_view(request: HttpRequest, request_code: str):
+    request_obj = scoped_requests(request).filter(code=request_code).first()
+    if request_obj is None:
+        return json_error("درخواست پیدا نشد.", status=404)
+    assignment = request_obj.approval_assignments.filter(approver=request.current_user, status=ApprovalAssignmentStatus.PENDING).first()
+    if assignment is None:
+        return json_error("فقط ارجاع گیرنده فعلی می‌تواند درخواست را ارجاع مجدد کند.", status=403)
+    payload = parse_json(request)
+    try:
+        manager, assigned_managers, assigned_employees = request_referral_users(
+            request_obj,
+            (payload.get("manager") or "").strip(),
+            [int(item) for item in payload.get("managerAssigneeIds", []) if str(item).isdigit()],
+            [int(item) for item in payload.get("employeeAssigneeIds", []) if str(item).isdigit()],
+        )
+        if not any([manager, assigned_managers, assigned_employees]):
+            return json_error("حداقل یک ارجاع گیرنده انتخاب کنید.", status=422)
+        create_request_referrals(request_obj, request.current_user, manager, assigned_managers, assigned_employees)
+    except ValueError as exc:
+        return json_error(str(exc), status=422)
+    refreshed_request = scoped_requests(request).get(pk=request_obj.pk)
+    refreshed_request._current_user = request.current_user
+    return json_response(serialize_request(refreshed_request))
+
+
+@require_auth
+@csrf_exempt
 @methods("GET", "POST")
 def expenses_view(request: HttpRequest):
     if not can_access_expenses(request.current_user):
@@ -1435,6 +1945,33 @@ def expense_reject_view(request: HttpRequest, expense_code: str):
 
 
 @require_auth
+@csrf_exempt
+@methods("POST")
+def expense_refer_view(request: HttpRequest, expense_code: str):
+    if not can_access_expenses(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+    expense = scoped_expenses(request).filter(code=expense_code).first()
+    if expense is None:
+        return json_error("هزینه پیدا نشد.", status=404)
+    assignment = expense.approval_assignments.filter(approver=request.current_user, status=ApprovalAssignmentStatus.PENDING).first()
+    if assignment is None:
+        return json_error("فقط ارجاع گیرنده فعلی می‌تواند هزینه را ارجاع مجدد کند.", status=403)
+    payload = parse_json(request)
+    try:
+        create_expense_referrals(
+            expense,
+            request.current_user,
+            [int(item) for item in payload.get("managerAssigneeIds", []) if str(item).isdigit()],
+            [int(item) for item in payload.get("employeeAssigneeIds", []) if str(item).isdigit()],
+        )
+    except ValueError as exc:
+        return json_error(str(exc), status=422)
+    refreshed_expense = scoped_expenses(request).get(pk=expense.pk)
+    refreshed_expense._current_user = request.current_user
+    return json_response(serialize_expense(refreshed_expense))
+
+
+@require_auth
 @methods("GET")
 def expenses_summary_view(request: HttpRequest):
     if not can_access_expenses(request.current_user):
@@ -1468,8 +2005,11 @@ def users_view(request: HttpRequest):
 
     payload = parse_json(request)
     username = normalize_slug(payload.get("username") or payload.get("slug") or "")
+    conflict = user_identity_conflict(username, (payload.get("email") or "").strip().lower() or build_internal_user_email(username)) if username else None
     if not username:
         return json_error("نام کاربری الزامی است.", status=422)
+    if conflict:
+        return conflict
     if User.objects.filter(slug=username).exists():
         return json_error("این نام کاربری قبلا ثبت شده است.", status=409)
     email = (payload.get("email") or "").strip().lower() or build_internal_user_email(username)
@@ -1539,8 +2079,11 @@ def user_detail_view(request: HttpRequest, user_id: int):
 
     payload = parse_json(request)
     username = normalize_slug(payload.get("username") or payload.get("slug") or user.slug)
+    conflict = user_identity_conflict(username, (payload.get("email") or user.email).strip().lower() or user.email, exclude_id=user.pk) if username else None
     if not username:
         return json_error("نام کاربری الزامی است.", status=422)
+    if conflict:
+        return conflict
     if User.objects.exclude(pk=user.pk).filter(slug=username).exists():
         return json_error("این نام کاربری قبلا ثبت شده است.", status=409)
     email = (payload.get("email") or user.email).strip().lower() or user.email
@@ -1577,7 +2120,10 @@ def user_detail_view(request: HttpRequest, user_id: int):
         user.password_hash = get_password_hash(password)
         update_fields.append("password_hash")
 
-    user.save(update_fields=update_fields)
+    try:
+        user.save(update_fields=update_fields)
+    except IntegrityError:
+        return json_error("نام کاربری یا شناسه داخلی کاربر تکراری است.", status=409)
     sync_user_section_access(request.current_user, user, section_access_payload(payload))
     user.refresh_from_db()
     AuditLog.objects.create(
@@ -1625,7 +2171,7 @@ def report_export_view(request: HttpRequest, report_key: str):
     except ValueError as exc:
         return json_error(str(exc), status=404)
 
-    response = HttpResponse(content, content_type="text/csv; charset=utf-8")
+    response = HttpResponse(f"\ufeff{content}", content_type="text/csv; charset=utf-8")
     response["Content-Disposition"] = f'attachment; filename="{file_name}"'
     return response
 
@@ -1841,6 +2387,29 @@ def approval_reject_view(request: HttpRequest, document_code: str):
     document.save(update_fields=["rejection_reason"])
     update_document_status(document)
     return json_response({"status": "rejected", "document": document.code})
+
+
+@require_auth
+@csrf_exempt
+@methods("POST")
+def approval_refer_view(request: HttpRequest, document_code: str):
+    if not can_access_approvals(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+    document = scoped_documents(request).filter(code=document_code).first()
+    if document is None:
+        return json_error("سند پیدا نشد.", status=404)
+    assignment = document.approval_assignments.filter(approver=request.current_user, status=ApprovalAssignmentStatus.PENDING).first()
+    if assignment is None:
+        return json_error("فقط ارجاع گیرنده فعلی می‌تواند سند را ارجاع مجدد کند.", status=403)
+    payload = parse_json(request)
+    assignee_ids = [int(item) for item in payload.get("assigneeIds", []) if str(item).isdigit()]
+    if not assignee_ids:
+        return json_error("حداقل یک ارجاع گیرنده انتخاب کنید.", status=422)
+    try:
+        create_document_referrals(document, request.current_user, assignee_ids)
+    except ValueError as exc:
+        return json_error(str(exc), status=422)
+    return json_response(serialize_approval(scoped_documents(request).get(pk=document.pk), request.current_user))
 
 
 @require_auth

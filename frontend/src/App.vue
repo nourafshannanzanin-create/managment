@@ -24,12 +24,18 @@ const {
   requestDetailState,
   expenseDetailState,
   approvalDetailState,
+  signatureState,
   selectedRequest,
   selectedExpense,
   selectedApproval,
   selectedRequestTimeline,
   restoreSession,
+  loadBootstrapData,
+  loadReports,
+  loadSettings,
+  loadWalletDashboard,
   loadSupportTickets,
+  loadHqPanel,
   closeRequestDetail,
   closeExpenseDetail,
   closeApprovalDetail,
@@ -42,17 +48,66 @@ const {
 } = hub
 
 const isAuthRoute = computed(() => route.path === '/login')
+const globalLoading = computed(() =>
+  state.appLoading ||
+  state.loginPending ||
+  requestDetailState.loading ||
+  expenseDetailState.loading ||
+  approvalDetailState.loading ||
+  state.requestSubmitting ||
+  state.expenseSubmitting ||
+  state.userSubmitting ||
+  state.documentSubmitting ||
+  state.support.loading ||
+  state.wallet.loading ||
+  state.hq.loading ||
+  signatureState.loading,
+)
 let hqSupportRefreshTimer = null
+
+async function refreshRouteData(path) {
+  if (!state.authToken || path === '/login') return
+
+  await loadBootstrapData(true)
+
+  if (path === '/support') {
+    await loadSupportTickets(true)
+    return
+  }
+
+  if (path === '/wallet') {
+    await loadWalletDashboard(true)
+    return
+  }
+
+  if (path === '/hq') {
+    await loadHqPanel(true)
+    return
+  }
+
+  if (path === '/reports') {
+    await loadReports(true)
+    return
+  }
+
+  if (path === '/settings') {
+    await loadSettings(true)
+  }
+}
 
 watch(
   () => route.fullPath,
-  () => {
+  async () => {
     state.mobileMenuOpen = false
+
+    if (!state.sessionReady) return
+    await refreshRouteData(route.path)
   },
 )
 
 onMounted(async () => {
   await restoreSession()
+  await refreshRouteData(route.path)
   hqSupportRefreshTimer = window.setInterval(() => {
     if (!state.authToken || !state.currentUser.isHq || state.support.loading) return
     void loadSupportTickets(true)
@@ -145,5 +200,70 @@ onUnmounted(() => {
     />
 
     <SignatureComposerModal :open="modalState.signatureComposer" @close="closeSignatureComposer" />
+
+    <div v-if="globalLoading" class="app-loader-overlay" aria-live="polite" aria-busy="true">
+      <div class="loader"></div>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.app-loader-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  background: rgba(18, 27, 46, 0.42);
+  backdrop-filter: blur(8px);
+}
+
+.loader {
+  width: 65px;
+  aspect-ratio: 1;
+  position: relative;
+}
+
+.loader::before,
+.loader::after {
+  content: '';
+  position: absolute;
+  border-radius: 50px;
+  box-shadow: 0 0 0 3px inset #fff;
+  animation: app-loader-spin 2.5s infinite;
+}
+
+.loader::after {
+  animation-delay: -1.25s;
+}
+
+@keyframes app-loader-spin {
+  0% {
+    inset: 0 35px 35px 0;
+  }
+  12.5% {
+    inset: 0 35px 0 0;
+  }
+  25% {
+    inset: 35px 35px 0 0;
+  }
+  37.5% {
+    inset: 35px 0 0 0;
+  }
+  50% {
+    inset: 35px 0 0 35px;
+  }
+  62.5% {
+    inset: 0 0 0 35px;
+  }
+  75% {
+    inset: 0 0 35px 35px;
+  }
+  87.5% {
+    inset: 0 0 35px 0;
+  }
+  100% {
+    inset: 0 35px 35px 0;
+  }
+}
+</style>

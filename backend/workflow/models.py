@@ -252,6 +252,24 @@ class SupportAttachment(TimeStampedModel):
         db_table = "support_attachments"
 
 
+class RegistrationRequest(TimeStampedModel):
+    ticket = models.OneToOneField(SupportTicket, on_delete=models.CASCADE, related_name="registration_request")
+    organization_name = models.CharField(max_length=180)
+    manager_name = models.CharField(max_length=120)
+    manager_username = models.CharField(max_length=80)
+    manager_email = models.EmailField(max_length=160, blank=True)
+    manager_phone = models.CharField(max_length=40)
+    manager_password_hash = models.CharField(max_length=255)
+    status = models.CharField(max_length=24, default="pending", db_index=True)
+    company_code = models.CharField(max_length=80, blank=True)
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="reviewed_registration_requests")
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    created_organization = models.OneToOneField(Organization, on_delete=models.SET_NULL, blank=True, null=True, related_name="source_registration_request")
+
+    class Meta:
+        db_table = "registration_requests"
+
+
 class UserSignature(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="signature")
     signature_data = models.TextField()

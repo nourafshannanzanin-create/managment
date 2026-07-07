@@ -228,12 +228,18 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
 
 @media (max-width: 760px) {
   .modern-page-filters {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .filter-field,
   .modern-filter-reset {
     min-height: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .modern-page-filters {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

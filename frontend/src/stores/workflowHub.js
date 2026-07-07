@@ -679,14 +679,33 @@ function managerLabel(value) {
   return state.directories.managers.find((item) => item.slug === value)?.name || 'تعیین نشده'
 }
 
+function availableManagerDirectory(excludeId = null) {
+  const seen = new Set()
+  return [...state.directories.managers, ...state.users
+    .filter((item) => ['admin', 'executive_manager', 'manager'].includes(item.accessRole))
+    .map((item) => ({ id: Number(item.id), slug: item.username, name: item.name, role: item.role }))]
+    .filter((item) => {
+      const id = Number(item?.id)
+      if (!id || (excludeId && id === Number(excludeId)) || seen.has(id)) return false
+      seen.add(id)
+      return true
+    })
+}
+
+function availableRecipientUsers() {
+  return Array.isArray(state.directories.users) && state.directories.users.length
+    ? state.directories.users
+    : state.users
+}
+
 const requestManagerAssigneeOptions = computed(() => {
   if (!state.requestForm.manager) return []
-  return state.directories.managers.filter((item) => item.slug !== state.requestForm.manager)
+  return availableManagerDirectory().filter((item) => item.slug !== state.requestForm.manager)
 })
 
 function requestManagerAssigneeNames(ids = state.requestForm.managerAssigneeIds) {
   const normalizedIds = (ids || []).map((item) => Number(item))
-  const names = state.directories.managers
+  const names = availableManagerDirectory()
     .filter((item) => normalizedIds.includes(item.id))
     .map((item) => item.name)
   return names.length ? names.join('، ') : 'تعیین نشده'
@@ -694,7 +713,7 @@ function requestManagerAssigneeNames(ids = state.requestForm.managerAssigneeIds)
 
 function requestEmployeeAssigneeNames(ids = state.requestForm.employeeAssigneeIds) {
   const normalizedIds = (ids || []).map((item) => Number(item))
-  const names = state.users
+  const names = availableRecipientUsers()
     .filter((item) => item.accessRole === 'employee' && normalizedIds.includes(Number(item.id)))
     .map((item) => item.name)
   return names.length ? names.join('، ') : 'تعیین نشده'
@@ -1265,6 +1284,71 @@ async function login(email, password) {
   }
 }
 
+async function submitSupportBankWithdrawComplete(ticketId, payload) {
+  state.support.submitting = true
+  state.support.error = ''
+  try {
+    const requestPayload = { ...payload, amount: normalizeAmountValue(payload?.amount) }
+    const response = await authorizedFetch(`/support/tickets/${ticketId}/bank-withdraw-complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestPayload),
+    })
+    hydrateSupportTicket(repairPayload(await response.json()))
+    await loadSupportTickets(true)
+    await loadWalletDashboard(true)
+  } catch (error) {
+    state.support.error = error.message || 'Support bank withdrawal failed.'
+    throw error
+  } finally {
+    state.support.submitting = false
+  }
+}
+
+async function registerOrganization(payload) {
+  state.loginPending = true
+  clearLastError()
+  try {
+    const formData = new FormData()
+    Object.entries(payload).forEach(([key, value]) => {
+      if (key !== 'documents' && value !== undefined && value !== null) formData.append(key, value)
+    })
+    ;(payload.documents || []).forEach((file) => formData.append('documents', file))
+    const response = await fetch(`${API_BASE_URL}/auth/register`, { method: 'POST', body: formData })
+    if (!response.ok) {
+      const errorPayload = repairPayload(await response.json())
+      throw appErrorFromResponse(errorPayload, response.status, 'ثبت نام ناموفق بود.')
+    }
+    await response.json()
+    return true
+  } catch (error) {
+    setLastError(error, 'ثبت نام ناموفق بود.')
+    return false
+  } finally {
+    state.loginPending = false
+  }
+}
+
+async function submitSupportRegistrationApproval(ticketId, companyCode) {
+  state.support.submitting = true
+  state.support.error = ''
+  try {
+    const response = await authorizedFetch(`/support/tickets/${ticketId}/approve-registration`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyCode }),
+    })
+    hydrateSupportTicket(repairPayload(await response.json()))
+    await loadSupportTickets(true)
+    return true
+  } catch (error) {
+    state.support.error = error.message || 'ثبت مجموعه ناموفق بود.'
+    return false
+  } finally {
+    state.support.submitting = false
+  }
+}
+
 let singleton
 
 export function useWorkflowHub() {
@@ -1432,6 +1516,12 @@ export function useWorkflowHub() {
       const payload = repairPayload(await response.json())
       signatureState.hasSignature = payload.hasSignature
       signatureState.signatureData = payload.signatureData || ''
+      return true
+    } catch (error) {
+      signatureState.hasSignature = false
+      signatureState.signatureData = ''
+      state.lastError = error.message || 'بارگذاری امضا انجام نشد.'
+      return false
     } finally {
       signatureState.loading = false
     }
@@ -1439,8 +1529,8 @@ export function useWorkflowHub() {
 
   async function openSignatureComposer() {
     clearLastError()
-    await loadSignature()
     modalState.signatureComposer = true
+    await loadSignature()
   }
 
   function closeSignatureComposer() {
@@ -1681,6 +1771,18 @@ export function useWorkflowHub() {
     }
   }
 
+  async function referSelectedRequest(payload) {
+    if (!selectedRequest.value) return
+    state.lastError = ''
+    await authorizedFetch(hqScopedPath(`/requests/${selectedRequest.value.id}/refer`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    await loadBootstrapData(true)
+    await loadRequestDetail(selectedRequest.value.id)
+  }
+
   async function approveSelectedExpense() {
     if (!selectedExpense.value) return
     state.lastError = ''
@@ -1711,6 +1813,18 @@ export function useWorkflowHub() {
     }
   }
 
+  async function referSelectedExpense(payload) {
+    if (!selectedExpense.value) return
+    state.lastError = ''
+    await authorizedFetch(hqScopedPath(`/expenses/${selectedExpense.value.id}/refer`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    await loadBootstrapData(true)
+    await loadExpenseDetail(selectedExpense.value.id)
+  }
+
   async function updateUser(userId, payload) {
     state.lastError = ''
     await authorizedFetch(`/users/${userId}`, {
@@ -1725,6 +1839,18 @@ export function useWorkflowHub() {
     if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
       await loadSettings(true)
     }
+  }
+
+  async function referSelectedDocument(payload) {
+    if (!selectedApproval.value) return
+    state.lastError = ''
+    await authorizedFetch(hqScopedPath(`/approvals/${selectedApproval.value.id}/refer`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    await loadBootstrapData(true)
+    await loadApprovalDetail(selectedApproval.value.id)
   }
 
   singleton = {
@@ -1761,6 +1887,8 @@ export function useWorkflowHub() {
     priorityLabel,
     departmentLabel,
     managerLabel,
+    availableManagerDirectory,
+    availableRecipientUsers,
     requestManagerAssigneeNames,
     requestEmployeeAssigneeNames,
     setRequestManager,
@@ -1772,6 +1900,8 @@ export function useWorkflowHub() {
     setLastError,
     fieldHasError,
     login,
+    registerOrganization,
+    submitSupportRegistrationApproval,
     logout,
     restoreSession,
     ensureAuthenticatedRedirect,
@@ -1786,6 +1916,7 @@ export function useWorkflowHub() {
     submitSupportReply,
     submitSupportFeedback,
     submitSupportWalletDeposit,
+    submitSupportBankWithdrawComplete,
     supportUnreadCount,
     requestInboxCount,
     expenseInboxCount,
@@ -1828,11 +1959,14 @@ export function useWorkflowHub() {
     saveSignature,
     approveSelectedRequest,
     rejectSelectedRequest,
+    referSelectedRequest,
     approveSelectedExpense,
     rejectSelectedExpense,
+    referSelectedExpense,
     updateUser,
     approveSelectedDocument,
     rejectSelectedDocument,
+    referSelectedDocument,
   }
 
   return singleton

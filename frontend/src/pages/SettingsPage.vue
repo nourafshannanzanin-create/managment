@@ -11,7 +11,7 @@ const selectedUserIds = ref([])
 const userSearch = ref('')
 const sectionSearch = ref('')
 const newDepartmentName = ref('')
-const activeLetter = ref('همه')
+const activeLetter = ref('Ù‡Ù…Ù‡')
 
 const { loadSettings, saveSettings, state } = useWorkflowHub()
 
@@ -32,7 +32,7 @@ const availableLetters = computed(() => {
       .map((item) => String(item.name || '').trim().slice(0, 1))
       .filter(Boolean),
   )
-  return ['همه', ...[...letters].sort((a, b) => a.localeCompare(b, 'fa'))]
+  return ['Ù‡Ù…Ù‡', ...[...letters].sort((a, b) => a.localeCompare(b, 'fa'))]
 })
 
 const filteredOrganizationUsers = computed(() => {
@@ -41,7 +41,7 @@ const filteredOrganizationUsers = computed(() => {
   return [...(state.settings.organizationUsers || [])]
     .filter((item) => {
       const firstLetter = String(item.name || '').trim().slice(0, 1)
-      const matchesLetter = activeLetter.value === 'همه' || firstLetter === activeLetter.value
+      const matchesLetter = activeLetter.value === 'Ù‡Ù…Ù‡' || firstLetter === activeLetter.value
       const matchesQuery = !query ||
         ['name', 'role', 'department']
           .some((field) => String(item[field] || '').toLowerCase().includes(query))
@@ -68,7 +68,7 @@ function openSectionAccess(section) {
   selectedSectionKey.value = section.key
   selectedUserIds.value = [...(section.allowedUserIds || [])]
   userSearch.value = ''
-  activeLetter.value = 'همه'
+  activeLetter.value = 'Ù‡Ù…Ù‡'
   accessModalOpen.value = true
 }
 
@@ -130,25 +130,25 @@ onMounted(async () => {
       <article class="surface-block">
         <div class="section-label-row">
           <div>
-            <h3>پروفایل سازمان</h3>
-            <p>فقط اطلاعات هویتی سازمان نگه داشته شده تا صفحه جمع‌وجور و کاربردی بماند.</p>
+            <h3>Ù¾Ø±ÙˆÙØ§ÛŒÙ„ Ø³Ø§Ø²Ù…Ø§Ù†</h3>
+            <p>ÙÙ‚Ø· Ø§Ø·Ù„Ø§Ø¹Ø§Øª Ù‡ÙˆÛŒØªÛŒ Ø³Ø§Ø²Ù…Ø§Ù† Ù†Ú¯Ù‡ Ø¯Ø§Ø´ØªÙ‡ Ø´Ø¯Ù‡ ØªØ§ ØµÙØ­Ù‡ Ø¬Ù…Ø¹â€ŒÙˆØ¬ÙˆØ± Ùˆ Ú©Ø§Ø±Ø¨Ø±Ø¯ÛŒ Ø¨Ù…Ø§Ù†Ø¯.</p>
           </div>
         </div>
 
         <div class="settings-stack">
           <label class="field-shell">
-            <span>نام سازمان</span>
+            <span>Ù†Ø§Ù… Ø³Ø§Ø²Ù…Ø§Ù†</span>
             <input v-model="state.settings.organizationName" type="text" :readonly="!state.settings.canEdit" />
           </label>
 
           <label class="field-shell">
-            <span>کدنوم سازمان</span>
+            <span>Ú©Ø¯Ù†ÙˆÙ… Ø³Ø§Ø²Ù…Ø§Ù†</span>
             <input v-model="state.settings.systemId" type="text" :readonly="!state.settings.canEdit" />
           </label>
 
           <button v-if="state.settings.canEdit" class="action-btn tone-primary" type="button" @click="persistSettings">
             <span class="material-symbols-outlined">save</span>
-            <span>{{ saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات' }}</span>
+            <span>{{ saving ? 'Ø¯Ø± Ø­Ø§Ù„ Ø°Ø®ÛŒØ±Ù‡...' : 'Ø°Ø®ÛŒØ±Ù‡ ØªÙ†Ø¸ÛŒÙ…Ø§Øª' }}</span>
           </button>
         </div>
       </article>
@@ -156,8 +156,8 @@ onMounted(async () => {
       <article class="surface-block">
         <div class="section-label-row">
           <div>
-            <h3>خلاصه دسترسی‌ها</h3>
-            <p>نمای فشرده از بخش‌های قابل مدیریت و تعداد افراد مجاز در هر بخش.</p>
+            <h3>Ø®Ù„Ø§ØµÙ‡ Ø¯Ø³ØªØ±Ø³ÛŒâ€ŒÙ‡Ø§</h3>
+            <p>Ù†Ù…Ø§ÛŒ ÙØ´Ø±Ø¯Ù‡ Ø§Ø² Ø¨Ø®Ø´â€ŒÙ‡Ø§ÛŒ Ù‚Ø§Ø¨Ù„ Ù…Ø¯ÛŒØ±ÛŒØª Ùˆ ØªØ¹Ø¯Ø§Ø¯ Ø§ÙØ±Ø§Ø¯ Ù…Ø¬Ø§Ø² Ø¯Ø± Ù‡Ø± Ø¨Ø®Ø´.</p>
           </div>
         </div>
 
@@ -167,7 +167,7 @@ onMounted(async () => {
             <div class="progress-bar">
               <span :style="{ width: `${Math.max(12, ((item.allowedUsers || []).length / Math.max(state.settings.organizationUsers.length, 1)) * 100)}%` }"></span>
             </div>
-            <small>{{ (item.allowedUsers || []).length }} نفر</small>
+            <small>{{ (item.allowedUsers || []).length }} Ù†ÙØ±</small>
           </article>
         </div>
       </article>
@@ -176,36 +176,42 @@ onMounted(async () => {
     <section class="surface-block">
       <div class="section-label-row">
         <div>
-          <h3>بخش‌های سازمان</h3>
-          <p>همین لیست در فرم‌های درخواست، هزینه، سند و کاربر به عنوان «انتخاب بخش» نمایش داده می‌شود.</p>
+          <h3>Ø¨Ø®Ø´â€ŒÙ‡Ø§ÛŒ Ø³Ø§Ø²Ù…Ø§Ù†</h3>
+          <p>Ù‡Ù…ÛŒÙ† Ù„ÛŒØ³Øª Ø¯Ø± ÙØ±Ù…â€ŒÙ‡Ø§ÛŒ Ø¯Ø±Ø®ÙˆØ§Ø³ØªØŒ Ù‡Ø²ÛŒÙ†Ù‡ØŒ Ø³Ù†Ø¯ Ùˆ Ú©Ø§Ø±Ø¨Ø± Ø¨Ù‡ Ø¹Ù†ÙˆØ§Ù† Â«Ø§Ù†ØªØ®Ø§Ø¨ Ø¨Ø®Ø´Â» Ù†Ù…Ø§ÛŒØ´ Ø¯Ø§Ø¯Ù‡ Ù…ÛŒâ€ŒØ´ÙˆØ¯.</p>
         </div>
       </div>
 
       <div class="settings-stack">
         <div v-for="(department, index) in state.settings.departments" :key="department.id || department.code" class="department-row">
-          <label class="field-shell">
-            <span>{{ department.code }}</span>
-            <input v-model="department.name" type="text" :readonly="!state.settings.canEdit" />
-          </label>
-          <button
-            v-if="state.settings.canEdit"
-            class="action-btn tone-danger department-delete-btn"
-            type="button"
-            @click="removeDepartment(index)"
-          >
-            <span class="material-symbols-outlined">delete</span>
-            <span>حذف</span>
-          </button>
+          <div class="department-card">
+            <div class="department-card-head">
+              <span class="department-code">{{ department.code }}</span>
+              <button
+                v-if="state.settings.canEdit"
+                class="action-btn tone-danger department-delete-btn"
+                type="button"
+                @click="removeDepartment(index)"
+              >
+                <span class="material-symbols-outlined">delete</span>
+                <span>Ø­Ø°Ù</span>
+              </button>
+            </div>
+
+            <label class="field-shell">
+              <span>Ù†Ø§Ù… Ø¨Ø®Ø´</span>
+              <input v-model="department.name" type="text" :readonly="!state.settings.canEdit" />
+            </label>
+          </div>
         </div>
 
         <label v-if="state.settings.canEdit" class="field-shell">
-          <span>بخش جدید</span>
-          <input v-model="newDepartmentName" type="text" placeholder="مثلا فروش، عملیات، مالی..." />
+          <span>Ø¨Ø®Ø´ Ø¬Ø¯ÛŒØ¯</span>
+          <input v-model="newDepartmentName" type="text" placeholder="Ù…Ø«Ù„Ø§ ÙØ±ÙˆØ´ØŒ Ø¹Ù…Ù„ÛŒØ§ØªØŒ Ù…Ø§Ù„ÛŒ..." />
         </label>
 
         <button v-if="state.settings.canEdit" class="action-btn tone-primary" type="button" @click="persistDepartments">
           <span class="material-symbols-outlined">save</span>
-          <span>{{ saving ? 'در حال ذخیره...' : 'ذخیره بخش‌ها' }}</span>
+          <span>{{ saving ? 'Ø¯Ø± Ø­Ø§Ù„ Ø°Ø®ÛŒØ±Ù‡...' : 'Ø°Ø®ÛŒØ±Ù‡ Ø¨Ø®Ø´â€ŒÙ‡Ø§' }}</span>
         </button>
       </div>
     </section>
@@ -213,22 +219,22 @@ onMounted(async () => {
     <section class="surface-block">
       <div class="section-label-row">
         <div>
-          <h3>دسترسی به بخش‌ها</h3>
-          <p>به‌جای کارت‌های بزرگ، دسترسی‌ها در یک جدول سبک و قابل جستجو نمایش داده می‌شوند.</p>
+          <h3>Ø¯Ø³ØªØ±Ø³ÛŒ Ø¨Ù‡ Ø¨Ø®Ø´â€ŒÙ‡Ø§</h3>
+          <p>Ø¨Ù‡â€ŒØ¬Ø§ÛŒ Ú©Ø§Ø±Øªâ€ŒÙ‡Ø§ÛŒ Ø¨Ø²Ø±Ú¯ØŒ Ø¯Ø³ØªØ±Ø³ÛŒâ€ŒÙ‡Ø§ Ø¯Ø± ÛŒÚ© Ø¬Ø¯ÙˆÙ„ Ø³Ø¨Ú© Ùˆ Ù‚Ø§Ø¨Ù„ Ø¬Ø³ØªØ¬Ùˆ Ù†Ù…Ø§ÛŒØ´ Ø¯Ø§Ø¯Ù‡ Ù…ÛŒâ€ŒØ´ÙˆÙ†Ø¯.</p>
         </div>
       </div>
 
       <label class="search-shell search-shell-wide settings-section-search">
         <span class="material-symbols-outlined">search</span>
-        <input v-model="sectionSearch" type="text" placeholder="جستجو در بخش‌ها..." />
+        <input v-model="sectionSearch" type="text" placeholder="Ø¬Ø³ØªØ¬Ùˆ Ø¯Ø± Ø¨Ø®Ø´â€ŒÙ‡Ø§..." />
       </label>
 
       <div v-if="filteredSettingsSections.length" class="settings-access-table">
         <div class="settings-access-table-head">
-          <span>بخش</span>
-          <span>شرح</span>
-          <span>کاربران مجاز</span>
-          <span>عملیات</span>
+          <span>Ø¨Ø®Ø´</span>
+          <span>Ø´Ø±Ø­</span>
+          <span>Ú©Ø§Ø±Ø¨Ø±Ø§Ù† Ù…Ø¬Ø§Ø²</span>
+          <span>Ø¹Ù…Ù„ÛŒØ§Øª</span>
         </div>
 
         <button
@@ -240,13 +246,13 @@ onMounted(async () => {
         >
           <strong>{{ item.title }}</strong>
           <span>{{ item.description }}</span>
-          <span>{{ (item.allowedUsers || []).length }} نفر</span>
-          <span class="table-link">مدیریت</span>
+          <span>{{ (item.allowedUsers || []).length }} Ù†ÙØ±</span>
+          <span class="table-link">Ù…Ø¯ÛŒØ±ÛŒØª</span>
         </button>
       </div>
       <div v-else class="empty-state-inline">
         <span class="material-symbols-outlined">rule</span>
-        <p>{{ state.settings.sections.length ? 'بخشی مطابق جستجو پیدا نشد.' : 'بخشی برای تنظیم دسترسی دریافت نشد.' }}</p>
+        <p>{{ state.settings.sections.length ? 'Ø¨Ø®Ø´ÛŒ Ù…Ø·Ø§Ø¨Ù‚ Ø¬Ø³ØªØ¬Ùˆ Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.' : 'Ø¨Ø®Ø´ÛŒ Ø¨Ø±Ø§ÛŒ ØªÙ†Ø¸ÛŒÙ… Ø¯Ø³ØªØ±Ø³ÛŒ Ø¯Ø±ÛŒØ§ÙØª Ù†Ø´Ø¯.' }}</p>
       </div>
     </section>
   </section>
@@ -254,15 +260,15 @@ onMounted(async () => {
   <BaseModal :open="accessModalOpen" size="detail" @close="accessModalOpen = false">
     <div class="detail-layout">
       <div class="modal-headline">
-        <p class="page-eyebrow">دسترسی بخش</p>
-        <h2>{{ selectedSection?.title || 'بخش' }}</h2>
+        <p class="page-eyebrow">Ø¯Ø³ØªØ±Ø³ÛŒ Ø¨Ø®Ø´</p>
+        <h2>{{ selectedSection?.title || 'Ø¨Ø®Ø´' }}</h2>
       </div>
 
       <section class="surface-inline access-directory-panel">
         <div class="filter-toolbar users-filter-toolbar">
           <label class="search-shell search-shell-wide">
             <span class="material-symbols-outlined">search</span>
-            <input v-model="userSearch" type="text" placeholder="جستجو در اعضا..." />
+            <input v-model="userSearch" type="text" placeholder="Ø¬Ø³ØªØ¬Ùˆ Ø¯Ø± Ø§Ø¹Ø¶Ø§..." />
           </label>
 
           <div class="alphabet-strip">
@@ -280,10 +286,10 @@ onMounted(async () => {
 
         <div class="access-selection-table">
           <div class="settings-access-table-head">
-            <span>وضعیت</span>
-            <span>نام</span>
-            <span>سمت</span>
-            <span>بخش</span>
+            <span>ÙˆØ¶Ø¹ÛŒØª</span>
+            <span>Ù†Ø§Ù…</span>
+            <span>Ø³Ù…Øª</span>
+            <span>Ø¨Ø®Ø´</span>
           </div>
 
           <button
@@ -293,7 +299,7 @@ onMounted(async () => {
             type="button"
             @click="toggleUser(user.id)"
           >
-            <span class="access-selection-state">{{ isSelected(user.id) ? 'انتخاب شده' : 'انتخاب نشده' }}</span>
+            <span class="access-selection-state">{{ isSelected(user.id) ? 'Ø§Ù†ØªØ®Ø§Ø¨ Ø´Ø¯Ù‡' : 'Ø§Ù†ØªØ®Ø§Ø¨ Ù†Ø´Ø¯Ù‡' }}</span>
             <strong>{{ user.name }}</strong>
             <span>{{ user.role || '-' }}</span>
             <span>{{ user.department || '-' }}</span>
@@ -304,11 +310,11 @@ onMounted(async () => {
       <div class="modal-actions">
         <button class="action-btn tone-soft" type="button" @click="accessModalOpen = false">
           <span class="material-symbols-outlined">close</span>
-          <span>بستن</span>
+          <span>Ø¨Ø³ØªÙ†</span>
         </button>
         <button class="action-btn tone-primary" type="button" @click="persistSectionAccess">
           <span class="material-symbols-outlined">save</span>
-          <span>{{ saving ? 'در حال ذخیره...' : 'ذخیره دسترسی' }}</span>
+          <span>{{ saving ? 'Ø¯Ø± Ø­Ø§Ù„ Ø°Ø®ÛŒØ±Ù‡...' : 'Ø°Ø®ÛŒØ±Ù‡ Ø¯Ø³ØªØ±Ø³ÛŒ' }}</span>
         </button>
       </div>
     </div>
@@ -324,15 +330,40 @@ onMounted(async () => {
   min-height: 42px;
 }
 
-.department-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: end;
+.department-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(32, 58, 105, 0.1);
+}
+
+.department-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.department-code {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: rgba(23, 37, 84, 0.86);
+}
+
+.department-row .field-shell {
+  margin: 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
 }
 
 .department-delete-btn {
   min-height: 42px;
+  flex-shrink: 0;
 }
 
 .settings-section-search {
@@ -344,7 +375,7 @@ onMounted(async () => {
   .surface-block:nth-of-type(2) .settings-stack {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: end;
+    align-items: stretch;
   }
 }
 </style>

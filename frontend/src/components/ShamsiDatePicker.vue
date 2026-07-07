@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   getJalaliMonthLabel,
   getMonthMatrix,
@@ -20,8 +20,10 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const root = ref(null)
+const panel = ref(null)
 const open = ref(false)
 const inputValue = ref('')
+const panelStyle = ref({})
 const todayJalali = getTodayJalali()
 const currentMonth = { jy: todayJalali.jy, jm: todayJalali.jm }
 
@@ -31,20 +33,12 @@ function compareJalali(a, b) {
   return a.jd - b.jd
 }
 
-function isFutureJalali(value) {
-  return compareJalali(value, todayJalali) > 0
+function isOutsideViewMonth(value) {
+  return value.jy !== viewMonth.value.jy || value.jm !== viewMonth.value.jm
 }
 
-function isBeforeCurrentMonth(value) {
-  return value.jy < todayJalali.jy || (value.jy === todayJalali.jy && value.jm < todayJalali.jm)
-}
-
-function isAfterCurrentMonth(value) {
-  return value.jy > todayJalali.jy || (value.jy === todayJalali.jy && value.jm > todayJalali.jm)
-}
-
-function isOutsideCurrentMonth(value) {
-  return isBeforeCurrentMonth(value) || isAfterCurrentMonth(value)
+function isOutOfSelectableRange(value) {
+  return value.jy !== currentMonth.jy || value.jm !== currentMonth.jm
 }
 
 function getInitialMonth() {
@@ -61,11 +55,20 @@ const selectedJalali = computed(() => {
 
 const weeks = computed(() =>
   getMonthMatrix(viewMonth.value.jy, viewMonth.value.jm).map((week) =>
-    week.map((day) => (day ? { ...day, disabled: isFutureJalali(day.jalali) || isOutsideCurrentMonth(day.jalali) } : null)),
+    week.map((day) =>
+      day
+        ? {
+            ...day,
+            disabled: isOutsideViewMonth(day.jalali) || isOutOfSelectableRange(day.jalali),
+          }
+        : null,
+    ),
   ),
 )
 const weekdays = getPersianWeekdays()
 const monthLabel = computed(() => getJalaliMonthLabel(viewMonth.value.jy, viewMonth.value.jm))
+const canPrevMonth = computed(() => false)
+const canNextMonth = computed(() => false)
 
 watch(
   () => props.modelValue,
@@ -80,8 +83,53 @@ function emitValue(jalaliValue) {
   emit('update:modelValue', props.modelType === 'jalali' ? jalaliValue : jalaliToIso(jalaliValue))
 }
 
+function isToday(day) {
+  if (!day) return false
+  return (
+    day.jalali.jy === todayJalali.jy &&
+    day.jalali.jm === todayJalali.jm &&
+    day.jalali.jd === todayJalali.jd
+  )
+}
+
+function buildPanelStyle() {
+  if (!root.value || !panel.value) return
+  const rect = root.value.getBoundingClientRect()
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const mobile = viewportWidth <= 760
+  const sidePadding = mobile ? 8 : 12
+  const width = Math.max(220, Math.min(rect.width, viewportWidth - sidePadding * 2))
+  const left = Math.max(sidePadding, Math.min(rect.left, viewportWidth - width - sidePadding))
+  const top = rect.bottom + 8
+  const maxHeight = Math.max(220, viewportHeight - top - sidePadding)
+
+  panelStyle.value = {
+    position: 'fixed',
+    top: `${top}px`,
+    left: `${left}px`,
+    right: 'auto',
+    bottom: 'auto',
+    width: `${width}px`,
+    maxWidth: `calc(100vw - ${sidePadding * 2}px)`,
+    maxHeight: `${maxHeight}px`,
+    overflowY: 'auto',
+    zIndex: '2200',
+  }
+}
+
+async function openPanel() {
+  open.value = true
+  await nextTick()
+  buildPanelStyle()
+}
+
 function toggleOpen() {
-  open.value = !open.value
+  if (open.value) {
+    close()
+    return
+  }
+  void openPanel()
 }
 
 function close() {
@@ -115,7 +163,7 @@ function applyTypedValue() {
     inputValue.value = props.modelType === 'jalali' ? normalizeDigits(props.modelValue) : isoToJalali(props.modelValue)
     return
   }
-  if (isFutureJalali(parsed) || isOutsideCurrentMonth(parsed)) {
+  if (isOutOfSelectableRange(parsed)) {
     inputValue.value = props.modelType === 'jalali' ? normalizeDigits(props.modelValue) : isoToJalali(props.modelValue)
     return
   }
@@ -127,17 +175,32 @@ function applyTypedValue() {
 }
 
 function onDocumentClick(event) {
-  if (root.value && !root.value.contains(event.target)) {
-    close()
-  }
+  const target = event.target
+  if (root.value?.contains(target) || panel.value?.contains(target)) return
+  close()
+}
+
+function onViewportChange() {
+  if (!open.value) return
+  buildPanelStyle()
 }
 
 onMounted(() => {
   document.addEventListener('click', onDocumentClick)
+  window.addEventListener('resize', onViewportChange)
+  window.addEventListener('scroll', onViewportChange, true)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick)
+  window.removeEventListener('resize', onViewportChange)
+  window.removeEventListener('scroll', onViewportChange, true)
+})
+
+watch(open, async (isOpen) => {
+  if (!isOpen) return
+  await nextTick()
+  buildPanelStyle()
 })
 </script>
 
@@ -151,21 +214,23 @@ onBeforeUnmount(() => {
         inputmode="numeric"
         dir="ltr"
         :placeholder="placeholder"
-        @focus="open = true"
+        @focus="openPanel"
         @blur="applyTypedValue"
       />
       <button class="shamsi-picker-toggle" type="button" @click.stop="toggleOpen">
         <span class="material-symbols-outlined">calendar_month</span>
       </button>
     </div>
+  </div>
 
-    <div v-if="open" class="shamsi-picker-panel">
+  <Teleport to="body">
+    <div v-if="open" ref="panel" class="shamsi-picker-panel shamsi-picker-panel-teleport" :style="panelStyle">
       <div class="shamsi-picker-head">
-        <button type="button" class="icon-btn" disabled @click="nextMonth">
+        <button type="button" class="icon-btn" :disabled="!canNextMonth" @click="nextMonth">
           <span class="material-symbols-outlined">chevron_right</span>
         </button>
         <strong>{{ monthLabel }}</strong>
-        <button type="button" class="icon-btn" disabled @click="prevMonth">
+        <button type="button" class="icon-btn" :disabled="!canPrevMonth" @click="prevMonth">
           <span class="material-symbols-outlined">chevron_left</span>
         </button>
       </div>
@@ -184,6 +249,7 @@ onBeforeUnmount(() => {
             :class="[
               'shamsi-picker-day',
               day && selectedJalali && selectedJalali.jy === day.jalali.jy && selectedJalali.jm === day.jalali.jm && selectedJalali.jd === day.jalali.jd && 'is-selected',
+              day && isToday(day) && 'is-today',
               day?.disabled && 'is-disabled',
               !day && 'is-empty',
             ]"
@@ -198,5 +264,5 @@ onBeforeUnmount(() => {
         <button type="button" class="action-btn tone-soft" @click="clearValue">پاک کردن</button>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>

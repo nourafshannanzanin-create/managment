@@ -907,6 +907,15 @@ function statusClass(status) {
   .dashboard-stage-summary,
   .dashboard-metrics-grid,
   .dashboard-queue-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .dashboard-focus-ribbon,
+  .dashboard-stage-summary,
+  .dashboard-metrics-grid,
+  .dashboard-queue-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

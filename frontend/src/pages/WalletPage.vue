@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, reactive, watch } from 'vue'
 
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
@@ -63,9 +63,9 @@ const activeWallet = computed(() => {
 const usesManagerPaymentFlow = computed(() => state.currentUser.isManager && !state.currentUser.canUseHq)
 
 const paymentMethods = [
-  { key: 'app', label: 'آپ' },
-  { key: 'pos', label: 'دستگاه پرداخت' },
+  { key: 'pos', label: 'درگاه پرداخت' },
   { key: 'card_to_card', label: 'کارت به کارت' },
+  { key: 'app', label: 'اپ' },
 ]
 
 const shortcuts = computed(() => [
@@ -179,12 +179,15 @@ async function submitTransaction() {
     const sourceWallet = wallets.value.find((item) => String(item.id) === String(transactionForm.walletId))
     const targetWallet = wallets.value.find((item) => String(item.id) === String(transactionForm.targetWalletId))
     const message = [
-      'درخواست برداشت کیف پول',
-      `کیف پول مبدا: ${sourceWallet?.name || '-'}`,
-      `مبلغ: ${transactionForm.amount}`,
-      `مقصد: ${transactionForm.destinationType === 'wallet' ? `انتقال به ${targetWallet?.name || '-'}` : 'حساب بانکی'}`,
-      ...(transactionForm.destinationType === 'bank' ? [`شماره شبا: ${transactionForm.iban || '-'}`] : []),
-      `توضیحات: ${transactionForm.note || '-'}`,
+      'ACTION_TYPE: wallet_withdrawal',
+      `SOURCE_WALLET_ID: ${sourceWallet?.id || ''}`,
+      `SOURCE_WALLET_NAME: ${sourceWallet?.name || '-'}`,
+      `DESTINATION_TYPE: ${transactionForm.destinationType}`,
+      `TARGET_WALLET_ID: ${transactionForm.destinationType === 'wallet' ? targetWallet?.id || '' : ''}`,
+      `TARGET_WALLET_NAME: ${transactionForm.destinationType === 'wallet' ? targetWallet?.name || '-' : ''}`,
+      `IBAN: ${transactionForm.destinationType === 'bank' ? transactionForm.iban || '-' : ''}`,
+      `AMOUNT: ${transactionForm.amount}`,
+      `NOTE: ${transactionForm.note || '-'}`,
     ].join('\n')
     await createSupportTicket({ subject: 'برداشت کیف پول', message, category: 'financial', priority: 'urgent', attachments: [] })
     state.wallet.message = 'درخواست برداشت برای پشتیبانی ارسال شد.'
@@ -203,17 +206,17 @@ async function submitTransaction() {
 async function submitPaymentTicket() {
   const wallet = wallets.value.find((item) => String(item.id) === String(paymentForm.walletId)) || activeWallet.value
   const message = [
-    'درخواست تایید پرداخت کیف پول',
-    `کیف پول: ${wallet?.name || '-'}`,
+    'ACTION_TYPE: wallet_payment',
     `WALLET_ID: ${wallet?.id || ''}`,
-    `روش پرداخت: ${selectedPaymentMethodLabel.value}`,
-    `بابت: ${paymentForm.purpose || '-'}`,
-    `تاریخ: ${paymentForm.date}`,
-    `ساعت: ${paymentForm.time}`,
-    `مبلغ: ${paymentForm.amount}`,
-    `کد تراکنش: ${paymentForm.referenceCode}`,
+    `WALLET_NAME: ${wallet?.name || '-'}`,
+    `METHOD: ${selectedPaymentMethodLabel.value}`,
+    `PURPOSE: ${paymentForm.purpose || '-'}`,
+    `DATE: ${paymentForm.date}`,
+    `TIME: ${paymentForm.time}`,
+    `AMOUNT: ${paymentForm.amount}`,
+    `REFERENCE_CODE: ${paymentForm.referenceCode}`,
     ...(paymentForm.method === 'card_to_card'
-      ? [`شماره کارت مقصد: ${CARD_NUMBER}`, `نام صاحب کارت: ${CARD_HOLDER}`]
+      ? [`DESTINATION_CARD: ${CARD_NUMBER}`, `CARD_OWNER: ${CARD_HOLDER}`]
       : []),
   ].join('\n')
 
@@ -351,7 +354,7 @@ watch(
         </label>
 
         <label>
-          <span>مبلغ</span>
+          <span>مبلغ (تومان)</span>
           <input v-model="transactionForm.amount" inputmode="decimal" required placeholder="0" @input="transactionForm.amount = formatAmountInput($event.target.value)" />
         </label>
 
@@ -406,13 +409,13 @@ watch(
             </select>
           </label>
           <label>
-            <span>مبلغ</span>
+            <span>مبلغ (تومان)</span>
             <input v-model.trim="paymentSetup.amount" inputmode="decimal" required placeholder="0" @input="paymentSetup.amount = formatAmountInput($event.target.value)" />
           </label>
         </div>
 
         <label>
-          <span>بابت چه چیزی</span>
+          <span>شرح :</span>
           <input v-model.trim="paymentSetup.purpose" required placeholder="مثلا شارژ پیامک یا موجودی اصلی" />
         </label>
 
@@ -488,7 +491,7 @@ watch(
             <input v-model.trim="paymentForm.time" required placeholder="14:35" />
           </label>
           <label>
-            <span>مبلغ</span>
+            <span>مبلغ (تومان)</span>
             <input v-model.trim="paymentForm.amount" inputmode="decimal" required placeholder="0" @input="paymentForm.amount = formatAmountInput($event.target.value)" />
           </label>
           <label>
@@ -912,19 +915,42 @@ watch(
 
 @media (max-width: 640px) {
   .wallet-hero {
-    padding: 20px;
-    border-radius: 26px;
+    padding: 16px;
+    border-radius: 20px;
   }
 
   .wallet-summary-grid,
   .payment-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .ledger-row,
   .modal-actions {
     flex-wrap: wrap;
   }
+
+  .wallet-modal {
+    gap: 12px;
+    padding: 16px 12px;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .wallet-modal input,
+  .wallet-modal select,
+  .wallet-modal textarea {
+    border-radius: 14px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .wallet-summary-grid,
+  .payment-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
+
+
 

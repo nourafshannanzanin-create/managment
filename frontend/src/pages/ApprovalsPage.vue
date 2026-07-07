@@ -133,17 +133,25 @@ async function handleDownload(item) {
             </tr>
           </thead>
           <tbody v-if="approvalHistory.length">
-            <tr v-for="item in approvalHistory" :key="item.id">
+            <tr
+              v-for="item in approvalHistory"
+              :key="item.id"
+              class="table-click-row"
+              tabindex="0"
+              @click="openApprovalDetail(item.id)"
+              @keydown.enter.prevent="openApprovalDetail(item.id)"
+              @keydown.space.prevent="openApprovalDetail(item.id)"
+            >
               <td><strong>{{ item.title }}</strong></td>
               <td>{{ item.owner }}</td>
               <td>{{ item.department }}</td>
               <td>{{ (item.assignees || []).join('، ') || '-' }}</td>
               <td><span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span></td>
               <td>
-                <button v-if="item.downloadUrl" class="table-link" type="button" @click="handleDownload(item)">دانلود</button>
+                <button v-if="item.downloadUrl" class="table-link" type="button" @click.stop="handleDownload(item)">دانلود</button>
                 <span v-else class="table-muted">بدون فایل</span>
               </td>
-              <td><button class="table-link" type="button" @click="openApprovalDetail(item.id)">مشاهده</button></td>
+              <td><button class="table-link" type="button" @click.stop="openApprovalDetail(item.id)">مشاهده</button></td>
             </tr>
           </tbody>
           <tbody v-else>

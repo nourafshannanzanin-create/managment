@@ -381,7 +381,7 @@ onMounted(() => loadReports(true))
 .report-detail-metrics,
 .report-detail-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 .report-detail-metric,
@@ -471,11 +471,13 @@ onMounted(() => loadReports(true))
 @media (max-width: 760px) {
   .report-filter-grid,
   .report-tabs,
-  .report-detail-hero,
-  .report-detail-metrics,
-  .report-detail-grid {
+  .report-detail-hero {
     display: grid;
     grid-template-columns: 1fr;
+  }
+  .report-detail-metrics,
+  .report-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .compact-field,
   .action-btn,
@@ -487,6 +489,12 @@ onMounted(() => loadReports(true))
   }
   .report-detail-actions {
     justify-content: stretch;
+  }
+}
+@media (max-width: 420px) {
+  .report-detail-metrics,
+  .report-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

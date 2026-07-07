@@ -11,6 +11,7 @@ defineProps({
 
 const route = useRoute()
 const { state, logout, supportUnreadCount, requestInboxCount, expenseInboxCount, approvalInboxCount } = useWorkflowHub()
+const organizationTitle = computed(() => state.hq.selectedOrganization?.name || state.currentUser.organization || 'مجموعه')
 
 const navItems = computed(() => {
   const items = [
@@ -59,7 +60,7 @@ const navItems = computed(() => {
         <span class="material-symbols-outlined">corporate_fare</span>
       </div>
       <div class="brand-copy">
-        <strong>کارمند</strong>
+        <strong>{{ organizationTitle }}</strong>
       </div>
       <button class="icon-btn mobile-toggle" type="button" @click="toggleSidebar">
         <span class="material-symbols-outlined">close</span>

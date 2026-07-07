@@ -64,7 +64,15 @@ async function handleInvoiceOpen(item) {
             </tr>
           </thead>
           <tbody v-if="filteredExpenses.length">
-            <tr v-for="item in filteredExpenses" :key="item.id">
+            <tr
+              v-for="item in filteredExpenses"
+              :key="item.id"
+              class="table-click-row"
+              tabindex="0"
+              @click="openExpenseDetail(item.id)"
+              @keydown.enter.prevent="openExpenseDetail(item.id)"
+              @keydown.space.prevent="openExpenseDetail(item.id)"
+            >
               <td>
                 <strong>{{ item.title || item.description }}</strong>
                 <small>{{ item.department }}</small>
@@ -75,10 +83,10 @@ async function handleInvoiceOpen(item) {
               <td>{{ item.createdAt || '-' }}</td>
               <td><span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span></td>
               <td>
-                <button v-if="item.invoiceUrl" class="table-link" type="button" @click="handleInvoiceOpen(item)">مشاهده</button>
+                <button v-if="item.invoiceUrl" class="table-link" type="button" @click.stop="handleInvoiceOpen(item)">مشاهده</button>
                 <span v-else class="table-muted">بدون فایل</span>
               </td>
-              <td><button class="table-link" type="button" @click="openExpenseDetail(item.id)">جزئیات</button></td>
+              <td><button class="table-link" type="button" @click.stop="openExpenseDetail(item.id)">جزئیات</button></td>
             </tr>
           </tbody>
           <tbody v-else>

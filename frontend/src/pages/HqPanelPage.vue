@@ -148,7 +148,7 @@ onMounted(() => {
           </label>
           <label>
             <span>ایمیل مدیر</span>
-            <input v-model="organizationForm.managerEmail" dir="ltr" type="email" />
+            <input v-model="organizationForm.managerEmail" dir="ltr" type="email" placeholder="optional@email.com" />
           </label>
           <label>
             <span>تلفن مدیر</span>

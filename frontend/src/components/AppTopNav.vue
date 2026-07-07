@@ -80,7 +80,6 @@ const pageConfig = computed(() => {
       eyebrow: 'کاربران',
       title: 'فهرست فشرده کاربران و نقش‌ها',
       description: 'کارت‌ها و جدول‌های سبک‌تر برای پیدا کردن سریع‌تر افراد و مدیریت بهتر.',
-      filterPage: 'users',
       actions: state.currentUser.canManageUsers
         ? [{ label: 'افزودن کاربر', icon: 'person_add', handler: openUserComposer, tone: 'primary' }]
         : [],
@@ -142,7 +141,6 @@ function handleHqOrganizationChange(event) {
         <div class="topbar-intro-copy">
           <span class="topbar-eyebrow">{{ pageConfig.eyebrow }}</span>
           <strong>{{ pageConfig.title }}</strong>
-          <small v-if="pageConfig.description">{{ pageConfig.description }}</small>
         </div>
       </div>
 

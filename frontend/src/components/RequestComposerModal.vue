@@ -24,10 +24,11 @@ const {
   setRequestFiles,
   removeAttachment,
   submitRequest,
+  availableRecipientUsers,
 } = useWorkflowHub()
 
 const managerChoices = computed(() => state.directories.managers || [])
-const employeeChoices = computed(() => (state.users || []).filter((item) => item.accessRole === 'employee'))
+const employeeChoices = computed(() => availableRecipientUsers().filter((item) => item.accessRole === 'employee'))
 
 const filteredManagers = computed(() => {
   const query = referralSearch.value.trim().toLowerCase()
@@ -210,6 +211,11 @@ function openReferral() {
 </template>
 
 <style scoped>
+.compact-upload {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
 .inline-error {
   margin: 0;
   color: #b42318;
@@ -223,6 +229,12 @@ function openReferral() {
 }
 
 @media (max-width: 760px) {
+  .modal-grid.two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
   .modal-grid.two-col {
     grid-template-columns: 1fr;
   }

@@ -67,7 +67,15 @@ function priorityLabel(priority) {
             </tr>
           </thead>
           <tbody v-if="filteredRequests.length">
-            <tr v-for="item in filteredRequests" :key="item.id">
+            <tr
+              v-for="item in filteredRequests"
+              :key="item.id"
+              class="table-click-row"
+              tabindex="0"
+              @click="openRequestDetail(item.id)"
+              @keydown.enter.prevent="openRequestDetail(item.id)"
+              @keydown.space.prevent="openRequestDetail(item.id)"
+            >
               <td><strong>{{ item.id }}</strong></td>
               <td>
                 <strong>{{ item.title }}</strong>
@@ -79,7 +87,7 @@ function priorityLabel(priority) {
               <td><span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span></td>
               <td>{{ priorityLabel(item.priority) }}</td>
               <td>{{ item.createdAt || item.deadline || '-' }}</td>
-              <td><button class="table-link" type="button" @click="openRequestDetail(item.id)">مشاهده جزئیات</button></td>
+              <td><button class="table-link" type="button" @click.stop="openRequestDetail(item.id)">مشاهده جزئیات</button></td>
             </tr>
           </tbody>
           <tbody v-else>

@@ -9,9 +9,10 @@ from pathlib import Path
 from uuid import uuid4
 
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Prefetch, Q
 
-from workflow.access import can_access_approvals, can_access_expenses, can_access_settings, can_access_users, can_approve_documents, can_manage_users, can_view_reports, get_user_organization, is_manager, visible_users
+from workflow.access import can_access_approvals, can_access_expenses, can_access_settings, can_access_users, can_approve_documents, can_manage_users, can_view_reports, get_user_organization, is_manager, organization_users, visible_users
 from workflow.models import (
     ApprovalAssignment,
     ApprovalAssignmentStatus,
@@ -119,6 +120,61 @@ def document_risk_label(value: str) -> str:
 
 def assignment_status_label(value: str) -> str:
     return dict(ApprovalAssignmentStatus.choices).get(value, value)
+
+
+def visible_department_catalog():
+    return Department.objects.exclude(code__in=["hq-control", "hq"]).exclude(name__iexact="HQ").exclude(code__endswith="-admin").order_by("name")
+
+
+def parse_support_ticket_meta(ticket: SupportTicket) -> dict:
+    try:
+        registration = ticket.registration_request
+    except ObjectDoesNotExist:
+        registration = None
+    if registration is not None:
+        return {
+            "actionType": "organization_registration",
+            "status": registration.status,
+            "organizationName": registration.organization_name,
+            "managerName": registration.manager_name,
+            "managerUsername": registration.manager_username,
+            "managerEmail": registration.manager_email,
+            "managerPhone": registration.manager_phone,
+            "companyCode": registration.company_code,
+            "canApprove": registration.status == "pending",
+        }
+    meta = {}
+    for line in (ticket.message or "").splitlines():
+        if ":" not in line:
+            continue
+        key, raw_value = line.split(":", 1)
+        key = key.strip().upper()
+        value = raw_value.strip()
+        if key:
+            meta[key] = value
+    action_type = meta.get("ACTION_TYPE", "")
+    if action_type == "wallet_withdrawal":
+        return {
+            "actionType": action_type,
+            "sourceWalletId": int(meta["SOURCE_WALLET_ID"]) if meta.get("SOURCE_WALLET_ID", "").isdigit() else None,
+            "sourceWalletName": meta.get("SOURCE_WALLET_NAME", ""),
+            "destinationType": meta.get("DESTINATION_TYPE", ""),
+            "targetWalletId": int(meta["TARGET_WALLET_ID"]) if meta.get("TARGET_WALLET_ID", "").isdigit() else None,
+            "targetWalletName": meta.get("TARGET_WALLET_NAME", ""),
+            "iban": meta.get("IBAN", ""),
+            "amount": meta.get("AMOUNT", ""),
+            "note": meta.get("NOTE", ""),
+        }
+    if action_type == "wallet_payment":
+        return {
+            "actionType": action_type,
+            "walletId": int(meta["WALLET_ID"]) if meta.get("WALLET_ID", "").isdigit() else None,
+            "walletName": meta.get("WALLET_NAME", ""),
+            "amount": meta.get("AMOUNT", ""),
+            "purpose": meta.get("PURPOSE", ""),
+            "method": meta.get("METHOD", ""),
+        }
+    return {}
 
 
 def save_uploaded_file(file_obj) -> str:
@@ -299,6 +355,7 @@ def serialize_request(request_obj: Request) -> dict:
         ],
         "bucket": current_assignment.status if current_assignment else request_obj.status,
         "canApprove": can_approve,
+        "currentApproverId": current_assignment.approver_id if current_assignment else None,
     }
 
 
@@ -346,6 +403,7 @@ def serialize_expense(expense: Expense) -> dict:
         ],
         "bucket": current_assignment.status if current_assignment else expense.status,
         "canApprove": can_approve,
+        "currentApproverId": current_assignment.approver_id if current_assignment else None,
     }
 
 
@@ -516,6 +574,7 @@ def serialize_support_ticket(ticket: SupportTicket, include_detail: bool = False
         "updatedAt": ticket.updated_at.isoformat(),
         "updatedAtIso": format_date(ticket.updated_at.date()),
         "time": relative_time(ticket.updated_at),
+        "actionMeta": parse_support_ticket_meta(ticket),
     }
     if include_detail:
         payload["messages"] = [serialize_support_message(message) for message in messages]
@@ -555,6 +614,7 @@ def serialize_approval(document: Document, current_user: User | None = None) -> 
             (current_assignment is not None and current_assignment.status == ApprovalAssignmentStatus.PENDING)
             or (current_user is not None and current_user.slug == HQ_USERNAME and document.status in {DocumentStatus.PENDING, DocumentStatus.WAITING_SIGNATURE})
         ),
+        "currentApproverId": current_assignment.approver_id if current_assignment else None,
     }
 
 
@@ -894,7 +954,12 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
     for expense in expenses_qs:
         expense._current_user = user
 
-    departments = list(Department.objects.exclude(code__in=["hq-control", "hq"]).exclude(name__iexact="HQ").order_by("name"))
+    departments = list(visible_department_catalog())
+    directory_users_qs = list(
+        organization_users(user)
+        .select_related("department", "manager", "organization_membership__organization")
+        .order_by("created_at")
+    )
     activities = list(
         AuditLog.objects.filter(actor_id__in=[item.id for item in users_qs]).select_related("actor").order_by("-created_at")[:6]
     )
@@ -1000,10 +1065,10 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
             "departments": [{"code": item.code, "name": item.name} for item in departments],
             "managers": [
                 {"id": item.id, "slug": item.slug, "name": normalize_person_name(item.full_name), "role": access_role_label(item.role)}
-                for item in users_qs
+                for item in directory_users_qs
                 if item.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER, UserRole.MANAGER}
             ],
-            "users": [{"id": item.id, "name": normalize_person_name(item.full_name)} for item in users_qs],
+            "users": [serialize_user(item) for item in directory_users_qs],
         },
     }
 
