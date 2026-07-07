@@ -2744,3 +2744,391 @@ body {
     justify-content: space-between;
   }
 }
+
+@media (max-width: 720px) {
+  html,
+  body,
+  #app {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    font-size: 11.5px;
+    text-size-adjust: 100%;
+  }
+
+  .app-shell,
+  .shell-main,
+  .shell-content,
+  .page-shell,
+  .enterprise-page,
+  .surface-block,
+  .page-header,
+  .hero-panel,
+  .hero-panel-modern,
+  .modal-shell,
+  .topbar-shell {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .shell-content {
+    padding: 12px;
+  }
+
+  .topbar-shell {
+    padding: 12px;
+    gap: 9px;
+  }
+
+  .topbar-intro-copy strong {
+    font-size: 13.5px;
+    line-height: 1.45;
+  }
+
+  .topbar-intro-copy small,
+  .page-header-description,
+  .section-label-row p,
+  .metric-card small,
+  .pipeline-card small,
+  .report-card small,
+  .insight-card p,
+  .list-card small,
+  .user-card small,
+  .approval-card small,
+  .table-muted {
+    font-size: 10.5px;
+    line-height: 1.55;
+  }
+
+  .page-header {
+    padding: 12px;
+    border-radius: 16px;
+    gap: 10px;
+  }
+
+  .page-header h1 {
+    font-size: 17px;
+    line-height: 1.45;
+  }
+
+  .hero-copy-block h2 {
+    font-size: 18px;
+    line-height: 1.35;
+  }
+
+  .hero-copy-block p {
+    font-size: 10.5px;
+    line-height: 1.65;
+  }
+
+  .metric-card strong,
+  .hero-stat-card strong {
+    font-size: 18px;
+  }
+
+  .section-label-row h3 {
+    font-size: 13px;
+  }
+
+  .shell-sidebar {
+    width: min(92vw, 330px);
+    padding: 12px;
+    overflow-y: auto;
+  }
+
+  .sidebar-brand {
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    gap: 8px;
+  }
+
+  .brand-mark,
+  .sidebar-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+  }
+
+  .brand-copy strong,
+  .sidebar-profile-copy strong {
+    font-size: 11.5px;
+  }
+
+  .brand-copy small,
+  .sidebar-profile-copy small,
+  .sidebar-section-label {
+    font-size: 9.5px;
+  }
+
+  .sidebar-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    align-content: start;
+  }
+
+  .nav-link {
+    position: relative;
+    min-width: 0;
+    min-height: 46px;
+    padding: 6px 8px;
+    border-radius: 13px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 6px;
+    font-size: 10.5px;
+  }
+
+  .nav-link:hover,
+  .nav-link.is-active {
+    transform: none;
+  }
+
+  .nav-link .material-symbols-outlined {
+    font-size: 18px;
+  }
+
+  .nav-link-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav-link-badge {
+    position: absolute;
+    inset-block-start: 4px;
+    inset-inline-start: 4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    font-size: 9px;
+  }
+
+  .sidebar-logout {
+    min-height: 38px;
+    font-size: 10.5px;
+  }
+
+  .metric-grid,
+  .metric-grid-4,
+  .page-filters,
+  .pipeline-grid,
+  .quick-action-grid,
+  .insight-grid,
+  .card-grid,
+  .summary-metrics,
+  .detail-meta-grid,
+  .approval-card-grid,
+  .user-card-grid,
+  .list-card-grid,
+  .checkbox-grid,
+  .modal-grid.two-col,
+  .modal-grid.three-col,
+  .recipient-grid,
+  .approval-board,
+  .report-grid-modern,
+  .settings-access-table-head,
+  .settings-access-table-row,
+  .access-selection-row,
+  .wallet-summary-grid,
+  .payment-grid,
+  .user-access-grid,
+  .dashboard-metrics-grid,
+  .dashboard-queue-grid,
+  .hq-report-grid,
+  .hq-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .metric-card,
+  .quick-action-card,
+  .pipeline-card,
+  .approval-card,
+  .user-card,
+  .list-card,
+  .report-card,
+  .insight-card,
+  .settings-access-card,
+  .surface-block,
+  .recipient-card,
+  .approval-lane-card,
+  .report-card-modern,
+  .access-selection-row,
+  .settings-access-table-row {
+    min-width: 0;
+    padding: 11px;
+    border-radius: 15px;
+  }
+
+  .quick-action-card {
+    min-height: 104px;
+  }
+
+  .quick-action-card .material-symbols-outlined,
+  .approval-metric-icon {
+    font-size: 19px;
+  }
+
+  .field-shell,
+  .search-shell,
+  .page-filters.is-dense .field-shell,
+  .page-filters.is-dense .search-shell,
+  .page-filters.is-dense .filter-reset-btn,
+  .hq-organization-select {
+    min-width: 0;
+    min-height: 40px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    font-size: 10.5px;
+  }
+
+  .hq-organization-select select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .action-btn {
+    min-width: 0;
+    min-height: 38px;
+    padding: 0 10px;
+    border-radius: 12px;
+    font-size: 10.5px;
+  }
+
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+  }
+
+  .filter-chip,
+  .priority-chip,
+  .meta-pill,
+  .status-badge,
+  .access-selection-state,
+  .mini-person-pill {
+    min-height: 24px;
+    padding: 0 8px;
+    font-size: 9.5px;
+  }
+
+  .table-shell,
+  .report-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+  }
+
+  .data-table,
+  .report-table {
+    width: max-content;
+    min-width: 680px;
+  }
+
+  .data-table th,
+  .data-table td,
+  .report-table th,
+  .report-table td {
+    padding: 9px 8px;
+    font-size: 10.5px;
+    line-height: 1.55;
+    white-space: nowrap;
+  }
+
+  p,
+  small,
+  span,
+  strong,
+  label,
+  button,
+  input,
+  select,
+  textarea,
+  .user-directory-row,
+  .approval-lane-card,
+  .report-card-modern,
+  .list-card,
+  .user-card,
+  .approval-card,
+  .settings-access-card {
+    min-width: 0;
+  }
+
+  p,
+  small,
+  strong,
+  .page-header-description,
+  .hero-copy-block p,
+  .approval-lane-card p,
+  .report-card-modern p,
+  .detail-note-box p {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 420px) {
+  .shell-content {
+    padding: 10px;
+  }
+
+  .topbar-shell,
+  .page-header,
+  .surface-block {
+    padding: 10px;
+  }
+
+  .metric-grid,
+  .metric-grid-4,
+  .page-filters,
+  .pipeline-grid,
+  .quick-action-grid,
+  .insight-grid,
+  .card-grid,
+  .summary-metrics,
+  .detail-meta-grid,
+  .approval-card-grid,
+  .user-card-grid,
+  .list-card-grid,
+  .checkbox-grid,
+  .modal-grid.two-col,
+  .modal-grid.three-col,
+  .recipient-grid,
+  .approval-board,
+  .report-grid-modern,
+  .settings-access-table-head,
+  .settings-access-table-row,
+  .access-selection-row,
+  .wallet-summary-grid,
+  .payment-grid,
+  .user-access-grid,
+  .dashboard-metrics-grid,
+  .dashboard-queue-grid,
+  .hq-report-grid,
+  .hq-status-grid {
+    gap: 7px;
+  }
+
+  .metric-card,
+  .quick-action-card,
+  .pipeline-card,
+  .approval-card,
+  .user-card,
+  .list-card,
+  .report-card,
+  .insight-card,
+  .settings-access-card,
+  .surface-block,
+  .recipient-card,
+  .approval-lane-card,
+  .report-card-modern,
+  .access-selection-row,
+  .settings-access-table-row {
+    padding: 9px;
+  }
+}
