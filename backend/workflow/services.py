@@ -158,6 +158,7 @@ def serialize_current_user(user: User) -> dict:
     return {
         "id": user.id,
         "slug": user.slug,
+        "username": user.slug,
         "name": normalize_person_name(user.full_name),
         "role": user.job_title,
         "accessRole": user.role,
@@ -184,6 +185,7 @@ def serialize_user(user: User) -> dict:
     return {
         "id": user.id,
         "name": normalize_person_name(user.full_name),
+        "username": user.slug,
         "email": user.email,
         "phone": user.phone or "",
         "role": access_role_label(user.role),
@@ -1159,6 +1161,7 @@ def serialize_user(user: User) -> dict:
     return {
         "id": user.id,
         "name": normalize_person_name(user.full_name),
+        "username": user.slug,
         "email": user.email,
         "role": access_role_label(user.role),
         "accessRole": user.role,

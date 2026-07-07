@@ -15,6 +15,7 @@ function createCurrentUser() {
   return {
     id: null,
     slug: '',
+    username: '',
     name: '',
     role: '',
     accessRole: '',
@@ -64,7 +65,7 @@ function createExpenseForm() {
 function createUserForm() {
   return {
     fullName: '',
-    email: '',
+    username: '',
     password: '',
     accessRole: 'employee',
     department: '',
@@ -649,7 +650,7 @@ const filteredUsers = computed(() => {
   const filter = state.filters.users
   const query = filter.query.trim().toLowerCase()
   return state.users.filter((item) =>
-    matchesQuery(item, ['name', 'email', 'role', 'department', 'manager', 'status'], query) &&
+    matchesQuery(item, ['name', 'username', 'role', 'department', 'manager', 'status'], query) &&
     matchesPerson(item, ['name', 'manager'], filter.person) &&
     inDateRange(item.joinedAtIso, filter.startDate, filter.endDate),
   )
@@ -1475,11 +1476,15 @@ export function useWorkflowHub() {
       }
 
       const formData = new FormData()
+      const primaryManagerId = state.directories.managers.find((item) => item.slug === state.requestForm.manager)?.id
+      const managerAssigneeIds = (state.requestForm.managerAssigneeIds || [])
+        .map((item) => Number(item))
+        .filter((item) => item && item !== Number(primaryManagerId))
       formData.append('title', state.requestForm.title)
       formData.append('description', state.requestForm.description)
       formData.append('department', state.requestForm.department)
       formData.append('manager', state.requestForm.manager)
-      formData.append('managerAssigneeIds', state.requestForm.managerAssigneeIds.join(','))
+      formData.append('managerAssigneeIds', managerAssigneeIds.join(','))
       formData.append('employeeAssigneeIds', state.requestForm.employeeAssigneeIds.join(','))
       formData.append('priority', state.requestForm.priority)
       formData.append('action', 'refer')
@@ -1534,8 +1539,8 @@ export function useWorkflowHub() {
       if (!String(state.userForm.fullName || '').trim()) {
         throw createValidationError('نام کامل کاربر الزامی است.', [{ field: 'fullName', message: 'نام و نام خانوادگی را وارد کنید.' }])
       }
-      if (!String(state.userForm.email || '').trim()) {
-        throw createValidationError('ایمیل کاربر الزامی است.', [{ field: 'email', message: 'ایمیل کاربر را وارد کنید.' }])
+      if (!String(state.userForm.username || '').trim()) {
+        throw createValidationError('نام کاربری الزامی است.', [{ field: 'username', message: 'نام کاربری کاربر را وارد کنید.' }])
       }
       if (state.userForm.password && String(state.userForm.password).length < 6) {
         throw createValidationError('رمز عبور باید حداقل 6 کاراکتر باشد.', [{ field: 'password', message: 'رمز عبور کوتاه است.' }])
@@ -1545,6 +1550,7 @@ export function useWorkflowHub() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...state.userForm,
+          username: state.userForm.username,
           managerId: state.userForm.managerId ? Number(state.userForm.managerId) : null,
         }),
       })

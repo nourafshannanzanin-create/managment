@@ -43,7 +43,7 @@ const filteredOrganizationUsers = computed(() => {
       const firstLetter = String(item.name || '').trim().slice(0, 1)
       const matchesLetter = activeLetter.value === 'همه' || firstLetter === activeLetter.value
       const matchesQuery = !query ||
-        ['name', 'role', 'department', 'email']
+        ['name', 'role', 'department']
           .some((field) => String(item[field] || '').toLowerCase().includes(query))
       return matchesLetter && matchesQuery
     })
@@ -114,6 +114,11 @@ function toggleUser(userId) {
   selectedUserIds.value = [...next]
 }
 
+function removeDepartment(index) {
+  if (!state.settings.canEdit || saving.value) return
+  state.settings.departments = state.settings.departments.filter((_, itemIndex) => itemIndex !== index)
+}
+
 onMounted(async () => {
   await loadSettings(true)
 })
@@ -177,10 +182,21 @@ onMounted(async () => {
       </div>
 
       <div class="settings-stack">
-        <label v-for="department in state.settings.departments" :key="department.id || department.code" class="field-shell">
-          <span>{{ department.code }}</span>
-          <input v-model="department.name" type="text" :readonly="!state.settings.canEdit" />
-        </label>
+        <div v-for="(department, index) in state.settings.departments" :key="department.id || department.code" class="department-row">
+          <label class="field-shell">
+            <span>{{ department.code }}</span>
+            <input v-model="department.name" type="text" :readonly="!state.settings.canEdit" />
+          </label>
+          <button
+            v-if="state.settings.canEdit"
+            class="action-btn tone-danger department-delete-btn"
+            type="button"
+            @click="removeDepartment(index)"
+          >
+            <span class="material-symbols-outlined">delete</span>
+            <span>حذف</span>
+          </button>
+        </div>
 
         <label v-if="state.settings.canEdit" class="field-shell">
           <span>بخش جدید</span>
@@ -305,6 +321,17 @@ onMounted(async () => {
 }
 
 .settings-stack .field-shell input {
+  min-height: 42px;
+}
+
+.department-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.department-delete-btn {
   min-height: 42px;
 }
 

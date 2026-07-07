@@ -895,6 +895,16 @@ def build_unique_user_slug(base_value: str) -> str:
     return slug
 
 
+def build_internal_user_email(username: str) -> str:
+    normalized_username = normalize_slug(username) or "user"
+    email = f"{normalized_username}@workflow.local"
+    suffix = 2
+    while User.objects.filter(email=email).exists():
+        email = f"{normalized_username}-{suffix}@workflow.local"
+        suffix += 1
+    return email
+
+
 @require_auth
 @csrf_exempt
 @methods("POST")
@@ -1163,8 +1173,8 @@ def requests_view(request: HttpRequest):
         return json_error("مدیران ارجاعی باید از مدیران مجاز انتخاب شوند.", status=422)
     if employee_assignee_ids and (len(assigned_employees) != len(employee_assignee_ids) or any(is_manager(item) for item in assigned_employees)):
         return json_error("کارمندان ارجاعی باید از میان کارمندان مجاز انتخاب شوند.", status=422)
-    if manager and any(item.slug == manager.slug for item in assigned_managers):
-        return json_error("مدیر اصلی نباید در فهرست مدیران ارجاعی تکرار شود.", status=422)
+    if manager:
+        assigned_managers = [item for item in assigned_managers if item.slug != manager.slug]
     request_obj = Request.objects.create(
         code=next_code("REQ"),
         title=title or "درخواست جدید",
@@ -1457,11 +1467,14 @@ def users_view(request: HttpRequest):
         return json_error("دسترسی کافی ندارید.", status=403)
 
     payload = parse_json(request)
-    email = (payload.get("email") or "").strip().lower()
-    if not email:
-        return json_error("ایمیل الزامی است.", status=422)
+    username = normalize_slug(payload.get("username") or payload.get("slug") or "")
+    if not username:
+        return json_error("نام کاربری الزامی است.", status=422)
+    if User.objects.filter(slug=username).exists():
+        return json_error("این نام کاربری قبلا ثبت شده است.", status=409)
+    email = (payload.get("email") or "").strip().lower() or build_internal_user_email(username)
     if User.objects.filter(email=email).exists():
-        return json_error("این ایمیل قبلا ثبت شده است.", status=409)
+        return json_error("شناسه داخلی کاربر تکراری است.", status=409)
 
     role = payload.get("accessRole", UserRole.EMPLOYEE)
     if role not in dict(UserRole.choices):
@@ -1480,7 +1493,7 @@ def users_view(request: HttpRequest):
         return json_error("مدیر مستقیم باید از سطح مدیریتی انتخاب شود.", status=422)
 
     user = User.objects.create(
-        slug=build_unique_user_slug(email.split("@", 1)[0]),
+        slug=username,
         full_name=full_name,
         email=email,
         phone=None,
@@ -1525,9 +1538,14 @@ def user_detail_view(request: HttpRequest, user_id: int):
         return json_error("کاربر مورد نظر یافت نشد.", status=404)
 
     payload = parse_json(request)
-    email = (payload.get("email") or user.email).strip().lower()
+    username = normalize_slug(payload.get("username") or payload.get("slug") or user.slug)
+    if not username:
+        return json_error("نام کاربری الزامی است.", status=422)
+    if User.objects.exclude(pk=user.pk).filter(slug=username).exists():
+        return json_error("این نام کاربری قبلا ثبت شده است.", status=409)
+    email = (payload.get("email") or user.email).strip().lower() or user.email
     if User.objects.exclude(pk=user.pk).filter(email=email).exists():
-        return json_error("این ایمیل قبلا ثبت شده است.", status=409)
+        return json_error("شناسه داخلی کاربر تکراری است.", status=409)
 
     manager_id = payload.get("managerId")
     manager = None
@@ -1543,6 +1561,7 @@ def user_detail_view(request: HttpRequest, user_id: int):
 
     role = payload.get("accessRole") or user.role
     user.full_name = (payload.get("fullName") or user.full_name).strip()
+    user.slug = username
     user.email = email
     user.role = role
     user.job_title = (payload.get("jobTitle") or user.job_title).strip() or user.job_title
@@ -1551,7 +1570,7 @@ def user_detail_view(request: HttpRequest, user_id: int):
     if "isActive" in payload:
         user.is_active = bool(payload.get("isActive"))
     user.avatar = (user.full_name[:2] if user.full_name else user.avatar or "NA").upper()
-    update_fields = ["full_name", "email", "role", "job_title", "department", "manager", "is_active", "avatar"]
+    update_fields = ["full_name", "slug", "email", "role", "job_title", "department", "manager", "is_active", "avatar"]
 
     password = (payload.get("password") or "").strip()
     if password:
@@ -1869,6 +1888,7 @@ def settings_profile_view(request: HttpRequest):
         departments_payload = payload.get("departments") or []
         if not isinstance(departments_payload, list):
             return json_error("فهرست بخش‌ها معتبر نیست.", status=422)
+        submitted_ids: set[int] = set()
         for item in departments_payload:
             if not isinstance(item, dict):
                 continue
@@ -1884,6 +1904,7 @@ def settings_profile_view(request: HttpRequest):
                     return json_error("نام بخش تکراری است.", status=409)
                 department.name = name
                 department.save(update_fields=["name"])
+                submitted_ids.add(department.id)
             else:
                 code = normalize_slug(item.get("code") or name) or f"department-{Department.objects.count() + 1}"
                 base_code = code
@@ -1893,7 +1914,9 @@ def settings_profile_view(request: HttpRequest):
                     index += 1
                 if Department.objects.filter(name=name).exists():
                     return json_error("نام بخش تکراری است.", status=409)
-                Department.objects.create(code=code, name=name)
+                department = Department.objects.create(code=code, name=name)
+                submitted_ids.add(department.id)
+        Department.objects.exclude(code__in=["hq-control", "hq"]).exclude(name__iexact="HQ").exclude(id__in=submitted_ids).delete()
     else:
         organization_name = (payload.get("organizationName") or "").strip()
         if not organization_name:

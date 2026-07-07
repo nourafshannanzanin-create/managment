@@ -36,9 +36,9 @@ const sectionAccessOptions = [
           <input v-model="form.fullName" type="text" />
         </label>
 
-        <label :class="['field-shell', fieldHasError('email') && 'has-error']">
-          <span>ایمیل</span>
-          <input v-model="form.email" type="email" />
+        <label :class="['field-shell', fieldHasError('username') && 'has-error']">
+          <span>نام کاربری</span>
+          <input v-model="form.username" type="text" dir="ltr" />
         </label>
 
         <label :class="['field-shell', fieldHasError('password') && 'has-error']">

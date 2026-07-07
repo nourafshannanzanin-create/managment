@@ -14,7 +14,7 @@ const savingUser = ref(false)
 
 const editableUser = reactive({
   fullName: '',
-  email: '',
+  username: '',
   password: '',
   accessRole: 'employee',
   department: '',
@@ -71,7 +71,7 @@ const filteredUsers = computed(() => {
     const matchesLetter = activeLetter.value === 'همه' || firstLetter === activeLetter.value
 
     const matchesQuery = !query ||
-      ['name', 'role', 'jobTitle', 'department', 'email', 'manager', 'status']
+      ['name', 'role', 'jobTitle', 'department', 'username', 'manager', 'status']
         .some((field) => String(item[field] || '').toLowerCase().includes(query))
 
     return matchesCategory && matchesLetter && matchesQuery
@@ -90,7 +90,7 @@ const selectedUser = computed(() => state.users.find((item) => item.id === selec
 watch(selectedUser, (user) => {
   Object.assign(editableUser, {
     fullName: user?.name || '',
-    email: user?.email || '',
+    username: user?.username || '',
     password: '',
     accessRole: user?.accessRole || 'employee',
     department: user?.departmentCode || '',
@@ -128,7 +128,7 @@ async function saveUserChanges() {
   try {
     await updateUser(selectedUser.value.id, {
       fullName: editableUser.fullName,
-      email: editableUser.email,
+      username: editableUser.username,
       password: editableUser.password,
       accessRole: editableUser.accessRole,
       department: editableUser.department,
@@ -225,7 +225,7 @@ function userManagerOptions(userId) {
       <div v-if="filteredUsers.length" class="user-directory-grid">
         <button
           v-for="item in filteredUsers"
-          :key="item.id || item.email"
+          :key="item.id || item.username"
           class="compact-user-card"
           type="button"
           @click="openUserDetails(item.id)"
@@ -274,7 +274,7 @@ function userManagerOptions(userId) {
             <span class="user-meta-divider"></span>
             <span>{{ selectedUser.department || 'بدون بخش' }}</span>
             <span class="user-meta-divider"></span>
-            <span>{{ selectedUser.email || '-' }}</span>
+            <span dir="ltr">{{ selectedUser.username || '-' }}</span>
           </div>
         </div>
 
@@ -300,7 +300,7 @@ function userManagerOptions(userId) {
         </article>
         <article class="user-meta-card">
           <div class="user-meta-icon"><span class="material-symbols-outlined">mail</span></div>
-          <div class="user-meta-copy"><span>ایمیل</span><strong>{{ selectedUser.email || '-' }}</strong></div>
+          <div class="user-meta-copy"><span>نام کاربری</span><strong dir="ltr">{{ selectedUser.username || '-' }}</strong></div>
         </article>
         <article class="user-meta-card">
           <div class="user-meta-icon"><span class="material-symbols-outlined">supervisor_account</span></div>
@@ -323,8 +323,8 @@ function userManagerOptions(userId) {
           </label>
 
           <label class="field-shell">
-            <span>ایمیل</span>
-            <input v-model="editableUser.email" type="email" :disabled="!canManageUsers" />
+            <span>نام کاربری</span>
+            <input v-model="editableUser.username" type="text" dir="ltr" :disabled="!canManageUsers" />
           </label>
 
           <label class="field-shell">

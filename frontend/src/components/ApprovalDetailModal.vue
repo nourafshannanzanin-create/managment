@@ -13,6 +13,7 @@ const props = defineProps({
 defineEmits(['close'])
 
 const rejectReason = ref('')
+const rejectOpen = ref(false)
 const previewObjectUrl = ref('')
 const previewLoading = ref(false)
 
@@ -101,6 +102,7 @@ async function loadInlinePreview() {
 
 async function handleReject() {
   await rejectSelectedDocument(rejectReason.value)
+  rejectOpen.value = false
 }
 
 async function handleApprove() {
@@ -119,6 +121,7 @@ watch(
   () => [props.open, props.approval?.id, props.approval?.canApprove, previewUrl.value, previewKind.value],
   async ([open, _, canApprove]) => {
     rejectReason.value = ''
+    rejectOpen.value = false
     revokePreviewObjectUrl()
     if (!open) return
     state.lastError = ''
@@ -275,20 +278,20 @@ watch(
 
             <p v-if="state.lastError" class="inline-error">{{ state.lastError }}</p>
 
-            <label v-if="approval.canApprove" class="approval-reject-note">
-              <span>علت رد</span>
-              <textarea
-                v-model="rejectReason"
-                class="field-shell approval-reject-textarea"
-                rows="4"
-                placeholder="اگر نیاز به رد سند دارید، توضیح خود را اینجا بنویسید."
-              ></textarea>
-            </label>
-
             <div class="approval-action-row">
               <button class="action-btn tone-soft" type="button" @click="$emit('close')">
                 <span class="material-symbols-outlined">close</span>
                 <span>بستن</span>
+              </button>
+              <button
+                v-if="approval.canApprove"
+                class="action-btn tone-danger"
+                type="button"
+                :disabled="loading"
+                @click="rejectOpen = true"
+              >
+                <span class="material-symbols-outlined">cancel</span>
+                <span>رد</span>
               </button>
               <button
                 v-if="approval.canApprove"
@@ -300,20 +303,45 @@ watch(
                 <span class="material-symbols-outlined">check_circle</span>
                 <span>تایید</span>
               </button>
-              <button
-                v-if="approval.canApprove"
-                class="action-btn tone-danger"
-                type="button"
-                :disabled="loading || !rejectReason.trim()"
-                @click="handleReject"
-              >
-                <span class="material-symbols-outlined">cancel</span>
-                <span>رد</span>
-              </button>
             </div>
           </article>
         </div>
       </section>
+    </div>
+  </BaseModal>
+
+  <BaseModal :open="rejectOpen" size="sm" @close="rejectOpen = false">
+    <div class="detail-layout">
+      <div class="modal-headline">
+        <p class="page-eyebrow">علت رد</p>
+        <h2>توضیح رد تاییدیه</h2>
+      </div>
+
+      <label class="field-shell approval-reject-note">
+        <span>علت رد</span>
+        <textarea
+          v-model.trim="rejectReason"
+          class="approval-reject-textarea"
+          rows="4"
+          placeholder="دلیل رد این سند را بنویسید."
+        ></textarea>
+      </label>
+
+      <div class="modal-actions">
+        <button class="action-btn tone-soft" type="button" @click="rejectOpen = false">
+          <span class="material-symbols-outlined">close</span>
+          <span>بستن</span>
+        </button>
+        <button
+          class="action-btn tone-danger"
+          type="button"
+          :disabled="loading || !rejectReason.trim()"
+          @click="handleReject"
+        >
+          <span class="material-symbols-outlined">cancel</span>
+          <span>ثبت رد</span>
+        </button>
+      </div>
     </div>
   </BaseModal>
 </template>
