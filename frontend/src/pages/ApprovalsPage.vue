@@ -85,6 +85,10 @@ async function handleDownload(item) {
           <h3>صف بررسی</h3>
           <p>اسنادی که هنوز در جریان تایید هستند و نیاز به اقدام دارند.</p>
         </div>
+        <button class="action-btn tone-soft" type="button" @click="openSignatureComposer">
+          <span class="material-symbols-outlined">approval</span>
+          <span>بارگذاری مهر</span>
+        </button>
       </div>
 
       <div class="approval-board">

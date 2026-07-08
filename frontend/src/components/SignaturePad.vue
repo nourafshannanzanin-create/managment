@@ -10,6 +10,7 @@ const emit = defineEmits(['update:modelValue'])
 const canvasRef = ref(null)
 let context
 let drawing = false
+const EXPORT_SCALE = 3
 
 function resizeCanvas() {
   const canvas = canvasRef.value
@@ -21,8 +22,9 @@ function resizeCanvas() {
   canvas.height = height * ratio
   context = canvas.getContext('2d')
   context.scale(ratio, ratio)
-  context.lineWidth = 2.2
+  context.lineWidth = 2.8
   context.lineCap = 'round'
+  context.lineJoin = 'round'
   context.strokeStyle = '#2E4374'
   context.fillStyle = '#ffffff'
   context.fillRect(0, 0, width, height)
@@ -67,12 +69,25 @@ function move(event) {
 function end() {
   if (!drawing) return
   drawing = false
-  emit('update:modelValue', canvasRef.value.toDataURL('image/png'))
+  emit('update:modelValue', exportHighResolutionDataUrl())
 }
 
 function clearPad() {
   emit('update:modelValue', '')
   resizeCanvas()
+}
+
+function exportHighResolutionDataUrl() {
+  const canvas = canvasRef.value
+  if (!canvas) return ''
+  const exportCanvas = document.createElement('canvas')
+  exportCanvas.width = canvas.clientWidth * EXPORT_SCALE
+  exportCanvas.height = canvas.clientHeight * EXPORT_SCALE
+  const exportContext = exportCanvas.getContext('2d')
+  exportContext.fillStyle = '#ffffff'
+  exportContext.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
+  exportContext.drawImage(canvas, 0, 0, exportCanvas.width, exportCanvas.height)
+  return exportCanvas.toDataURL('image/png')
 }
 
 watch(

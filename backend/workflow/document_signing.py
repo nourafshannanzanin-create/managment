@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from django.conf import settings
 
+from ai.stamp_processing import encode_image_data_url
 from workflow.models import ApprovalAssignment, ApprovalAssignmentStatus, Document
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
@@ -67,6 +68,51 @@ def _build_signature_overlay(signature_image: Image.Image) -> Image.Image:
     return overlay
 
 
+def _build_stamp_overlay(stamp_image: Image.Image) -> Image.Image:
+    Image, _ = _load_pillow()
+    bbox = stamp_image.getbbox()
+    if bbox:
+        stamp_image = stamp_image.crop(bbox)
+    width, height = stamp_image.size
+    max_side = max(width, height, 1)
+    if max_side > 720:
+        scale = 720 / max_side
+        stamp_image = stamp_image.resize(
+            (max(1, int(width * scale)), max(1, int(height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+    return stamp_image
+
+
+def build_approval_mark(signature_data: str, stamp_data: str) -> tuple[Image.Image, str]:
+    Image, _ = _load_pillow()
+    signature_image = _build_signature_overlay(_decode_signature_data(signature_data))
+    if not (stamp_data or "").strip():
+        return signature_image, encode_image_data_url(signature_image)
+
+    stamp_image = _build_stamp_overlay(_decode_signature_data(stamp_data))
+
+    gap = 0
+    target_stamp_height = max(24, int(signature_image.height * 0.9))
+    stamp_scale = min(1.0, target_stamp_height / max(stamp_image.height, 1))
+    resized_stamp = stamp_image.resize(
+        (
+            max(1, int(stamp_image.width * stamp_scale)),
+            max(1, int(stamp_image.height * stamp_scale)),
+        ),
+        Image.Resampling.LANCZOS,
+    )
+
+    combined_width = resized_stamp.width + gap + signature_image.width
+    combined_height = max(resized_stamp.height, signature_image.height)
+    overlay = Image.new("RGBA", (combined_width, combined_height), (255, 255, 255, 0))
+    stamp_y = max(0, (combined_height - resized_stamp.height) // 2)
+    signature_y = max(0, combined_height - signature_image.height)
+    overlay.paste(resized_stamp, (0, stamp_y), resized_stamp)
+    overlay.paste(signature_image, (resized_stamp.width + gap, signature_y), signature_image)
+    return overlay, encode_image_data_url(overlay)
+
+
 def _approved_slot_index(document: Document, assignment: ApprovalAssignment) -> int:
     approved_ids = list(
         document.approval_assignments.filter(status=ApprovalAssignmentStatus.APPROVED)
@@ -77,16 +123,16 @@ def _approved_slot_index(document: Document, assignment: ApprovalAssignment) -> 
 
 
 def _signature_target_size(signature_overlay: Image.Image, canvas_width: float, canvas_height: float) -> tuple[int, int]:
-    max_width = max(120, int(canvas_width * 0.22))
-    max_height = max(44, int(canvas_height * 0.11))
+    max_width = max(260, min(900, int(canvas_width * 0.4)))
+    max_height = max(78, min(280, int(canvas_height * 0.22)))
     width, height = signature_overlay.size
     scale = min(max_width / width, max_height / height)
-    scaled_width = max(80, int(width * scale))
-    scaled_height = max(28, int(height * scale))
+    scaled_width = max(180, int(width * scale))
+    scaled_height = max(54, int(height * scale))
     return scaled_width, scaled_height
 
 
-def sign_document_file(document: Document, assignment: ApprovalAssignment, signature_data: str) -> str:
+def sign_document_file(document: Document, assignment: ApprovalAssignment, signature_data: str, stamp_data: str) -> tuple[str, str]:
     if not document.file_name:
         raise ValueError("Document file is missing.")
 
@@ -94,7 +140,7 @@ def sign_document_file(document: Document, assignment: ApprovalAssignment, signa
     if not source_path.exists():
         raise FileNotFoundError(f"Document file not found: {source_path}")
 
-    signature_image = _build_signature_overlay(_decode_signature_data(signature_data))
+    signature_image, approval_mark_data_url = build_approval_mark(signature_data, stamp_data)
     extension = source_path.suffix.lower()
     slot_index = _approved_slot_index(document, assignment)
     signed_file_name = _signed_file_name(source_path)
@@ -112,7 +158,7 @@ def sign_document_file(document: Document, assignment: ApprovalAssignment, signa
             os.remove(source_path)
         except OSError:
             pass
-    return signed_file_name
+    return signed_file_name, approval_mark_data_url
 
 
 def _sign_image_document(source_path: Path, signed_path: Path, signature_image: Image.Image, slot_index: int) -> None:

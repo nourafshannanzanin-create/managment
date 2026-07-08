@@ -17,6 +17,7 @@ from django.http import FileResponse, HttpRequest, HttpResponse, HttpResponseNot
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
+from ai.stamp_processing import normalize_stamp_data_url
 from workflow.access import (
     attach_user,
     can_access_approvals,
@@ -32,7 +33,7 @@ from workflow.access import (
     require_roles,
     visible_users,
 )
-from workflow.document_signing import sign_document_file
+from workflow.document_signing import build_approval_mark, sign_document_file
 from workflow.models import (
     ApprovalAssignment,
     ApprovalAssignmentStatus,
@@ -102,6 +103,10 @@ DEFAULT_SIGNATURE_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB
 def has_saved_signature(signature_data: str | None) -> bool:
     normalized = (signature_data or "").strip()
     return bool(normalized) and normalized != DEFAULT_SIGNATURE_DATA
+
+
+def has_saved_stamp(stamp_data: str | None) -> bool:
+    return bool((stamp_data or "").strip())
 
 
 def json_response(payload, status=200, safe=True):
@@ -324,7 +329,7 @@ def scoped_support_tickets(request: HttpRequest):
 def ensure_signature(user: User) -> UserSignature:
     signature, _ = UserSignature.objects.get_or_create(
         user=user,
-        defaults={"signature_data": ""},
+        defaults={"signature_data": "", "stamp_data": ""},
     )
     if signature.signature_data == DEFAULT_SIGNATURE_DATA:
         signature.signature_data = ""
@@ -2201,16 +2206,39 @@ def approvals_signature_view(request: HttpRequest):
     signature = ensure_signature(request.current_user)
     if request.method == "GET":
         has_signature = has_saved_signature(signature.signature_data)
-        return json_response({"hasSignature": has_signature, "signatureData": signature.signature_data if has_signature else ""})
+        has_stamp = bool((signature.stamp_data or "").strip())
+        return json_response(
+            {
+                "hasSignature": has_signature,
+                "signatureData": signature.signature_data if has_signature else "",
+                "hasStamp": has_stamp,
+                "stampData": signature.stamp_data if has_stamp else "",
+            }
+        )
 
     payload = parse_json(request)
     signature_data = (payload.get("signatureData") or "").strip()
+    stamp_data = (payload.get("stampData") or "").strip()
     if not has_saved_signature(signature_data):
         return json_error("امضای معتبر ثبت نشده است.", status=422)
+    normalized_stamp = ""
+    if stamp_data:
+        try:
+            normalized_stamp = normalize_stamp_data_url(stamp_data)
+        except ValueError as exc:
+            return json_error(str(exc), status=422)
     signature.signature_data = signature_data
+    signature.stamp_data = normalized_stamp
     signature.updated_at = timezone.now()
-    signature.save(update_fields=["signature_data", "updated_at"])
-    return json_response({"hasSignature": True, "signatureData": signature.signature_data})
+    signature.save(update_fields=["signature_data", "stamp_data", "updated_at"])
+    return json_response(
+        {
+            "hasSignature": True,
+            "signatureData": signature.signature_data,
+            "hasStamp": bool((signature.stamp_data or "").strip()),
+            "stampData": signature.stamp_data,
+        }
+    )
 
 
 @require_auth
@@ -2324,12 +2352,18 @@ def approval_approve_view(request: HttpRequest, document_code: str):
         with transaction.atomic():
             assignment.status = ApprovalAssignmentStatus.APPROVED
             assignment.decision_note = ""
-            assignment.signed_signature_data = signature.signature_data
             assignment.acted_at = timezone.now()
-            assignment.save(update_fields=["status", "decision_note", "signed_signature_data", "acted_at"])
+            assignment.save(update_fields=["status", "decision_note", "acted_at"])
+            update_fields = []
             if document.file_name:
-                document.file_name = sign_document_file(document, assignment, signature.signature_data)
+                document.file_name, assignment.signed_signature_data = sign_document_file(document, assignment, signature.signature_data, signature.stamp_data)
+                update_fields.append("signed_signature_data")
                 document.save(update_fields=["file_name"])
+            else:
+                _, assignment.signed_signature_data = build_approval_mark(signature.signature_data, signature.stamp_data)
+                update_fields.append("signed_signature_data")
+            if update_fields:
+                assignment.save(update_fields=update_fields)
             update_document_status(document)
     except (ValueError, FileNotFoundError) as exc:
         return json_error(str(exc), status=422)

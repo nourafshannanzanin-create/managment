@@ -30,6 +30,7 @@ from workflow.views import DEFAULT_SIGNATURE_DATA
 SOURCE_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg=="
 SIGNATURE_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAYAAAB/qH1jAAAAE0lEQVR4nGMUERH5z4AEmBjQAAAlyAE/YHhewAAAAABJRU5ErkJggg=="
 SIGNATURE_DATA_URL = f"data:image/png;base64,{SIGNATURE_PNG_BASE64}"
+STAMP_DATA_URL = SIGNATURE_DATA_URL
 
 
 class ApprovalFlowTests(TestCase):
@@ -85,7 +86,7 @@ class ApprovalFlowTests(TestCase):
         response = self.client.get("/api/v1/approvals/signature")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"hasSignature": False, "signatureData": ""})
+        self.assertEqual(response.json(), {"hasSignature": False, "signatureData": "", "hasStamp": False, "stampData": ""})
 
     def test_approve_document_requires_real_signature(self):
         document = self._create_document()
@@ -98,9 +99,9 @@ class ApprovalFlowTests(TestCase):
         assignment = ApprovalAssignment.objects.get(document=document, approver=self.approver)
         self.assertEqual(assignment.status, ApprovalAssignmentStatus.PENDING)
 
-    def test_approve_document_signs_file_when_real_signature_exists(self):
+    def test_approve_document_signs_file_without_stamp(self):
         document = self._create_document()
-        UserSignature.objects.create(user=self.approver, signature_data=SIGNATURE_DATA_URL)
+        UserSignature.objects.create(user=self.approver, signature_data=SIGNATURE_DATA_URL, stamp_data="")
 
         response = self.client.post(f"/api/v1/approvals/{document.code}/approve")
 
@@ -108,7 +109,21 @@ class ApprovalFlowTests(TestCase):
         document.refresh_from_db()
         assignment = ApprovalAssignment.objects.get(document=document, approver=self.approver)
         self.assertEqual(assignment.status, ApprovalAssignmentStatus.APPROVED)
-        self.assertEqual(assignment.signed_signature_data, SIGNATURE_DATA_URL)
+        self.assertTrue(assignment.signed_signature_data.startswith("data:image/png;base64,"))
+        self.assertIn("-signed-", document.file_name or "")
+
+    def test_approve_document_signs_file_when_real_signature_exists(self):
+        document = self._create_document()
+        UserSignature.objects.create(user=self.approver, signature_data=SIGNATURE_DATA_URL, stamp_data=STAMP_DATA_URL)
+
+        response = self.client.post(f"/api/v1/approvals/{document.code}/approve")
+
+        self.assertEqual(response.status_code, 200)
+        document.refresh_from_db()
+        assignment = ApprovalAssignment.objects.get(document=document, approver=self.approver)
+        self.assertEqual(assignment.status, ApprovalAssignmentStatus.APPROVED)
+        self.assertTrue(assignment.signed_signature_data.startswith("data:image/png;base64,"))
+        self.assertNotEqual(assignment.signed_signature_data, SIGNATURE_DATA_URL)
         self.assertIn("-signed-", document.file_name or "")
         self.assertTrue((Path(settings.MEDIA_ROOT) / document.file_name).exists())
 

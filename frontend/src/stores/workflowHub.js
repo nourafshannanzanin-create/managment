@@ -249,6 +249,8 @@ const signatureState = reactive({
   loading: false,
   hasSignature: false,
   signatureData: '',
+  hasStamp: false,
+  stampData: '',
 })
 
 const selectedState = reactive({
@@ -537,6 +539,8 @@ function clearSessionState() {
   state.topSubmitters = []
   signatureState.hasSignature = false
   signatureState.signatureData = ''
+  signatureState.hasStamp = false
+  signatureState.stampData = ''
   approvalDetailState.item = null
   expenseDetailState.item = null
   selectedState.requestId = ''
@@ -1516,10 +1520,14 @@ export function useWorkflowHub() {
       const payload = repairPayload(await response.json())
       signatureState.hasSignature = payload.hasSignature
       signatureState.signatureData = payload.signatureData || ''
+      signatureState.hasStamp = Boolean(payload.hasStamp)
+      signatureState.stampData = payload.stampData || ''
       return true
     } catch (error) {
       signatureState.hasSignature = false
       signatureState.signatureData = ''
+      signatureState.hasStamp = false
+      signatureState.stampData = ''
       state.lastError = error.message || 'بارگذاری امضا انجام نشد.'
       return false
     } finally {
@@ -1689,18 +1697,20 @@ export function useWorkflowHub() {
     }
   }
 
-  async function saveSignature(signatureData) {
+  async function saveSignature(signatureData, stampData = '') {
     signatureState.loading = true
     state.lastError = ''
     try {
       const response = await authorizedFetch('/approvals/signature', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signatureData }),
+        body: JSON.stringify({ signatureData, stampData }),
       })
       const payload = repairPayload(await response.json())
       signatureState.hasSignature = payload.hasSignature
       signatureState.signatureData = payload.signatureData
+      signatureState.hasStamp = Boolean(payload.hasStamp)
+      signatureState.stampData = payload.stampData || ''
       closeSignatureComposer()
       await loadBootstrapData(true)
     } catch (error) {

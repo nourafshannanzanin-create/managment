@@ -289,16 +289,16 @@ watch(
                 <span class="material-symbols-outlined">{{ signatureState.hasSignature ? 'gesture' : 'draw' }}</span>
               </div>
               <div class="signature-readiness-copy">
-                <strong>{{ signatureState.hasSignature ? 'امضای دیجیتال آماده است' : 'پیش از تایید، امضا لازم است' }}</strong>
+                <strong>{{ signatureState.hasSignature ? 'امضا آماده است و مهر اختیاری است' : 'پیش از تایید، امضا لازم است' }}</strong>
                 <p>
                   {{ signatureState.hasSignature
-                    ? 'امضای فعلی شما هنگام تایید روی نسخه نهایی سند اعمال می‌شود.'
-                    : 'ابتدا امضای خود را ثبت یا ویرایش کنید، سپس تایید را انجام دهید.' }}
+                    ? 'امضای فعلی شما و در صورت وجود مهر، هر دو هنگام تایید روی نسخه نهایی سند اعمال می‌شوند.'
+                    : 'ابتدا امضای خود را ثبت کنید. بارگذاری مهر اختیاری است.' }}
                 </p>
               </div>
               <button class="action-btn tone-soft" type="button" @click="openSignatureComposer">
                 <span class="material-symbols-outlined">draw</span>
-                <span>{{ signatureState.hasSignature ? 'ویرایش امضا' : 'ثبت امضا' }}</span>
+                <span>{{ signatureState.hasSignature || signatureState.hasStamp ? 'ویرایش امضا و مهر' : 'ثبت امضا' }}</span>
               </button>
             </div>
 

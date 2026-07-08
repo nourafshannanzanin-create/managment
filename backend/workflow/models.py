@@ -273,6 +273,7 @@ class RegistrationRequest(TimeStampedModel):
 class UserSignature(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="signature")
     signature_data = models.TextField()
+    stamp_data = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
 
