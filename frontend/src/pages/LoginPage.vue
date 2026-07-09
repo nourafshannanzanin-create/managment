@@ -6,8 +6,8 @@ import ErrorNotice from '../components/ErrorNotice.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const form = reactive({
-  email: 'milad_dhs',
-  password: 'milad_dhs@123',
+  email: '',
+  password: '',
   remember: false,
 })
 
