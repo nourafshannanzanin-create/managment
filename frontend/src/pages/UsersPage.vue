@@ -16,6 +16,7 @@ const editableUser = reactive({
   fullName: '',
   username: '',
   password: '',
+  phone: '',
   accessRole: 'employee',
   department: '',
   managerId: '',
@@ -92,6 +93,7 @@ watch(selectedUser, (user) => {
     fullName: user?.name || '',
     username: user?.username || '',
     password: '',
+    phone: user?.phone || '',
     accessRole: user?.accessRole || 'employee',
     department: user?.departmentCode || '',
     managerId: user?.managerId || '',
@@ -130,6 +132,7 @@ async function saveUserChanges() {
       fullName: editableUser.fullName,
       username: editableUser.username,
       password: editableUser.password,
+      phone: editableUser.phone,
       accessRole: editableUser.accessRole,
       department: editableUser.department,
       managerId: editableUser.managerId || null,
@@ -296,6 +299,10 @@ function userManagerOptions(userId) {
           <div class="user-meta-copy"><span>نام کاربری</span><strong dir="ltr">{{ selectedUser.username || '-' }}</strong></div>
         </article>
         <article class="user-meta-card">
+          <div class="user-meta-icon"><span class="material-symbols-outlined">smartphone</span></div>
+          <div class="user-meta-copy"><span>موبایل</span><strong dir="ltr">{{ selectedUser.phone || '-' }}</strong></div>
+        </article>
+        <article class="user-meta-card">
           <div class="user-meta-icon"><span class="material-symbols-outlined">supervisor_account</span></div>
           <div class="user-meta-copy"><span>مدیر مستقیم</span><strong>{{ selectedUser.manager || 'ندارد' }}</strong></div>
         </article>
@@ -322,6 +329,11 @@ function userManagerOptions(userId) {
           <label class="field-shell">
             <span>رمز عبور جدید</span>
             <input v-model="editableUser.password" type="password" placeholder="در صورت نیاز تغییر دهید" :disabled="!canManageUsers" />
+          </label>
+
+          <label class="field-shell">
+            <span>موبایل</span>
+            <input v-model="editableUser.phone" type="text" dir="ltr" :disabled="!canManageUsers" />
           </label>
 
           <label class="field-shell">

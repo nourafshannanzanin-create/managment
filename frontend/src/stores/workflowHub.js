@@ -67,6 +67,7 @@ function createUserForm() {
     fullName: '',
     username: '',
     password: '',
+    phone: '',
     accessRole: 'employee',
     department: '',
     managerId: '',
@@ -793,6 +794,9 @@ function hydrateBootstrap(payload) {
   state.directories.departments = payload.directories?.departments || []
   state.directories.managers = payload.directories?.managers || []
   state.directories.users = payload.directories?.users || []
+  if (payload.wallet?.summary) {
+    Object.assign(state.wallet.summary, payload.wallet.summary)
+  }
 
   selectedState.requestId = state.requests[0]?.id || ''
   if (!expenseDetailState.item) selectedState.expenseId = state.expenses[0]?.id || ''

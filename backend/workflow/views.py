@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import wraps
@@ -98,6 +100,8 @@ from workflow.services import (
 
 JSON_KWARGS = {"ensure_ascii": False}
 DEFAULT_SIGNATURE_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg=="
+PERSIAN_DIGIT_TRANSLATION = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+SMS_FOOTER_TEXT = "از طرف کارنومند"
 
 
 def has_saved_signature(signature_data: str | None) -> bool:
@@ -107,6 +111,253 @@ def has_saved_signature(signature_data: str | None) -> bool:
 
 def has_saved_stamp(stamp_data: str | None) -> bool:
     return bool((stamp_data or "").strip())
+
+
+def sms_provider_config() -> dict[str, str]:
+    return {
+        "base_url": str(os.getenv("IRANPAYAMAK_BASE_URL", "https://api.iranpayamak.com") or "https://api.iranpayamak.com").strip(),
+        "line_number": str(os.getenv("IRANPAYAMAK_LINE_NUMBER", "") or "").strip(),
+        "api_key": str(os.getenv("IRANPAYAMAK_API_KEY", "") or "").strip(),
+    }
+
+
+def provider_message_text(provider_data: dict, fallback: str = "ارسال پیامک با خطا مواجه شد.") -> str:
+    if not isinstance(provider_data, dict):
+        return fallback
+    for key in ("message", "error", "detail"):
+        value = provider_data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    data = provider_data.get("data")
+    if isinstance(data, dict):
+        for key in ("message", "error", "detail"):
+            value = data.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return fallback
+
+
+def normalize_sms_recipient(value: str | None) -> str:
+    digits = "".join(char for char in str(value or "").translate(PERSIAN_DIGIT_TRANSLATION) if char.isdigit())
+    if digits.startswith("98") and len(digits) >= 12:
+        digits = f"0{digits[2:]}"
+    if digits.startswith("0098") and len(digits) >= 14:
+        digits = f"0{digits[4:]}"
+    return digits
+
+
+def normalize_sms_recipients(recipients) -> list[str]:
+    normalized = []
+    seen = set()
+    for raw_value in recipients or []:
+        phone = normalize_sms_recipient(raw_value)
+        if len(phone) < 10 or phone in seen:
+            continue
+        seen.add(phone)
+        normalized.append(phone)
+    return normalized
+
+
+def sms_segment_count(text: str) -> int:
+    text = str(text or "").strip()
+    if not text:
+        return 0
+    is_ascii = all(ord(char) < 128 for char in text)
+    single_limit = 160 if is_ascii else 70
+    multi_limit = 153 if is_ascii else 67
+    if len(text) <= single_limit:
+        return 1
+    return (len(text) + multi_limit - 1) // multi_limit
+
+
+def sms_price_per_segment() -> Decimal:
+    raw_value = str(os.getenv("SMS_PRICE_PER_SEGMENT", "0") or "0").strip()
+    try:
+        return Decimal(raw_value)
+    except InvalidOperation:
+        return Decimal("0")
+
+
+def sms_text_with_footer(text: str) -> str:
+    normalized = str(text or "").strip()
+    if SMS_FOOTER_TEXT in normalized:
+        return normalized
+    return f"{normalized}\n\n{SMS_FOOTER_TEXT}" if normalized else SMS_FOOTER_TEXT
+
+
+def sms_send_cost(text: str, recipients: list[str]) -> Decimal:
+    price = sms_price_per_segment()
+    segments = sms_segment_count(text)
+    if price <= 0 or segments <= 0 or not recipients:
+        return Decimal("0")
+    return price * Decimal(segments * len(recipients))
+
+
+def sms_wallet_can_send(tenant: Organization | None, cost: Decimal) -> bool:
+    if tenant is None or cost <= 0:
+        return False
+    wallet = Wallet.objects.filter(organization=tenant, key="sms", is_active=True).first()
+    if wallet is None:
+        return False
+    return Decimal(wallet.balance) >= cost and Decimal(wallet.balance) > 0
+
+
+def charge_sms_wallet(tenant: Organization | None, actor: User | None, text: str, recipients: list[str], provider_id: str = "") -> None:
+    if tenant is None:
+        return
+    amount = sms_send_cost(text, recipients)
+    if amount <= 0:
+        return
+    with transaction.atomic():
+        wallet = (
+            Wallet.objects.select_for_update()
+            .filter(organization=tenant, key="sms", is_active=True)
+            .first()
+        )
+        if wallet is None:
+            return
+        current_balance = Decimal(wallet.balance)
+        next_balance = current_balance - amount
+        if next_balance < 0:
+            return
+        wallet.balance = next_balance
+        wallet.updated_at = timezone.now()
+        wallet.save(update_fields=["balance", "updated_at"])
+        WalletTransaction.objects.create(
+            organization=tenant,
+            wallet=wallet,
+            actor=actor,
+            direction="out",
+            transaction_type="sms_send",
+            amount=amount,
+            balance_after=next_balance,
+            note=f"sms:{len(recipients)}:{sms_segment_count(text)}",
+            reference_id=provider_id[:80],
+        )
+
+
+def send_provider_sms(tenant, text, recipients, *, provider_config=None):
+    config = provider_config or sms_provider_config()
+    api_key = str(config.get("api_key", "") or "").strip()
+    line_number = str(config.get("line_number", "") or "").strip()
+    base_url = str(config.get("base_url", "https://api.iranpayamak.com") or "https://api.iranpayamak.com").rstrip("/")
+    recipients = normalize_sms_recipients(recipients)
+    if not api_key or not line_number:
+        message = "تنظیمات سرویس پیامک کامل نیست."
+        return {"ok": False, "message": message, "provider_status": 0, "provider_data": {}, "raw_body": message, "payload": {}}
+    if not recipients:
+        message = "شماره موبایل معتبری برای ارسال پیامک ثبت نشده است."
+        return {"ok": False, "message": message, "provider_status": 0, "provider_data": {}, "raw_body": message, "payload": {}}
+
+    payload = {
+        "text": text,
+        "line_number": line_number,
+        "recipients": recipients,
+        "number_format": "english",
+        "schedule": None,
+    }
+    req = urllib_request.Request(
+        url=f"{base_url}/ws/v1/sms/simple",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Api-Key": api_key,
+        },
+        method="POST",
+    )
+    try:
+        with urllib_request.urlopen(req, timeout=15) as response:
+            raw_body = response.read().decode("utf-8")
+            response_status = response.status
+    except urllib_error.HTTPError as exc:
+        raw_body = exc.read().decode("utf-8", errors="replace")
+        try:
+            provider_data = json.loads(raw_body or "{}") if raw_body else {}
+        except json.JSONDecodeError:
+            provider_data = {"message": raw_body}
+        return {
+            "ok": False,
+            "message": provider_message_text(provider_data, fallback="سرویس پیامک درخواست را نپذیرفت."),
+            "provider_status": exc.code,
+            "provider_data": provider_data,
+            "raw_body": raw_body,
+            "payload": payload,
+        }
+    except urllib_error.URLError as exc:
+        provider_response = str(getattr(exc, "reason", exc))
+        return {
+            "ok": False,
+            "message": "ارتباط با سرویس پیامک برقرار نشد.",
+            "provider_status": 0,
+            "provider_data": {"message": provider_response},
+            "raw_body": provider_response,
+            "payload": payload,
+        }
+
+    try:
+        provider_data = json.loads(raw_body or "{}") if raw_body else {}
+    except json.JSONDecodeError:
+        provider_data = {"status": "error", "message": raw_body}
+    if response_status not in {200, 201} or provider_data.get("status") != "success":
+        return {
+            "ok": False,
+            "message": provider_message_text(provider_data),
+            "provider_status": response_status,
+            "provider_data": provider_data,
+            "raw_body": raw_body,
+            "payload": payload,
+        }
+
+    data = provider_data.get("data")
+    provider_id = str(data.get("id") or "") if isinstance(data, dict) else str(data or "")
+    provider_delivery_status = str(data.get("status") or "") if isinstance(data, dict) else ""
+    return {
+        "ok": True,
+        "message": "پیامک با موفقیت در صف ارسال قرار گرفت.",
+        "provider_status": response_status,
+        "provider_data": provider_data,
+        "provider_id": provider_id,
+        "provider_delivery_status": provider_delivery_status,
+        "raw_body": raw_body,
+        "payload": payload,
+    }
+
+
+def notify_sms(tenant: Organization | None, text: str, recipients, *, actor: User | None = None) -> dict:
+    try:
+        text = sms_text_with_footer(text)
+        recipients = normalize_sms_recipients(recipients)
+        cost = sms_send_cost(text, recipients)
+        if not sms_wallet_can_send(tenant, cost):
+            message = "به دلیل عدم موجودی کیف پول پیامک، پیامک ارسال نشد."
+            return {
+                "ok": False,
+                "message": message,
+                "provider_status": 0,
+                "provider_data": {"message": message},
+                "raw_body": message,
+                "payload": {"text": text, "recipients": recipients},
+            }
+        result = send_provider_sms(tenant, text, recipients)
+        if result.get("ok"):
+            charge_sms_wallet(
+                tenant,
+                actor,
+                text,
+                list(result.get("payload", {}).get("recipients") or []),
+                provider_id=str(result.get("provider_id") or ""),
+            )
+        return result
+    except Exception as exc:
+        return {
+            "ok": False,
+            "message": "ارسال پیامک با خطا مواجه شد.",
+            "provider_status": 0,
+            "provider_data": {"message": str(exc)},
+            "raw_body": str(exc),
+            "payload": {},
+        }
 
 
 def json_response(payload, status=200, safe=True):
@@ -234,7 +485,7 @@ def build_settings_profile_payload(user: User, organization_id: int | None = Non
 
     return {
         "organizationName": organization.name,
-        "systemId": f"KARO-{str(user.id or 0).zfill(4)}",
+        "systemId": str(organization.code or "").upper(),
         "security": {
             "twoFactorRequired": preference.two_factor_required,
             "recentSessionCount": len(recent_logins),
@@ -512,6 +763,19 @@ def create_organization_with_manager(payload: dict, actor: User | None = None) -
             detail=organization.name,
             icon="domain_add",
         )
+    notify_sms(
+        organization,
+        "\n".join(
+            [
+                f"{manager.full_name} گرامی",
+                f"حساب کاربری شما در {organization.name} ایجاد شد.",
+                f"نام کاربری: {manager.slug}",
+                f"رمز عبور: {manager_password}",
+            ]
+        ),
+        [manager.phone],
+        actor=actor,
+    )
     return organization
 
 
@@ -711,6 +975,14 @@ def create_request_referrals(request_obj: Request, actor: User, manager: User | 
         RequestTimeline.objects.create(request=request_obj, action="manager_referrals", note=f"ارجاع به مدیران: {', '.join(item.full_name for item in assigned_managers)}", actor_name=actor.full_name)
     if assigned_employees:
         RequestTimeline.objects.create(request=request_obj, action="employee_referrals", note=f"ارجاع به کارمندان: {', '.join(item.full_name for item in assigned_employees)}", actor_name=actor.full_name)
+    recipients = [item.phone for item in unique_users([manager] if manager else [], assigned_managers, assigned_employees)]
+    if recipients:
+        notify_sms(
+            get_user_organization(actor),
+            f"درخواست {request_obj.code} با عنوان {request_obj.title} توسط {actor.full_name} به شما ارجاع شد.",
+            recipients,
+            actor=actor,
+        )
 
 
 def create_expense_referrals(expense: Expense, actor: User, manager_assignee_ids: list[int], employee_assignee_ids: list[int]) -> None:
@@ -735,6 +1007,12 @@ def create_expense_referrals(expense: Expense, actor: User, manager_assignee_ids
         expense.status = ExpenseStatus.UNDER_REVIEW
         expense.save(update_fields=["status"])
     AuditLog.objects.create(actor=actor, actor_name=actor.full_name, action="expense_referred", entity_type="expense", entity_code=expense.code, detail=expense.title, icon="forward_to_inbox")
+    notify_sms(
+        get_user_organization(actor),
+        f"هزینه {expense.code} با شرح {expense.title} توسط {actor.full_name} به شما ارجاع شد.",
+        [item.phone for item in unique_users(assignees)],
+        actor=actor,
+    )
 
 
 def create_document_referrals(document: Document, actor: User, assignee_ids: list[int]) -> None:
@@ -762,6 +1040,12 @@ def create_document_referrals(document: Document, actor: User, assignee_ids: lis
         document.approved_at = None
         document.save(update_fields=["status", "rejection_reason", "rejected_at", "approved_at"])
     AuditLog.objects.create(actor=actor, actor_name=actor.full_name, action="document_referred", entity_type="document", entity_code=document.code, detail=document.title, icon="forward_to_inbox")
+    notify_sms(
+        get_user_organization(actor),
+        f"سند {document.code} با عنوان {document.title} توسط {actor.full_name} به شما ارجاع شد.",
+        [item.phone for item in unique_users(approvers)],
+        actor=actor,
+    )
 
 
 def update_request_status_from_assignments(request_obj: Request) -> None:
@@ -1194,6 +1478,19 @@ def support_ticket_approve_registration_view(request: HttpRequest, ticket_id: in
         ticket.save(update_fields=["status", "responded_by", "responded_at", "first_response_at", "closed_at", "updated_at"])
         AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="registration_approved", entity_type="organization", entity_code=company_code, detail=registration.organization_name, icon="domain_add")
 
+    notify_sms(
+        organization,
+        "\n".join(
+            [
+                f"{manager.full_name} گرامی",
+                f"ثبت نام {organization.name} تایید شد.",
+                f"نام کاربری: {manager.slug}",
+                "رمز عبور: همان رمزی که هنگام ثبت نام وارد کرده اید.",
+            ]
+        ),
+        [manager.phone],
+        actor=request.current_user,
+    )
     ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
     return json_response(serialize_support_ticket(ticket, include_detail=True))
 
@@ -1715,6 +2012,12 @@ def requests_view(request: HttpRequest):
     request_obj = Request.objects.select_related("requester", "manager", "department").prefetch_related("assigned_managers", "assigned_employees", "attachments", "approval_assignments__approver").get(pk=request_obj.pk)
     request_obj._current_user = request.current_user
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="request_created", entity_type="request", entity_code=request_obj.code, detail=request_obj.title, icon="assignment")
+    notify_sms(
+        get_user_organization(request.current_user),
+        f"درخواست {request_obj.code} با عنوان {request_obj.title} توسط {request.current_user.full_name} به شما ارجاع شد.",
+        [item.phone for item in unique_users([manager] if manager else [], assigned_managers, assigned_employees)],
+        actor=request.current_user,
+    )
     return json_response(serialize_request(request_obj), status=201)
 
 
@@ -1765,6 +2068,12 @@ def request_approve_view(request: HttpRequest, request_code: str):
     update_request_status_from_assignments(request_obj)
     RequestTimeline.objects.create(request=request_obj, action="approved", note="تایید درخواست", actor_name=request.current_user.full_name)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="request_approved", entity_type="request", entity_code=request_obj.code, detail=request_obj.title, icon="assignment_turned_in")
+    notify_sms(
+        get_user_organization(request.current_user),
+        f"درخواست {request_obj.code} با عنوان {request_obj.title} توسط {request.current_user.full_name} تایید شد. وضعیت فعلی: {request_obj.get_status_display()}",
+        [request_obj.requester.phone],
+        actor=request.current_user,
+    )
     return json_response({"status": request_obj.status, "request": request_obj.code})
 
 
@@ -1792,6 +2101,12 @@ def request_reject_view(request: HttpRequest, request_code: str):
     update_request_status_from_assignments(request_obj)
     RequestTimeline.objects.create(request=request_obj, action="rejected", note=reason, actor_name=request.current_user.full_name)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="request_rejected", entity_type="request", entity_code=request_obj.code, detail=request_obj.title, icon="cancel")
+    notify_sms(
+        get_user_organization(request.current_user),
+        f"درخواست {request_obj.code} با عنوان {request_obj.title} توسط {request.current_user.full_name} رد شد. علت: {reason}",
+        [request_obj.requester.phone],
+        actor=request.current_user,
+    )
     return json_response({"status": "rejected", "request": request_obj.code})
 
 
@@ -1881,6 +2196,12 @@ def expenses_view(request: HttpRequest):
     expense = Expense.objects.select_related("owner", "department").prefetch_related("approval_assignments__approver").get(pk=expense.pk)
     expense._current_user = request.current_user
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="expense_created", entity_type="expense", entity_code=expense.code, detail=expense.title, icon="payments")
+    notify_sms(
+        get_user_organization(request.current_user),
+        f"هزینه {expense.code} با شرح {expense.title} توسط {request.current_user.full_name} به شما ارجاع شد.",
+        [item.phone for item in unique_users(assignees)],
+        actor=request.current_user,
+    )
     return json_response(serialize_expense(expense), status=201)
 
 
@@ -1916,6 +2237,12 @@ def expense_approve_view(request: HttpRequest, expense_code: str):
     assignment.save(update_fields=["status", "decision_note", "acted_at"])
     update_expense_status_from_assignments(expense)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="expense_approved", entity_type="expense", entity_code=expense.code, detail=expense.title, icon="payments")
+    notify_sms(
+        get_user_organization(request.current_user),
+        f"هزینه {expense.code} با شرح {expense.title} توسط {request.current_user.full_name} تایید شد. وضعیت فعلی: {expense.get_status_display()}",
+        [expense.owner.phone],
+        actor=request.current_user,
+    )
     return json_response({"status": expense.status, "expense": expense.code})
 
 
@@ -1946,6 +2273,12 @@ def expense_reject_view(request: HttpRequest, expense_code: str):
     expense.save(update_fields=["notes"])
     update_expense_status_from_assignments(expense)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="expense_rejected", entity_type="expense", entity_code=expense.code, detail=expense.title, icon="payments")
+    notify_sms(
+        get_user_organization(request.current_user),
+        f"هزینه {expense.code} با شرح {expense.title} توسط {request.current_user.full_name} رد شد. علت: {reason}",
+        [expense.owner.phone],
+        actor=request.current_user,
+    )
     return json_response({"status": "rejected", "expense": expense.code})
 
 
@@ -2041,7 +2374,7 @@ def users_view(request: HttpRequest):
         slug=username,
         full_name=full_name,
         email=email,
-        phone=None,
+        phone=(payload.get("phone") or "").strip() or None,
         password_hash=get_password_hash(password),
         role=role,
         job_title=(payload.get("jobTitle") or ("مدیر" if role != UserRole.EMPLOYEE else "کارمند")).strip(),
@@ -2063,6 +2396,19 @@ def users_view(request: HttpRequest):
         entity_code=str(user.id),
         detail=user.full_name,
         icon="group",
+    )
+    notify_sms(
+        get_user_organization(request.current_user),
+        "\n".join(
+            [
+                f"{user.full_name} گرامی",
+                "حساب کاربری شما ایجاد شد.",
+                f"نام کاربری: {user.slug}",
+                f"رمز عبور: {password}",
+            ]
+        ),
+        [user.phone],
+        actor=request.current_user,
     )
     return json_response(serialize_user(user), status=201)
 
@@ -2111,6 +2457,7 @@ def user_detail_view(request: HttpRequest, user_id: int):
     user.full_name = (payload.get("fullName") or user.full_name).strip()
     user.slug = username
     user.email = email
+    user.phone = (payload.get("phone") or "").strip() or None
     user.role = role
     user.job_title = (payload.get("jobTitle") or user.job_title).strip() or user.job_title
     user.department = department
@@ -2118,7 +2465,7 @@ def user_detail_view(request: HttpRequest, user_id: int):
     if "isActive" in payload:
         user.is_active = bool(payload.get("isActive"))
     user.avatar = (user.full_name[:2] if user.full_name else user.avatar or "NA").upper()
-    update_fields = ["full_name", "slug", "email", "role", "job_title", "department", "manager", "is_active", "avatar"]
+    update_fields = ["full_name", "slug", "email", "phone", "role", "job_title", "department", "manager", "is_active", "avatar"]
 
     password = (payload.get("password") or "").strip()
     if password:
@@ -2276,6 +2623,12 @@ def documents_create_view(request: HttpRequest):
         ApprovalAssignment.objects.create(document=document, approver=approver, status=ApprovalAssignmentStatus.PENDING)
     document = Document.objects.select_related("owner", "department").prefetch_related("approval_assignments__approver").get(pk=document.pk)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="document_created", entity_type="document", entity_code=document.code, detail=document.title, icon="description")
+    notify_sms(
+        get_user_organization(request.current_user),
+        f"سند {document.code} با عنوان {document.title} توسط {request.current_user.full_name} به شما ارجاع شد.",
+        [item.phone for item in unique_users(approvers)],
+        actor=request.current_user,
+    )
     return json_response(serialize_approval(document, request.current_user), status=201)
 
 
@@ -2334,6 +2687,12 @@ def approval_approve_view(request: HttpRequest, document_code: str):
         document.rejection_reason = ""
         document.save(update_fields=["status", "approved_at", "rejected_at", "rejection_reason"])
         AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="hq_document_approved", entity_type="document", entity_code=document.code, detail=document.title, icon="fact_check")
+        notify_sms(
+            get_user_organization(document.owner),
+            f"سند {document.code} با عنوان {document.title} تایید شد.",
+            [document.owner.phone],
+            actor=request.current_user,
+        )
         return json_response({"status": "approved", "document": document.code})
     assignment = document.approval_assignments.filter(approver=request.current_user).first()
     if assignment is None:
@@ -2369,6 +2728,12 @@ def approval_approve_view(request: HttpRequest, document_code: str):
         return json_error(str(exc), status=422)
     except Exception:
         return json_error("امضای سند با خطا مواجه شد.", status=500)
+    notify_sms(
+        get_user_organization(request.current_user),
+        f"سند {document.code} با عنوان {document.title} توسط {request.current_user.full_name} تایید شد. وضعیت فعلی: {document.get_status_display()}",
+        [document.owner.phone],
+        actor=request.current_user,
+    )
     return json_response({"status": "approved", "document": document.code})
 
 
@@ -2401,6 +2766,12 @@ def approval_reject_view(request: HttpRequest, document_code: str):
         document.approved_at = None
         document.save(update_fields=["status", "rejection_reason", "rejected_at", "approved_at"])
         AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="hq_document_rejected", entity_type="document", entity_code=document.code, detail=document.title, icon="cancel")
+        notify_sms(
+            get_user_organization(document.owner),
+            f"سند {document.code} با عنوان {document.title} رد شد. علت: {reason}",
+            [document.owner.phone],
+            actor=request.current_user,
+        )
         return json_response({"status": "rejected", "document": document.code})
     assignment = document.approval_assignments.filter(approver=request.current_user).first()
     if assignment is None:
@@ -2420,6 +2791,12 @@ def approval_reject_view(request: HttpRequest, document_code: str):
     document.rejection_reason = reason
     document.save(update_fields=["rejection_reason"])
     update_document_status(document)
+    notify_sms(
+        get_user_organization(request.current_user),
+        f"سند {document.code} با عنوان {document.title} توسط {request.current_user.full_name} رد شد. علت: {reason}",
+        [document.owner.phone],
+        actor=request.current_user,
+    )
     return json_response({"status": "rejected", "document": document.code})
 
 
@@ -2522,10 +2899,16 @@ def settings_profile_view(request: HttpRequest):
         Department.objects.exclude(code__in=["hq-control", "hq"]).exclude(name__iexact="HQ").exclude(id__in=submitted_ids).delete()
     else:
         organization_name = (payload.get("organizationName") or "").strip()
+        system_id = normalize_slug(payload.get("systemId") or organization.code)
         if not organization_name:
             return json_error("نام سازمان الزامی است.", status=422)
+        if not system_id:
+            return json_error("کدنوم سازمان الزامی است.", status=422)
+        if Organization.objects.exclude(pk=organization.pk).filter(code=system_id).exists():
+            return json_error("کدنوم سازمان تکراری است.", status=409)
         organization.name = organization_name
-        organization.save(update_fields=["name"])
+        organization.code = system_id
+        organization.save(update_fields=["name", "code"])
 
         if "twoFactorRequired" in payload:
             preference.two_factor_required = bool(payload.get("twoFactorRequired"))

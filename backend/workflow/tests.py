@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -23,9 +24,10 @@ from workflow.models import (
     User,
     UserRole,
     UserSignature,
+    Wallet,
 )
 from workflow.security import create_access_token, get_password_hash
-from workflow.views import DEFAULT_SIGNATURE_DATA
+from workflow.views import DEFAULT_SIGNATURE_DATA, notify_sms
 
 SOURCE_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg=="
 SIGNATURE_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAYAAAB/qH1jAAAAE0lEQVR4nGMUERH5z4AEmBjQAAAlyAE/YHhewAAAAABJRU5ErkJggg=="
@@ -180,3 +182,134 @@ class RegistrationTests(TestCase):
             content_type="application/json",
         )
         self.assertEqual(duplicate_response.status_code, 409)
+
+
+class UserAndSettingsTests(TestCase):
+    def setUp(self):
+        self.organization = ensure_default_organization()
+        self.department = Department.objects.create(code="it", name="فناوری اطلاعات")
+        self.manager = User.objects.create(
+            slug="manager",
+            full_name="مدیر تست",
+            email="manager@example.com",
+            phone="09120000000",
+            password_hash=get_password_hash("secret123"),
+            role=UserRole.ADMIN,
+            job_title="مدیر",
+            avatar="MT",
+            department=self.department,
+        )
+        OrganizationMembership.objects.create(organization=self.organization, user=self.manager, display_title=self.manager.job_title)
+        self.client = Client()
+        self.client.defaults["HTTP_AUTHORIZATION"] = f"Bearer {create_access_token(str(self.manager.id), {'role': self.manager.role})}"
+
+    @patch("workflow.views.notify_sms")
+    def test_create_user_persists_phone(self, notify_sms_mock):
+        response = self.client.post(
+            "/api/v1/users",
+            data={
+                "fullName": "میلاد دهستانی",
+                "username": "millaad",
+                "password": "Secret123!",
+                "phone": "09134279848",
+                "accessRole": "manager",
+                "department": self.department.code,
+                "jobTitle": "مدیر فنی",
+            },
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        created_user = User.objects.get(slug="millaad")
+        self.assertEqual(created_user.phone, "09134279848")
+        self.assertEqual(response.json()["phone"], "09134279848")
+        notify_sms_mock.assert_called_once()
+
+    def test_settings_profile_uses_and_updates_organization_code(self):
+        profile_response = self.client.get("/api/v1/settings/profile")
+
+        self.assertEqual(profile_response.status_code, 200)
+        self.assertEqual(profile_response.json()["systemId"], self.organization.code.upper())
+
+        update_response = self.client.post(
+            "/api/v1/settings/profile",
+            data={
+                "organizationName": "سلام علیک",
+                "systemId": "KARO-0018",
+            },
+            content_type="application/json",
+        )
+
+        self.assertEqual(update_response.status_code, 200)
+        self.organization.refresh_from_db()
+        self.assertEqual(self.organization.name, "سلام علیک")
+        self.assertEqual(self.organization.code, "karo-0018")
+        self.assertEqual(update_response.json()["systemId"], "KARO-0018")
+
+    def test_update_user_persists_phone(self):
+        user = User.objects.create(
+            slug="millaad",
+            full_name="میلاد دهستانی",
+            email="millaad@example.com",
+            phone="",
+            password_hash=get_password_hash("secret123"),
+            role=UserRole.MANAGER,
+            job_title="مدیر فنی",
+            avatar="MD",
+            department=self.department,
+            manager=self.manager,
+        )
+        OrganizationMembership.objects.create(organization=self.organization, user=user, display_title=user.job_title)
+
+        response = self.client.patch(
+            f"/api/v1/users/{user.id}",
+            data={
+                "fullName": "میلاد دهستانی",
+                "username": "millaad",
+                "phone": "09134279848",
+                "accessRole": "manager",
+                "department": self.department.code,
+                "managerId": self.manager.id,
+                "jobTitle": "مدیر فنی",
+                "isActive": True,
+            },
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        user.refresh_from_db()
+        self.assertEqual(user.phone, "09134279848")
+        self.assertEqual(response.json()["phone"], "09134279848")
+
+    @patch("workflow.views.send_provider_sms")
+    def test_notify_sms_does_not_send_when_sms_wallet_is_empty(self, send_provider_sms_mock):
+        Wallet.objects.update_or_create(
+            organization=self.organization,
+            key="sms",
+            defaults={"name": "کیف پول پیامک", "balance": 0, "low_balance_threshold": 0, "is_active": True},
+        )
+
+        result = notify_sms(self.organization, "متن تست", ["09134279848"], actor=self.manager)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("عدم موجودی", result["message"])
+        send_provider_sms_mock.assert_not_called()
+
+    @patch("workflow.views.send_provider_sms")
+    def test_notify_sms_appends_footer_before_send(self, send_provider_sms_mock):
+        Wallet.objects.update_or_create(
+            organization=self.organization,
+            key="sms",
+            defaults={"name": "کیف پول پیامک", "balance": 1000000, "low_balance_threshold": 0, "is_active": True},
+        )
+        send_provider_sms_mock.return_value = {
+            "ok": True,
+            "provider_id": "provider-1",
+            "payload": {"recipients": ["09134279848"]},
+        }
+
+        result = notify_sms(self.organization, "متن تست", ["09134279848"], actor=self.manager)
+
+        self.assertTrue(result["ok"])
+        sent_text = send_provider_sms_mock.call_args.args[1]
+        self.assertTrue(sent_text.endswith("از طرف کارنومند"))

@@ -48,6 +48,13 @@ const {
 } = hub
 
 const isAuthRoute = computed(() => route.path === '/login')
+const showSmsBalanceWarning = computed(() =>
+  !isAuthRoute.value &&
+  state.authToken &&
+  state.bootstrapLoaded &&
+  (!state.currentUser.isHq || state.hq.selectedOrganizationId) &&
+  Number(state.wallet.summary.smsBalanceRaw || 0) <= 0,
+)
 const globalLoading = computed(() =>
   state.appLoading ||
   state.loginPending ||
@@ -130,6 +137,10 @@ onUnmounted(() => {
       <div class="shell-main">
         <AppTopNav />
         <main class="shell-content">
+          <div v-if="showSmsBalanceWarning" class="global-sms-warning">
+            <span class="material-symbols-outlined">sms_failed</span>
+            <strong>به دلیل عدم موجودی کیف پول پیامک، هیچکدام از پیامک‌های شما ارسال نخواهد شد.</strong>
+          </div>
           <ErrorNotice
             v-if="state.lastErrorDetails && !modalState.requestComposer && !modalState.expenseComposer && !modalState.userComposer && !modalState.documentComposer"
             :error="state.lastErrorDetails"

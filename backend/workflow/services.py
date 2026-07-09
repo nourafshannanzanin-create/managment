@@ -1009,6 +1009,14 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
     today_total = sum(Decimal(item.amount) for item in expenses_qs if item.expense_date == date.today())
     week_start = date.today() - timedelta(days=date.today().weekday())
     week_total = sum(Decimal(item.amount) for item in expenses_qs if item.expense_date >= week_start)
+    wallet_organization = hq_selected_organization
+    if wallet_organization is None and user.slug != HQ_USERNAME:
+        wallet_organization = get_user_organization(user)
+    sms_balance = Decimal("0")
+    if wallet_organization is not None:
+        ensure_organization_wallets(wallet_organization)
+        sms_wallet = wallet_organization.wallets.filter(key="sms", is_active=True).first()
+        sms_balance = Decimal(sms_wallet.balance) if sms_wallet else Decimal("0")
 
     return {
         "currentUser": serialize_current_user(user),
@@ -1054,6 +1062,12 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
             {"label": "این ماه", "value": format_money(month_total)},
             {"label": "امسال", "value": format_money(year_total)},
         ],
+        "wallet": {
+            "summary": {
+                "smsBalance": format_money(sms_balance),
+                "smsBalanceRaw": float(sms_balance),
+            },
+        },
         "approvalMetrics": metrics,
         "settingsCards": [
             {"title": "حساب کاربری", "description": "مدیریت نقش ها و دسترسی"},
@@ -1228,6 +1242,7 @@ def serialize_user(user: User) -> dict:
         "name": normalize_person_name(user.full_name),
         "username": user.slug,
         "email": user.email,
+        "phone": user.phone or "",
         "role": access_role_label(user.role),
         "accessRole": user.role,
         "department": user.department.name if user.department else "بدون واحد",

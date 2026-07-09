@@ -47,6 +47,11 @@ const sectionAccessOptions = [
         </label>
 
         <label class="field-shell">
+          <span>موبایل</span>
+          <input v-model="form.phone" type="text" dir="ltr" />
+        </label>
+
+        <label class="field-shell">
           <span>نوع دسترسی</span>
           <select v-model="form.accessRole">
             <option value="manager">مدیر</option>
