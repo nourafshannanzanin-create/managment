@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from uuid import uuid4
 
 
 class UserRole(models.TextChoices):
@@ -135,6 +136,7 @@ class User(TimeStampedModel):
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, blank=True, null=True, related_name="users")
     manager = models.ForeignKey("self", on_delete=models.SET_NULL, blank=True, null=True, related_name="direct_reports")
     last_login_at = models.DateTimeField(blank=True, null=True)
+    attendance_token = models.CharField(max_length=64, unique=True, db_index=True, default=uuid4)
 
     class Meta:
         db_table = "users"
@@ -203,6 +205,49 @@ class WalletTransaction(TimeStampedModel):
         indexes = [
             models.Index(fields=["organization", "-transacted_at"], name="idx_wallet_tx_org_date"),
             models.Index(fields=["wallet", "-transacted_at"], name="idx_wallet_tx_wallet_date"),
+        ]
+
+
+class FeaturePurchase(TimeStampedModel):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="feature_purchases")
+    feature_key = models.CharField(max_length=60, db_index=True)
+    title = models.CharField(max_length=140)
+    payment_plan = models.CharField(max_length=24, default="cash")
+    total_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    paid_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    remaining_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    next_installment_due_at = models.DateField(blank=True, null=True)
+    renewal_due_at = models.DateField(blank=True, null=True)
+    annual_subscription_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    annual_subscription_installment_months = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "feature_purchases"
+        constraints = [
+            models.UniqueConstraint(fields=["organization", "feature_key"], name="uq_organization_feature_purchase"),
+        ]
+
+
+class AttendanceEvent(TimeStampedModel):
+    EVENT_IN = "in"
+    EVENT_OUT = "out"
+    SOURCE_MANAGER = "manager"
+    SOURCE_LINK = "link"
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="attendance_events")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="attendance_events")
+    event_type = models.CharField(max_length=12, choices=((EVENT_IN, "ورود"), (EVENT_OUT, "خروج")))
+    source = models.CharField(max_length=20, choices=((SOURCE_MANAGER, "ثبت مدیر"), (SOURCE_LINK, "لینک پرسنل")), default=SOURCE_LINK)
+    note = models.TextField(blank=True)
+    event_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        db_table = "attendance_events"
+        indexes = [
+            models.Index(fields=["organization", "-event_at"], name="idx_attendance_org_time"),
+            models.Index(fields=["user", "-event_at"], name="idx_attendance_user_time"),
         ]
 
 

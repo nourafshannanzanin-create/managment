@@ -25,6 +25,7 @@ from workflow.models import (
     ExpenseApprovalAssignment,
     ExpenseCategory,
     ExpenseStatus,
+    FeaturePurchase,
     Organization,
     OrganizationMembership,
     OrganizationPreference,
@@ -48,6 +49,47 @@ PERSIAN_WEEK_DAYS = ["شنبه", "یکشنبه", "دوشنبه", "سه شنبه"
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
 PDF_EXTENSIONS = {".pdf"}
 HQ_USERNAME = "milad_dhs"
+CORE_FEATURE_KEY = "core_software"
+PURCHASABLE_FEATURES = [
+    {
+        "feature_key": CORE_FEATURE_KEY,
+        "title": "خرید اصلی نرم افزار",
+        "subtitle": "دسترسی پایه سامانه",
+        "description": "تا زمانی که این گزینه فعال نشود، دسترسی عملیاتی سازمان قفل می ماند.",
+        "accent": "#315f9f",
+        "base_price": Decimal("4000000"),
+        "upfront_amount": Decimal("1000000"),
+        "monthly_installment_amount": Decimal("500000"),
+        "installment_months": 6,
+        "annual_subscription_amount": Decimal("1500000"),
+        "annual_subscription_installment_months": 3,
+        "annual_subscription_installment_amount": Decimal("500000"),
+        "renewal_after_months": 12,
+        "required": True,
+    },
+    {
+        "feature_key": "cloud_storage",
+        "title": "فضای ابری",
+        "subtitle": "نگهداری و مدیریت فایل های سازمانی",
+        "description": "بخش فضای ابری برای مشاهده، پیگیری و بارگذاری اسناد سازمانی.",
+        "accent": "#287a6e",
+        "base_price": Decimal("12000000"),
+        "monthly_installment_amount": Decimal("2500000"),
+        "installment_months": 5,
+        "required": False,
+    },
+    {
+        "feature_key": "attendance",
+        "title": "ورود و خروج",
+        "subtitle": "لاگین، خروج و کنترل نشست",
+        "description": "فعال سازی کامل گزینه های ورود و خروج و کنترل دسترسی کاربران.",
+        "accent": "#8a5b23",
+        "base_price": Decimal("8000000"),
+        "monthly_installment_amount": Decimal("2000000"),
+        "installment_months": 4,
+        "required": False,
+    },
+]
 
 
 def now():
@@ -57,6 +99,10 @@ def now():
 def format_money(value: Decimal | int | float | str) -> str:
     amount = Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return f"{amount:,.2f}"
+
+
+def normalize_money(value) -> Decimal:
+    return Decimal(str(value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def format_date(value):
@@ -208,9 +254,157 @@ def preview_kind_for_file(file_name: str | None) -> str:
     return "file"
 
 
+def organization_feature_purchase(organization: Organization | None, feature_key: str) -> FeaturePurchase | None:
+    if organization is None:
+        return None
+    return FeaturePurchase.objects.filter(organization=organization, feature_key=feature_key).first()
+
+
+def active_feature_keys(organization: Organization | None) -> set[str]:
+    if organization is None:
+        return set()
+    return set(
+        FeaturePurchase.objects.filter(organization=organization, is_active=True).values_list("feature_key", flat=True)
+    )
+
+
+def license_status_payload(organization: Organization | None) -> dict:
+    core_purchase = organization_feature_purchase(organization, CORE_FEATURE_KEY)
+    if core_purchase is None or not core_purchase.is_active:
+        return {
+            "isLocked": True,
+            "is_locked": True,
+            "reason": "core_purchase_required",
+            "notice": "برای استفاده از نرم افزار باید خرید اصلی ثبت و تایید شود.",
+            "graceDays": 0,
+            "grace_days": 0,
+            "amountDue": "0.00" if core_purchase is None else format_money(core_purchase.remaining_amount),
+            "amount_due": "0.00" if core_purchase is None else format_money(core_purchase.remaining_amount),
+        }
+    if Decimal(core_purchase.remaining_amount or 0) <= 0 and core_purchase.renewal_due_at:
+        renewal_overdue_days = max((date.today() - core_purchase.renewal_due_at).days, 0)
+        if renewal_overdue_days > 0:
+            is_locked = renewal_overdue_days > 7
+            annual_due = normalize_money(core_purchase.annual_subscription_amount or 0)
+            return {
+                "isLocked": is_locked,
+                "is_locked": is_locked,
+                "reason": "annual_subscription_due" if is_locked else "annual_subscription_warning",
+                "notice": "اشتراک سالانه کارنومند سررسید شده است." if is_locked else "اشتراک سالانه کارنومند نزدیک/داخل مهلت پرداخت است.",
+                "graceDays": 7,
+                "grace_days": 7,
+                "amountDue": format_money(annual_due),
+                "amount_due": format_money(annual_due),
+                "renewalDueAt": format_date(core_purchase.renewal_due_at),
+                "renewal_due_at": format_date(core_purchase.renewal_due_at),
+            }
+    overdue_days = 0
+    if core_purchase.next_installment_due_at and core_purchase.remaining_amount > 0:
+        overdue_days = max((date.today() - core_purchase.next_installment_due_at).days, 0)
+    is_locked = overdue_days > 7
+    return {
+        "isLocked": is_locked,
+        "is_locked": is_locked,
+        "reason": "installment_overdue" if is_locked else ("installment_overdue_warning" if overdue_days else ""),
+        "notice": "سررسید پرداخت گذشته و دسترسی قفل شده است." if is_locked else ("سررسید پرداخت گذشته اما هنوز داخل بازه مهلت هستید." if overdue_days else ""),
+        "graceDays": 7,
+        "grace_days": 7,
+        "amountDue": format_money(core_purchase.remaining_amount),
+        "amount_due": format_money(core_purchase.remaining_amount),
+    }
+
+
+def menu_access_payload(user: User) -> dict:
+    if user.slug == HQ_USERNAME:
+        return {
+            "core_software": True,
+            "cloud_storage": True,
+            "attendance": True,
+            "wallet": True,
+        }
+    organization = get_user_organization(user)
+    features = active_feature_keys(organization)
+    return {
+        "core_software": CORE_FEATURE_KEY in features,
+        "cloud_storage": "cloud_storage" in features,
+        "attendance": "attendance" in features,
+        "wallet": is_manager(user),
+    }
+
+
+def wallet_feature_option_payload(config: dict, purchase: FeaturePurchase | None = None) -> dict:
+    total_amount = normalize_money(config["base_price"])
+    upfront_amount = normalize_money(config.get("upfront_amount", 0))
+    annual_amount = normalize_money(config.get("annual_subscription_amount", getattr(purchase, "annual_subscription_amount", 0)))
+    annual_installment_months = int(config.get("annual_subscription_installment_months", getattr(purchase, "annual_subscription_installment_months", 0)) or 0)
+    annual_installment_amount = normalize_money(config.get("annual_subscription_installment_amount", annual_amount / annual_installment_months if annual_installment_months else 0))
+    paid_amount = normalize_money(getattr(purchase, "paid_amount", 0))
+    remaining_amount = normalize_money(getattr(purchase, "remaining_amount", total_amount if purchase is None else 0))
+    return {
+        "featureKey": config["feature_key"],
+        "feature_key": config["feature_key"],
+        "title": config["title"],
+        "subtitle": config.get("subtitle", ""),
+        "description": config.get("description", ""),
+        "accent": config.get("accent", "#315f9f"),
+        "required": bool(config.get("required")),
+        "isActive": bool(getattr(purchase, "is_active", False)),
+        "is_active": bool(getattr(purchase, "is_active", False)),
+        "paymentPlan": getattr(purchase, "payment_plan", ""),
+        "payment_plan": getattr(purchase, "payment_plan", ""),
+        "totalAmount": format_money(total_amount),
+        "total_amount": format_money(total_amount),
+        "totalAmountRaw": float(total_amount),
+        "paidAmount": format_money(paid_amount),
+        "paid_amount": format_money(paid_amount),
+        "paidAmountRaw": float(paid_amount),
+        "remainingAmount": format_money(remaining_amount),
+        "remaining_amount": format_money(remaining_amount),
+        "remainingAmountRaw": float(remaining_amount),
+        "cashAmount": format_money(total_amount),
+        "cash_amount": format_money(total_amount),
+        "upfrontAmount": format_money(upfront_amount),
+        "upfront_amount": format_money(upfront_amount),
+        "upfrontAmountRaw": float(upfront_amount),
+        "monthlyInstallmentAmount": format_money(config.get("monthly_installment_amount", 0)),
+        "monthly_installment_amount": format_money(config.get("monthly_installment_amount", 0)),
+        "monthlyInstallmentAmountRaw": float(normalize_money(config.get("monthly_installment_amount", 0))),
+        "installmentMonths": int(config.get("installment_months", 0) or 0),
+        "installment_months": int(config.get("installment_months", 0) or 0),
+        "nextInstallmentDueAt": format_date(getattr(purchase, "next_installment_due_at", None)),
+        "next_installment_due_at": format_date(getattr(purchase, "next_installment_due_at", None)),
+        "annualSubscriptionAmount": format_money(annual_amount),
+        "annual_subscription_amount": format_money(annual_amount),
+        "annualSubscriptionAmountRaw": float(annual_amount),
+        "annualSubscriptionInstallmentMonths": annual_installment_months,
+        "annual_subscription_installment_months": annual_installment_months,
+        "annualSubscriptionInstallmentAmount": format_money(annual_installment_amount),
+        "annual_subscription_installment_amount": format_money(annual_installment_amount),
+        "renewalAfterMonths": int(config.get("renewal_after_months", 0) or 0),
+        "renewal_after_months": int(config.get("renewal_after_months", 0) or 0),
+        "renewalDueAt": format_date(getattr(purchase, "renewal_due_at", None)),
+        "renewal_due_at": format_date(getattr(purchase, "renewal_due_at", None)),
+    }
+
+
+def wallet_options_payload(organization: Organization | None) -> dict:
+    purchases = {
+        item.feature_key: item
+        for item in FeaturePurchase.objects.filter(organization=organization)
+    } if organization is not None else {}
+    return {
+        "licenseStatus": license_status_payload(organization),
+        "license_status": license_status_payload(organization),
+        "options": [wallet_feature_option_payload(config, purchases.get(config["feature_key"])) for config in PURCHASABLE_FEATURES],
+    }
+
+
 def serialize_current_user(user: User) -> dict:
     membership = OrganizationMembership.objects.select_related("organization").filter(user=user).first()
     is_hq = user.slug == HQ_USERNAME
+    organization = membership.organization if membership else None
+    menu_access = menu_access_payload(user)
+    license_status = {"isLocked": False, "is_locked": False, "reason": "", "notice": "", "graceDays": 0, "grace_days": 0, "amountDue": "0.00", "amount_due": "0.00"} if is_hq else license_status_payload(organization)
     bonus_amount = Decimal(user.bonus_amount or 0)
     penalty_amount = Decimal(user.penalty_amount or 0)
     net_adjustment = bonus_amount - penalty_amount
@@ -242,6 +436,11 @@ def serialize_current_user(user: User) -> dict:
         "isManager": is_manager(user),
         "isHq": is_hq,
         "canUseHq": is_hq,
+        "purchasedMenuAccess": sorted([key for key, allowed in menu_access.items() if allowed]),
+        "menuAccess": menu_access,
+        "menu_access": menu_access,
+        "licenseStatus": license_status,
+        "license_status": license_status,
     }
 
 
@@ -422,14 +621,14 @@ def serialize_expense(expense: Expense) -> dict:
 def ensure_organization_wallets(organization: Organization) -> list[Wallet]:
     defaults = [
         ("main", "کیف پول اصلی", Decimal("1000000")),
-        ("sms", "کیف پول پیامک", Decimal("250000")),
+        ("sms", "کیف پول پیامک", Decimal("1500000")),
     ]
     wallets = []
     for key, name, threshold in defaults:
         wallet, _ = Wallet.objects.get_or_create(
             organization=organization,
             key=key,
-            defaults={"name": name, "low_balance_threshold": threshold},
+            defaults={"name": name, "balance": Decimal("15000000") if key == "sms" else Decimal("0"), "low_balance_threshold": threshold},
         )
         wallets.append(wallet)
     return wallets
@@ -486,9 +685,11 @@ def wallet_dashboard_payload(organization: Organization) -> dict:
     wallet_by_key = {wallet.key: wallet for wallet in wallets}
     main_balance = wallet_by_key.get("main").balance if wallet_by_key.get("main") else Decimal("0")
     sms_balance = wallet_by_key.get("sms").balance if wallet_by_key.get("sms") else Decimal("0")
+    sms_threshold = wallet_by_key.get("sms").low_balance_threshold if wallet_by_key.get("sms") else Decimal("0")
 
     return {
         "organization": {"id": organization.id, "name": organization.name, "code": organization.code},
+        **wallet_options_payload(organization),
         "summary": {
             "totalBalance": format_money(total_balance),
             "totalBalanceRaw": float(total_balance),
@@ -496,6 +697,9 @@ def wallet_dashboard_payload(organization: Organization) -> dict:
             "mainBalanceRaw": float(main_balance),
             "smsBalance": format_money(sms_balance),
             "smsBalanceRaw": float(sms_balance),
+            "smsLowBalanceThreshold": format_money(sms_threshold),
+            "smsLowBalanceThresholdRaw": float(sms_threshold),
+            "smsIsLow": sms_balance <= sms_threshold,
             "depositsTotal": format_money(deposits_total),
             "depositsTotalRaw": float(deposits_total),
             "withdrawalsTotal": format_money(withdrawals_total),
@@ -1039,6 +1243,9 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
         ensure_organization_wallets(wallet_organization)
         sms_wallet = wallet_organization.wallets.filter(key="sms", is_active=True).first()
         sms_balance = Decimal(sms_wallet.balance) if sms_wallet else Decimal("0")
+        sms_threshold = Decimal(sms_wallet.low_balance_threshold) if sms_wallet else Decimal("0")
+    else:
+        sms_threshold = Decimal("0")
 
     return {
         "currentUser": serialize_current_user(user),
@@ -1088,6 +1295,9 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
             "summary": {
                 "smsBalance": format_money(sms_balance),
                 "smsBalanceRaw": float(sms_balance),
+                "smsLowBalanceThreshold": format_money(sms_threshold),
+                "smsLowBalanceThresholdRaw": float(sms_threshold),
+                "smsIsLow": sms_balance <= sms_threshold,
             },
         },
         "approvalMetrics": metrics,

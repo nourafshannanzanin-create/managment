@@ -47,13 +47,23 @@ const {
   toggleSidebar,
 } = hub
 
-const isAuthRoute = computed(() => route.path === '/login')
+const isAuthRoute = computed(() => route.path === '/login' || route.meta.publicCanvas)
+const licenseSafeRoutes = new Set(['/dashboard', '/wallet', '/support', '/login'])
+const isLicenseLocked = computed(() => Boolean(state.currentUser.licenseStatus?.isLocked || state.currentUser.licenseStatus?.is_locked))
 const showSmsBalanceWarning = computed(() =>
   !isAuthRoute.value &&
   state.authToken &&
   state.bootstrapLoaded &&
   (!state.currentUser.isHq || state.hq.selectedOrganizationId) &&
-  Number(state.wallet.summary.smsBalanceRaw || 0) <= 0,
+  (
+    state.wallet.summary.smsIsLow === true ||
+    Number(state.wallet.summary.smsBalanceRaw || 0) <= Number(state.wallet.summary.smsLowBalanceThresholdRaw || 0)
+  ),
+)
+const smsBalanceWarningText = computed(() =>
+  Number(state.wallet.summary.smsBalanceRaw || 0) <= 0
+    ? 'شارژ پیامک تمام شده است؛ برای ادامه ارسال پیامک، پنل فراز/کیف پیامک را شارژ کنید.'
+    : 'شارژ پیامک رو به اتمام است؛ قبل از توقف ارسال پیامک، پنل فراز/کیف پیامک را شارژ کنید.',
 )
 const globalLoading = computed(() =>
   state.appLoading ||
@@ -76,6 +86,11 @@ async function refreshRouteData(path) {
   if (!state.authToken || path === '/login') return
 
   await loadBootstrapData(true)
+
+  if (isLicenseLocked.value && !licenseSafeRoutes.has(path)) {
+    await hub.navigateTo('/wallet')
+    return
+  }
 
   if (path === '/support') {
     await loadSupportTickets(true)
@@ -139,7 +154,7 @@ onUnmounted(() => {
         <main class="shell-content">
           <div v-if="showSmsBalanceWarning" class="global-sms-warning">
             <span class="material-symbols-outlined">sms_failed</span>
-            <strong>به دلیل عدم موجودی کیف پول پیامک، هیچکدام از پیامک‌های شما ارسال نخواهد شد.</strong>
+            <strong>{{ smsBalanceWarningText }}</strong>
           </div>
           <ErrorNotice
             v-if="state.lastErrorDetails && !modalState.requestComposer && !modalState.expenseComposer && !modalState.userComposer && !modalState.documentComposer"

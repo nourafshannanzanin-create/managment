@@ -9,12 +9,14 @@ import {
   jalaliToIso,
   normalizeDigits,
   parseJalali,
+  shiftJalaliMonth,
 } from '../utils/jalali'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
   modelType: { type: String, default: 'iso' },
   placeholder: { type: String, default: 'انتخاب تاریخ' },
+  restrictToCurrentMonth: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -38,10 +40,15 @@ function isOutsideViewMonth(value) {
 }
 
 function isOutOfSelectableRange(value) {
+  if (!props.restrictToCurrentMonth) return false
   return value.jy !== currentMonth.jy || value.jm !== currentMonth.jm
 }
 
 function getInitialMonth() {
+  if (props.modelValue) {
+    const selected = props.modelType === 'jalali' ? parseJalali(props.modelValue) : parseJalali(isoToJalali(props.modelValue))
+    if (selected) return { jy: selected.jy, jm: selected.jm }
+  }
   return { ...currentMonth }
 }
 
@@ -67,14 +74,14 @@ const weeks = computed(() =>
 )
 const weekdays = getPersianWeekdays()
 const monthLabel = computed(() => getJalaliMonthLabel(viewMonth.value.jy, viewMonth.value.jm))
-const canPrevMonth = computed(() => false)
-const canNextMonth = computed(() => false)
+const canPrevMonth = computed(() => !props.restrictToCurrentMonth)
+const canNextMonth = computed(() => !props.restrictToCurrentMonth)
 
 watch(
   () => props.modelValue,
   (value) => {
     inputValue.value = props.modelType === 'jalali' ? normalizeDigits(value) : isoToJalali(value)
-    viewMonth.value = { ...currentMonth }
+    viewMonth.value = getInitialMonth()
   },
   { immediate: true },
 )
@@ -150,11 +157,13 @@ function clearValue() {
 }
 
 function prevMonth() {
-  viewMonth.value = { ...currentMonth }
+  if (!canPrevMonth.value) return
+  viewMonth.value = shiftJalaliMonth(viewMonth.value.jy, viewMonth.value.jm, -1)
 }
 
 function nextMonth() {
-  viewMonth.value = { ...currentMonth }
+  if (!canNextMonth.value) return
+  viewMonth.value = shiftJalaliMonth(viewMonth.value.jy, viewMonth.value.jm, 1)
 }
 
 function applyTypedValue() {
@@ -170,7 +179,7 @@ function applyTypedValue() {
 
   const normalized = `${parsed.jy}/${String(parsed.jm).padStart(2, '0')}/${String(parsed.jd).padStart(2, '0')}`
   inputValue.value = normalized
-  viewMonth.value = { ...currentMonth }
+  viewMonth.value = { jy: parsed.jy, jm: parsed.jm }
   emitValue(normalized)
 }
 

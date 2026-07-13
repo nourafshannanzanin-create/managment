@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import ApprovalsPage from '../pages/ApprovalsPage.vue'
+import AttendancePage from '../pages/AttendancePage.vue'
+import CloudPage from '../pages/CloudPage.vue'
 import DashboardPage from '../pages/DashboardPage.vue'
 import ExpensesPage from '../pages/ExpensesPage.vue'
 import HqPanelPage from '../pages/HqPanelPage.vue'
@@ -20,6 +22,9 @@ const routes = [
   { path: '/requests/new', redirect: '/requests' },
   { path: '/expenses', name: 'expenses', component: ExpensesPage, meta: { fullCanvas: true } },
   { path: '/wallet', name: 'wallet', component: WalletPage, meta: { fullCanvas: true } },
+  { path: '/attendance', name: 'attendance', component: AttendancePage, meta: { fullCanvas: true, feature: 'attendance' } },
+  { path: '/attendance/:token', name: 'public-attendance', component: AttendancePage, meta: { public: true, publicCanvas: true } },
+  { path: '/cloud', name: 'cloud', component: CloudPage, meta: { fullCanvas: true, feature: 'cloud_storage' } },
   { path: '/support', name: 'support', component: SupportPage, meta: { fullCanvas: true } },
   { path: '/hq', name: 'hq', component: HqPanelPage, meta: { fullCanvas: true } },
   { path: '/approvals', name: 'approvals', component: ApprovalsPage, meta: { fullCanvas: true } },

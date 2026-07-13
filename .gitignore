@@ -4,6 +4,7 @@ Thumbs.db
 .idea/
 .vscode/
 
+/templates/
 # Logs
 *.log
 backend/uvicorn.out.log

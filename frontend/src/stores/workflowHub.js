@@ -1,4 +1,4 @@
-import { computed, reactive } from 'vue'
+﻿import { computed, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
@@ -40,6 +40,16 @@ function createCurrentUser() {
     isManager: false,
     isHq: false,
     canUseHq: false,
+    purchasedMenuAccess: [],
+    menuAccess: {},
+    licenseStatus: {
+      isLocked: false,
+      is_locked: false,
+      reason: '',
+      notice: '',
+      amountDue: '0.00',
+      amount_due: '0.00',
+    },
   }
 }
 
@@ -132,11 +142,23 @@ function createWalletState() {
       mainBalanceRaw: 0,
       smsBalance: '0.00',
       smsBalanceRaw: 0,
+      smsLowBalanceThreshold: '0.00',
+      smsLowBalanceThresholdRaw: 0,
+      smsIsLow: false,
       depositsTotal: '0.00',
       depositsTotalRaw: 0,
       withdrawalsTotal: '0.00',
       withdrawalsTotalRaw: 0,
       transactions: 0,
+    },
+    options: [],
+    licenseStatus: {
+      isLocked: false,
+      is_locked: false,
+      reason: '',
+      notice: '',
+      amountDue: '0.00',
+      amount_due: '0.00',
     },
     wallets: [],
     transactions: [],
@@ -715,6 +737,8 @@ const canAccessUsers = computed(() => state.currentUser.canAccessUsers || canMan
 const canViewReports = computed(() => state.currentUser.canViewReports)
 const canAccessApprovals = computed(() => state.currentUser.canAccessApprovals || state.currentUser.canApproveDocuments)
 const canApproveDocuments = computed(() => state.currentUser.canApproveDocuments)
+const isLicenseLocked = computed(() => Boolean(state.currentUser.licenseStatus?.isLocked || state.currentUser.licenseStatus?.is_locked))
+const canAccessCloud = computed(() => state.currentUser.isHq || state.currentUser.menuAccess?.cloud_storage === true)
 
 const visibleNavItems = computed(() => {
   const items = [
@@ -724,6 +748,7 @@ const visibleNavItems = computed(() => {
   ]
   if (canViewReports.value) items.push({ to: '/reports', label: 'گزارشات', icon: 'monitoring' })
   if (canAccessUsers.value) items.push({ to: '/users', label: 'کاربران', icon: 'group' })
+  if (canAccessCloud.value) items.push({ to: '/cloud', label: 'فضای ابری', icon: 'cloud' })
 
   if (state.currentUser.canAccessSettings || canManageUsers.value) {
     items.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
@@ -945,6 +970,8 @@ function hydrateWallet(payload) {
   if (!payload) return
   state.wallet.organization = payload.organization || null
   Object.assign(state.wallet.summary, createWalletState().summary, payload.summary || {})
+  Object.assign(state.wallet.licenseStatus, createWalletState().licenseStatus, payload.licenseStatus || payload.license_status || {})
+  replaceItems(state.wallet.options, payload.options || [])
   replaceItems(state.wallet.wallets, payload.wallets || [])
   replaceItems(state.wallet.transactions, payload.transactions || [])
   state.wallet.loaded = true
@@ -1103,6 +1130,24 @@ async function loadWalletDashboard(force = false) {
   }
 }
 
+async function loadWalletOptions(force = false) {
+  if (!state.authToken) return
+  if (state.wallet.options.length && !force) return
+  state.wallet.loading = true
+  state.wallet.error = ''
+  try {
+    const response = await authorizedFetch(scopedApiPath('/wallet/options'))
+    const payload = repairPayload(await response.json())
+    Object.assign(state.wallet.licenseStatus, createWalletState().licenseStatus, payload.licenseStatus || payload.license_status || {})
+    replaceItems(state.wallet.options, payload.options || [])
+  } catch (error) {
+    state.wallet.error = error.message || 'Wallet options load failed.'
+    throw error
+  } finally {
+    state.wallet.loading = false
+  }
+}
+
 async function loadSupportTickets(force = false) {
   if (!state.authToken) return
   if (state.support.loaded && !force) return
@@ -1242,6 +1287,37 @@ async function submitWalletTransaction(payload) {
   } catch (error) {
     state.wallet.error = error.message || 'Wallet transaction failed.'
     throw error
+  } finally {
+    state.wallet.submitting = false
+  }
+}
+
+async function submitFeaturePurchase(payload) {
+  if (!payload) return false
+  state.wallet.submitting = true
+  state.wallet.error = ''
+  state.wallet.message = ''
+  try {
+    const response = await authorizedFetch(scopedApiPath('/wallet/purchases'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const responsePayload = repairPayload(await response.json())
+    if (responsePayload.wallets || responsePayload.summary) {
+      hydrateWallet(responsePayload)
+      state.wallet.message = 'خرید با موفقیت از کیف پول انجام شد.'
+    }
+    else {
+      Object.assign(state.wallet.licenseStatus, createWalletState().licenseStatus, responsePayload.licenseStatus || responsePayload.license_status || {})
+      replaceItems(state.wallet.options, responsePayload.options || [])
+      state.wallet.message = responsePayload.message || 'خرید ثبت شد.'
+    }
+    await loadBootstrapData(true)
+    return true
+  } catch (error) {
+    state.wallet.error = error.message || 'Feature purchase failed.'
+    return false
   } finally {
     state.wallet.submitting = false
   }
@@ -1491,9 +1567,17 @@ export function useWorkflowHub() {
     if (!state.authToken) router.push('/login')
   }
 
-  function logout() {
-    clearSessionState()
-    router.push('/login')
+  async function logout() {
+    try {
+      if (state.authToken) {
+        await authorizedFetch('/auth/logout', { method: 'POST' })
+      }
+    } catch {
+      // Local session cleanup must still happen if the server cannot record logout.
+    } finally {
+      clearSessionState()
+      router.push('/login')
+    }
   }
 
   function navigateTo(path) {
@@ -2021,6 +2105,8 @@ async function updateUser(userId, payload) {
     canViewReports,
     canAccessApprovals,
     canApproveDocuments,
+    isLicenseLocked,
+    canAccessCloud,
     visibleNavItems,
     priorityLabel,
     departmentLabel,
@@ -2047,6 +2133,8 @@ async function updateUser(userId, payload) {
     loadReports,
     loadSettings,
     loadWalletDashboard,
+    loadWalletOptions,
+    submitFeaturePurchase,
     submitWalletTransaction,
     loadSupportTickets,
     loadSupportTicketDetail,

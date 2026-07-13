@@ -17,7 +17,7 @@ class Migration(migrations.Migration):
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
                 ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
-                ("status", models.CharField(choices=[("pending", "Ã˜Â¯Ã˜Â± Ã˜Â§Ã™â€ Ã˜ÂªÃ˜Â¸Ã˜Â§Ã˜Â±"), ("approved", "Ã˜ÂªÃ˜Â§Ã›Å’Ã›Å’Ã˜Â¯ Ã˜Â´Ã˜Â¯Ã™â€¡"), ("rejected", "Ã˜Â±Ã˜Â¯ Ã˜Â´Ã˜Â¯Ã™â€¡")], default="pending", max_length=32)),
+                ("status", models.CharField(choices=[("pending", "در انتظار"), ("approved", "تایید شده"), ("rejected", "رد شده")], default="pending", max_length=32)),
                 ("decision_note", models.TextField(blank=True, null=True)),
                 ("acted_at", models.DateTimeField(blank=True, null=True)),
                 ("approver", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="expense_approval_assignments", to="workflow.user")),
@@ -32,7 +32,7 @@ class Migration(migrations.Migration):
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
                 ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
-                ("status", models.CharField(choices=[("pending", "Ã˜Â¯Ã˜Â± Ã˜Â§Ã™â€ Ã˜ÂªÃ˜Â¸Ã˜Â§Ã˜Â±"), ("approved", "Ã˜ÂªÃ˜Â§Ã›Å’Ã›Å’Ã˜Â¯ Ã˜Â´Ã˜Â¯Ã™â€¡"), ("rejected", "Ã˜Â±Ã˜Â¯ Ã˜Â´Ã˜Â¯Ã™â€¡")], default="pending", max_length=32)),
+                ("status", models.CharField(choices=[("pending", "در انتظار"), ("approved", "تایید شده"), ("rejected", "رد شده")], default="pending", max_length=32)),
                 ("decision_note", models.TextField(blank=True, null=True)),
                 ("acted_at", models.DateTimeField(blank=True, null=True)),
                 ("approver", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="request_approval_assignments", to="workflow.user")),

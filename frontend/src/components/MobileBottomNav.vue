@@ -6,6 +6,7 @@ import { useWorkflowHub } from '../stores/workflowHub'
 
 const route = useRoute()
 const { state } = useWorkflowHub()
+const isLicenseLocked = computed(() => Boolean(state.currentUser.licenseStatus?.isLocked || state.currentUser.licenseStatus?.is_locked))
 
 const items = computed(() => {
   const navItems = [
@@ -14,6 +15,15 @@ const items = computed(() => {
     { to: '/approvals', label: 'تایید', icon: 'verified' },
   ]
   if (state.currentUser.canAccessExpenses !== false) navItems.push({ to: '/expenses', label: 'هزینه', icon: 'receipt_long' })
+  if (state.currentUser.isHq || state.currentUser.menuAccess?.attendance === true) navItems.push({ to: '/attendance', label: 'ورود', icon: 'badge' })
+  if (isLicenseLocked.value) {
+    return [
+      { to: '/dashboard', label: 'خانه', icon: 'home' },
+      { to: '/wallet', label: 'خرید', icon: 'shopping_cart' },
+      { to: '/support', label: 'پشتیبانی', icon: 'support_agent' },
+    ]
+  }
+  if (state.currentUser.isHq || state.currentUser.menuAccess?.cloud_storage === true) navItems.push({ to: '/cloud', label: 'ابر', icon: 'cloud' })
   if (state.currentUser.canAccessUsers || state.currentUser.canManageUsers) {
     navItems.push({ to: '/users', label: 'کاربران', icon: 'group' })
   } else if (state.currentUser.canViewReports) {

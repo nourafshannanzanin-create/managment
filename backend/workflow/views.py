@@ -39,6 +39,7 @@ from workflow.document_signing import build_approval_mark, sign_document_file
 from workflow.models import (
     ApprovalAssignment,
     ApprovalAssignmentStatus,
+    AttendanceEvent,
     AuditLog,
     ConfidentialityLevel,
     Department,
@@ -49,6 +50,7 @@ from workflow.models import (
     ExpenseApprovalAssignment,
     ExpenseCategory,
     ExpenseStatus,
+    FeaturePurchase,
     OrganizationMembership,
     OrganizationPreference,
     Request,
@@ -80,6 +82,10 @@ from workflow.services import (
     build_hq_payload,
     format_money,
     HQ_USERNAME,
+    CORE_FEATURE_KEY,
+    PURCHASABLE_FEATURES,
+    license_status_payload,
+    normalize_money,
     next_code,
     render_report_export,
     save_uploaded_file,
@@ -89,6 +95,7 @@ from workflow.services import (
     serialize_request,
     serialize_support_ticket,
     serialize_user,
+    wallet_options_payload,
     wallet_dashboard_payload,
     update_document_status,
     visible_approvals,
@@ -100,7 +107,7 @@ from workflow.services import (
 
 JSON_KWARGS = {"ensure_ascii": False}
 DEFAULT_SIGNATURE_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg=="
-PERSIAN_DIGIT_TRANSLATION = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+PERSIAN_DIGIT_TRANSLATION = str.maketrans("\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\u06f6\u06f7\u06f8\u06f9\u0660\u0661\u0662\u0663\u0664\u0665\u0666\u0667\u0668\u0669", "01234567890123456789")
 SMS_FOOTER_TEXT = "از طرف کارنومند"
 
 
@@ -171,7 +178,7 @@ def sms_segment_count(text: str) -> int:
 
 
 def sms_price_per_segment() -> Decimal:
-    raw_value = str(os.getenv("SMS_PRICE_PER_SEGMENT", "0") or "0").strip()
+    raw_value = str(os.getenv("SMS_PRICE_PER_SEGMENT", "300") or "300").strip()
     try:
         return Decimal(raw_value)
     except InvalidOperation:
@@ -512,6 +519,175 @@ def user_can_access_wallet(user: User) -> bool:
     return user.slug == HQ_USERNAME or user.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER, UserRole.MANAGER}
 
 
+def user_can_access_attendance(user: User) -> bool:
+    if user.slug == HQ_USERNAME:
+        return True
+    if not is_manager(user):
+        return False
+    organization = get_user_organization(user)
+    return FeaturePurchase.objects.filter(organization=organization, feature_key="attendance", is_active=True).exists()
+
+
+def attendance_organization_for_user(user: User) -> Organization:
+    return get_user_organization(user)
+
+
+def attendance_user_queryset(organization: Organization):
+    return (
+        User.objects.filter(organization_membership__organization=organization, is_active=True)
+        .select_related("department")
+        .order_by("full_name")
+    )
+
+
+def attendance_current_status(user: User) -> str:
+    last_event = user.attendance_events.order_by("-event_at", "-id").first()
+    return last_event.event_type if last_event else AttendanceEvent.EVENT_OUT
+
+
+def serialize_attendance_event(event: AttendanceEvent) -> dict:
+    return {
+        "id": event.id,
+        "userId": event.user_id,
+        "userName": event.user.full_name,
+        "eventType": event.event_type,
+        "event_type": event.event_type,
+        "source": event.source,
+        "note": event.note,
+        "eventAt": event.event_at.isoformat(),
+        "event_at": event.event_at.isoformat(),
+    }
+
+
+def serialize_attendance_user(user: User, organization: Organization) -> dict:
+    today_start = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
+    events = list(
+        AttendanceEvent.objects.filter(organization=organization, user=user, event_at__gte=today_start)
+        .select_related("user")
+        .order_by("event_at", "id")
+    )
+    worked_seconds = 0
+    open_checkin = None
+    for event in events:
+        if event.event_type == AttendanceEvent.EVENT_IN:
+            open_checkin = event.event_at
+        elif event.event_type == AttendanceEvent.EVENT_OUT and open_checkin:
+            worked_seconds += max((event.event_at - open_checkin).total_seconds(), 0)
+            open_checkin = None
+    if open_checkin:
+        worked_seconds += max((timezone.now() - open_checkin).total_seconds(), 0)
+    status = events[-1].event_type if events else attendance_current_status(user)
+    return {
+        "id": user.id,
+        "name": user.full_name,
+        "role": user.job_title,
+        "department": user.department.name if user.department else "بدون واحد",
+        "phone": user.phone or "",
+        "avatar": user.avatar,
+        "status": status,
+        "todayEventsCount": len(events),
+        "today_events_count": len(events),
+        "todayWorkedHours": round(worked_seconds / 3600, 1),
+        "today_worked_hours": round(worked_seconds / 3600, 1),
+        "attendancePath": f"/attendance/{user.attendance_token}",
+        "attendance_path": f"/attendance/{user.attendance_token}",
+        "attendanceToken": user.attendance_token,
+    }
+
+
+def build_attendance_dashboard_payload(user: User) -> dict:
+    organization = attendance_organization_for_user(user)
+    users = list(attendance_user_queryset(organization))
+    attendance_users = [serialize_attendance_user(item, organization) for item in users]
+    today_start = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
+    recent_events = list(
+        AttendanceEvent.objects.filter(organization=organization)
+        .select_related("user")
+        .order_by("-event_at", "-id")[:12]
+    )
+    present_count = sum(1 for item in attendance_users if item["status"] == AttendanceEvent.EVENT_IN)
+    today_events = AttendanceEvent.objects.filter(organization=organization, event_at__gte=today_start)
+    return {
+        "organization": {"id": organization.id, "name": organization.name, "code": organization.code},
+        "summary": {
+            "usersCount": len(attendance_users),
+            "users_count": len(attendance_users),
+            "presentCount": present_count,
+            "present_count": present_count,
+            "absentCount": max(len(attendance_users) - present_count, 0),
+            "absent_count": max(len(attendance_users) - present_count, 0),
+            "todayEventsCount": today_events.count(),
+            "today_events_count": today_events.count(),
+            "todayWorkedHours": round(sum(float(item["todayWorkedHours"]) for item in attendance_users), 1),
+            "today_worked_hours": round(sum(float(item["todayWorkedHours"]) for item in attendance_users), 1),
+        },
+        "users": attendance_users,
+        "recentEvents": [serialize_attendance_event(item) for item in recent_events],
+        "recent_events": [serialize_attendance_event(item) for item in recent_events],
+    }
+
+
+def parse_iso_date_param(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def build_attendance_report_payload(user: User, params) -> dict:
+    organization = attendance_organization_for_user(user)
+    events = AttendanceEvent.objects.filter(organization=organization).select_related("user", "user__department").order_by("-event_at", "-id")
+    start_date = parse_iso_date_param(params.get("start"))
+    end_date = parse_iso_date_param(params.get("end"))
+    event_type = (params.get("eventType") or params.get("event_type") or "").strip()
+    user_id = (params.get("userId") or params.get("user_id") or "").strip()
+    query = (params.get("q") or "").strip()
+
+    if start_date:
+        events = events.filter(event_at__date__gte=start_date)
+    if end_date:
+        events = events.filter(event_at__date__lte=end_date)
+    if event_type in {AttendanceEvent.EVENT_IN, AttendanceEvent.EVENT_OUT}:
+        events = events.filter(event_type=event_type)
+    if user_id.isdigit():
+        events = events.filter(user_id=int(user_id))
+    if query:
+        events = events.filter(
+            Q(user__full_name__icontains=query)
+            | Q(user__job_title__icontains=query)
+            | Q(user__department__name__icontains=query)
+            | Q(note__icontains=query)
+        )
+
+    rows = list(events[:500])
+    checkins = sum(1 for item in rows if item.event_type == AttendanceEvent.EVENT_IN)
+    checkouts = sum(1 for item in rows if item.event_type == AttendanceEvent.EVENT_OUT)
+    return {
+        "summary": {
+            "total": len(rows),
+            "checkins": checkins,
+            "checkouts": checkouts,
+            "managerEvents": sum(1 for item in rows if item.source == AttendanceEvent.SOURCE_MANAGER),
+            "linkEvents": sum(1 for item in rows if item.source == AttendanceEvent.SOURCE_LINK),
+        },
+        "rows": [
+            {
+                **serialize_attendance_event(item),
+                "row": index + 1,
+                "userRole": item.user.job_title,
+                "userDepartment": item.user.department.name if item.user.department else "بدون واحد",
+            }
+            for index, item in enumerate(rows)
+        ],
+        "users": [
+            {"id": item.id, "name": item.full_name}
+            for item in attendance_user_queryset(organization)
+        ],
+    }
+
+
 def resolve_wallet_organization(request: HttpRequest, payload: dict | None = None) -> Organization | None:
     payload = payload or {}
     raw_organization_id = request.GET.get("organizationId") or payload.get("organizationId")
@@ -528,6 +704,29 @@ def parse_wallet_amount(value) -> Decimal | None:
     except (InvalidOperation, TypeError, ValueError):
         return None
     return amount if amount > 0 else None
+
+
+def feature_config(feature_key: str) -> dict | None:
+    return next((item for item in PURCHASABLE_FEATURES if item["feature_key"] == feature_key), None)
+
+
+def license_safe_path(path: str) -> bool:
+    safe_paths = (
+        "/api/v1/auth/me",
+        "/api/v1/bootstrap",
+        "/api/v1/wallet",
+        "/api/v1/wallet/options",
+        "/api/v1/wallet/purchases",
+        "/api/v1/support",
+        "/api/v1/hq",
+    )
+    return any(path.startswith(item) for item in safe_paths)
+
+
+def user_license_locked(user: User) -> bool:
+    if user.slug == HQ_USERNAME:
+        return False
+    return bool(license_status_payload(get_user_organization(user)).get("isLocked"))
 
 
 def parse_user_amount(value, label: str) -> Decimal:
@@ -662,6 +861,8 @@ def require_auth(view_func):
         if user is None:
             return json_error("کاربر معتبر نیست.", status=401)
         attach_user(request, user)
+        if env_bool("WORKFLOW_ENFORCE_LICENSE_LOCK", False) and user_license_locked(user) and not license_safe_path(request.path):
+            return json_error("برای استفاده از نرم افزار باید خرید اصلی ثبت و تایید شود.", status=402)
         return view_func(request, *args, **kwargs)
 
     return wrapped
@@ -715,6 +916,20 @@ def login_view(request: HttpRequest):
     AuditLog.objects.create(actor=user, actor_name=user.full_name, action="login", entity_type="user", detail="ورود به سیستم", icon="login")
     token = create_access_token(str(user.id), {"role": user.role})
     return json_response({"access_token": token, "token_type": "bearer", "user": serialize_current_user(user)})
+
+
+@require_auth
+@methods("POST")
+def logout_view(request: HttpRequest):
+    AuditLog.objects.create(
+        actor=request.current_user,
+        actor_name=request.current_user.full_name,
+        action="logout",
+        entity_type="user",
+        detail="خروج از سیستم",
+        icon="logout",
+    )
+    return json_response({"ok": True})
 
 
 def create_organization_with_manager(payload: dict, actor: User | None = None) -> Organization:
@@ -1143,6 +1358,108 @@ def wallet_view(request: HttpRequest):
 
 
 @require_auth
+@methods("GET")
+def wallet_options_view(request: HttpRequest):
+    if not user_can_access_wallet(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+    organization = resolve_wallet_organization(request)
+    if request.current_user.slug == HQ_USERNAME and organization is None:
+        return json_response(wallet_options_payload(None))
+    if organization is None:
+        return json_error("مجموعه پیدا نشد.", status=404)
+    return json_response(wallet_options_payload(organization))
+
+
+@require_auth
+@methods("POST")
+def wallet_purchase_view(request: HttpRequest):
+    if not user_can_access_wallet(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+
+    payload = parse_json(request)
+    organization = resolve_wallet_organization(request, payload)
+    if organization is None:
+        return json_error("مجموعه پیدا نشد.", status=404)
+
+    key = str(payload.get("featureKey") or payload.get("feature_key") or "").strip()
+    config = feature_config(key)
+    if config is None:
+        return json_error("گزینه خرید معتبر نیست.", status=422)
+
+    payment_plan = str(payload.get("paymentPlan") or payload.get("payment_plan") or "cash").strip()
+    if payment_plan not in {"cash", "installment"}:
+        return json_error("روش پرداخت معتبر نیست.", status=422)
+
+    total_amount = normalize_money(config["base_price"])
+    requested_paid_amount = normalize_money(payload.get("paidAmount") or payload.get("paid_amount") or 0)
+    if payment_plan == "cash":
+        paid_amount = total_amount
+    elif requested_paid_amount > 0:
+        paid_amount = requested_paid_amount
+    else:
+        paid_amount = normalize_money(config.get("upfront_amount", 0) or config.get("monthly_installment_amount", 0))
+    if paid_amount <= 0:
+        return json_error("مبلغ پرداخت معتبر نیست.", status=422)
+
+    wallet_id = payload.get("walletId") or payload.get("wallet_id")
+    with transaction.atomic():
+        wallet_qs = Wallet.objects.select_for_update().filter(organization=organization, is_active=True)
+        wallet = wallet_qs.filter(pk=wallet_id).first() if wallet_id else wallet_qs.filter(key="main").first()
+        if wallet is None:
+            return json_error("کیف پول معتبر برای پرداخت پیدا نشد.", status=404)
+        current_balance = Decimal(wallet.balance)
+        if current_balance < paid_amount:
+            return json_error("موجودی کیف پول برای خرید کافی نیست.", status=409)
+
+        wallet.balance = current_balance - paid_amount
+        wallet.updated_at = timezone.now()
+        wallet.save(update_fields=["balance", "updated_at"])
+
+        remaining_amount = max(total_amount - paid_amount, Decimal("0"))
+        annual_amount = normalize_money(config.get("annual_subscription_amount", 0))
+        annual_installment_months = int(config.get("annual_subscription_installment_months", 0) or 0)
+        renewal_due_at = date.today() + timedelta(days=365) if remaining_amount <= 0 and annual_amount > 0 else None
+        purchase, _ = FeaturePurchase.objects.update_or_create(
+            organization=organization,
+            feature_key=key,
+            defaults={
+                "title": config["title"],
+                "payment_plan": payment_plan,
+                "total_amount": total_amount,
+                "paid_amount": paid_amount,
+                "remaining_amount": remaining_amount,
+                "next_installment_due_at": date.today() + timedelta(days=30) if payment_plan == "installment" and remaining_amount > 0 else None,
+                "renewal_due_at": renewal_due_at,
+                "annual_subscription_amount": annual_amount,
+                "annual_subscription_installment_months": annual_installment_months,
+                "is_active": True,
+                "updated_at": timezone.now(),
+            },
+        )
+        WalletTransaction.objects.create(
+            organization=organization,
+            wallet=wallet,
+            actor=request.current_user,
+            direction="out",
+            transaction_type="feature_purchase",
+            amount=paid_amount,
+            balance_after=wallet.balance,
+            note=f"{key}:{payment_plan}",
+            reference_id=str(purchase.id),
+        )
+        AuditLog.objects.create(
+            actor=request.current_user,
+            actor_name=request.current_user.full_name,
+            action="feature_purchase_activated",
+            entity_type="feature_purchase",
+            entity_code=purchase.feature_key,
+            detail=f"{organization.code}:{payment_plan}:{format_money(paid_amount)}",
+            icon="verified",
+        )
+    return json_response(wallet_dashboard_payload(organization), status=201)
+
+
+@require_auth
 @methods("POST")
 def wallet_transaction_view(request: HttpRequest):
     if not user_can_access_wallet(request.current_user):
@@ -1208,6 +1525,94 @@ def wallet_transaction_view(request: HttpRequest):
         )
 
     return json_response(wallet_dashboard_payload(organization), status=201)
+
+
+@require_auth
+@methods("GET")
+def attendance_dashboard_view(request: HttpRequest):
+    if not user_can_access_attendance(request.current_user):
+        return json_error("برای استفاده از ماژول ورود و خروج باید این گزینه از کیف پول خریداری و فعال شود.", status=402)
+    return json_response(build_attendance_dashboard_payload(request.current_user))
+
+
+@require_auth
+@methods("POST")
+def attendance_event_view(request: HttpRequest):
+    if not user_can_access_attendance(request.current_user):
+        return json_error("برای استفاده از ماژول ورود و خروج باید این گزینه از کیف پول خریداری و فعال شود.", status=402)
+    payload = parse_json(request)
+    user_id = payload.get("userId") or payload.get("user_id")
+    event_type = payload.get("eventType") or payload.get("event_type")
+    if event_type not in {AttendanceEvent.EVENT_IN, AttendanceEvent.EVENT_OUT}:
+        return json_error("نوع رویداد معتبر نیست.", status=422)
+    organization = attendance_organization_for_user(request.current_user)
+    target_user = attendance_user_queryset(organization).filter(pk=user_id).first()
+    if target_user is None:
+        return json_error("کاربر پیدا نشد.", status=404)
+    event = AttendanceEvent.objects.create(
+        organization=organization,
+        user=target_user,
+        event_type=event_type,
+        source=AttendanceEvent.SOURCE_MANAGER,
+        note=(payload.get("note") or "").strip(),
+    )
+    AuditLog.objects.create(
+        actor=request.current_user,
+        actor_name=request.current_user.full_name,
+        action="attendance_event",
+        entity_type="attendance",
+        entity_code=str(target_user.id),
+        detail=f"{target_user.full_name}: {'ورود' if event_type == AttendanceEvent.EVENT_IN else 'خروج'}",
+        icon="badge",
+    )
+    return json_response({"event": serialize_attendance_event(event), **build_attendance_dashboard_payload(request.current_user)}, status=201)
+
+
+@require_auth
+@methods("GET")
+def attendance_reports_view(request: HttpRequest):
+    if not user_can_access_attendance(request.current_user):
+        return json_error("برای استفاده از گزارشات ورود و خروج باید این گزینه از کیف پول خریداری و فعال شود.", status=402)
+    return json_response(build_attendance_report_payload(request.current_user, request.GET))
+
+
+@methods("GET", "POST")
+@csrf_exempt
+def public_attendance_view(request: HttpRequest, token: str):
+    target_user = User.objects.select_related("department", "organization_membership__organization").filter(attendance_token=token, is_active=True).first()
+    if target_user is None:
+        return json_error("لینک ورود و خروج معتبر نیست.", status=404)
+    organization = get_user_organization(target_user)
+    if not FeaturePurchase.objects.filter(organization=organization, feature_key="attendance", is_active=True).exists():
+        return json_error("ماژول ورود و خروج برای این سازمان فعال نیست.", status=402)
+
+    if request.method == "POST":
+        payload = parse_json(request)
+        event_type = payload.get("eventType") or payload.get("event_type")
+        if event_type not in {AttendanceEvent.EVENT_IN, AttendanceEvent.EVENT_OUT}:
+            return json_error("نوع رویداد معتبر نیست.", status=422)
+        AttendanceEvent.objects.create(
+            organization=organization,
+            user=target_user,
+            event_type=event_type,
+            source=AttendanceEvent.SOURCE_LINK,
+            note=(payload.get("note") or "").strip(),
+        )
+
+    user_payload = serialize_attendance_user(target_user, organization)
+    today_start = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
+    events = list(
+        AttendanceEvent.objects.filter(organization=organization, user=target_user, event_at__gte=today_start)
+        .select_related("user")
+        .order_by("-event_at", "-id")
+    )
+    return json_response({
+        "organization": {"name": organization.name, "code": organization.code},
+        "user": user_payload,
+        "events": [serialize_attendance_event(item) for item in events],
+        "serverTime": timezone.now().isoformat(),
+        "server_time": timezone.now().isoformat(),
+    }, status=201 if request.method == "POST" else 200)
 
 
 @require_auth
@@ -2963,8 +3368,4 @@ def settings_view(request: HttpRequest):
         ],
         safe=False,
     )
-
-
-
-
 
