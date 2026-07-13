@@ -60,6 +60,9 @@ def has_section_access(user: User, section_key: str) -> bool:
     if user.role == UserRole.ADMIN:
         return True
 
+    if section_key == SECTION_APPROVALS:
+        return True
+
     organization = get_user_organization(user)
     grants = SectionAccessGrant.objects.filter(organization=organization, section_key=section_key)
     if grants.exists():
@@ -69,10 +72,8 @@ def has_section_access(user: User, section_key: str) -> bool:
         return False
     if section_key == SECTION_REPORTS:
         return False
-    if section_key == SECTION_APPROVALS:
-        return True
     if section_key == SECTION_EXPENSES:
-        return True
+        return False
     if section_key == SECTION_SETTINGS:
         return False
     return True
@@ -95,7 +96,7 @@ def can_access_approvals(user: User) -> bool:
 
 
 def can_approve_documents(user: User) -> bool:
-    return is_manager(user) and has_section_access(user, SECTION_APPROVALS)
+    return has_section_access(user, SECTION_APPROVALS)
 
 
 def can_access_expenses(user: User) -> bool:

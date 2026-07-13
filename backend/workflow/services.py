@@ -211,6 +211,9 @@ def preview_kind_for_file(file_name: str | None) -> str:
 def serialize_current_user(user: User) -> dict:
     membership = OrganizationMembership.objects.select_related("organization").filter(user=user).first()
     is_hq = user.slug == HQ_USERNAME
+    bonus_amount = Decimal(user.bonus_amount or 0)
+    penalty_amount = Decimal(user.penalty_amount or 0)
+    net_adjustment = bonus_amount - penalty_amount
     return {
         "id": user.id,
         "slug": user.slug,
@@ -223,6 +226,12 @@ def serialize_current_user(user: User) -> dict:
         "email": user.email,
         "phone": user.phone or "",
         "organization": membership.organization.name if membership else "",
+        "bonusAmount": format_money(bonus_amount),
+        "bonusAmountRaw": float(bonus_amount),
+        "penaltyAmount": format_money(penalty_amount),
+        "penaltyAmountRaw": float(penalty_amount),
+        "netAdjustment": format_money(net_adjustment),
+        "netAdjustmentRaw": float(net_adjustment),
         "canManageUsers": can_manage_users(user),
         "canAccessUsers": can_access_users(user),
         "canAccessExpenses": can_access_expenses(user),
@@ -238,6 +247,7 @@ def serialize_current_user(user: User) -> dict:
 
 def serialize_user(user: User) -> dict:
     membership = getattr(user, "organization_membership", None)
+    finance_updated_at = user.finance_updated_at
     return {
         "id": user.id,
         "name": normalize_person_name(user.full_name),
@@ -256,6 +266,8 @@ def serialize_user(user: User) -> dict:
         "organizationId": membership.organization_id if membership else None,
         "joinedAt": format_date(user.created_at.date()),
         "joinedAtIso": format_date(user.created_at.date()),
+        "financeUpdatedAt": finance_updated_at.isoformat() if finance_updated_at else "",
+        "financeUpdatedAtIso": format_date(finance_updated_at.date()) if finance_updated_at else "",
         "isActive": user.is_active,
         "status": "\u0641\u0639\u0627\u0644" if user.is_active else "\u063a\u06cc\u0631\u0641\u0639\u0627\u0644",
     }
@@ -693,6 +705,16 @@ def report_catalog(user: User) -> list[dict]:
             "generatedAt": today,
             "generatedAtIso": today,
             "downloadUrl": "/api/v1/reports/approvals/export?format=csv",
+        },
+        {
+            "id": "users",
+            "title": "گزارش کاربران",
+            "description": "نمای وضعیت کاربران، مدیر مستقیم، پاداش و جریمه ثبت‌شده",
+            "export": "CSV / Excel",
+            "owner": owner,
+            "generatedAt": today,
+            "generatedAtIso": today,
+            "downloadUrl": "/api/v1/reports/users/export?format=csv",
         },
     ]
 
@@ -1227,6 +1249,32 @@ def render_report_export(report_key: str, user: User, organization_id: int | Non
                 approvers,
                 decisions,
             ])
+    elif report_key == "users":
+        writer.writerow(["id", "name", "username", "role", "job_title", "department", "manager", "status", "joined_at", "bonus_amount", "penalty_amount", "net_adjustment"])
+        user_items = (
+            User.objects.filter(id__in=user_ids)
+            .select_related("department", "manager")
+            .order_by("-created_at")
+        )
+        for item in user_items:
+            if not _in_report_bounds(item.created_at.date(), start_date, end_date):
+                continue
+            bonus_amount = Decimal(item.bonus_amount or 0)
+            penalty_amount = Decimal(item.penalty_amount or 0)
+            writer.writerow([
+                item.id,
+                normalize_person_name(item.full_name),
+                item.slug,
+                access_role_label(item.role),
+                item.job_title,
+                item.department.name if item.department else "",
+                normalize_person_name(item.manager.full_name) if item.manager else "",
+                "فعال" if item.is_active else "غیرفعال",
+                format_date(item.created_at.date()),
+                format_money(bonus_amount),
+                format_money(penalty_amount),
+                format_money(bonus_amount - penalty_amount),
+            ])
     else:
         raise ValueError("Invalid report key.")
 
@@ -1237,6 +1285,10 @@ def serialize_user(user: User) -> dict:
     section_access = set(
         user.section_access_grants.filter(organization=organization).values_list("section_key", flat=True)
     )
+    bonus_amount = Decimal(user.bonus_amount or 0)
+    penalty_amount = Decimal(user.penalty_amount or 0)
+    net_adjustment = bonus_amount - penalty_amount
+    finance_updated_at = user.finance_updated_at
     return {
         "id": user.id,
         "name": normalize_person_name(user.full_name),
@@ -1251,10 +1303,18 @@ def serialize_user(user: User) -> dict:
         "kpi": user.job_title,
         "joinedAt": format_date(user.created_at.date()),
         "joinedAtIso": format_date(user.created_at.date()),
+        "financeUpdatedAt": finance_updated_at.isoformat() if finance_updated_at else "",
+        "financeUpdatedAtIso": format_date(finance_updated_at.date()) if finance_updated_at else "",
         "status": "فعال" if user.is_active else "غیرفعال",
         "isActive": user.is_active,
         "managerId": user.manager_id,
         "departmentCode": user.department.code if user.department else "",
+        "bonusAmount": format_money(bonus_amount),
+        "bonusAmountRaw": float(bonus_amount),
+        "penaltyAmount": format_money(penalty_amount),
+        "penaltyAmountRaw": float(penalty_amount),
+        "netAdjustment": format_money(net_adjustment),
+        "netAdjustmentRaw": float(net_adjustment),
         "sectionAccess": {
             "approvals": "approvals" in section_access,
             "expenses": "expenses" in section_access,

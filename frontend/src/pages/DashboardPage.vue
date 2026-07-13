@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatJalali, getTodayJalali } from '../utils/jalali'
+import { joinDisplayParts } from '../utils/text'
 
 const {
   state,
@@ -17,6 +18,8 @@ const todayLabel = computed(() => formatJalali(getTodayJalali()))
 const currentRole = computed(() => String(state.currentUser.accessRole || ''))
 const isManagerDashboard = computed(() => ['admin', 'executive_manager', 'manager'].includes(currentRole.value))
 const currentUserName = computed(() => String(state.currentUser.name || '').trim())
+const currentUserBonus = computed(() => state.currentUser.bonusAmount || '0.00')
+const currentUserPenalty = computed(() => state.currentUser.penaltyAmount || '0.00')
 
 const ownRequests = computed(() =>
   (state.requests || []).filter((item) => String(item.owner || '').trim() === currentUserName.value),
@@ -165,13 +168,22 @@ const highlightedStats = computed(() => {
       accent: 'پیگیری',
     },
     {
-      id: 'my-reports',
-      label: 'گزارش‌های آماده',
-      value: state.currentUser.canViewReports ? state.reports.length : 0,
-      note: state.currentUser.canViewReports ? 'قابل دریافت' : 'بدون دسترسی',
-      icon: 'verified',
+      id: 'my-bonus',
+      label: 'پاداش من',
+      value: currentUserBonus.value,
+      note: 'جمع پاداش ثبت‌شده',
+      icon: 'award_star',
       tone: 'is-success',
-      accent: 'خروجی',
+      accent: 'پاداش',
+    },
+    {
+      id: 'my-penalty',
+      label: 'جریمه من',
+      value: currentUserPenalty.value,
+      note: 'جمع جریمه ثبت‌شده',
+      icon: 'gavel',
+      tone: 'is-approval',
+      accent: 'جریمه',
     },
   ]
 })
@@ -196,7 +208,7 @@ const actionCards = computed(() => {
       typeLabel: 'تاییدیه',
       status: item.status,
       title: item.title,
-      subtitle: `${item.owner} - ${item.department}`,
+      subtitle: joinDisplayParts([item.owner, item.department]),
       meta: [item.type, item.risk, item.uploadedAt || '-'],
       actionLabel: 'مشاهده و تصمیم',
       action: () => openApprovalDetail(item.id),
@@ -211,7 +223,7 @@ const actionCards = computed(() => {
       typeLabel: 'درخواست',
       status: item.status,
       title: item.title,
-      subtitle: `${item.owner} - ${item.department}`,
+      subtitle: joinDisplayParts([item.owner, item.department]),
       meta: [item.priority || '-', item.manager || '-', item.createdAt || item.deadline || '-'],
       actionLabel: 'جزئیات درخواست',
       action: () => openRequestDetail(item.id),
@@ -226,7 +238,7 @@ const actionCards = computed(() => {
       typeLabel: 'هزینه',
       status: item.status,
       title: item.title,
-      subtitle: `${item.owner} - ${item.category}`,
+      subtitle: joinDisplayParts([item.owner, item.category]),
       meta: [item.amount, item.department, item.submittedAt || '-'],
       actionLabel: 'بررسی هزینه',
       action: () => openExpenseDetail(item.id),

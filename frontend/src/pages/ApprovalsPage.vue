@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import { useWorkflowHub } from '../stores/workflowHub'
+import { joinDisplayParts } from '../utils/text'
 
 const {
   downloadProtectedFile,
@@ -63,7 +64,7 @@ async function handleDownload(item) {
 </script>
 
 <template>
-  <section v-if="state.currentUser.canAccessApprovals || state.currentUser.canApproveDocuments" class="page-shell enterprise-page">
+  <section class="page-shell enterprise-page">
     <section class="metric-grid metric-grid-4">
       <article v-for="item in approvalStats" :key="item.label" :class="['metric-card', 'approval-metric-card', item.tone]">
         <div class="approval-metric-top">
@@ -85,7 +86,7 @@ async function handleDownload(item) {
           <h3>صف بررسی</h3>
           <p>اسنادی که هنوز در جریان تایید هستند و نیاز به اقدام دارند.</p>
         </div>
-        <button class="action-btn tone-soft" type="button" @click="openSignatureComposer">
+        <button v-if="state.currentUser.canApproveDocuments" class="action-btn tone-soft" type="button" @click="openSignatureComposer">
           <span class="material-symbols-outlined">approval</span>
           <span>بارگذاری مهر</span>
         </button>
@@ -96,7 +97,7 @@ async function handleDownload(item) {
           <div class="approval-card-head">
             <div>
               <strong>{{ item.title }}</strong>
-              <small>{{ item.type }} - {{ item.department }}</small>
+              <small>{{ joinDisplayParts([item.type, item.department]) }}</small>
             </div>
             <span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span>
           </div>
@@ -166,13 +167,6 @@ async function handleDownload(item) {
         </table>
       </div>
     </section>
-  </section>
-
-  <section v-else class="page-shell">
-    <article class="access-denied-card">
-      <h2>دسترسی به ماژول تاییدیه‌ها فعال نیست</h2>
-      <p>برای مشاهده این بخش باید دسترسی تاییدیه‌ها برای حساب شما فعال شده باشد.</p>
-    </article>
   </section>
 </template>
 

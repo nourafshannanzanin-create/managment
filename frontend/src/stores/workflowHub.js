@@ -1,10 +1,11 @@
 import { computed, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { normalizeAmountValue } from '../utils/amount'
+import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { AppError, appErrorFromResponse, createValidationError, hasFieldError, normalizeError } from '../utils/errors'
 import { formatJalali, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
 import { repairPayload } from '../utils/stitch'
+import { cleanDisplayText } from '../utils/text'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 const API_ORIGIN = API_BASE_URL.replace(/\/api\/v1\/?$/, '')
@@ -23,9 +24,15 @@ function createCurrentUser() {
     avatar: '',
     email: '',
     organization: '',
+    bonusAmount: '0.00',
+    bonusAmountRaw: 0,
+    penaltyAmount: '0.00',
+    penaltyAmountRaw: 0,
+    netAdjustment: '0.00',
+    netAdjustmentRaw: 0,
     canManageUsers: false,
     canAccessUsers: false,
-    canAccessExpenses: true,
+    canAccessExpenses: false,
     canAccessSettings: false,
     canViewReports: false,
     canAccessApprovals: false,
@@ -330,19 +337,117 @@ function formatNumber(value) {
   return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(number)
 }
 
+function formatMoneyInputValue(value) {
+  return formatAmountInput(value)
+}
+
 function normalizeDisplayDate(value) {
   if (!value) return ''
   const raw = String(value).slice(0, 10)
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? isoToJalali(raw) : value
 }
 
+function normalizeUser(item = {}) {
+  return {
+    ...item,
+    name: cleanDisplayText(item?.name),
+    username: cleanDisplayText(item?.username),
+    role: cleanDisplayText(item?.role),
+    department: cleanDisplayText(item?.department),
+    manager: cleanDisplayText(item?.manager),
+    jobTitle: cleanDisplayText(item?.jobTitle),
+    phone: cleanDisplayText(item?.phone),
+    status: cleanDisplayText(item?.status),
+    bonusAmount: item?.bonusAmount || '0.00',
+    bonusAmountRaw: Number(item?.bonusAmountRaw || 0),
+    penaltyAmount: item?.penaltyAmount || '0.00',
+    penaltyAmountRaw: Number(item?.penaltyAmountRaw || 0),
+    netAdjustment: item?.netAdjustment || '0.00',
+    netAdjustmentRaw: Number(item?.netAdjustmentRaw || 0),
+    financeUpdatedAt: item?.financeUpdatedAt || '',
+    financeUpdatedAtIso: item?.financeUpdatedAtIso || '',
+  }
+}
+
+function upsertById(target, item) {
+  if (!item?.id || !Array.isArray(target)) return
+  const index = target.findIndex((entry) => Number(entry?.id) === Number(item.id))
+  if (index >= 0) target[index] = { ...target[index], ...item }
+  else target.unshift(item)
+}
+
+function removeById(target, itemId) {
+  if (!itemId || !Array.isArray(target)) return
+  const index = target.findIndex((entry) => Number(entry?.id) === Number(itemId))
+  if (index >= 0) target.splice(index, 1)
+}
+
+function syncUserAcrossState(userPayload, options = {}) {
+  const { remove = false } = options
+  const userId = Number(userPayload?.id || options.userId)
+  if (!userId) return
+
+  if (remove) {
+    removeById(state.users, userId)
+    removeById(state.settings.organizationUsers || [], userId)
+    removeById(state.directories.users || [], userId)
+    removeById(state.directories.managers || [], userId)
+    if (Number(state.currentUser.id) === userId) {
+      Object.assign(state.currentUser, createCurrentUser())
+    }
+    return
+  }
+
+  const normalizedUser = normalizeUser(userPayload)
+  upsertById(state.users, normalizedUser)
+  upsertById(state.settings.organizationUsers || [], normalizedUser)
+  upsertById(state.directories.users || [], normalizedUser)
+
+  const managerEntry = {
+    id: Number(normalizedUser.id),
+    slug: normalizedUser.username,
+    name: normalizedUser.name,
+    role: normalizedUser.role,
+    accessRole: normalizedUser.accessRole,
+  }
+  const isManagerRole = ['admin', 'executive_manager', 'manager'].includes(normalizedUser.accessRole)
+  if (isManagerRole) upsertById(state.directories.managers || [], managerEntry)
+  else removeById(state.directories.managers || [], normalizedUser.id)
+
+  if (Number(state.currentUser.id) === Number(normalizedUser.id)) {
+    Object.assign(state.currentUser, {
+      username: normalizedUser.username,
+      name: normalizedUser.name,
+      accessRole: normalizedUser.accessRole,
+      role: normalizedUser.role,
+      department: normalizedUser.department,
+      phone: normalizedUser.phone,
+      bonusAmount: normalizedUser.bonusAmount,
+      bonusAmountRaw: normalizedUser.bonusAmountRaw,
+      penaltyAmount: normalizedUser.penaltyAmount,
+      penaltyAmountRaw: normalizedUser.penaltyAmountRaw,
+      netAdjustment: normalizedUser.netAdjustment,
+      netAdjustmentRaw: normalizedUser.netAdjustmentRaw,
+    })
+  }
+}
+
 function normalizeRequest(item) {
   return {
     ...item,
+    title: cleanDisplayText(item?.title),
+    description: cleanDisplayText(item?.description),
+    owner: cleanDisplayText(item?.owner),
+    manager: cleanDisplayText(item?.manager),
+    department: cleanDisplayText(item?.department),
+    status: cleanDisplayText(item?.status),
     deadline: normalizeDisplayDate(item?.deadline),
     createdAt: normalizeDisplayDate(item?.createdAt),
+    managerAssignees: (item?.managerAssignees || []).map((entry) => cleanDisplayText(entry)),
+    employeeAssignees: (item?.employeeAssignees || []).map((entry) => cleanDisplayText(entry)),
     attachments: (item?.attachments || []).map((attachment) => ({
       ...attachment,
+      originalName: cleanDisplayText(attachment?.originalName),
       fileUrl: resolveAssetUrl(attachment.fileUrl),
     })),
   }
@@ -351,6 +456,12 @@ function normalizeRequest(item) {
 function normalizeExpense(item) {
   return {
     ...item,
+    title: cleanDisplayText(item?.title),
+    description: cleanDisplayText(item?.description),
+    owner: cleanDisplayText(item?.owner),
+    category: cleanDisplayText(item?.category),
+    department: cleanDisplayText(item?.department),
+    status: cleanDisplayText(item?.status),
     amount: formatNumber(item?.amountRaw ?? item?.amount),
     submittedAt: normalizeDisplayDate(item?.submittedAt),
     invoiceUrl: resolveAssetUrl(item?.invoiceUrl),
@@ -363,6 +474,15 @@ function normalizeApproval(item) {
     : ''
   return {
     ...item,
+    title: cleanDisplayText(item?.title),
+    owner: cleanDisplayText(item?.owner),
+    type: cleanDisplayText(item?.type),
+    status: cleanDisplayText(item?.status),
+    department: cleanDisplayText(item?.department),
+    risk: cleanDisplayText(item?.risk),
+    summary: cleanDisplayText(item?.summary),
+    decisionNote: cleanDisplayText(item?.decisionNote),
+    assignees: (item?.assignees || []).map((entry) => cleanDisplayText(entry)),
     uploadedAt: normalizeDisplayDate(item?.uploadedAt),
     previewUrl: resolveAssetUrl(item?.previewUrl),
     downloadUrl: resolveAssetUrl(`${item?.downloadUrl || ''}${hqDownloadQuery}`),
@@ -404,6 +524,9 @@ function createHqState() {
 function normalizeReport(item) {
   return {
     ...item,
+    title: cleanDisplayText(item?.title),
+    description: cleanDisplayText(item?.description),
+    owner: cleanDisplayText(item?.owner),
     downloadUrl: resolveAssetUrl(item?.downloadUrl),
   }
 }
@@ -597,8 +720,8 @@ const visibleNavItems = computed(() => {
   const items = [
     { to: '/dashboard', label: 'داشبورد', icon: 'dashboard' },
     { to: '/requests', label: 'درخواست‌ها', icon: 'assignment' },
+    { to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check' },
   ]
-  if (canAccessApprovals.value) items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check' })
   if (canViewReports.value) items.push({ to: '/reports', label: 'گزارشات', icon: 'monitoring' })
   if (canAccessUsers.value) items.push({ to: '/users', label: 'کاربران', icon: 'group' })
 
@@ -779,7 +902,7 @@ function hydrateBootstrap(payload) {
   replaceItems(state.requests, (payload.requests || []).map(normalizeRequest))
   replaceItems(state.expenses, (payload.expenses || []).map(normalizeExpense))
   replaceItems(state.approvals, (payload.approvals || []).map(normalizeApproval))
-  replaceItems(state.users, payload.users)
+  replaceItems(state.users, (payload.users || []).map(normalizeUser))
   replaceItems(state.reports, (payload.reports || []).map(normalizeReport))
   replaceItems(state.activities, payload.activities)
   replaceItems(state.insights, payload.insights)
@@ -793,7 +916,7 @@ function hydrateBootstrap(payload) {
   Object.assign(state.approvalMetrics, payload.approvalMetrics || {})
   state.directories.departments = payload.directories?.departments || []
   state.directories.managers = payload.directories?.managers || []
-  state.directories.users = payload.directories?.users || []
+  state.directories.users = (payload.directories?.users || []).map(normalizeUser)
   if (payload.wallet?.summary) {
     Object.assign(state.wallet.summary, payload.wallet.summary)
   }
@@ -932,7 +1055,7 @@ async function loadReports(force = false) {
   replaceItems(state.requests, (payload.requests || state.requests || []).map(normalizeRequest))
   replaceItems(state.expenses, (payload.expenses || state.expenses || []).map(normalizeExpense))
   replaceItems(state.approvals, (payload.approvals || state.approvals || []).map(normalizeApproval))
-  replaceItems(state.users, payload.users || state.users)
+  replaceItems(state.users, (payload.users || state.users || []).map(normalizeUser))
 }
 
 async function loadSettings(force = false) {
@@ -949,7 +1072,7 @@ async function loadSettings(force = false) {
   const payload = repairPayload(await response.json())
   Object.assign(state.settings, createSettingsState(), payload)
   replaceItems(state.settingsCards, payload.sections || [])
-  state.settings.organizationUsers = payload.organizationUsers || []
+  state.settings.organizationUsers = (payload.organizationUsers || []).map(normalizeUser)
   state.settings.departments = payload.departments || []
   state.directories.departments = payload.departments || state.directories.departments
   state.currentUser.organization = payload.organizationName || state.currentUser.organization
@@ -1237,7 +1360,7 @@ async function saveSettings(nextSettings) {
   const payload = repairPayload(await response.json())
   Object.assign(state.settings, createSettingsState(), payload)
   replaceItems(state.settingsCards, payload.sections || [])
-  state.settings.organizationUsers = payload.organizationUsers || []
+  state.settings.organizationUsers = (payload.organizationUsers || []).map(normalizeUser)
   state.settings.departments = payload.departments || []
   state.directories.departments = payload.departments || state.directories.departments
   state.currentUser.organization = payload.organizationName || state.currentUser.organization
@@ -1680,7 +1803,7 @@ export function useWorkflowHub() {
         throw createValidationError('فایل سند الزامی است.', [{ field: 'file', message: 'فایل سند را انتخاب کنید.' }])
       }
       if (!state.documentForm.assigneeIds.length) {
-        throw createValidationError('حداقل یک مدیر دریافت کننده را انتخاب کنید.', [{ field: 'assigneeIds', message: 'یک مدیر دریافت کننده انتخاب کنید.' }])
+        throw createValidationError('حداقل یک دریافت کننده را انتخاب کنید.', [{ field: 'assigneeIds', message: 'حداقل یک دریافت کننده برای سند انتخاب کنید.' }])
       }
       const formData = new FormData()
       formData.append('title', state.documentForm.title)
@@ -1839,21 +1962,22 @@ export function useWorkflowHub() {
     await loadExpenseDetail(selectedExpense.value.id)
   }
 
-  async function updateUser(userId, payload) {
-    state.lastError = ''
-    await authorizedFetch(`/users/${userId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...payload,
-        managerId: payload.managerId ? Number(payload.managerId) : null,
-      }),
-    })
-    await loadBootstrapData(true)
-    if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
-      await loadSettings(true)
-    }
+async function updateUser(userId, payload) {
+  state.lastError = ''
+  const response = await authorizedFetch(`/users/${userId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...payload,
+      managerId: payload.managerId ? Number(payload.managerId) : null,
+    }),
+  })
+  const updatedUser = normalizeUser(repairPayload(await response.json()))
+  syncUserAcrossState(updatedUser)
+  if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
+    await loadSettings(true)
   }
+}
 
   async function referSelectedDocument(payload) {
     if (!selectedApproval.value) return
@@ -1978,6 +2102,7 @@ export function useWorkflowHub() {
     rejectSelectedExpense,
     referSelectedExpense,
     updateUser,
+    formatMoneyInputValue,
     approveSelectedDocument,
     rejectSelectedDocument,
     referSelectedDocument,

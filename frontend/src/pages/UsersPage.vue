@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
+import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const { availableManagerDirectory, openUserComposer, state, updateUser } = useWorkflowHub()
@@ -11,12 +12,16 @@ const activeCategory = ref('all')
 const activeLetter = ref('همه')
 const selectedUserId = ref(null)
 const savingUser = ref(false)
+const applyingBonus = ref(false)
+const applyingPenalty = ref(false)
 
 const editableUser = reactive({
   fullName: '',
   username: '',
   password: '',
   phone: '',
+  bonusDelta: '',
+  penaltyDelta: '',
   accessRole: 'employee',
   department: '',
   managerId: '',
@@ -33,7 +38,6 @@ const editableUser = reactive({
 
 const sectionAccessOptions = [
   { key: 'users', title: 'کاربران' },
-  { key: 'approvals', title: 'تاییدیه‌ها' },
   { key: 'expenses', title: 'هزینه‌ها' },
   { key: 'reports', title: 'گزارشات' },
   { key: 'settings', title: 'تنظیمات' },
@@ -94,6 +98,8 @@ watch(selectedUser, (user) => {
     username: user?.username || '',
     password: '',
     phone: user?.phone || '',
+    bonusDelta: '',
+    penaltyDelta: '',
     accessRole: user?.accessRole || 'employee',
     department: user?.departmentCode || '',
     managerId: user?.managerId || '',
@@ -124,6 +130,10 @@ function toneForStatus(status) {
   return ''
 }
 
+function handleMoneyInput(field, value) {
+  editableUser[field] = formatAmountInput(value)
+}
+
 async function saveUserChanges() {
   if (!selectedUser.value || savingUser.value || !canManageUsers.value) return
   savingUser.value = true
@@ -141,8 +151,41 @@ async function saveUserChanges() {
       sectionAccess: editableUser.sectionAccess,
     })
     editableUser.password = ''
+    closeUserDetails()
   } finally {
     savingUser.value = false
+  }
+}
+
+async function applyBonusDelta() {
+  if (!selectedUser.value || applyingBonus.value || !canManageUsers.value) return
+
+  const amount = normalizeAmountValue(editableUser.bonusDelta || 0)
+  if (!amount || Number(amount) <= 0) return
+
+  applyingBonus.value = true
+  try {
+    await updateUser(selectedUser.value.id, { bonusDelta: amount })
+    editableUser.bonusDelta = ''
+    closeUserDetails()
+  } finally {
+    applyingBonus.value = false
+  }
+}
+
+async function applyPenaltyDelta() {
+  if (!selectedUser.value || applyingPenalty.value || !canManageUsers.value) return
+
+  const amount = normalizeAmountValue(editableUser.penaltyDelta || 0)
+  if (!amount || Number(amount) <= 0) return
+
+  applyingPenalty.value = true
+  try {
+    await updateUser(selectedUser.value.id, { penaltyDelta: amount })
+    editableUser.penaltyDelta = ''
+    closeUserDetails()
+  } finally {
+    applyingPenalty.value = false
   }
 }
 
@@ -306,6 +349,14 @@ function userManagerOptions(userId) {
           <div class="user-meta-icon"><span class="material-symbols-outlined">supervisor_account</span></div>
           <div class="user-meta-copy"><span>مدیر مستقیم</span><strong>{{ selectedUser.manager || 'ندارد' }}</strong></div>
         </article>
+        <article class="user-meta-card">
+          <div class="user-meta-icon"><span class="material-symbols-outlined">award_star</span></div>
+          <div class="user-meta-copy"><span>پاداش</span><strong>{{ selectedUser.bonusAmount || '0.00' }}</strong></div>
+        </article>
+        <article class="user-meta-card">
+          <div class="user-meta-icon"><span class="material-symbols-outlined">gavel</span></div>
+          <div class="user-meta-copy"><span>جریمه</span><strong>{{ selectedUser.penaltyAmount || '0.00' }}</strong></div>
+        </article>
       </section>
 
       <section class="surface-inline user-form-panel">
@@ -365,6 +416,62 @@ function userManagerOptions(userId) {
           <span>عنوان شغلی</span>
           <input v-model="editableUser.jobTitle" type="text" :disabled="!canManageUsers" />
         </label>
+
+        <section class="surface-inline user-finance-panel">
+          <div class="section-label-row">
+            <div>
+              <h3>پاداش و جریمه</h3>
+            </div>
+          </div>
+
+          <div class="modal-grid two-col">
+            <div class="field-shell finance-field-shell">
+              <span>پاداش</span>
+              <strong class="finance-current-value">{{ selectedUser.bonusAmount || '0.00' }}</strong>
+              <div class="finance-input-row">
+                <input
+                  :value="editableUser.bonusDelta"
+                  type="text"
+                  inputmode="decimal"
+                  placeholder="مبلغ جدید"
+                  :disabled="!canManageUsers || applyingBonus"
+                  @input="handleMoneyInput('bonusDelta', $event.target.value)"
+                />
+                <button
+                  class="action-btn tone-primary finance-apply-btn"
+                  type="button"
+                  :disabled="!canManageUsers || applyingBonus"
+                  @click="applyBonusDelta"
+                >
+                  <span>{{ applyingBonus ? 'در حال افزودن...' : 'افزودن' }}</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="field-shell finance-field-shell">
+              <span>جریمه</span>
+              <strong class="finance-current-value">{{ selectedUser.penaltyAmount || '0.00' }}</strong>
+              <div class="finance-input-row">
+                <input
+                  :value="editableUser.penaltyDelta"
+                  type="text"
+                  inputmode="decimal"
+                  placeholder="مبلغ جدید"
+                  :disabled="!canManageUsers || applyingPenalty"
+                  @input="handleMoneyInput('penaltyDelta', $event.target.value)"
+                />
+                <button
+                  class="action-btn tone-primary finance-apply-btn"
+                  type="button"
+                  :disabled="!canManageUsers || applyingPenalty"
+                  @click="applyPenaltyDelta"
+                >
+                  <span>{{ applyingPenalty ? 'در حال افزودن...' : 'افزودن' }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div class="user-access-grid">
           <label v-for="item in sectionAccessOptions" :key="item.key" class="check-tile">
@@ -696,6 +803,34 @@ function userManagerOptions(userId) {
   gap: 16px;
 }
 
+.user-finance-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.finance-field-shell {
+  display: grid;
+  gap: 10px;
+}
+
+.finance-current-value {
+  color: #203255;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.finance-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.finance-apply-btn {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
 .user-access-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -767,6 +902,10 @@ function userManagerOptions(userId) {
   .user-hero {
     padding: 18px;
     border-radius: 22px;
+  }
+
+  .finance-input-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .user-status-panel,

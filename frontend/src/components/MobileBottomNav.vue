@@ -11,14 +11,13 @@ const items = computed(() => {
   const navItems = [
     { to: '/dashboard', label: 'خانه', icon: 'home' },
     { to: '/requests', label: 'درخواست', icon: 'list_alt' },
+    { to: '/approvals', label: 'تایید', icon: 'verified' },
   ]
   if (state.currentUser.canAccessExpenses !== false) navItems.push({ to: '/expenses', label: 'هزینه', icon: 'receipt_long' })
   if (state.currentUser.canAccessUsers || state.currentUser.canManageUsers) {
     navItems.push({ to: '/users', label: 'کاربران', icon: 'group' })
   } else if (state.currentUser.canViewReports) {
     navItems.push({ to: '/reports', label: 'گزارش', icon: 'monitoring' })
-  } else if (state.currentUser.canAccessApprovals || state.currentUser.canApproveDocuments) {
-    navItems.push({ to: '/approvals', label: 'تایید', icon: 'verified' })
   }
   if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
     navItems.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })

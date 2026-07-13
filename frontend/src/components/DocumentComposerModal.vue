@@ -56,7 +56,6 @@ const visibleRecipients = computed(() => {
 })
 
 function toggleAssignee(id) {
-  if (activeRecipientTab.value !== 'managers') return
   const current = new Set(state.documentForm.assigneeIds)
   if (current.has(id)) current.delete(id)
   else current.add(id)
@@ -150,15 +149,11 @@ function isSelected(id) {
             <input v-model="recipientSearch" type="text" placeholder="جستجو در اعضا..." />
           </label>
 
-          <p v-if="activeRecipientTab === 'employees'" class="table-muted">
-            در این نسخه، انتخاب نهایی تاییدکننده فقط از میان مدیران فعال است و این تب برای مرور سریع کارکنان در دسترس قرار دارد.
-          </p>
-
           <div v-if="visibleRecipients.length" class="recipient-grid">
             <button
               v-for="item in visibleRecipients"
               :key="item.id"
-              :class="['recipient-card', isSelected(item.id) && 'is-selected', activeRecipientTab !== 'managers' && 'is-disabled']"
+              :class="['recipient-card', isSelected(item.id) && 'is-selected']"
               type="button"
               @click="toggleAssignee(item.id)"
             >

@@ -15,7 +15,6 @@ const { availableManagerDirectory, state, fieldHasError, submitUser } = useWorkf
 
 const sectionAccessOptions = [
   { key: 'users', title: 'کاربران' },
-  { key: 'approvals', title: 'تاییدیه‌ها' },
   { key: 'expenses', title: 'هزینه‌ها' },
   { key: 'reports', title: 'گزارشات' },
   { key: 'settings', title: 'تنظیمات' },

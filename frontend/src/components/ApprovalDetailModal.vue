@@ -15,6 +15,7 @@ defineEmits(['close'])
 const rejectReason = ref('')
 const rejectOpen = ref(false)
 const referOpen = ref(false)
+const referTab = ref('managers')
 const referSearch = ref('')
 const previewObjectUrl = ref('')
 const previewLoading = ref(false)
@@ -22,6 +23,7 @@ const previewLoading = ref(false)
 const {
   approveSelectedDocument,
   availableManagerDirectory,
+  availableRecipientUsers,
   rejectSelectedDocument,
   referSelectedDocument,
   loadSignature,
@@ -49,11 +51,17 @@ const statusTone = computed(() => {
   return 'is-pending'
 })
 const managerChoices = computed(() => availableManagerDirectory())
+const employeeChoices = computed(() => availableRecipientUsers().filter((item) => item.accessRole === 'employee'))
 const filteredManagers = computed(() => {
   const query = referSearch.value.trim().toLowerCase()
   return managerChoices.value.filter((item) => !query || `${item.name} ${item.role}`.toLowerCase().includes(query))
 })
-const referAssigneeIds = ref([])
+const filteredEmployees = computed(() => {
+  const query = referSearch.value.trim().toLowerCase()
+  return employeeChoices.value.filter((item) => !query || `${item.name} ${item.role || item.department}`.toLowerCase().includes(query))
+})
+const referManagerIds = ref([])
+const referEmployeeIds = ref([])
 
 const statusIcon = computed(() => {
   if (isApproved.value) return 'verified'
@@ -128,15 +136,16 @@ async function handleDownload() {
 }
 
 function toggleAssignee(id) {
-  const next = new Set(referAssigneeIds.value.map(Number))
+  const target = referTab.value === 'managers' ? referManagerIds : referEmployeeIds
+  const next = new Set(target.value.map(Number))
   const numericId = Number(id)
   if (next.has(numericId)) next.delete(numericId)
   else next.add(numericId)
-  referAssigneeIds.value = [...next]
+  target.value = [...next]
 }
 
 async function handleRefer() {
-  await referSelectedDocument({ assigneeIds: referAssigneeIds.value })
+  await referSelectedDocument({ assigneeIds: [...referManagerIds.value, ...referEmployeeIds.value] })
   referOpen.value = false
 }
 
@@ -146,8 +155,10 @@ watch(
     rejectReason.value = ''
     rejectOpen.value = false
     referOpen.value = false
+    referTab.value = 'managers'
     referSearch.value = ''
-    referAssigneeIds.value = []
+    referManagerIds.value = []
+    referEmployeeIds.value = []
     revokePreviewObjectUrl()
     if (!open) return
     state.lastError = ''
@@ -385,30 +396,36 @@ watch(
     <div class="detail-layout">
       <div class="modal-headline">
         <p class="page-eyebrow">ارجاع سند</p>
-        <h2>انتخاب مدیر جدید</h2>
+        <h2>انتخاب گیرنده جدید</h2>
       </div>
-      <label class="search-shell search-shell-wide">
-        <span class="material-symbols-outlined">search</span>
-        <input v-model="referSearch" placeholder="جستجو در مدیران" />
-      </label>
+      <div class="filter-toolbar">
+        <div class="chip-row">
+          <button :class="['filter-chip', referTab === 'managers' && 'is-active']" type="button" @click="referTab = 'managers'">مدیران</button>
+          <button :class="['filter-chip', referTab === 'employees' && 'is-active']" type="button" @click="referTab = 'employees'">کارمندان</button>
+        </div>
+        <label class="search-shell search-shell-wide">
+          <span class="material-symbols-outlined">search</span>
+          <input v-model="referSearch" :placeholder="referTab === 'managers' ? 'جستجو در مدیران' : 'جستجو در کارمندان'" />
+        </label>
+      </div>
       <div class="recipient-grid">
         <button
-          v-for="item in filteredManagers"
+          v-for="item in (referTab === 'managers' ? filteredManagers : filteredEmployees)"
           :key="item.id"
-          :class="['recipient-card', referAssigneeIds.map(Number).includes(Number(item.id)) && 'is-selected']"
+          :class="['recipient-card', (referTab === 'managers' ? referManagerIds : referEmployeeIds).map(Number).includes(Number(item.id)) && 'is-selected']"
           type="button"
           @click="toggleAssignee(item.id)"
         >
           <div class="recipient-card-main">
             <strong>{{ item.name }}</strong>
-            <small>{{ item.role }}</small>
+            <small>{{ item.role || item.department }}</small>
           </div>
           <span class="material-symbols-outlined">check_circle</span>
         </button>
       </div>
       <div class="modal-actions">
         <button class="action-btn tone-soft" type="button" @click="referOpen = false">بستن</button>
-        <button class="action-btn tone-primary" type="button" :disabled="!referAssigneeIds.length" @click="handleRefer">ثبت ارجاع</button>
+        <button class="action-btn tone-primary" type="button" :disabled="!referManagerIds.length && !referEmployeeIds.length" @click="handleRefer">ثبت ارجاع</button>
       </div>
     </div>
   </BaseModal>

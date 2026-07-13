@@ -464,7 +464,6 @@ def build_settings_profile_payload(user: User, organization_id: int | None = Non
 
     sections = [
         {"key": "users", "title": "کاربران", "description": "مدیریت فهرست کاربران، نقش‌ها و دسترسی‌ها", "route": "/users"},
-        {"key": "approvals", "title": "تاییدیه‌ها", "description": "گردش اسناد، امضا و تصمیم‌های مدیریتی", "route": "/approvals"},
         {"key": "expenses", "title": "هزینه‌ها", "description": "ثبت، ارجاع، بررسی و کنترل هزینه‌ها", "route": "/expenses"},
         {"key": "reports", "title": "گزارشات", "description": "نمای مدیریتی و تحلیل عملکرد سازمان", "route": "/reports"},
         {"key": "settings", "title": "تنظیمات", "description": "مدیریت پروفایل سازمان و دسترسی‌ها", "route": "/settings"},
@@ -529,6 +528,16 @@ def parse_wallet_amount(value) -> Decimal | None:
     except (InvalidOperation, TypeError, ValueError):
         return None
     return amount if amount > 0 else None
+
+
+def parse_user_amount(value, label: str) -> Decimal:
+    try:
+        amount = Decimal(str(value or 0).replace(",", "")).quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValueError(f"مقدار {label} معتبر نیست.")
+    if amount < 0:
+        raise ValueError(f"مقدار {label} نمی‌تواند منفی باشد.")
+    return amount
 
 
 def support_ticket_wallet_id(ticket: SupportTicket) -> int | None:
@@ -1016,9 +1025,13 @@ def create_expense_referrals(expense: Expense, actor: User, manager_assignee_ids
 
 
 def create_document_referrals(document: Document, actor: User, assignee_ids: list[int]) -> None:
-    approvers = list(User.objects.filter(pk__in=assignee_ids))
-    if not approvers or len(approvers) != len(assignee_ids) or any(not is_manager(item) for item in approvers):
-        raise ValueError("ارجاع سند فقط به مدیر مجاز است.")
+    organization = get_user_organization(actor)
+    normalized_ids = list(dict.fromkeys(assignee_ids))
+    approvers = list(
+        User.objects.filter(pk__in=normalized_ids, organization_membership__organization=organization)
+    )
+    if not approvers or len(approvers) != len(normalized_ids):
+        raise ValueError("ارجاع گیرنده سند معتبر نیست.")
     created_any = False
     for approver in unique_users(approvers):
         assignment, created = ApprovalAssignment.objects.get_or_create(
@@ -2454,6 +2467,11 @@ def user_detail_view(request: HttpRequest, user_id: int):
         department = Department.objects.filter(code=department_code).first()
 
     role = payload.get("accessRole") or user.role
+    try:
+        bonus_delta = parse_user_amount(payload.get("bonusDelta", 0), "پاداش")
+        penalty_delta = parse_user_amount(payload.get("penaltyDelta", 0), "جریمه")
+    except ValueError as exc:
+        return json_error(str(exc), status=422)
     user.full_name = (payload.get("fullName") or user.full_name).strip()
     user.slug = username
     user.email = email
@@ -2462,10 +2480,16 @@ def user_detail_view(request: HttpRequest, user_id: int):
     user.job_title = (payload.get("jobTitle") or user.job_title).strip() or user.job_title
     user.department = department
     user.manager = manager
+    user.bonus_amount = Decimal(user.bonus_amount or 0) + bonus_delta
+    user.penalty_amount = Decimal(user.penalty_amount or 0) + penalty_delta
+    if bonus_delta or penalty_delta:
+        user.finance_updated_at = timezone.now()
     if "isActive" in payload:
         user.is_active = bool(payload.get("isActive"))
     user.avatar = (user.full_name[:2] if user.full_name else user.avatar or "NA").upper()
-    update_fields = ["full_name", "slug", "email", "phone", "role", "job_title", "department", "manager", "is_active", "avatar"]
+    update_fields = ["full_name", "slug", "email", "phone", "role", "job_title", "department", "manager", "bonus_amount", "penalty_amount", "is_active", "avatar"]
+    if bonus_delta or penalty_delta:
+        update_fields.append("finance_updated_at")
 
     password = (payload.get("password") or "").strip()
     if password:
@@ -2602,10 +2626,7 @@ def documents_create_view(request: HttpRequest):
     assignee_ids = [int(item) for item in request.POST.get("assigneeIds", "").split(",") if item.strip()]
     file_obj = request.FILES.get("file")
     if not assignee_ids:
-        return json_error("حداقل یک مدیر باید انتخاب شود.", status=422)
-    approvers = list(User.objects.filter(pk__in=assignee_ids))
-    if not approvers or any(not is_manager(item) for item in approvers):
-        return json_error("ارجاع سند فقط به مدیر مجاز است.", status=422)
+        return json_error("حداقل یک دریافت کننده باید انتخاب شود.", status=422)
 
     document = Document.objects.create(
         code=next_code("DOC"),
@@ -2619,16 +2640,13 @@ def documents_create_view(request: HttpRequest):
         owner=request.current_user,
         file_name=save_uploaded_file(file_obj) if file_obj else None,
     )
-    for approver in approvers:
-        ApprovalAssignment.objects.create(document=document, approver=approver, status=ApprovalAssignmentStatus.PENDING)
+    try:
+        create_document_referrals(document, request.current_user, assignee_ids)
+    except ValueError as exc:
+        document.delete()
+        return json_error(str(exc), status=422)
     document = Document.objects.select_related("owner", "department").prefetch_related("approval_assignments__approver").get(pk=document.pk)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="document_created", entity_type="document", entity_code=document.code, detail=document.title, icon="description")
-    notify_sms(
-        get_user_organization(request.current_user),
-        f"سند {document.code} با عنوان {document.title} توسط {request.current_user.full_name} به شما ارجاع شد.",
-        [item.phone for item in unique_users(approvers)],
-        actor=request.current_user,
-    )
     return json_response(serialize_approval(document, request.current_user), status=201)
 
 

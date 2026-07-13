@@ -6,6 +6,7 @@ import PageHeader from '../components/PageHeader.vue'
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
 import { jalaliToIso } from '../utils/jalali'
 import { useWorkflowHub } from '../stores/workflowHub'
+import { joinDisplayParts } from '../utils/text'
 
 const { exportReport, loadReports, state } = useWorkflowHub()
 
@@ -18,6 +19,7 @@ const tabs = [
   { key: 'requests', label: 'درخواست', icon: 'assignment' },
   { key: 'expenses', label: 'هزینه ها', icon: 'payments' },
   { key: 'approvals', label: 'تاییدیه ها', icon: 'fact_check' },
+  { key: 'users', label: 'کاربران', icon: 'groups' },
 ]
 
 const periods = [
@@ -33,11 +35,12 @@ const reportUsers = computed(() => state.users || [])
 function rowDate(item) {
   if (activeTab.value === 'requests') return item.createdAtIso || item.deadlineIso || ''
   if (activeTab.value === 'expenses') return item.createdAtIso || ''
+  if (activeTab.value === 'users') return item.financeUpdatedAtIso || item.joinedAtIso || ''
   return item.uploadedAtIso || ''
 }
 
 function inPeriod(isoDate) {
-  if (!isoDate) return false
+  if (!isoDate) return activeTab.value === 'users'
   const date = new Date(`${isoDate}T00:00:00`)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -57,10 +60,16 @@ function inPeriod(isoDate) {
 }
 
 const activeRows = computed(() => {
-  const rows = activeTab.value === 'requests' ? state.requests : activeTab.value === 'expenses' ? state.expenses : state.approvals
+  const rows = activeTab.value === 'requests'
+    ? state.requests
+    : activeTab.value === 'expenses'
+      ? state.expenses
+      : activeTab.value === 'users'
+        ? state.users
+        : state.approvals
   return rows.filter((item) => {
     const user = reportUsers.value.find((row) => String(row.id) === String(filters.userId))
-    const matchesUser = !filters.userId || [item.owner, item.manager].filter(Boolean).includes(user?.name)
+    const matchesUser = !filters.userId || [item.owner, item.manager, item.name].filter(Boolean).includes(user?.name)
     return matchesUser && inPeriod(rowDate(item))
   })
 })
@@ -76,9 +85,10 @@ const selectedDetailTitle = computed(() => {
 const selectedDetailSubtitle = computed(() => {
   const row = selectedReportRow.value
   if (!row) return ''
-  if (selectedReportType.value === 'expenses') return [row.owner, row.department, row.submittedAt].filter(Boolean).join(' · ')
-  if (selectedReportType.value === 'approvals') return [row.owner, row.type, row.uploadedAt].filter(Boolean).join(' · ')
-  return [row.owner, row.manager, row.createdAt].filter(Boolean).join(' · ')
+  if (selectedReportType.value === 'expenses') return joinDisplayParts([row.owner, row.department, row.submittedAt], ' · ')
+  if (selectedReportType.value === 'approvals') return joinDisplayParts([row.owner, row.type, row.uploadedAt], ' · ')
+  if (selectedReportType.value === 'users') return joinDisplayParts([row.role, row.department, row.financeUpdatedAt || row.joinedAt], ' · ')
+  return joinDisplayParts([row.owner, row.manager, row.createdAt], ' · ')
 })
 
 const selectedPrimaryMetrics = computed(() => {
@@ -96,6 +106,13 @@ const selectedPrimaryMetrics = computed(() => {
       { label: 'ریسک', value: row.risk || '-', icon: 'warning' },
       { label: 'وضعیت', value: row.status || '-', icon: 'fact_check' },
       { label: 'نوع سند', value: row.type || '-', icon: 'description' },
+    ]
+  }
+  if (selectedReportType.value === 'users') {
+    return [
+      { label: 'پاداش', value: row.bonusAmount || '-', icon: 'award_star' },
+      { label: 'جریمه', value: row.penaltyAmount || '-', icon: 'gavel' },
+      { label: 'خالص', value: row.netAdjustment || '-', icon: 'balance' },
     ]
   }
   return [
@@ -131,6 +148,23 @@ const selectedDetailFields = computed(() => {
       { label: 'تاریخ بارگذاری', value: row.uploadedAt },
     ]
   }
+  if (selectedReportType.value === 'users') {
+    return [
+      { label: 'شناسه', value: row.id },
+      { label: 'نام', value: row.name },
+      { label: 'نام کاربری', value: row.username },
+      { label: 'نقش', value: row.role },
+      { label: 'عنوان شغلی', value: row.jobTitle },
+      { label: 'بخش', value: row.department },
+      { label: 'مدیر مستقیم', value: row.manager },
+      { label: 'وضعیت', value: row.status },
+      { label: 'تاریخ عضویت', value: row.joinedAt },
+      { label: 'آخرین ثبت مالی', value: row.financeUpdatedAt || '-' },
+      { label: 'پاداش', value: row.bonusAmount },
+      { label: 'جریمه', value: row.penaltyAmount },
+      { label: 'خالص پاداش/جریمه', value: row.netAdjustment },
+    ]
+  }
   return [
     { label: 'کد', value: row.id },
     { label: 'عنوان', value: row.title },
@@ -144,6 +178,7 @@ const selectedDetailFields = computed(() => {
 })
 
 function decisionText(item) {
+  if (activeTab.value === 'users') return item.netAdjustment || '-'
   const decisions = item.decisions || []
   return decisions.length ? decisions.map((row) => `${row.approver}: ${row.statusLabel}`).join(' | ') : '-'
 }
@@ -160,6 +195,7 @@ function closeReportDetails() {
 
 function rowFileUrl(row = selectedReportRow.value) {
   if (!row) return ''
+  if (selectedReportType.value === 'users') return ''
   return row.invoiceUrl || row.previewUrl || row.downloadUrl || ''
 }
 
@@ -223,13 +259,15 @@ onMounted(() => loadReports(true))
           <thead>
             <tr v-if="activeTab === 'requests'"><th>کد</th><th>عنوان</th><th>ثبت کننده</th><th>مدیر</th><th>بخش</th><th>وضعیت</th><th>اولویت</th><th>تاریخ</th><th>تصمیم ها</th></tr>
             <tr v-else-if="activeTab === 'expenses'"><th>کد</th><th>شرح</th><th>ثبت کننده</th><th>مبلغ</th><th>بخش</th><th>وضعیت</th><th>تاریخ</th><th>تصمیم ها</th></tr>
-            <tr v-else><th>کد</th><th>عنوان</th><th>ثبت کننده</th><th>نوع</th><th>بخش</th><th>ریسک</th><th>وضعیت</th><th>تاریخ</th><th>تصمیم ها</th></tr>
+            <tr v-else-if="activeTab === 'approvals'"><th>کد</th><th>عنوان</th><th>ثبت کننده</th><th>نوع</th><th>بخش</th><th>ریسک</th><th>وضعیت</th><th>تاریخ</th><th>تصمیم ها</th></tr>
+            <tr v-else><th>شناسه</th><th>نام</th><th>نام کاربری</th><th>نقش</th><th>بخش</th><th>مدیر</th><th>پاداش</th><th>جریمه</th><th>خالص</th></tr>
           </thead>
           <tbody>
             <tr v-for="row in activeRows" :key="row.id" class="report-click-row" tabindex="0" @click="openReportDetails(row)" @keydown.enter.prevent="openReportDetails(row)" @keydown.space.prevent="openReportDetails(row)">
               <template v-if="activeTab === 'requests'"><td>{{ row.id }}</td><td>{{ row.title }}</td><td>{{ row.owner }}</td><td>{{ row.manager }}</td><td>{{ row.department }}</td><td>{{ row.status }}</td><td>{{ row.priority }}</td><td>{{ row.createdAt }}</td><td>{{ decisionText(row) }}</td></template>
               <template v-else-if="activeTab === 'expenses'"><td>{{ row.id }}</td><td>{{ row.description }}</td><td>{{ row.owner }}</td><td>{{ row.amount }}</td><td>{{ row.department }}</td><td>{{ row.status }}</td><td>{{ row.submittedAt }}</td><td>{{ decisionText(row) }}</td></template>
-              <template v-else><td>{{ row.id }}</td><td>{{ row.title }}</td><td>{{ row.owner }}</td><td>{{ row.type }}</td><td>{{ row.department }}</td><td>{{ row.risk }}</td><td>{{ row.status }}</td><td>{{ row.uploadedAt }}</td><td>{{ decisionText(row) }}</td></template>
+              <template v-else-if="activeTab === 'approvals'"><td>{{ row.id }}</td><td>{{ row.title }}</td><td>{{ row.owner }}</td><td>{{ row.type }}</td><td>{{ row.department }}</td><td>{{ row.risk }}</td><td>{{ row.status }}</td><td>{{ row.uploadedAt }}</td><td>{{ decisionText(row) }}</td></template>
+              <template v-else><td>{{ row.id }}</td><td>{{ row.name }}</td><td>{{ row.username }}</td><td>{{ row.role }}</td><td>{{ row.department }}</td><td>{{ row.manager }}</td><td>{{ row.bonusAmount }}</td><td>{{ row.penaltyAmount }}</td><td>{{ row.netAdjustment }}</td></template>
             </tr>
           </tbody>
         </table>
@@ -265,7 +303,7 @@ onMounted(() => loadReports(true))
           </article>
         </section>
 
-        <section class="report-detail-decisions">
+        <section v-if="selectedReportType !== 'users'" class="report-detail-decisions">
           <div class="section-label-row">
             <div><h3>تصمیم‌ها و گردش بررسی</h3></div>
             <span class="meta-pill">{{ (selectedReportRow.decisions || []).length }} مورد</span>

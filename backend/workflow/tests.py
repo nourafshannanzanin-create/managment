@@ -129,6 +129,49 @@ class ApprovalFlowTests(TestCase):
         self.assertIn("-signed-", document.file_name or "")
         self.assertTrue((Path(settings.MEDIA_ROOT) / document.file_name).exists())
 
+    def test_manager_can_refer_document_to_employee_and_employee_can_approve(self):
+        document = self._create_document()
+        employee = self._create_user("employee-approver", "employee-approver@example.com", UserRole.EMPLOYEE, "کارشناس")
+        UserSignature.objects.create(user=self.approver, signature_data=SIGNATURE_DATA_URL, stamp_data="")
+        UserSignature.objects.create(user=employee, signature_data=SIGNATURE_DATA_URL, stamp_data="")
+
+        refer_response = self.client.post(
+            f"/api/v1/approvals/{document.code}/refer",
+            data={"assigneeIds": [employee.id]},
+            content_type="application/json",
+        )
+
+        self.assertEqual(refer_response.status_code, 200)
+        self.assertTrue(ApprovalAssignment.objects.filter(document=document, approver=employee).exists())
+
+        self.client.defaults["HTTP_AUTHORIZATION"] = f"Bearer {create_access_token(str(employee.id), {'role': employee.role})}"
+        approve_response = self.client.post(f"/api/v1/approvals/{document.code}/approve")
+
+        self.assertEqual(approve_response.status_code, 200)
+        assignment = ApprovalAssignment.objects.get(document=document, approver=employee)
+        self.assertEqual(assignment.status, ApprovalAssignmentStatus.APPROVED)
+
+    def test_create_document_allows_employee_assignee(self):
+        employee = self._create_user("employee-target", "employee-target@example.com", UserRole.EMPLOYEE, "کارشناس")
+
+        response = self.client.post(
+            "/api/v1/approvals/documents",
+            data={
+                "title": "سند برای کارمند",
+                "description": "تست ارجاع مستقیم",
+                "department": self.department.code,
+                "documentType": "فرم",
+                "risk": "medium",
+                "assigneeIds": str(employee.id),
+                "file": SimpleUploadedFile("document.pdf", b"pdf-content", content_type="application/pdf"),
+            },
+        )
+
+        self.assertEqual(response.status_code, 201)
+        created_code = response.json()["id"]
+        document = Document.objects.get(code=created_code)
+        self.assertTrue(ApprovalAssignment.objects.filter(document=document, approver=employee).exists())
+
 
 class RegistrationTests(TestCase):
     def setUp(self):
@@ -272,6 +315,8 @@ class UserAndSettingsTests(TestCase):
                 "managerId": self.manager.id,
                 "jobTitle": "مدیر فنی",
                 "isActive": True,
+                "bonusDelta": "1250000",
+                "penaltyDelta": "350000",
             },
             content_type="application/json",
         )
@@ -280,6 +325,85 @@ class UserAndSettingsTests(TestCase):
         user.refresh_from_db()
         self.assertEqual(user.phone, "09134279848")
         self.assertEqual(response.json()["phone"], "09134279848")
+        self.assertEqual(str(user.bonus_amount), "1250000.00")
+        self.assertEqual(str(user.penalty_amount), "350000.00")
+        self.assertEqual(response.json()["bonusAmountRaw"], 1250000.0)
+        self.assertEqual(response.json()["penaltyAmountRaw"], 350000.0)
+        self.assertIsNotNone(user.finance_updated_at)
+        self.assertTrue(response.json()["financeUpdatedAt"])
+        self.assertTrue(response.json()["financeUpdatedAtIso"])
+
+        second_response = self.client.patch(
+            f"/api/v1/users/{user.id}",
+            data={
+                "fullName": "میلاد دهستانی",
+                "username": "millaad",
+                "phone": "09134279848",
+                "accessRole": "manager",
+                "department": self.department.code,
+                "managerId": self.manager.id,
+                "jobTitle": "مدیر فنی",
+                "isActive": True,
+                "bonusDelta": "500000",
+                "penaltyDelta": "150000",
+            },
+            content_type="application/json",
+        )
+
+        self.assertEqual(second_response.status_code, 200)
+        user.refresh_from_db()
+        self.assertEqual(str(user.bonus_amount), "1750000.00")
+        self.assertEqual(str(user.penalty_amount), "500000.00")
+        self.assertIsNotNone(user.finance_updated_at)
+
+    def test_bootstrap_exposes_global_approvals_and_restricted_expenses(self):
+        employee = User.objects.create(
+            slug="employee",
+            full_name="کارمند تست",
+            email="employee@example.com",
+            phone="09121111111",
+            password_hash=get_password_hash("secret123"),
+            role=UserRole.EMPLOYEE,
+            job_title="کارشناس",
+            avatar="KT",
+            department=self.department,
+            manager=self.manager,
+        )
+        OrganizationMembership.objects.create(organization=self.organization, user=employee, display_title=employee.job_title)
+        self.client.defaults["HTTP_AUTHORIZATION"] = f"Bearer {create_access_token(str(employee.id), {'role': employee.role})}"
+
+        response = self.client.get("/api/v1/bootstrap")
+
+        self.assertEqual(response.status_code, 200)
+        current_user = response.json()["currentUser"]
+        self.assertTrue(current_user["canAccessApprovals"])
+        self.assertFalse(current_user["canAccessExpenses"])
+
+    def test_users_report_export_includes_bonus_and_penalty(self):
+        user = User.objects.create(
+            slug="report-user",
+            full_name="کاربر گزارش",
+            email="report-user@example.com",
+            phone="09125555555",
+            password_hash=get_password_hash("secret123"),
+            role=UserRole.EMPLOYEE,
+            job_title="کارشناس",
+            avatar="KG",
+            department=self.department,
+            manager=self.manager,
+            bonus_amount="2000000.00",
+            penalty_amount="500000.00",
+        )
+        OrganizationMembership.objects.create(organization=self.organization, user=user, display_title=user.job_title)
+
+        response = self.client.get("/api/v1/reports/users/export?format=csv")
+
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode("utf-8")
+        self.assertIn("bonus_amount", content)
+        self.assertIn("report-user", content)
+        self.assertIn("2,000,000.00", content)
+        self.assertIn("500,000.00", content)
 
     @patch("workflow.views.send_provider_sms")
     def test_notify_sms_does_not_send_when_sms_wallet_is_empty(self, send_provider_sms_mock):

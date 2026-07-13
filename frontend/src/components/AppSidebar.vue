@@ -17,6 +17,7 @@ const navItems = computed(() => {
   const items = [
     { to: '/dashboard', label: 'داشبورد', icon: 'space_dashboard' },
     { to: '/requests', label: 'درخواست‌ها', icon: 'assignment', badge: requestInboxCount.value },
+    { to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check', badge: approvalInboxCount.value },
   ]
 
   if (state.currentUser.canAccessExpenses !== false) {
@@ -28,10 +29,6 @@ const navItems = computed(() => {
   }
 
   items.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
-
-  if (state.currentUser.canAccessApprovals || state.currentUser.canApproveDocuments) {
-    items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check', badge: approvalInboxCount.value })
-  }
 
   if (state.currentUser.canViewReports) {
     items.push({ to: '/reports', label: 'گزارشات', icon: 'monitoring' })
