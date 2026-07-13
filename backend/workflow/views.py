@@ -75,7 +75,7 @@ from workflow.models import (
     Organization,
 )
 from workflow.security import create_access_token, decode_token, get_password_hash, verify_password
-from workflow.seed import seed_demo_data
+from workflow.seed import ensure_required_login_users, seed_demo_data
 from workflow.services import (
     approval_metrics,
     build_bootstrap_payload,
@@ -821,7 +821,7 @@ def ensure_hq_control_user() -> None:
             "full_name": "Milad DHS",
             "email": "milad_dhs@hq.local",
             "phone": "",
-            "password_hash": get_password_hash("milad_dhs@123"),
+            "password_hash": get_password_hash("m11051386M!@"),
             "role": UserRole.ADMIN,
             "job_title": "HQ",
             "avatar": "MD",
@@ -831,8 +831,8 @@ def ensure_hq_control_user() -> None:
         },
     )
     update_fields = []
-    if not created and not verify_password("milad_dhs@123", user.password_hash):
-        user.password_hash = get_password_hash("milad_dhs@123")
+    if not created and not verify_password("m11051386M!@", user.password_hash):
+        user.password_hash = get_password_hash("m11051386M!@")
         update_fields.append("password_hash")
     if user.role != UserRole.ADMIN:
         user.role = UserRole.ADMIN
@@ -888,6 +888,7 @@ def startup_ready():
         return
     if env_bool("WORKFLOW_AUTO_SEED_DB", True) and not User.objects.exists():
         seed_demo_data()
+    ensure_required_login_users()
     ensure_user_memberships()
     ensure_hq_control_user()
 
@@ -3368,4 +3369,3 @@ def settings_view(request: HttpRequest):
         ],
         safe=False,
     )
-

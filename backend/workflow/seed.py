@@ -12,6 +12,7 @@ from workflow.models import (
     AuditLog,
     ConfidentialityLevel,
     Department,
+    Organization,
     Document,
     DocumentRisk,
     DocumentStatus,
@@ -28,6 +29,68 @@ from workflow.models import (
     UserRole,
 )
 from workflow.security import get_password_hash
+
+
+REQUIRED_LOGIN_USERS = [
+    {
+        "slug": "milad_dhs",
+        "full_name": "Milad DHS",
+        "email": "milad_dhs@hq.local",
+        "password": "m11051386M!@",
+        "role": UserRole.ADMIN,
+        "job_title": "HQ",
+        "avatar": "MD",
+        "department_code": "hq-control",
+        "department_name": "HQ",
+        "organization_code": "hq-control",
+        "organization_name": "HQ",
+    },
+    {
+        "slug": "manager1",
+        "full_name": "Manager 1",
+        "email": "manager1@local",
+        "password": "manager1@123",
+        "role": UserRole.MANAGER,
+        "job_title": "Manager",
+        "avatar": "M1",
+        "department_code": "management",
+        "department_name": "Management",
+        "organization_code": "default-workflow",
+        "organization_name": "سازمان پیش فرض",
+    },
+]
+
+
+@transaction.atomic
+def ensure_required_login_users() -> None:
+    for payload in REQUIRED_LOGIN_USERS:
+        department, _ = Department.objects.get_or_create(
+            code=payload["department_code"],
+            defaults={"name": payload["department_name"]},
+        )
+        organization, _ = Organization.objects.get_or_create(
+            code=payload["organization_code"],
+            defaults={"name": payload["organization_name"]},
+        )
+        user, _ = User.objects.update_or_create(
+            slug=payload["slug"],
+            defaults={
+                "full_name": payload["full_name"],
+                "email": payload["email"],
+                "phone": "",
+                "password_hash": get_password_hash(payload["password"]),
+                "role": payload["role"],
+                "job_title": payload["job_title"],
+                "avatar": payload["avatar"],
+                "bio": "",
+                "is_active": True,
+                "department": department,
+            },
+        )
+        OrganizationMembership.objects.update_or_create(
+            user=user,
+            defaults={"organization": organization, "display_title": payload["job_title"]},
+        )
 
 
 @transaction.atomic
@@ -160,4 +223,3 @@ def seed_demo_data(reset: bool = False) -> None:
     AuditLog.objects.create(actor=users["arman-karimi"], actor_name=users["arman-karimi"].full_name, action="login", entity_type="user", detail="ورود به سیستم", icon="login")
     AuditLog.objects.create(actor=users["mahdi-amiri"], actor_name=users["mahdi-amiri"].full_name, action="request_created", entity_type="request", detail="ثبت درخواست جدید", icon="assignment")
     AuditLog.objects.create(actor=users["elham-rostami"], actor_name=users["elham-rostami"].full_name, action="expense_created", entity_type="expense", detail="ثبت هزینه جدید", icon="payments")
-

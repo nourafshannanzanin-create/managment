@@ -16,6 +16,7 @@ frontend/vite.err.log
 .env
 .env.*
 !.env.example
+!.env.production.example
 !backend/.env.example
 !frontend/.env.example
 
@@ -43,6 +44,8 @@ backend/.venv/
 
 # Local runtime / uploads
 backend/uploads/
+backend/staticfiles/
+docker-data/
 
 # Coverage / temp
 coverage/
@@ -50,3 +53,6 @@ coverage/
 htmlcov/
 tmp/
 temp/
+*.tmp
+*.bak
+*.backup

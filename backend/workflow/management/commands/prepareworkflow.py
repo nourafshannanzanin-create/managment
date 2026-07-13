@@ -5,7 +5,7 @@ import os
 from django.core.management import BaseCommand, call_command
 
 from workflow.models import User
-from workflow.seed import seed_demo_data
+from workflow.seed import ensure_required_login_users, seed_demo_data
 
 
 def env_bool(name: str, default: bool) -> bool:
@@ -34,3 +34,5 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS("Workflow demo data seeded."))
         else:
             self.stdout.write(self.style.SUCCESS("Workflow database is ready."))
+
+        ensure_required_login_users()

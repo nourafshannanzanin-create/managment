@@ -132,6 +132,7 @@ class User(TimeStampedModel):
     is_active = models.BooleanField(default=True)
     bonus_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
     penalty_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    insurance_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
     finance_updated_at = models.DateTimeField(blank=True, null=True)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, blank=True, null=True, related_name="users")
     manager = models.ForeignKey("self", on_delete=models.SET_NULL, blank=True, null=True, related_name="direct_reports")
@@ -461,7 +462,6 @@ class AuditLog(TimeStampedModel):
 
     class Meta:
         db_table = "audit_logs"
-
 
 
 
