@@ -36,7 +36,25 @@ def remove_white_background(image: Image.Image) -> Image.Image:
     return cleaned
 
 
+def trim_transparent_bounds(image: Image.Image, padding: int = 12) -> Image.Image:
+    rgba = image.convert("RGBA")
+    bbox = rgba.getbbox()
+    if not bbox:
+        return rgba
+    left = max(0, bbox[0] - padding)
+    top = max(0, bbox[1] - padding)
+    right = min(rgba.width, bbox[2] + padding)
+    bottom = min(rgba.height, bbox[3] + padding)
+    return rgba.crop((left, top, right, bottom))
+
+
+def normalize_signature_data_url(data_url: str) -> str:
+    image = decode_image_data_url(data_url)
+    processed = trim_transparent_bounds(remove_white_background(image))
+    return encode_image_data_url(processed)
+
+
 def normalize_stamp_data_url(data_url: str) -> str:
     image = decode_image_data_url(data_url)
-    processed = remove_white_background(image)
+    processed = trim_transparent_bounds(remove_white_background(image))
     return encode_image_data_url(processed)

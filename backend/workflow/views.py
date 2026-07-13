@@ -19,7 +19,7 @@ from django.http import FileResponse, HttpRequest, HttpResponse, HttpResponseNot
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
-from ai.stamp_processing import normalize_stamp_data_url
+from ai.stamp_processing import normalize_signature_data_url, normalize_stamp_data_url
 from workflow.access import (
     attach_user,
     can_access_approvals,
@@ -2592,13 +2592,17 @@ def approvals_signature_view(request: HttpRequest):
     stamp_data = (payload.get("stampData") or "").strip()
     if not has_saved_signature(signature_data):
         return json_error("امضای معتبر ثبت نشده است.", status=422)
+    try:
+        normalized_signature = normalize_signature_data_url(signature_data)
+    except ValueError as exc:
+        return json_error(str(exc), status=422)
     normalized_stamp = ""
     if stamp_data:
         try:
             normalized_stamp = normalize_stamp_data_url(stamp_data)
         except ValueError as exc:
             return json_error(str(exc), status=422)
-    signature.signature_data = signature_data
+    signature.signature_data = normalized_signature
     signature.stamp_data = normalized_stamp
     signature.updated_at = timezone.now()
     signature.save(update_fields=["signature_data", "stamp_data", "updated_at"])

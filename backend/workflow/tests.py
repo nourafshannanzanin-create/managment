@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import io
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -8,6 +9,7 @@ from unittest.mock import patch
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
+from PIL import Image
 
 from workflow.access import ensure_default_organization
 from workflow.models import (
@@ -100,6 +102,31 @@ class ApprovalFlowTests(TestCase):
         self.assertIn("امضای دیجیتال معتبر", response.json()["detail"])
         assignment = ApprovalAssignment.objects.get(document=document, approver=self.approver)
         self.assertEqual(assignment.status, ApprovalAssignmentStatus.PENDING)
+
+    def test_signature_endpoint_normalizes_uploaded_signature_and_stamp(self):
+        UserSignature.objects.create(user=self.approver, signature_data=DEFAULT_SIGNATURE_DATA)
+        source = Image.new("RGBA", (32, 20), (255, 255, 255, 255))
+        source.putpixel((14, 9), (32, 32, 32, 255))
+        source.putpixel((15, 9), (32, 32, 32, 255))
+        source.putpixel((16, 10), (32, 32, 32, 255))
+        stream = io.BytesIO()
+        source.save(stream, format="PNG")
+        uploaded_data_url = f"data:image/png;base64,{base64.b64encode(stream.getvalue()).decode('ascii')}"
+
+        response = self.client.post(
+            "/api/v1/approvals/signature",
+            data={"signatureData": uploaded_data_url, "stampData": uploaded_data_url},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["hasSignature"])
+        self.assertTrue(payload["hasStamp"])
+        self.assertTrue(payload["signatureData"].startswith("data:image/png;base64,"))
+        self.assertTrue(payload["stampData"].startswith("data:image/png;base64,"))
+        self.assertNotEqual(payload["signatureData"], uploaded_data_url)
+        self.assertNotEqual(payload["stampData"], uploaded_data_url)
 
     def test_approve_document_signs_file_without_stamp(self):
         document = self._create_document()
