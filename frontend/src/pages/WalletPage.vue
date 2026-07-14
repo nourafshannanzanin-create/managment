@@ -6,8 +6,8 @@ import { formatAmountInput } from '../utils/amount'
 import { formatJalali, getTodayJalali } from '../utils/jalali'
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const CARD_NUMBER = '6037991719847703'
-const CARD_HOLDER = 'میلاد دهستانی'
+const CARD_NUMBER = '6274121774209571'
+const CARD_HOLDER = 'امید کریمی'
 const PAYMENT_SUBJECT = 'پرداخت کیف پول'
 
 const { state, loadWalletDashboard, loadWalletOptions, submitWalletTransaction, submitFeaturePurchase, createSupportTicket } = useWorkflowHub()
@@ -1332,6 +1332,5 @@ watch(
   }
 }
 </style>
-
 
 
