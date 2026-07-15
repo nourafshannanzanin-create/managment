@@ -233,17 +233,13 @@ function clearStamp() {
 .stamp-upload-shell,
 .stamp-preview-frame {
   border: 1px solid rgba(72, 103, 183, 0.14);
-  border-radius: 22px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(243, 246, 252, 0.96));
+  border-radius: 12px;
+  background: var(--surface, #fff);
 }
 
 .current-preview-frame,
 .stamp-preview-frame.is-draft {
-  background-image:
-    linear-gradient(45deg, rgba(82, 96, 126, 0.08) 25%, transparent 25%),
-    linear-gradient(-45deg, rgba(82, 96, 126, 0.08) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, rgba(82, 96, 126, 0.08) 75%),
-    linear-gradient(-45deg, transparent 75%, rgba(82, 96, 126, 0.08) 75%);
+  background-image: none;
   background-size: 18px 18px;
   background-position: 0 0, 0 9px, 9px -9px, -9px 0;
 }
@@ -269,9 +265,9 @@ function clearStamp() {
 
 .signature-mode-chip.is-active {
   border-color: rgba(59, 90, 168, 0.35);
-  background: linear-gradient(135deg, rgba(59, 90, 168, 0.14), rgba(231, 238, 255, 0.96));
+  background: var(--surface, #fff);
   color: #203255;
-  box-shadow: 0 10px 22px rgba(44, 69, 132, 0.12);
+  box-shadow: none;
 }
 
 .signature-draw-shell,

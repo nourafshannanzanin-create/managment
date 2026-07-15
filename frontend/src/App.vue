@@ -240,56 +240,32 @@ onUnmounted(() => {
   z-index: 3000;
   display: grid;
   place-items: center;
-  background: rgba(18, 27, 46, 0.42);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.36);
 }
 
 .loader {
-  width: 65px;
-  aspect-ratio: 1;
-  position: relative;
+  width: 48px;
+  height: 48px;
+  border: 2px solid #d4d9e2;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: app-loader-spin 760ms linear infinite;
 }
 
 .loader::before,
 .loader::after {
-  content: '';
-  position: absolute;
-  border-radius: 50px;
-  box-shadow: 0 0 0 3px inset #fff;
-  animation: app-loader-spin 2.5s infinite;
-}
-
-.loader::after {
-  animation-delay: -1.25s;
+  content: none;
 }
 
 @keyframes app-loader-spin {
-  0% {
-    inset: 0 35px 35px 0;
-  }
-  12.5% {
-    inset: 0 35px 0 0;
-  }
-  25% {
-    inset: 35px 35px 0 0;
-  }
-  37.5% {
-    inset: 35px 0 0 0;
-  }
-  50% {
-    inset: 35px 0 0 35px;
-  }
-  62.5% {
-    inset: 0 0 0 35px;
-  }
-  75% {
-    inset: 0 0 35px 35px;
-  }
-  87.5% {
-    inset: 0 0 35px 0;
-  }
   100% {
-    inset: 0 35px 35px 0;
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader {
+    animation-duration: 1ms;
   }
 }
 </style>

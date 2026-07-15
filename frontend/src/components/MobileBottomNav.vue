@@ -67,8 +67,8 @@ const items = computed(() => {
   background: rgba(255, 250, 245, 0.92);
   border: 1px solid rgba(46, 67, 116, 0.1);
   border-radius: 18px;
-  box-shadow: 0 12px 30px rgba(46, 67, 116, 0.14);
-  backdrop-filter: blur(18px);
+  box-shadow: none;
+  backdrop-filter: none;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -105,7 +105,7 @@ const items = computed(() => {
 .mobile-bottom-link.is-active {
   color: #ffffff;
   background: #2E4374;
-  box-shadow: 0 8px 16px rgba(46, 67, 116, 0.22);
+  box-shadow: none;
 }
 
 @media (max-width: 640px) {

@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
@@ -75,8 +75,8 @@ const navItems = computed(() => {
       <div class="brand-copy">
         <strong>{{ organizationTitle }}</strong>
       </div>
-      <button class="icon-btn mobile-toggle" type="button" @click="toggleSidebar">
-        <span class="material-symbols-outlined">close</span>
+      <button class="icon-btn mobile-toggle" type="button" aria-label="بستن منو" @click="toggleSidebar">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
       </button>
     </div>
 
@@ -88,18 +88,18 @@ const navItems = computed(() => {
         :key="item.to"
         :to="item.to"
         :class="['nav-link', route.path === item.to && 'is-active']"
+        :aria-current="route.path === item.to ? 'page' : undefined"
         @click="mobileMenuOpen ? toggleSidebar() : undefined"
       >
-        <span class="material-symbols-outlined">{{ item.icon }}</span>
+        <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
         <span class="nav-link-label">{{ item.label }}</span>
         <span v-if="item.badge" class="nav-link-badge">{{ item.badge }}</span>
       </RouterLink>
     </nav>
 
     <button class="action-btn tone-soft sidebar-logout" type="button" @click="logout">
-      <span class="material-symbols-outlined">logout</span>
+      <span class="material-symbols-outlined" aria-hidden="true">logout</span>
       <span>خروج از سامانه</span>
     </button>
   </aside>
 </template>
-

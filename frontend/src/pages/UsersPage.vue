@@ -582,11 +582,9 @@ function userManagerOptions(userId) {
   min-width: 0;
   padding: 14px;
   border: 1px solid rgba(38, 56, 92, 0.08);
-  border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 248, 252, 0.95)),
-    var(--surface);
-  box-shadow: 0 16px 34px rgba(28, 42, 76, 0.08);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  box-shadow: none;
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
   text-align: right;
 }
@@ -594,7 +592,7 @@ function userManagerOptions(userId) {
 .compact-user-card:hover {
   transform: translateY(-2px);
   border-color: rgba(72, 103, 183, 0.18);
-  box-shadow: 0 20px 38px rgba(28, 42, 76, 0.12);
+  box-shadow: none;
 }
 
 .user-card-head {
@@ -618,7 +616,7 @@ function userManagerOptions(userId) {
   border-radius: 16px;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, rgba(72, 103, 183, 0.14), rgba(216, 175, 140, 0.22));
+  background: var(--surface, #fff);
   color: #203255;
   font-weight: 900;
 }
@@ -665,10 +663,8 @@ function userManagerOptions(userId) {
   position: relative;
   overflow: hidden;
   border: 1px solid rgba(38, 56, 92, 0.08);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 248, 252, 0.96)),
-    var(--surface);
-  box-shadow: 0 22px 50px rgba(28, 42, 76, 0.08);
+  background: var(--surface, #fff);
+  box-shadow: none;
 }
 
 .user-hero {
@@ -676,7 +672,7 @@ function userManagerOptions(userId) {
   grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.9fr);
   gap: 18px;
   padding: 24px;
-  border-radius: 30px;
+  border-radius: 12px;
 }
 
 .user-hero-copy,
@@ -727,7 +723,7 @@ function userManagerOptions(userId) {
   gap: 16px;
   align-items: start;
   padding: 18px;
-  border-radius: 24px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.62);
   border: 1px solid rgba(255, 255, 255, 0.66);
 }
@@ -741,14 +737,14 @@ function userManagerOptions(userId) {
 .user-status-icon {
   width: 64px;
   height: 64px;
-  border-radius: 22px;
+  border-radius: 12px;
   font-size: 28px;
   color: #fff;
-  background: linear-gradient(135deg, #23936d, #176f52);
+  background: var(--surface, #fff);
 }
 
 .user-modal-shell.is-rejected .user-status-icon {
-  background: linear-gradient(135deg, #d36363, #ab4343);
+  background: var(--surface, #fff);
 }
 
 .user-status-copy strong {
@@ -774,7 +770,7 @@ function userManagerOptions(userId) {
   gap: 14px;
   align-items: center;
   padding: 18px;
-  border-radius: 24px;
+  border-radius: 12px;
 }
 
 .user-meta-icon {
@@ -901,7 +897,7 @@ function userManagerOptions(userId) {
 
   .user-hero {
     padding: 18px;
-    border-radius: 22px;
+    border-radius: 12px;
   }
 
   .finance-input-row {

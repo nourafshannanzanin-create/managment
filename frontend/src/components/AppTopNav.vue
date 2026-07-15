@@ -134,8 +134,8 @@ function handleHqOrganizationChange(event) {
   <header class="topbar-shell">
     <div class="topbar-main-row">
       <div class="topbar-intro">
-        <button class="icon-btn mobile-menu-trigger" type="button" @click="toggleSidebar">
-          <span class="material-symbols-outlined">menu</span>
+        <button class="icon-btn mobile-menu-trigger" type="button" aria-label="باز کردن منو" @click="toggleSidebar">
+          <span class="material-symbols-outlined" aria-hidden="true">menu</span>
         </button>
 
         <div class="topbar-intro-copy">
@@ -146,7 +146,7 @@ function handleHqOrganizationChange(event) {
 
       <div class="topbar-actions">
         <label v-if="state.currentUser.canUseHq" class="hq-organization-select">
-          <span class="material-symbols-outlined">corporate_fare</span>
+          <span class="material-symbols-outlined" aria-hidden="true">corporate_fare</span>
           <select :value="state.hq.selectedOrganizationId" @change="handleHqOrganizationChange">
             <option value="">مجموعه</option>
             <option v-for="organization in hqOrganizations" :key="organization.id" :value="organization.id">
@@ -163,7 +163,7 @@ function handleHqOrganizationChange(event) {
             type="button"
             @click="action.handler"
           >
-            <span class="material-symbols-outlined">{{ action.icon }}</span>
+            <span class="material-symbols-outlined" aria-hidden="true">{{ action.icon }}</span>
             <span>{{ action.label }}</span>
           </button>
         </div>

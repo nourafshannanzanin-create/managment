@@ -95,10 +95,8 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
   gap: 10px;
   min-height: 84px;
   padding: 14px 16px;
-  border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.95)),
-    var(--surface);
+  border-radius: 12px;
+  background: var(--surface, #fff);
   border-color: rgba(36, 59, 107, 0.08);
 }
 
@@ -143,7 +141,7 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
 .filter-select:focus,
 .modern-page-filters :deep(.shamsi-picker-input:focus) {
   border-color: rgba(72, 103, 183, 0.4);
-  box-shadow: 0 0 0 4px rgba(72, 103, 183, 0.1);
+  box-shadow: none;
   background: #fff;
 }
 
@@ -170,11 +168,9 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
 .modern-filter-reset {
   align-self: stretch;
   min-height: 84px;
-  border-radius: 22px;
+  border-radius: 12px;
   padding-inline: 18px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(243, 246, 250, 0.95)),
-    var(--surface);
+  background: var(--surface, #fff);
   border: 1px dashed rgba(36, 59, 107, 0.18);
 }
 

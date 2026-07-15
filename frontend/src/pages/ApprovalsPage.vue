@@ -181,18 +181,15 @@ async function handleDownload(item) {
   min-height: 108px;
   padding: 20px 20px 18px;
   border: 1px solid rgba(36, 59, 107, 0.08);
-  border-radius: 26px;
-  background:
-    radial-gradient(circle at top right, rgba(72, 103, 183, 0.08), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(244, 247, 251, 0.96)),
-    var(--surface);
-  box-shadow: 0 18px 36px rgba(30, 45, 84, 0.08);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  box-shadow: none;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
 .approval-metric-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 24px 44px rgba(30, 45, 84, 0.12);
+  box-shadow: none;
 }
 
 .approval-metric-card::after {
@@ -239,7 +236,7 @@ async function handleDownload(item) {
   border-radius: 18px;
   background: rgba(36, 59, 107, 0.08);
   color: var(--primary);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  box-shadow: none;
   font-size: 24px;
 }
 
@@ -267,7 +264,7 @@ async function handleDownload(item) {
 }
 
 .approval-metric-card.is-pending .approval-metric-icon {
-  background: linear-gradient(135deg, rgba(217, 164, 65, 0.16), rgba(255, 243, 214, 0.9));
+  background: var(--surface, #fff);
   color: #b57900;
 }
 
@@ -280,7 +277,7 @@ async function handleDownload(item) {
 }
 
 .approval-metric-card.is-approved .approval-metric-icon {
-  background: linear-gradient(135deg, rgba(34, 149, 109, 0.14), rgba(230, 249, 241, 0.92));
+  background: var(--surface, #fff);
   color: #1b7a59;
 }
 
@@ -293,7 +290,7 @@ async function handleDownload(item) {
 }
 
 .approval-metric-card.is-rejected .approval-metric-icon {
-  background: linear-gradient(135deg, rgba(205, 92, 92, 0.14), rgba(255, 237, 237, 0.94));
+  background: var(--surface, #fff);
   color: #b44646;
 }
 
@@ -306,7 +303,7 @@ async function handleDownload(item) {
 }
 
 .approval-metric-card.is-total .approval-metric-icon {
-  background: linear-gradient(135deg, rgba(72, 103, 183, 0.14), rgba(236, 241, 255, 0.95));
+  background: var(--surface, #fff);
   color: #39549a;
 }
 </style>

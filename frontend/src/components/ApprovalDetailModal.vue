@@ -444,10 +444,8 @@ watch(
   position: relative;
   overflow: hidden;
   border: 1px solid rgba(38, 56, 92, 0.08);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 248, 252, 0.96)),
-    var(--surface);
-  box-shadow: 0 22px 50px rgba(28, 42, 76, 0.08);
+  background: var(--surface, #fff);
+  box-shadow: none;
 }
 
 .approval-hero {
@@ -455,7 +453,7 @@ watch(
   grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.9fr);
   gap: 18px;
   padding: 24px;
-  border-radius: 30px;
+  border-radius: 12px;
 }
 
 .approval-hero::before,
@@ -466,7 +464,7 @@ watch(
   width: 220px;
   height: 220px;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(72, 103, 183, 0.12), transparent 70%);
+  background: var(--surface, #fff);
   pointer-events: none;
 }
 
@@ -518,10 +516,10 @@ watch(
   gap: 16px;
   align-items: start;
   padding: 18px;
-  border-radius: 24px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.62);
   border: 1px solid rgba(255, 255, 255, 0.66);
-  backdrop-filter: blur(10px);
+  backdrop-filter: none;
 }
 
 .approval-status-icon,
@@ -536,11 +534,11 @@ watch(
 .approval-status-icon {
   width: 64px;
   height: 64px;
-  border-radius: 22px;
+  border-radius: 12px;
   font-size: 28px;
   color: #fff;
-  background: linear-gradient(135deg, #4d67b2, #314783);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  background: var(--surface, #fff);
+  box-shadow: none;
 }
 
 .approval-status-icon .material-symbols-outlined {
@@ -571,7 +569,7 @@ watch(
   gap: 14px;
   align-items: center;
   padding: 18px;
-  border-radius: 24px;
+  border-radius: 12px;
 }
 
 .approval-meta-icon {
@@ -615,7 +613,7 @@ watch(
   display: grid;
   gap: 18px;
   padding: 22px;
-  border-radius: 28px;
+  border-radius: 12px;
 }
 
 .approval-surface-head {
@@ -655,11 +653,9 @@ watch(
 
 .approval-preview-stage {
   min-height: 320px;
-  border-radius: 24px;
+  border-radius: 12px;
   border: 1px dashed rgba(72, 103, 183, 0.2);
-  background:
-    linear-gradient(180deg, rgba(248, 250, 254, 0.94), rgba(240, 244, 250, 0.96)),
-    var(--surface);
+  background: var(--surface, #fff);
   display: grid;
   place-items: center;
   padding: 22px;
@@ -670,7 +666,7 @@ watch(
   width: 100%;
   border: 0;
   border-radius: 18px;
-  box-shadow: 0 16px 40px rgba(29, 44, 79, 0.12);
+  box-shadow: none;
   background: #fff;
 }
 
@@ -694,8 +690,8 @@ watch(
 .approval-preview-badge {
   width: 68px;
   height: 68px;
-  border-radius: 22px;
-  background: linear-gradient(135deg, rgba(72, 103, 183, 0.14), rgba(225, 233, 255, 0.92));
+  border-radius: 12px;
+  background: var(--surface, #fff);
   color: #3f58a2;
 }
 
@@ -716,8 +712,8 @@ watch(
 
 .approval-signature-frame {
   min-height: 150px;
-  border-radius: 22px;
-  background: linear-gradient(180deg, rgba(253, 253, 255, 0.96), rgba(242, 245, 250, 0.94));
+  border-radius: 12px;
+  background: var(--surface, #fff);
   border: 1px solid rgba(72, 103, 183, 0.1);
   display: grid;
   place-items: center;
@@ -736,14 +732,14 @@ watch(
   gap: 14px;
   align-items: center;
   padding: 16px;
-  border-radius: 22px;
+  border-radius: 12px;
   border: 1px solid rgba(215, 158, 52, 0.16);
-  background: linear-gradient(180deg, rgba(255, 249, 236, 0.95), rgba(255, 245, 221, 0.9));
+  background: var(--surface, #fff);
 }
 
 .signature-readiness-card.is-ready {
   border-color: rgba(35, 147, 107, 0.16);
-  background: linear-gradient(180deg, rgba(238, 251, 246, 0.94), rgba(229, 247, 239, 0.92));
+  background: var(--surface, #fff);
 }
 
 .signature-readiness-icon {
@@ -796,15 +792,15 @@ watch(
 }
 
 .approval-modal-shell.is-approved .approval-status-icon {
-  background: linear-gradient(135deg, #23936d, #176f52);
+  background: var(--surface, #fff);
 }
 
 .approval-modal-shell.is-rejected .approval-status-icon {
-  background: linear-gradient(135deg, #d36363, #ab4343);
+  background: var(--surface, #fff);
 }
 
 .approval-modal-shell.is-pending .approval-status-icon {
-  background: linear-gradient(135deg, #d39d36, #ab7720);
+  background: var(--surface, #fff);
 }
 
 @media (max-width: 1100px) {
@@ -827,7 +823,7 @@ watch(
   .approval-hero,
   .approval-surface {
     padding: 18px;
-    border-radius: 22px;
+    border-radius: 12px;
   }
 
   .approval-meta-board {

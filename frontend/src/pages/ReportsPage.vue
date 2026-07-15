@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
@@ -16,18 +16,18 @@ const selectedReportType = ref('')
 const filters = reactive({ period: 'month', startDate: '', endDate: '', userId: '' })
 
 const tabs = [
-  { key: 'requests', label: 'درخواست', icon: 'assignment' },
-  { key: 'expenses', label: 'هزینه ها', icon: 'payments' },
-  { key: 'approvals', label: 'تاییدیه ها', icon: 'fact_check' },
-  { key: 'users', label: 'کاربران', icon: 'groups' },
+  { key: 'requests', label: '???????', icon: 'assignment' },
+  { key: 'expenses', label: '????? ??', icon: 'payments' },
+  { key: 'approvals', label: '??????? ??', icon: 'fact_check' },
+  { key: 'users', label: '???????', icon: 'groups' },
 ]
 
 const periods = [
-  { key: 'today', label: 'امروز' },
-  { key: 'week', label: 'این هفته' },
-  { key: 'month', label: 'این ماه' },
-  { key: 'year', label: 'امسال' },
-  { key: 'custom', label: 'بازه' },
+  { key: 'today', label: '?????' },
+  { key: 'week', label: '??? ????' },
+  { key: 'month', label: '??? ???' },
+  { key: 'year', label: '?????' },
+  { key: 'custom', label: '????' },
 ]
 
 const reportUsers = computed(() => state.users || [])
@@ -79,16 +79,16 @@ const selectedTabMeta = computed(() => tabs.find((item) => item.key === selected
 const selectedDetailTitle = computed(() => {
   const row = selectedReportRow.value
   if (!row) return ''
-  return row.title || row.description || row.id || 'جزئیات گزارش'
+  return row.title || row.description || row.id || '?????? ?????'
 })
 
 const selectedDetailSubtitle = computed(() => {
   const row = selectedReportRow.value
   if (!row) return ''
-  if (selectedReportType.value === 'expenses') return joinDisplayParts([row.owner, row.department, row.submittedAt], ' · ')
-  if (selectedReportType.value === 'approvals') return joinDisplayParts([row.owner, row.type, row.uploadedAt], ' · ')
-  if (selectedReportType.value === 'users') return joinDisplayParts([row.role, row.department, row.financeUpdatedAt || row.joinedAt], ' · ')
-  return joinDisplayParts([row.owner, row.manager, row.createdAt], ' · ')
+  if (selectedReportType.value === 'expenses') return joinDisplayParts([row.owner, row.department, row.submittedAt], ' � ')
+  if (selectedReportType.value === 'approvals') return joinDisplayParts([row.owner, row.type, row.uploadedAt], ' � ')
+  if (selectedReportType.value === 'users') return joinDisplayParts([row.role, row.department, row.financeUpdatedAt || row.joinedAt], ' � ')
+  return joinDisplayParts([row.owner, row.manager, row.createdAt], ' � ')
 })
 
 const selectedPrimaryMetrics = computed(() => {
@@ -96,29 +96,29 @@ const selectedPrimaryMetrics = computed(() => {
   if (!row) return []
   if (selectedReportType.value === 'expenses') {
     return [
-      { label: 'مبلغ', value: row.amount || '-', icon: 'payments' },
-      { label: 'وضعیت', value: row.status || '-', icon: 'verified' },
-      { label: 'بخش', value: row.department || '-', icon: 'apartment' },
+      { label: '????', value: row.amount || '-', icon: 'payments' },
+      { label: '?????', value: row.status || '-', icon: 'verified' },
+      { label: '???', value: row.department || '-', icon: 'apartment' },
     ]
   }
   if (selectedReportType.value === 'approvals') {
     return [
-      { label: 'ریسک', value: row.risk || '-', icon: 'warning' },
-      { label: 'وضعیت', value: row.status || '-', icon: 'fact_check' },
-      { label: 'نوع سند', value: row.type || '-', icon: 'description' },
+      { label: '????', value: row.risk || '-', icon: 'warning' },
+      { label: '?????', value: row.status || '-', icon: 'fact_check' },
+      { label: '??? ???', value: row.type || '-', icon: 'description' },
     ]
   }
   if (selectedReportType.value === 'users') {
     return [
-      { label: 'پاداش', value: row.bonusAmount || '-', icon: 'award_star' },
-      { label: 'جریمه', value: row.penaltyAmount || '-', icon: 'gavel' },
-      { label: 'خالص', value: row.netAdjustment || '-', icon: 'balance' },
+      { label: '?????', value: row.bonusAmount || '-', icon: 'award_star' },
+      { label: '?????', value: row.penaltyAmount || '-', icon: 'gavel' },
+      { label: '????', value: row.netAdjustment || '-', icon: 'balance' },
     ]
   }
   return [
-    { label: 'اولویت', value: row.priority || '-', icon: 'priority_high' },
-    { label: 'وضعیت', value: row.status || '-', icon: 'verified' },
-    { label: 'بخش', value: row.department || '-', icon: 'apartment' },
+    { label: '??????', value: row.priority || '-', icon: 'priority_high' },
+    { label: '?????', value: row.status || '-', icon: 'verified' },
+    { label: '???', value: row.department || '-', icon: 'apartment' },
   ]
 })
 
@@ -127,53 +127,53 @@ const selectedDetailFields = computed(() => {
   if (!row) return []
   if (selectedReportType.value === 'expenses') {
     return [
-      { label: 'کد', value: row.id },
-      { label: 'ثبت کننده', value: row.owner },
-      { label: 'تاریخ ثبت', value: row.submittedAt || row.createdAt },
-      { label: 'بخش', value: row.department },
-      { label: 'وضعیت', value: row.status },
-      { label: 'مبلغ', value: row.amount },
-      { label: 'شرح', value: row.description, wide: true },
+      { label: '??', value: row.id },
+      { label: '??? ?????', value: row.owner },
+      { label: '????? ???', value: row.submittedAt || row.createdAt },
+      { label: '???', value: row.department },
+      { label: '?????', value: row.status },
+      { label: '????', value: row.amount },
+      { label: '???', value: row.description, wide: true },
     ]
   }
   if (selectedReportType.value === 'approvals') {
     return [
-      { label: 'کد', value: row.id },
-      { label: 'عنوان', value: row.title },
-      { label: 'ثبت کننده', value: row.owner },
-      { label: 'نوع', value: row.type },
-      { label: 'بخش', value: row.department },
-      { label: 'ریسک', value: row.risk },
-      { label: 'وضعیت', value: row.status },
-      { label: 'تاریخ بارگذاری', value: row.uploadedAt },
+      { label: '??', value: row.id },
+      { label: '?????', value: row.title },
+      { label: '??? ?????', value: row.owner },
+      { label: '???', value: row.type },
+      { label: '???', value: row.department },
+      { label: '????', value: row.risk },
+      { label: '?????', value: row.status },
+      { label: '????? ????????', value: row.uploadedAt },
     ]
   }
   if (selectedReportType.value === 'users') {
     return [
-      { label: 'شناسه', value: row.id },
-      { label: 'نام', value: row.name },
-      { label: 'نام کاربری', value: row.username },
-      { label: 'نقش', value: row.role },
-      { label: 'عنوان شغلی', value: row.jobTitle },
-      { label: 'بخش', value: row.department },
-      { label: 'مدیر مستقیم', value: row.manager },
-      { label: 'وضعیت', value: row.status },
-      { label: 'تاریخ عضویت', value: row.joinedAt },
-      { label: 'آخرین ثبت مالی', value: row.financeUpdatedAt || '-' },
-      { label: 'پاداش', value: row.bonusAmount },
-      { label: 'جریمه', value: row.penaltyAmount },
-      { label: 'خالص پاداش/جریمه', value: row.netAdjustment },
+      { label: '?????', value: row.id },
+      { label: '???', value: row.name },
+      { label: '??? ??????', value: row.username },
+      { label: '???', value: row.role },
+      { label: '????? ????', value: row.jobTitle },
+      { label: '???', value: row.department },
+      { label: '???? ??????', value: row.manager },
+      { label: '?????', value: row.status },
+      { label: '????? ?????', value: row.joinedAt },
+      { label: '????? ??? ????', value: row.financeUpdatedAt || '-' },
+      { label: '?????', value: row.bonusAmount },
+      { label: '?????', value: row.penaltyAmount },
+      { label: '???? ?????/?????', value: row.netAdjustment },
     ]
   }
   return [
-    { label: 'کد', value: row.id },
-    { label: 'عنوان', value: row.title },
-    { label: 'ثبت کننده', value: row.owner },
-    { label: 'مدیر', value: row.manager },
-    { label: 'بخش', value: row.department },
-    { label: 'اولویت', value: row.priority },
-    { label: 'وضعیت', value: row.status },
-    { label: 'تاریخ ثبت', value: row.createdAt },
+    { label: '??', value: row.id },
+    { label: '?????', value: row.title },
+    { label: '??? ?????', value: row.owner },
+    { label: '????', value: row.manager },
+    { label: '???', value: row.department },
+    { label: '??????', value: row.priority },
+    { label: '?????', value: row.status },
+    { label: '????? ???', value: row.createdAt },
   ]
 })
 
@@ -214,7 +214,7 @@ onMounted(() => loadReports(true))
 
 <template>
   <section v-if="state.currentUser.canViewReports" class="page-shell enterprise-page reports-page">
-    <PageHeader eyebrow="گزارشات" title="گزارش تفکیکی" description="" />
+    <PageHeader eyebrow="???????" title="????? ??????" description="" />
 
     <section class="surface-block report-controls">
       <div class="report-tabs">
@@ -231,19 +231,19 @@ onMounted(() => loadReports(true))
           </button>
         </div>
         <label class="field-shell compact-field">
-          <span>کاربر</span>
+          <span>?????</span>
           <select v-model="filters.userId">
-            <option value="">همه کاربران</option>
+            <option value="">??? ???????</option>
             <option v-for="user in reportUsers" :key="user.id" :value="user.id">{{ user.name }}</option>
           </select>
         </label>
         <template v-if="filters.period === 'custom'">
-          <label class="field-shell compact-field"><span>از تاریخ</span><ShamsiDatePicker v-model="filters.startDate" model-type="jalali" /></label>
-          <label class="field-shell compact-field"><span>تا تاریخ</span><ShamsiDatePicker v-model="filters.endDate" model-type="jalali" /></label>
+          <label class="field-shell compact-field"><span>?? ?????</span><ShamsiDatePicker v-model="filters.startDate" model-type="jalali" /></label>
+          <label class="field-shell compact-field"><span>?? ?????</span><ShamsiDatePicker v-model="filters.endDate" model-type="jalali" /></label>
         </template>
         <button class="action-btn tone-primary" type="button" @click="exportActiveTab">
           <span class="material-symbols-outlined">download</span>
-          <span>دانلود جدول</span>
+          <span>?????? ????</span>
         </button>
       </div>
     </section>
@@ -251,16 +251,16 @@ onMounted(() => loadReports(true))
     <section class="surface-block report-table-card">
       <div class="section-label-row">
         <div><h3>{{ tabs.find((item) => item.key === activeTab)?.label }}</h3></div>
-        <span class="meta-pill">{{ activeRows.length }} ردیف</span>
+        <span class="meta-pill">{{ activeRows.length }} ????</span>
       </div>
 
       <div class="report-table-wrap">
         <table class="report-table">
           <thead>
-            <tr v-if="activeTab === 'requests'"><th>کد</th><th>عنوان</th><th>ثبت کننده</th><th>مدیر</th><th>بخش</th><th>وضعیت</th><th>اولویت</th><th>تاریخ</th><th>تصمیم ها</th></tr>
-            <tr v-else-if="activeTab === 'expenses'"><th>کد</th><th>شرح</th><th>ثبت کننده</th><th>مبلغ</th><th>بخش</th><th>وضعیت</th><th>تاریخ</th><th>تصمیم ها</th></tr>
-            <tr v-else-if="activeTab === 'approvals'"><th>کد</th><th>عنوان</th><th>ثبت کننده</th><th>نوع</th><th>بخش</th><th>ریسک</th><th>وضعیت</th><th>تاریخ</th><th>تصمیم ها</th></tr>
-            <tr v-else><th>شناسه</th><th>نام</th><th>نام کاربری</th><th>نقش</th><th>بخش</th><th>مدیر</th><th>پاداش</th><th>جریمه</th><th>خالص</th></tr>
+            <tr v-if="activeTab === 'requests'"><th>??</th><th>?????</th><th>??? ?????</th><th>????</th><th>???</th><th>?????</th><th>??????</th><th>?????</th><th>????? ??</th></tr>
+            <tr v-else-if="activeTab === 'expenses'"><th>??</th><th>???</th><th>??? ?????</th><th>????</th><th>???</th><th>?????</th><th>?????</th><th>????? ??</th></tr>
+            <tr v-else-if="activeTab === 'approvals'"><th>??</th><th>?????</th><th>??? ?????</th><th>???</th><th>???</th><th>????</th><th>?????</th><th>?????</th><th>????? ??</th></tr>
+            <tr v-else><th>?????</th><th>???</th><th>??? ??????</th><th>???</th><th>???</th><th>????</th><th>?????</th><th>?????</th><th>????</th></tr>
           </thead>
           <tbody>
             <tr v-for="row in activeRows" :key="row.id" class="report-click-row" tabindex="0" @click="openReportDetails(row)" @keydown.enter.prevent="openReportDetails(row)" @keydown.space.prevent="openReportDetails(row)">
@@ -305,39 +305,39 @@ onMounted(() => loadReports(true))
 
         <section v-if="selectedReportType !== 'users'" class="report-detail-decisions">
           <div class="section-label-row">
-            <div><h3>تصمیم‌ها و گردش بررسی</h3></div>
-            <span class="meta-pill">{{ (selectedReportRow.decisions || []).length }} مورد</span>
+            <div><h3>???????? ? ???? ?????</h3></div>
+            <span class="meta-pill">{{ (selectedReportRow.decisions || []).length }} ????</span>
           </div>
           <div v-if="(selectedReportRow.decisions || []).length" class="decision-timeline">
             <article v-for="decision in selectedReportRow.decisions" :key="`${decision.approver}-${decision.statusLabel}`" class="decision-step">
               <span class="decision-dot"></span>
               <div>
-                <strong>{{ decision.approver || 'بدون نام' }}</strong>
+                <strong>{{ decision.approver || '???? ???' }}</strong>
                 <small>{{ decision.statusLabel || '-' }}</small>
               </div>
             </article>
           </div>
           <div v-else class="empty-state-inline compact-empty">
             <span class="material-symbols-outlined">pending_actions</span>
-            <p>تصمیمی برای این ردیف ثبت نشده است.</p>
+            <p>?????? ???? ??? ???? ??? ???? ???.</p>
           </div>
         </section>
 
         <footer class="report-detail-actions">
           <a v-if="rowFileUrl()" class="action-btn tone-primary" :href="rowFileUrl()" target="_blank" rel="noreferrer">
             <span class="material-symbols-outlined">open_in_new</span>
-            <span>مشاهده فایل</span>
+            <span>?????? ????</span>
           </a>
           <button class="action-btn tone-soft" type="button" @click="closeReportDetails">
             <span class="material-symbols-outlined">close</span>
-            <span>بستن</span>
+            <span>????</span>
           </button>
         </footer>
       </article>
     </BaseModal>
   </section>
 
-  <section v-else class="page-shell"><article class="access-denied-card"><h2>دسترسی گزارش ندارید</h2></article></section>
+  <section v-else class="page-shell"><article class="access-denied-card"><h2>?????? ????? ??????</h2></article></section>
 </template>
 
 <style scoped>
@@ -345,7 +345,7 @@ onMounted(() => loadReports(true))
 .report-controls { display: grid; gap: 16px; }
 .report-tabs, .report-filter-grid { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .report-tab { min-height: 44px; border: 0; border-radius: 14px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; color: #31405f; background: rgba(72,103,183,.09); font-weight: 900; cursor: pointer; }
-.report-tab.is-active { color: #fff; background: linear-gradient(135deg, var(--primary), var(--secondary)); }
+.report-tab.is-active { color: #fff; background: var(--surface, #fff); }
 .compact-field { min-width: 190px; margin: 0; }
 .report-table-wrap { overflow-x: auto; }
 .report-table { width: 100%; min-width: 980px; border-collapse: collapse; }
@@ -360,7 +360,7 @@ onMounted(() => loadReports(true))
 .report-click-row:hover,
 .report-click-row:focus-visible {
   background: rgba(72, 103, 183, 0.07);
-  box-shadow: inset 4px 0 0 var(--primary);
+  box-shadow: none;
 }
 .report-detail-modal {
   display: grid;
@@ -374,11 +374,9 @@ onMounted(() => loadReports(true))
   align-items: start;
   padding: 22px;
   border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(32, 50, 85, 0.96), rgba(48, 72, 116, 0.92)),
-    #203255;
+  background: var(--surface, #fff);
   color: #fff;
-  box-shadow: 0 22px 50px rgba(28, 42, 76, 0.18);
+  box-shadow: none;
 }
 .report-detail-icon {
   width: 56px;
@@ -428,7 +426,7 @@ onMounted(() => loadReports(true))
   border: 1px solid rgba(38, 56, 92, 0.08);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 14px 34px rgba(28, 42, 76, 0.07);
+  box-shadow: none;
 }
 .report-detail-metric {
   min-height: 112px;
@@ -486,7 +484,7 @@ onMounted(() => loadReports(true))
   margin-top: 7px;
   border-radius: 999px;
   background: var(--primary);
-  box-shadow: 0 0 0 5px rgba(72, 103, 183, 0.12);
+  box-shadow: none;
 }
 .decision-step strong,
 .decision-step small {

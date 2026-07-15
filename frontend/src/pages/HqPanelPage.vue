@@ -265,14 +265,12 @@ onMounted(() => {
 .hq-report-card {
   min-height: 132px;
   padding: 18px;
-  border-radius: 22px;
+  border-radius: 12px;
   display: grid;
   align-content: space-between;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(250, 243, 236, 0.92)),
-    radial-gradient(circle at top right, rgba(216, 175, 140, 0.18), transparent 32%);
+  background: var(--surface, #fff);
   border: 1px solid var(--line);
-  box-shadow: var(--shadow-soft);
+  box-shadow: none;
 }
 
 .hq-locked {

@@ -95,7 +95,7 @@ const stats = computed(() => [
   padding: 24px;
   border: 1px solid rgba(40, 122, 110, 0.14);
   border-radius: 8px;
-  background: linear-gradient(135deg, #f7fbfb, #eef7f5);
+  background: var(--surface, #fff);
 }
 
 .cloud-head span,
@@ -123,7 +123,7 @@ const stats = computed(() => [
   border: 1px solid rgba(34, 82, 75, 0.1);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.84);
-  box-shadow: 0 14px 34px rgba(32, 65, 60, 0.08);
+  box-shadow: none;
 }
 
 .cloud-stats article {
