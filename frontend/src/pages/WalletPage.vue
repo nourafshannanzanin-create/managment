@@ -87,6 +87,25 @@ const purchaseWallet = computed(() =>
 )
 const usesManagerPaymentFlow = computed(() => state.currentUser.isManager && !state.currentUser.canUseHq)
 
+function optionDisabled(option) {
+  return Boolean(option.disabled || option.isDisabled || option.is_disabled)
+}
+
+function optionIcon(option) {
+  const key = option.featureKey || option.feature_key
+  if (key === 'cloud_storage') return 'cloud'
+  if (key === 'attendance') return 'login'
+  if (key === 'accounting') return 'lock'
+  return 'shopping_cart'
+}
+
+function optionStatus(option) {
+  if (optionDisabled(option)) return option.disabledLabel || option.disabled_label || 'غیرفعال'
+  if (option.required) return 'اجباری'
+  if (option.isActive || option.is_active) return 'فعال'
+  return 'قابل خرید'
+}
+
 const paymentMethods = [
   { key: 'pos', label: 'دستگاه کارتخوان' },
   { key: 'card_to_card', label: 'کارت به کارت' },
@@ -350,37 +369,43 @@ watch(
           v-for="option in purchaseOptions"
           :key="option.featureKey || option.feature_key"
           class="wallet-option-card"
-          :class="{ active: option.isActive || option.is_active, required: option.required }"
+          :class="{ active: option.isActive || option.is_active, required: option.required, disabled: optionDisabled(option) }"
           :style="{ '--option-accent': option.accent || '#315f9f' }"
         >
           <div class="wallet-option-head">
-            <span class="material-symbols-outlined">{{ (option.featureKey || option.feature_key) === 'cloud_storage' ? 'cloud' : ((option.featureKey || option.feature_key) === 'attendance' ? 'login' : 'shopping_cart') }}</span>
-            <small>{{ option.required ? 'اجباری' : ((option.isActive || option.is_active) ? 'فعال' : 'قابل خرید') }}</small>
+            <span class="material-symbols-outlined">{{ optionIcon(option) }}</span>
+            <small>{{ optionStatus(option) }}</small>
           </div>
           <strong>{{ option.title }}</strong>
           <p>{{ option.description }}</p>
-          <div class="wallet-option-price">
-            <span>نقدی</span>
-            <b>{{ option.cashAmount || option.cash_amount || option.totalAmount || option.total_amount }}</b>
-          </div>
-          <div v-if="option.upfrontAmount || option.upfront_amount" class="wallet-option-price">
-            <span>پیش‌پرداخت</span>
-            <b>{{ option.upfrontAmount || option.upfront_amount }}</b>
-          </div>
-          <div class="wallet-option-price">
-            <span>اقساط</span>
-            <b>{{ option.monthlyInstallmentAmount || option.monthly_installment_amount }} / {{ option.installmentMonths || option.installment_months }} ماه</b>
-          </div>
-          <div v-if="option.annualSubscriptionAmountRaw" class="wallet-option-price annual">
-            <span>اشتراک سالانه</span>
-            <b>{{ option.annualSubscriptionAmount }} / {{ option.annualSubscriptionInstallmentAmount }} / {{ option.annualSubscriptionInstallmentMonths }} ماه</b>
-          </div>
-          <div class="wallet-option-actions">
-            <button class="action-btn tone-soft" type="button" :disabled="state.wallet.submitting || option.isActive || option.is_active" @click="openPurchase(option, 'installment')">قسطی</button>
-            <button class="action-btn tone-primary" type="button" :disabled="state.wallet.submitting || option.isActive || option.is_active" @click="openPurchase(option, 'cash')">
-              <span class="material-symbols-outlined">shopping_cart_checkout</span>
-              <span>خرید نقدی</span>
-            </button>
+          <template v-if="!optionDisabled(option)">
+            <div class="wallet-option-price">
+              <span>نقدی</span>
+              <b>{{ option.cashAmount || option.cash_amount || option.totalAmount || option.total_amount }}</b>
+            </div>
+            <div v-if="option.upfrontAmount || option.upfront_amount" class="wallet-option-price">
+              <span>پیش‌پرداخت</span>
+              <b>{{ option.upfrontAmount || option.upfront_amount }}</b>
+            </div>
+            <div class="wallet-option-price">
+              <span>اقساط</span>
+              <b>{{ option.monthlyInstallmentAmount || option.monthly_installment_amount }} / {{ option.installmentMonths || option.installment_months }} ماه</b>
+            </div>
+            <div v-if="option.annualSubscriptionAmountRaw" class="wallet-option-price annual">
+              <span>اشتراک سالانه</span>
+              <b>{{ option.annualSubscriptionAmount }} / {{ option.annualSubscriptionInstallmentAmount }} / {{ option.annualSubscriptionInstallmentMonths }} ماه</b>
+            </div>
+            <div class="wallet-option-actions">
+              <button class="action-btn tone-soft" type="button" :disabled="state.wallet.submitting || option.isActive || option.is_active" @click="openPurchase(option, 'installment')">قسطی</button>
+              <button class="action-btn tone-primary" type="button" :disabled="state.wallet.submitting || option.isActive || option.is_active" @click="openPurchase(option, 'cash')">
+                <span class="material-symbols-outlined">shopping_cart_checkout</span>
+                <span>خرید نقدی</span>
+              </button>
+            </div>
+          </template>
+          <div v-else class="wallet-option-disabled">
+            <span class="material-symbols-outlined">lock</span>
+            <b>فعلا غیرفعال است</b>
           </div>
         </article>
       </div>
@@ -783,6 +808,16 @@ watch(
   cursor: pointer;
 }
 
+.wallet-action .material-symbols-outlined,
+.wallet-action b {
+  color: inherit;
+}
+
+.wallet-action.deposit {
+  color: #fff;
+  background: var(--wallet-navy);
+}
+
 .wallet-action b {
   font-size: 0.92rem;
   font-weight: 750;
@@ -852,9 +887,24 @@ watch(
   background: color-mix(in srgb, var(--option-accent), white 92%);
 }
 
+.wallet-option-card.disabled {
+  border-color: color-mix(in srgb, var(--option-accent), transparent 78%);
+  background: #fff;
+}
+
+.wallet-option-card.disabled .wallet-option-head .material-symbols-outlined,
+.wallet-option-card.disabled .wallet-option-head small {
+  color: var(--option-accent);
+}
+
+.wallet-option-card.disabled strong {
+  color: var(--wallet-navy);
+}
+
 .wallet-option-head,
 .wallet-option-price,
-.wallet-option-actions {
+.wallet-option-actions,
+.wallet-option-disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -900,9 +950,23 @@ watch(
   flex: 1;
 }
 
+.wallet-option-disabled {
+  min-height: 38px;
+  margin-top: auto;
+  padding: 11px 12px;
+  border-radius: 8px;
+  color: var(--wallet-navy);
+  background: color-mix(in srgb, var(--option-accent), white 88%);
+  font-weight: 800;
+}
+
+.wallet-option-disabled .material-symbols-outlined {
+  color: var(--option-accent);
+}
+
 .wallet-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -917,12 +981,57 @@ watch(
   box-shadow: none;
 }
 
+.wallet-summary-card small,
+.wallet-summary-card .material-symbols-outlined,
+.wallet-summary-card strong {
+  color: inherit;
+}
+
+.wallet-summary-card.primary {
+  color: #fff;
+  border-color: rgba(24, 49, 83, 0.08);
+  background: linear-gradient(135deg, #183153, #3763a8);
+}
+
+.wallet-summary-card.primary small {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.wallet-summary-card.main {
+  color: #183153;
+  border-color: rgba(49, 95, 159, 0.18);
+  background: linear-gradient(135deg, #dce9ff, #edf4ff);
+}
+
+.wallet-summary-card.main small {
+  color: #486388;
+}
+
+.wallet-summary-card.sms {
+  color: #23463b;
+  border-color: rgba(46, 123, 102, 0.18);
+  background: linear-gradient(135deg, #dff5ee, #eefbf7);
+}
+
+.wallet-summary-card.sms small {
+  color: #41675d;
+}
+
+.wallet-summary-card.deposit {
+  color: #6f4312;
+  border-color: rgba(171, 92, 28, 0.2);
+  background: linear-gradient(135deg, #ffe4c2, #fff0dc);
+}
+
+.wallet-summary-card.deposit small {
+  color: #8e6130;
+}
+
 .wallet-summary-card .material-symbols-outlined {
-  color: var(--wallet-blue);
+  opacity: 0.96;
 }
 
 .wallet-summary-card strong {
-  color: var(--wallet-navy);
   font-size: 1.06rem;
   font-weight: 740;
 }
@@ -954,16 +1063,19 @@ watch(
 }
 
 .wallet-tile.is-active {
-  border-color: rgba(55, 99, 168, 0.3);
-  background: linear-gradient(135deg, var(--wallet-navy), var(--wallet-blue));
-  color: #fff;
+  border-color: rgba(171, 92, 28, 0.28);
+  background: #fff;
+  color: #53310d;
 }
 
 .wallet-tile.is-active b,
 .wallet-tile.is-active strong,
-.wallet-tile.is-active small,
 .wallet-tile.is-active .material-symbols-outlined {
-  color: #fff;
+  color: #53310d;
+}
+
+.wallet-tile.is-active small {
+  color: #8d5d1e;
 }
 
 .wallet-tile strong {
@@ -1339,12 +1451,15 @@ watch(
 }
 
 @media (max-width: 420px) {
-  .wallet-summary-grid,
   .wallet-options-grid,
   .purchase-plan-toggle,
   .purchase-details-grid,
   .payment-grid {
     grid-template-columns: 1fr;
+  }
+
+  .wallet-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

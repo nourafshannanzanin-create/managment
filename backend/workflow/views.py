@@ -1386,6 +1386,8 @@ def wallet_purchase_view(request: HttpRequest):
     config = feature_config(key)
     if config is None:
         return json_error("گزینه خرید معتبر نیست.", status=422)
+    if config.get("disabled"):
+        return json_error("این گزینه فعلا غیرفعال است.", status=422)
 
     payment_plan = str(payload.get("paymentPlan") or payload.get("payment_plan") or "cash").strip()
     if payment_plan not in {"cash", "installment"}:

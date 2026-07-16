@@ -53,7 +53,7 @@ CORE_FEATURE_KEY = "core_software"
 PURCHASABLE_FEATURES = [
     {
         "feature_key": CORE_FEATURE_KEY,
-        "title": "خرید اصلی نرم افزار",
+        "title": "خرید نرم افزار",
         "subtitle": "دسترسی پایه سامانه",
         "description": "تا زمانی که این گزینه فعال نشود، دسترسی عملیاتی سازمان قفل می ماند.",
         "accent": "#315f9f",
@@ -88,6 +88,19 @@ PURCHASABLE_FEATURES = [
         "monthly_installment_amount": Decimal("2000000"),
         "installment_months": 4,
         "required": False,
+    },
+    {
+        "feature_key": "accounting",
+        "title": "حسابداری",
+        "subtitle": "مدیریت مالی و گزارش های حسابداری",
+        "description": "این گزینه فعلا غیرفعال است و پس از آماده سازی امکان خرید آن فعال می شود.",
+        "accent": "#183153",
+        "base_price": Decimal("0"),
+        "monthly_installment_amount": Decimal("0"),
+        "installment_months": 0,
+        "required": False,
+        "disabled": True,
+        "disabled_label": "غیرفعال",
     },
 ]
 
@@ -348,6 +361,9 @@ def wallet_feature_option_payload(config: dict, purchase: FeaturePurchase | None
         "description": config.get("description", ""),
         "accent": config.get("accent", "#315f9f"),
         "required": bool(config.get("required")),
+        "disabled": bool(config.get("disabled")),
+        "disabledLabel": config.get("disabled_label", ""),
+        "disabled_label": config.get("disabled_label", ""),
         "isActive": bool(getattr(purchase, "is_active", False)),
         "is_active": bool(getattr(purchase, "is_active", False)),
         "paymentPlan": getattr(purchase, "payment_plan", ""),
