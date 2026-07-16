@@ -4,7 +4,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { formatAmountInput } from '../utils/amount'
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const PAYMENT_TICKET_SUBJECT = '?????? ??? ???'
+const PAYMENT_TICKET_SUBJECT = 'درخواست شارژ کیف پول'
 
 const {
   state,
@@ -52,27 +52,27 @@ const statusCounts = computed(() => tickets.value.reduce((acc, item) => {
 const activeTicketCount = computed(() => (statusCounts.value.open || 0) + (statusCounts.value.pending || 0) + (statusCounts.value.answered || 0))
 
 const statusTabs = computed(() => [
-  { key: 'all', label: '???', icon: 'inbox', count: activeTicketCount.value },
-  { key: 'open', label: '???', icon: 'radio_button_checked', count: statusCounts.value.open || 0 },
-  { key: 'pending', label: '?? ??? ?????', icon: 'hourglass_top', count: statusCounts.value.pending || 0 },
-  { key: 'answered', label: '???? ???? ???', icon: 'mark_chat_read', count: statusCounts.value.answered || 0 },
-  { key: 'closed', label: '???? ???', icon: 'task_alt', count: statusCounts.value.closed || 0 },
+  { key: 'all', label: 'همه', icon: 'inbox', count: activeTicketCount.value },
+  { key: 'open', label: 'باز', icon: 'radio_button_checked', count: statusCounts.value.open || 0 },
+  { key: 'pending', label: 'در حال بررسی', icon: 'hourglass_top', count: statusCounts.value.pending || 0 },
+  { key: 'answered', label: 'پاسخ داده شده', icon: 'mark_chat_read', count: statusCounts.value.answered || 0 },
+  { key: 'closed', label: 'بسته شده', icon: 'task_alt', count: statusCounts.value.closed || 0 },
 ])
 
 const categories = [
-  { key: 'all', label: '???' },
-  { key: 'technical', label: '???' },
-  { key: 'financial', label: '????' },
-  { key: 'operations', label: '??????' },
-  { key: 'account', label: '????' },
-  { key: 'other', label: '????' },
+  { key: 'all', label: 'همه' },
+  { key: 'technical', label: 'فنی' },
+  { key: 'financial', label: 'مالی' },
+  { key: 'operations', label: 'عملیات' },
+  { key: 'account', label: 'حساب' },
+  { key: 'other', label: 'سایر' },
 ]
 
 const priorities = [
-  { key: 'low', label: '??' },
-  { key: 'medium', label: '?????' },
-  { key: 'high', label: '????' },
-  { key: 'urgent', label: '????' },
+  { key: 'low', label: 'کم' },
+  { key: 'medium', label: 'متوسط' },
+  { key: 'high', label: 'زیاد' },
+  { key: 'urgent', label: 'فوری' },
 ]
 
 function paymentTicketRank(ticket) {
@@ -237,7 +237,7 @@ watch(
       </div>
       <button class="support-primary" type="button" @click="modalOpen = true">
         <span class="material-symbols-outlined">add_circle</span>
-        ??? ????
+        تیکت جدید
       </button>
     </section>
 
@@ -248,7 +248,7 @@ watch(
     <section class="support-workspace">
       <aside class="support-inbox">
         <div class="support-tools">
-          <input v-model="query" placeholder="?????" />
+          <input v-model="query" placeholder="جستجو" />
           <div class="support-chips">
             <button
               v-for="item in categories"
@@ -280,8 +280,8 @@ watch(
           >
             <span :class="['ticket-dot', statusClass(ticket.status)]"></span>
             <b>{{ ticket.subject }}</b>
-            <small>{{ ticket.organization }} � {{ ticket.lastMessagePreview }}</small>
-            <em>#{{ ticket.id }} � {{ ticket.categoryLabel }} � {{ ticket.priorityLabel }}</em>
+            <small>{{ ticket.organization }} / {{ ticket.lastMessagePreview }}</small>
+            <em>#{{ ticket.id }} / {{ ticket.categoryLabel }} / {{ ticket.priorityLabel }}</em>
           </button>
         </div>
       </aside>
@@ -317,12 +317,12 @@ watch(
           </section>
 
           <section v-if="isRegistrationTicket" class="registration-summary">
-            <div><span>??? ??????</span><b>{{ selectedTicket.actionMeta.organizationName }}</b></div>
-            <div><span>??? ????</span><b>{{ selectedTicket.actionMeta.managerName }}</b></div>
-            <div><span>??? ??????</span><b dir="ltr">{{ selectedTicket.actionMeta.managerUsername }}</b></div>
-            <div><span>????</span><b dir="ltr">{{ selectedTicket.actionMeta.managerPhone }}</b></div>
-            <div><span>?????</span><b dir="ltr">{{ selectedTicket.actionMeta.managerEmail || '???? ????' }}</b></div>
-            <div><span>?? ????</span><b dir="ltr">{{ selectedTicket.actionMeta.companyCode || '?? ?????? ?????' }}</b></div>
+            <div><span>نام مجموعه</span><b>{{ selectedTicket.actionMeta.organizationName }}</b></div>
+            <div><span>نام مدیر</span><b>{{ selectedTicket.actionMeta.managerName }}</b></div>
+            <div><span>نام کاربری</span><b dir="ltr">{{ selectedTicket.actionMeta.managerUsername }}</b></div>
+            <div><span>موبایل</span><b dir="ltr">{{ selectedTicket.actionMeta.managerPhone }}</b></div>
+            <div><span>ایمیل</span><b dir="ltr">{{ selectedTicket.actionMeta.managerEmail || 'ثبت نشده' }}</b></div>
+            <div><span>کد شرکت</span><b dir="ltr">{{ selectedTicket.actionMeta.companyCode || 'در انتظار ثبت' }}</b></div>
           </section>
 
           <section class="message-thread">
@@ -342,12 +342,12 @@ watch(
           </section>
 
           <section v-if="selectedTicket.status !== 'closed'" class="reply-box">
-            <textarea v-model="replyBody" rows="4" placeholder="????..." />
+            <textarea v-model="replyBody" rows="4" placeholder="پاسخ..." />
             <div>
-              <button v-if="canDepositToWallet" class="support-soft" type="button" :disabled="state.support.submitting" @click="openWalletDepositModal">?????</button>
-              <button v-if="canCompleteWalletTransfer" class="support-soft" type="button" :disabled="state.support.submitting" @click="openWalletDepositModal">?????? ??? ???</button>
-              <button v-if="canCompleteBankWithdraw" class="support-soft" type="button" :disabled="state.support.submitting" @click="openBankWithdrawModal">?????? ???</button>
-              <button v-if="canApproveRegistration" class="support-primary" type="button" :disabled="state.support.submitting" @click="openRegistrationModal">??? ???</button>
+              <button v-if="canDepositToWallet" class="support-soft" type="button" :disabled="state.support.submitting" @click="openWalletDepositModal">شارژ کیف پول</button>
+              <button v-if="canCompleteWalletTransfer" class="support-soft" type="button" :disabled="state.support.submitting" @click="openWalletDepositModal">تکمیل انتقال کیف</button>
+              <button v-if="canCompleteBankWithdraw" class="support-soft" type="button" :disabled="state.support.submitting" @click="openBankWithdrawModal">تکمیل برداشت</button>
+              <button v-if="canApproveRegistration" class="support-primary" type="button" :disabled="state.support.submitting" @click="openRegistrationModal">ثبت مجموعه</button>
               <button
                 v-if="canCloseTicket"
                 class="support-soft"
@@ -355,10 +355,10 @@ watch(
                 :disabled="state.support.submitting"
                 @click="sendReply(true)"
               >
-                ????
+                بستن
               </button>
               <button class="support-primary" type="button" :disabled="state.support.submitting || !replyBody.trim()" @click="sendReply(false)">
-                ?????
+                ارسال
               </button>
             </div>
           </section>
@@ -373,12 +373,12 @@ watch(
                 :disabled="!!selectedTicket.customerSatisfaction"
                 @click="feedback.score = score"
               >
-                ?
+                ★
               </button>
             </div>
-            <textarea v-if="!selectedTicket.customerSatisfaction" v-model="feedback.text" rows="3" placeholder="??? ?????..." />
+            <textarea v-if="!selectedTicket.customerSatisfaction" v-model="feedback.text" rows="3" placeholder="نظر شما..." />
             <button v-if="!selectedTicket.customerSatisfaction" class="support-primary" type="button" :disabled="!feedback.score" @click="sendFeedback">
-              ??? ???
+              ثبت نظر
             </button>
           </section>
         </template>
@@ -388,10 +388,10 @@ watch(
     <div v-if="modalOpen" class="support-modal-backdrop" @click.self="modalOpen = false">
       <form class="support-modal" @submit.prevent="submitTicket">
         <div class="modal-handle"></div>
-        <h3>???? ????</h3>
+        <h3>تیکت جدید</h3>
         <div class="modal-grid">
           <label>
-            <span>????</span>
+            <span>دسته‌بندی</span>
             <select v-model="form.category">
               <option v-for="item in categories.filter((category) => category.key !== 'all')" :key="item.key" :value="item.key">
                 {{ item.label }}
@@ -399,27 +399,27 @@ watch(
             </select>
           </label>
           <label>
-            <span>??????</span>
+            <span>اولویت</span>
             <select v-model="form.priority">
               <option v-for="item in priorities" :key="item.key" :value="item.key">{{ item.label }}</option>
             </select>
           </label>
         </div>
         <label>
-          <span>?????</span>
+          <span>موضوع</span>
           <input v-model.trim="form.subject" required />
         </label>
         <label>
-          <span>???</span>
+          <span>متن</span>
           <textarea v-model.trim="form.message" required rows="5"></textarea>
         </label>
         <label>
-          <span>?????</span>
+          <span>پیوست</span>
           <input type="file" multiple @change="setFiles" />
         </label>
         <div class="modal-actions">
-          <button class="support-soft" type="button" @click="modalOpen = false">???</button>
-          <button class="support-primary" type="submit" :disabled="state.support.submitting">???</button>
+          <button class="support-soft" type="button" @click="modalOpen = false">بستن</button>
+          <button class="support-primary" type="submit" :disabled="state.support.submitting">ثبت</button>
         </div>
       </form>
     </div>
@@ -427,47 +427,47 @@ watch(
     <div v-if="walletDepositModalOpen" class="support-modal-backdrop" @click.self="walletDepositModalOpen = false">
       <form class="support-modal" @submit.prevent="submitWalletDeposit">
         <div class="modal-handle"></div>
-        <h3>????? ?? ??? ???</h3>
+        <h3>شارژ کیف پول</h3>
         <label>
-          <span>???? (?????)</span>
+          <span>مبلغ (تومان)</span>
           <input v-model.trim="walletDepositForm.amount" inputmode="decimal" required placeholder="0" @input="walletDepositForm.amount = formatAmountInput($event.target.value)" />
         </label>
         <div class="modal-actions">
-          <button class="support-soft" type="button" @click="walletDepositModalOpen = false">???</button>
-          <button class="support-primary" type="submit" :disabled="state.support.submitting">?????</button>
+          <button class="support-soft" type="button" @click="walletDepositModalOpen = false">بستن</button>
+          <button class="support-primary" type="submit" :disabled="state.support.submitting">شارژ</button>
         </div>
       </form>
     </div>
     <div v-if="bankWithdrawModalOpen" class="support-modal-backdrop" @click.self="bankWithdrawModalOpen = false">
       <form class="support-modal" @submit.prevent="submitBankWithdraw">
         <div class="modal-handle"></div>
-        <h3>??? ?????? ?????</h3>
+        <h3>ثبت برداشت بانکی</h3>
         <label>
-          <span>????? ???</span>
+          <span>شماره شبا</span>
           <input :value="selectedTicket?.actionMeta?.iban || '-'" dir="ltr" readonly />
         </label>
         <label>
-          <span>???? (?????)</span>
+          <span>مبلغ (تومان)</span>
           <input v-model.trim="bankWithdrawForm.amount" inputmode="decimal" required placeholder="0" @input="bankWithdrawForm.amount = formatAmountInput($event.target.value)" />
         </label>
         <div class="modal-actions">
-          <button class="support-soft" type="button" @click="bankWithdrawModalOpen = false">???</button>
-          <button class="support-primary" type="submit" :disabled="state.support.submitting">??? ??????</button>
+          <button class="support-soft" type="button" @click="bankWithdrawModalOpen = false">بستن</button>
+          <button class="support-primary" type="submit" :disabled="state.support.submitting">ثبت برداشت</button>
         </div>
       </form>
     </div>
     <div v-if="registrationModalOpen" class="support-modal-backdrop" @click.self="registrationModalOpen = false">
       <form class="support-modal" @submit.prevent="approveRegistration">
         <div class="modal-handle"></div>
-        <h3>????? ? ???? ??????</h3>
-        <p>?? ?? ????? ??????? ?? ?????? ?? ???? ?? ???? ????. ?????? ? ???? ???? ??????? ??????? ????? ???????.</p>
+        <h3>بررسی و ثبت مجموعه</h3>
+        <p>پس از بررسی مدارک و تایید اطلاعات، کد شرکت را وارد کنید تا مجموعه و مدیر اصلی فعال شوند.</p>
         <label>
-          <span>?? ????</span>
+          <span>کد شرکت</span>
           <input v-model.trim="registrationForm.companyCode" dir="ltr" required placeholder="company-code" />
         </label>
         <div class="modal-actions">
-          <button class="support-soft" type="button" @click="registrationModalOpen = false">???</button>
-          <button class="support-primary" type="submit" :disabled="state.support.submitting || !registrationForm.companyCode">??? ???</button>
+          <button class="support-soft" type="button" @click="registrationModalOpen = false">بستن</button>
+          <button class="support-primary" type="submit" :disabled="state.support.submitting || !registrationForm.companyCode">ثبت مجموعه</button>
         </div>
       </form>
     </div>
@@ -567,13 +567,13 @@ watch(
 
 .support-primary {
   color: #fff;
-  background: var(--surface, #fff);
+  background: linear-gradient(135deg, var(--support-navy), var(--support-blue)) !important;
   box-shadow: none;
 }
 
 .support-soft {
-  color: var(--support-ink);
-  background: rgba(55, 99, 168, 0.1);
+  color: var(--support-ink) !important;
+  background: rgba(55, 99, 168, 0.1) !important;
 }
 
 .support-alert {
@@ -606,7 +606,7 @@ watch(
 
 .support-status-card.is-active {
   color: #fff;
-  background: var(--surface, #fff);
+  background: linear-gradient(135deg, var(--support-navy), var(--support-blue));
 }
 
 .support-status-card.is-active b,
@@ -814,7 +814,13 @@ watch(
 
 .message-bubble.support {
   color: #fff;
-  background: var(--surface, #fff);
+  background: linear-gradient(135deg, var(--support-navy), var(--support-blue));
+}
+
+.message-bubble.support b,
+.message-bubble.support small,
+.message-bubble.support p {
+  color: #fff;
 }
 
 .message-bubble.tenant {

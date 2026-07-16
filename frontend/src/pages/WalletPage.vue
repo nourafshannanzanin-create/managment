@@ -7,8 +7,8 @@ import { formatJalali, getTodayJalali } from '../utils/jalali'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const CARD_NUMBER = '6274121774209571'
-const CARD_HOLDER = '???? ?????'
-const PAYMENT_SUBJECT = '?????? ??? ???'
+const CARD_HOLDER = 'کارنومند'
+const PAYMENT_SUBJECT = 'درخواست شارژ کیف پول'
 
 const { state, loadWalletDashboard, loadWalletOptions, submitWalletTransaction, submitFeaturePurchase, createSupportTicket } = useWorkflowHub()
 
@@ -88,25 +88,25 @@ const purchaseWallet = computed(() =>
 const usesManagerPaymentFlow = computed(() => state.currentUser.isManager && !state.currentUser.canUseHq)
 
 const paymentMethods = [
-  { key: 'pos', label: '????? ??????' },
-  { key: 'card_to_card', label: '???? ?? ????' },
-  { key: 'app', label: '??' },
+  { key: 'pos', label: 'دستگاه کارتخوان' },
+  { key: 'card_to_card', label: 'کارت به کارت' },
+  { key: 'app', label: 'اپلیکیشن' },
 ]
 
 const shortcuts = computed(() => [
-  { label: '????', icon: 'add_card', direction: 'in', tone: 'deposit' },
-  { label: '??????', icon: 'payments', direction: 'out', tone: 'withdraw' },
+  { label: 'شارژ', icon: 'add_card', direction: 'in', tone: 'deposit' },
+  { label: 'برداشت', icon: 'payments', direction: 'out', tone: 'withdraw' },
 ])
 
 const summaryCards = computed(() => [
-  { label: '?? ??????', value: state.wallet.summary.totalBalance, icon: 'account_balance_wallet', tone: 'primary' },
-  { label: '????', value: state.wallet.summary.mainBalance, icon: 'account_balance', tone: 'main' },
-  { label: '?????', value: state.wallet.summary.smsBalance, icon: 'sms', tone: 'sms' },
-  { label: '?????', value: state.wallet.summary.depositsTotal, icon: 'south_west', tone: 'deposit' },
+  { label: 'کل موجودی', value: state.wallet.summary.totalBalance, icon: 'account_balance_wallet', tone: 'primary' },
+  { label: 'کیف اصلی', value: state.wallet.summary.mainBalance, icon: 'account_balance', tone: 'main' },
+  { label: 'کیف پیامک', value: state.wallet.summary.smsBalance, icon: 'sms', tone: 'sms' },
+  { label: 'جمع واریزی', value: state.wallet.summary.depositsTotal, icon: 'south_west', tone: 'deposit' },
 ])
 
 const selectedPaymentMethodLabel = computed(
-  () => paymentMethods.find((item) => item.key === paymentForm.method)?.label || '???? ?? ????',
+  () => paymentMethods.find((item) => item.key === paymentForm.method)?.label || 'کارت به کارت',
 )
 
 function nowParts() {
@@ -230,8 +230,8 @@ async function submitTransaction() {
       `AMOUNT: ${transactionForm.amount}`,
       `NOTE: ${transactionForm.note || '-'}`,
     ].join('\n')
-    await createSupportTicket({ subject: '?????? ??? ???', message, category: 'financial', priority: 'urgent', attachments: [] })
-    state.wallet.message = '??????? ?????? ???? ???????? ????? ??.'
+    await createSupportTicket({ subject: PAYMENT_SUBJECT, message, category: 'financial', priority: 'urgent', attachments: [] })
+    state.wallet.message = 'درخواست برداشت برای پشتیبانی ارسال شد.'
     closeTransaction()
     return
   }
@@ -269,7 +269,7 @@ async function submitPaymentTicket() {
     attachments: paymentForm.receipt ? [paymentForm.receipt] : [],
   })
 
-  state.wallet.message = '??????? ????? ?????? ???? HQ ????? ??.'
+  state.wallet.message = 'درخواست شارژ برای HQ ارسال شد.'
   state.wallet.error = ''
   closePaymentForm()
 }
@@ -340,8 +340,8 @@ watch(
       <div v-if="licenseLocked" class="wallet-license-alert">
         <span class="material-symbols-outlined">lock</span>
         <div>
-          <strong>???? ???? ????????? ???? ????? ???.</strong>
-          <small>{{ licenseStatus.notice || '???? ????? ??????? ?? ??????? ???????? ????? ???? ???? ?? ??? ????.' }}</small>
+          <strong>حساب کاربری به دلیل اتمام اعتبار قفل شده است.</strong>
+          <small>{{ licenseStatus.notice || 'برای تمدید دسترسی، یکی از گزینه‌های پایین را از کیف پول خریداری کنید.' }}</small>
         </div>
       </div>
 
@@ -355,31 +355,31 @@ watch(
         >
           <div class="wallet-option-head">
             <span class="material-symbols-outlined">{{ (option.featureKey || option.feature_key) === 'cloud_storage' ? 'cloud' : ((option.featureKey || option.feature_key) === 'attendance' ? 'login' : 'shopping_cart') }}</span>
-            <small>{{ option.required ? '??????' : ((option.isActive || option.is_active) ? '????' : '???????') }}</small>
+            <small>{{ option.required ? 'اجباری' : ((option.isActive || option.is_active) ? 'فعال' : 'قابل خرید') }}</small>
           </div>
           <strong>{{ option.title }}</strong>
           <p>{{ option.description }}</p>
           <div class="wallet-option-price">
-            <span>????</span>
+            <span>نقدی</span>
             <b>{{ option.cashAmount || option.cash_amount || option.totalAmount || option.total_amount }}</b>
           </div>
           <div v-if="option.upfrontAmount || option.upfront_amount" class="wallet-option-price">
-            <span>??????????</span>
+            <span>پیش‌پرداخت</span>
             <b>{{ option.upfrontAmount || option.upfront_amount }}</b>
           </div>
           <div class="wallet-option-price">
-            <span>?????</span>
-            <b>{{ option.monthlyInstallmentAmount || option.monthly_installment_amount }} � {{ option.installmentMonths || option.installment_months }}</b>
+            <span>اقساط</span>
+            <b>{{ option.monthlyInstallmentAmount || option.monthly_installment_amount }} / {{ option.installmentMonths || option.installment_months }} ماه</b>
           </div>
           <div v-if="option.annualSubscriptionAmountRaw" class="wallet-option-price annual">
-            <span>?????? ??????</span>
-            <b>{{ option.annualSubscriptionAmount }} / {{ option.annualSubscriptionInstallmentAmount }} � {{ option.annualSubscriptionInstallmentMonths }}</b>
+            <span>اشتراک سالانه</span>
+            <b>{{ option.annualSubscriptionAmount }} / {{ option.annualSubscriptionInstallmentAmount }} / {{ option.annualSubscriptionInstallmentMonths }} ماه</b>
           </div>
           <div class="wallet-option-actions">
-            <button class="action-btn tone-soft" type="button" :disabled="state.wallet.submitting || option.isActive || option.is_active" @click="openPurchase(option, 'installment')">??????</button>
+            <button class="action-btn tone-soft" type="button" :disabled="state.wallet.submitting || option.isActive || option.is_active" @click="openPurchase(option, 'installment')">قسطی</button>
             <button class="action-btn tone-primary" type="button" :disabled="state.wallet.submitting || option.isActive || option.is_active" @click="openPurchase(option, 'cash')">
               <span class="material-symbols-outlined">shopping_cart_checkout</span>
-              <span>????</span>
+              <span>خرید نقدی</span>
             </button>
           </div>
         </article>
@@ -405,13 +405,13 @@ watch(
             <span class="material-symbols-outlined">{{ wallet.key === 'sms' ? 'sms' : 'account_balance' }}</span>
             <b>{{ wallet.name }}</b>
             <strong>{{ wallet.balance }}</strong>
-            <small v-if="wallet.isLow">LOW</small>
+            <small v-if="wallet.isLow">کمبود موجودی</small>
           </button>
         </aside>
 
         <div class="wallet-ledger">
           <div class="ledger-head">
-            <span>Ledger</span>
+            <span>گردش حساب</span>
             <b>{{ ledgerItems.length }}</b>
           </div>
 
@@ -430,7 +430,7 @@ watch(
               </div>
               <div>
                 <b>{{ item.walletName }}</b>
-                <small>{{ item.actor }} � {{ item.time }}</small>
+                <small>{{ item.actor }} / {{ item.time }}</small>
               </div>
               <strong :class="item.direction">{{ item.direction === 'in' ? '+' : '-' }}{{ item.amount }}</strong>
             </article>
@@ -444,51 +444,51 @@ watch(
         <div class="modal-handle"></div>
         <div class="modal-title">
           <span class="material-symbols-outlined">{{ transactionForm.direction === 'in' ? 'add_card' : 'payments' }}</span>
-          <strong>{{ transactionForm.direction === 'in' ? '???? ??? ???' : '?????? ?? ??? ???' }}</strong>
+          <strong>{{ transactionForm.direction === 'in' ? 'شارژ کیف پول' : 'برداشت از کیف پول' }}</strong>
         </div>
 
         <label>
-          <span>??? ???</span>
+          <span>کیف پول</span>
           <select v-model="transactionForm.walletId" required>
             <option v-for="wallet in wallets" :key="wallet.id" :value="wallet.id">{{ wallet.name }}</option>
           </select>
         </label>
 
         <label>
-          <span>???? (?????)</span>
+          <span>مبلغ (تومان)</span>
           <input v-model="transactionForm.amount" inputmode="decimal" required placeholder="0" @input="transactionForm.amount = formatAmountInput($event.target.value)" />
         </label>
 
         <label>
-          <span>???????</span>
+          <span>توضیحات</span>
           <textarea v-model="transactionForm.note" rows="3"></textarea>
         </label>
 
         <template v-if="transactionForm.direction === 'out' && usesManagerPaymentFlow">
           <label>
-            <span>????</span>
+            <span>مقصد</span>
             <select v-model="transactionForm.destinationType">
-              <option value="bank">???? ?????</option>
-              <option value="wallet">??? ??? ????</option>
+              <option value="bank">حساب بانکی</option>
+              <option value="wallet">کیف پول دیگر</option>
             </select>
           </label>
           <label v-if="transactionForm.destinationType === 'wallet'">
-            <span>??? ??? ????</span>
+            <span>کیف پول مقصد</span>
             <select v-model="transactionForm.targetWalletId">
               <option v-for="wallet in wallets.filter((item) => String(item.id) !== String(transactionForm.walletId))" :key="wallet.id" :value="wallet.id">{{ wallet.name }}</option>
             </select>
           </label>
           <label v-else>
-            <span>????? ???</span>
+            <span>شماره شبا</span>
             <input v-model.trim="transactionForm.iban" dir="ltr" placeholder="IR..." required />
           </label>
         </template>
 
         <div class="modal-actions">
-          <button class="action-btn tone-soft" type="button" @click="closeTransaction">???</button>
+          <button class="action-btn tone-soft" type="button" @click="closeTransaction">بستن</button>
           <button class="action-btn tone-primary" type="submit" :disabled="state.wallet.submitting">
             <span class="material-symbols-outlined">check</span>
-            ???
+            ثبت
           </button>
         </div>
       </form>
@@ -499,39 +499,39 @@ watch(
         <div class="modal-handle"></div>
         <div class="modal-title">
           <span class="material-symbols-outlined">payments</span>
-          <strong>?????? ??????</strong>
+          <strong>درخواست پرداخت</strong>
         </div>
 
         <div class="payment-grid">
           <label>
-            <span>??? ???</span>
+            <span>کیف پول</span>
             <select v-model="paymentSetup.walletId" required>
               <option v-for="wallet in (usesManagerPaymentFlow ? mainWallets : wallets)" :key="wallet.id" :value="wallet.id">{{ wallet.name }}</option>
             </select>
           </label>
           <label>
-            <span>???? (?????)</span>
+            <span>مبلغ (تومان)</span>
             <input v-model.trim="paymentSetup.amount" inputmode="decimal" required placeholder="0" @input="paymentSetup.amount = formatAmountInput($event.target.value)" />
           </label>
         </div>
 
         <label>
-          <span>??? :</span>
-          <input v-model.trim="paymentSetup.purpose" required placeholder="???? ???? ????? ?? ?????? ????" />
+          <span>بابت</span>
+          <input v-model.trim="paymentSetup.purpose" required placeholder="مثلا شارژ پیامک یا تمدید سرویس" />
         </label>
 
         <label>
-          <span>??? ??????</span>
+          <span>روش پرداخت</span>
           <select v-model="paymentSetup.method" required>
             <option v-for="method in paymentMethods" :key="method.key" :value="method.key">{{ method.label }}</option>
           </select>
         </label>
 
         <div class="modal-actions">
-          <button class="action-btn tone-soft" type="button" @click="closePaymentSetup">???</button>
+          <button class="action-btn tone-soft" type="button" @click="closePaymentSetup">بستن</button>
           <button class="action-btn tone-primary" type="submit">
             <span class="material-symbols-outlined">arrow_back</span>
-            ?????
+            ادامه
           </button>
         </div>
       </form>
@@ -543,7 +543,7 @@ watch(
         <div class="purchase-modal-head">
           <span class="material-symbols-outlined">workspace_premium</span>
           <div>
-            <small>???? ?????? ?? ??? ???</small>
+            <small>خرید قابلیت از کیف پول</small>
             <strong>{{ selectedPurchaseOption.title }}</strong>
           </div>
         </div>
@@ -553,33 +553,33 @@ watch(
         <div class="purchase-plan-toggle">
           <button type="button" :class="{ active: purchaseForm.paymentPlan === 'cash' }" @click="purchaseForm.paymentPlan = 'cash'">
             <span class="material-symbols-outlined">payments</span>
-            <b>????</b>
+            <b>نقدی</b>
             <small>{{ selectedPurchaseOption.cashAmount || selectedPurchaseOption.totalAmount }}</small>
           </button>
           <button type="button" :class="{ active: purchaseForm.paymentPlan === 'installment' }" @click="purchaseForm.paymentPlan = 'installment'">
             <span class="material-symbols-outlined">calendar_month</span>
-            <b>??????</b>
-            <small>{{ selectedPurchaseOption.upfrontAmount || selectedPurchaseOption.monthlyInstallmentAmount }} ?????</small>
+            <b>قسطی</b>
+            <small>{{ selectedPurchaseOption.upfrontAmount || selectedPurchaseOption.monthlyInstallmentAmount }} تومان</small>
           </button>
         </div>
 
         <div class="purchase-details-grid">
           <article>
-            <small>?????? ????</small>
+            <small>پرداخت امروز</small>
             <strong>{{ purchasePayNowLabel }}</strong>
           </article>
           <article>
-            <small>?????</small>
-            <strong>{{ selectedPurchaseOption.monthlyInstallmentAmount }} � {{ selectedPurchaseOption.installmentMonths }}</strong>
+            <small>اقساط</small>
+            <strong>{{ selectedPurchaseOption.monthlyInstallmentAmount }} / {{ selectedPurchaseOption.installmentMonths }} ماه</strong>
           </article>
           <article v-if="selectedPurchaseOption.annualSubscriptionAmountRaw">
-            <small>?????? ??????</small>
+            <small>اشتراک سالانه</small>
             <strong>{{ selectedPurchaseOption.annualSubscriptionAmount }}</strong>
           </article>
         </div>
 
         <label>
-          <span>??? ??? ??????</span>
+          <span>کیف پول پرداخت</span>
           <select v-model="purchaseForm.walletId" required>
             <option v-for="wallet in mainWallets.length ? mainWallets : wallets" :key="wallet.id" :value="wallet.id">
               {{ wallet.name }} - {{ wallet.balance }}
@@ -590,16 +590,16 @@ watch(
         <div class="purchase-wallet-box">
           <span class="material-symbols-outlined">account_balance_wallet</span>
           <div>
-            <small>?????? ???? ???????</small>
+            <small>موجودی قابل استفاده</small>
             <strong>{{ purchaseWallet?.balance || '0.00' }}</strong>
           </div>
         </div>
 
         <div class="modal-actions">
-          <button class="action-btn tone-soft" type="button" @click="closePurchase">???</button>
+          <button class="action-btn tone-soft" type="button" @click="closePurchase">بستن</button>
           <button class="action-btn tone-primary" type="submit" :disabled="state.wallet.submitting">
             <span class="material-symbols-outlined">verified</span>
-            ????? ? ????
+            تایید و پرداخت
           </button>
         </div>
       </form>
@@ -610,26 +610,26 @@ watch(
         <div class="modal-handle"></div>
         <div class="modal-title">
           <span class="material-symbols-outlined">credit_card</span>
-          <strong>?????? ???? ?? ????</strong>
+          <strong>پرداخت کارت به کارت</strong>
         </div>
 
         <div class="payment-summary-box">
-          <b>{{ wallets.find((item) => String(item.id) === String(paymentGuide.walletId))?.name || '??? ???' }}</b>
-          <small>????: {{ paymentGuide.amount }}</small>
-          <small>????: {{ paymentGuide.purpose }}</small>
+          <b>{{ wallets.find((item) => String(item.id) === String(paymentGuide.walletId))?.name || 'کیف پول' }}</b>
+          <small>مبلغ: {{ paymentGuide.amount }}</small>
+          <small>بابت: {{ paymentGuide.purpose }}</small>
         </div>
 
         <div class="payment-card-box">
-          <small>????? ???? ????</small>
+          <small>شماره کارت مقصد</small>
           <strong>{{ CARD_NUMBER }}</strong>
           <span>{{ CARD_HOLDER }}</span>
         </div>
 
         <div class="modal-actions">
-          <button class="action-btn tone-soft" type="button" @click="closePaymentGuide">????</button>
+          <button class="action-btn tone-soft" type="button" @click="closePaymentGuide">بازگشت</button>
           <button class="action-btn tone-primary" type="button" @click="openPaymentForm">
             <span class="material-symbols-outlined">verified</span>
-            ?????? ????
+            ثبت رسید
           </button>
         </div>
       </div>
@@ -640,45 +640,45 @@ watch(
         <div class="modal-handle"></div>
         <div class="modal-title">
           <span class="material-symbols-outlined">support_agent</span>
-          <strong>??? ??????? ????? ??????</strong>
+          <strong>ثبت اطلاعات رسید پرداخت</strong>
         </div>
 
         <div class="payment-summary-box">
           <b>{{ PAYMENT_SUBJECT }}</b>
-          <small>??? ??????: {{ selectedPaymentMethodLabel }}</small>
-          <small>????: {{ paymentForm.purpose || '-' }}</small>
-          <small>?????? ?? ?? ???? ???? ??????? ??? ????? ????.</small>
+          <small>روش پرداخت: {{ selectedPaymentMethodLabel }}</small>
+          <small>بابت: {{ paymentForm.purpose || '-' }}</small>
+          <small>اطلاعات رسید را وارد کنید تا پشتیبانی آن را بررسی کند.</small>
         </div>
 
         <div class="payment-grid">
           <label>
-            <span>?????</span>
+            <span>تاریخ</span>
             <ShamsiDatePicker v-model="paymentForm.date" model-type="jalali" placeholder="1405/04/16" />
           </label>
           <label>
-            <span>????</span>
+            <span>ساعت</span>
             <input v-model.trim="paymentForm.time" required placeholder="14:35" />
           </label>
           <label>
-            <span>???? (?????)</span>
+            <span>مبلغ (تومان)</span>
             <input v-model.trim="paymentForm.amount" inputmode="decimal" required placeholder="0" @input="paymentForm.amount = formatAmountInput($event.target.value)" />
           </label>
           <label>
-            <span>?? ??????</span>
-            <input v-model.trim="paymentForm.referenceCode" required dir="ltr" placeholder="?????? ?? ????" />
+            <span>کد پیگیری</span>
+            <input v-model.trim="paymentForm.referenceCode" required dir="ltr" placeholder="شماره یا کد رسید" />
           </label>
         </div>
 
         <label>
-          <span>????? ????</span>
+          <span>تصویر رسید</span>
           <input type="file" accept="image/*,.pdf" @change="setReceipt" />
         </label>
 
         <div class="modal-actions">
-          <button class="action-btn tone-soft" type="button" @click="closePaymentForm">???</button>
+          <button class="action-btn tone-soft" type="button" @click="closePaymentForm">بستن</button>
           <button class="action-btn tone-primary" type="submit" :disabled="state.support.submitting">
             <span class="material-symbols-outlined">send</span>
-            ????? ???? HQ
+            ارسال برای HQ
           </button>
         </div>
       </form>
@@ -778,7 +778,7 @@ watch(
   border: 0;
   border-radius: 12px;
   color: #fff;
-  background: var(--surface, #fff);
+  background: linear-gradient(135deg, var(--wallet-navy), var(--wallet-blue));
   box-shadow: none;
   cursor: pointer;
 }
@@ -955,7 +955,14 @@ watch(
 
 .wallet-tile.is-active {
   border-color: rgba(55, 99, 168, 0.3);
-  background: var(--surface, #fff);
+  background: linear-gradient(135deg, var(--wallet-navy), var(--wallet-blue));
+  color: #fff;
+}
+
+.wallet-tile.is-active b,
+.wallet-tile.is-active strong,
+.wallet-tile.is-active small,
+.wallet-tile.is-active .material-symbols-outlined {
   color: #fff;
 }
 
@@ -1103,7 +1110,7 @@ watch(
   padding: 16px;
   border-radius: 18px;
   color: #fff;
-  background: var(--surface, #fff);
+  background: linear-gradient(135deg, var(--wallet-navy), var(--wallet-blue));
 }
 
 .purchase-modal-head > .material-symbols-outlined {
@@ -1159,7 +1166,7 @@ watch(
 .purchase-plan-toggle button.active {
   color: #fff;
   border-color: transparent;
-  background: var(--surface, #fff);
+  background: linear-gradient(135deg, var(--wallet-navy), var(--wallet-blue));
 }
 
 .purchase-plan-toggle small {
@@ -1265,6 +1272,18 @@ watch(
   font-weight: 700;
 }
 
+.wallet-modal .action-btn.tone-primary,
+.wallet-option-actions .action-btn.tone-primary {
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--wallet-navy), var(--wallet-blue)) !important;
+}
+
+.wallet-modal .action-btn.tone-soft,
+.wallet-option-actions .action-btn.tone-soft {
+  color: var(--wallet-navy) !important;
+  background: rgba(55, 99, 168, 0.1) !important;
+}
+
 .payment-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1329,5 +1348,3 @@ watch(
   }
 }
 </style>
-
-
