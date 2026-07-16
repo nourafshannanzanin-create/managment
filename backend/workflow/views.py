@@ -2218,6 +2218,11 @@ def hq_user_update_view(request: HttpRequest, user_id: int):
         target.manager = User.objects.filter(pk=manager_id).first() if manager_id else None
     if "isActive" in payload:
         target.is_active = bool(payload.get("isActive"))
+    password = (payload.get("password") or "").strip()
+    if password:
+        if len(password) < 6:
+            return json_error("رمز عبور باید حداقل 6 کاراکتر باشد.", status=422)
+        target.password_hash = get_password_hash(password)
     conflict = user_identity_conflict(target.slug, target.email, exclude_id=target.id)
     if conflict:
         return conflict
