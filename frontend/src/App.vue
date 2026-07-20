@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 
 import ApprovalDetailModal from './components/ApprovalDetailModal.vue'
@@ -17,6 +17,7 @@ import { useWorkflowHub } from './stores/workflowHub'
 
 const route = useRoute()
 const hub = useWorkflowHub()
+const routeLoading = ref(false)
 
 const {
   state,
@@ -66,6 +67,8 @@ const smsBalanceWarningText = computed(() =>
     : 'شارژ پیامک رو به اتمام است؛ قبل از توقف ارسال پیامک، پنل فراز/کیف پیامک را شارژ کنید.',
 )
 const globalLoading = computed(() =>
+  routeLoading.value ||
+  !state.sessionReady ||
   state.appLoading ||
   state.loginPending ||
   requestDetailState.loading ||
@@ -81,6 +84,23 @@ const globalLoading = computed(() =>
   signatureState.loading,
 )
 let hqSupportRefreshTimer = null
+let routeLoadingTimer = null
+
+function showRouteLoading() {
+  if (routeLoadingTimer) {
+    window.clearTimeout(routeLoadingTimer)
+    routeLoadingTimer = null
+  }
+  routeLoading.value = true
+}
+
+function hideRouteLoading() {
+  if (routeLoadingTimer) window.clearTimeout(routeLoadingTimer)
+  routeLoadingTimer = window.setTimeout(() => {
+    routeLoading.value = false
+    routeLoadingTimer = null
+  }, 220)
+}
 
 async function refreshRouteData(path) {
   if (!state.authToken || path === '/login') return
@@ -120,10 +140,15 @@ async function refreshRouteData(path) {
 watch(
   () => route.fullPath,
   async () => {
+    showRouteLoading()
     state.mobileMenuOpen = false
 
-    if (!state.sessionReady) return
-    await refreshRouteData(route.path)
+    try {
+      if (!state.sessionReady) return
+      await refreshRouteData(route.path)
+    } finally {
+      hideRouteLoading()
+    }
   },
 )
 
@@ -139,6 +164,9 @@ onMounted(async () => {
 onUnmounted(() => {
   if (hqSupportRefreshTimer) {
     window.clearInterval(hqSupportRefreshTimer)
+  }
+  if (routeLoadingTimer) {
+    window.clearTimeout(routeLoadingTimer)
   }
 })
 </script>
@@ -227,8 +255,8 @@ onUnmounted(() => {
 
     <SignatureComposerModal :open="modalState.signatureComposer" @close="closeSignatureComposer" />
 
-    <div v-if="globalLoading" class="app-loader-overlay" aria-live="polite" aria-busy="true">
-      <div class="loader"></div>
+    <div v-if="globalLoading" class="app-loader-overlay" aria-label="در حال بارگذاری" aria-live="polite" aria-busy="true" role="status">
+      <div class="loader" aria-hidden="true"></div>
     </div>
   </div>
 </template>
@@ -244,27 +272,65 @@ onUnmounted(() => {
 }
 
 .loader {
-  width: 48px;
-  height: 48px;
-  border: 2px solid #d4d9e2;
-  border-top-color: #2563eb;
-  border-radius: 50%;
-  animation: app-loader-spin 760ms linear infinite;
+  width: 65px;
+  aspect-ratio: 1;
+  position: relative;
 }
 
 .loader::before,
 .loader::after {
-  content: none;
+  content: '';
+  position: absolute;
+  border-radius: 50px;
+  box-shadow: 0 0 0 3px inset #fff;
+  animation: l4 2.5s infinite;
 }
 
-@keyframes app-loader-spin {
+.loader::after {
+  animation-delay: -1.25s;
+}
+
+@keyframes l4 {
+  0% {
+    inset: 0 35px 35px 0;
+  }
+
+  12.5% {
+    inset: 0 35px 0 0;
+  }
+
+  25% {
+    inset: 35px 35px 0 0;
+  }
+
+  37.5% {
+    inset: 35px 0 0 0;
+  }
+
+  50% {
+    inset: 35px 0 0 35px;
+  }
+
+  62.5% {
+    inset: 0 0 0 35px;
+  }
+
+  75% {
+    inset: 0 0 35px 35px;
+  }
+
+  87.5% {
+    inset: 0 0 35px 0;
+  }
+
   100% {
-    transform: rotate(360deg);
+    inset: 0 35px 35px 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .loader {
+  .loader::before,
+  .loader::after {
     animation-duration: 1ms;
   }
 }
