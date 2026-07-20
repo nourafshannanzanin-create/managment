@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 
 import { formatAmountInput } from '../utils/amount'
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -28,6 +28,7 @@ const walletDepositModalOpen = ref(false)
 const bankWithdrawModalOpen = ref(false)
 const registrationModalOpen = ref(false)
 const replyBody = ref('')
+const threadRef = ref(null)
 const feedback = reactive({ score: 0, text: '' })
 const walletDepositForm = reactive({ amount: '' })
 const bankWithdrawForm = reactive({ amount: '' })
@@ -103,6 +104,45 @@ const filteredTickets = computed(() => {
   })
 })
 
+const conversationMessages = computed(() => {
+  const ticket = selectedTicket.value
+  if (!ticket) return []
+
+  const messages = Array.isArray(ticket.messages) ? ticket.messages.filter((message) => message?.body) : []
+  const normalizedMessages = messages.map((message, index) => ({
+    ...message,
+    id: message.id ?? `message-${index}`,
+    sender: message.sender || ticket.requester || ticket.organization || 'کاربر',
+    createdAt: message.createdAt || message.created_at || ticket.createdAt || ticket.updatedAt || '',
+    time: message.time || message.createdAtIso || ticket.time || '',
+  }))
+
+  if (normalizedMessages.length) {
+    return normalizedMessages.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0))
+  }
+
+  if (!ticket.message) return []
+  return [{
+    id: `ticket-${ticket.id}-initial`,
+    sender: ticket.requester || ticket.organization || 'کاربر',
+    senderPlatformRole: 'tenant',
+    body: ticket.message,
+    createdAt: ticket.createdAt || ticket.updatedAt || '',
+    time: ticket.createdAtIso || ticket.time || '',
+    isFallback: true,
+  }]
+})
+
+const selectedTicketSubtitle = computed(() => {
+  if (!selectedTicket.value) return ''
+  const parts = [
+    selectedTicket.value.organization,
+    selectedTicket.value.requester,
+    selectedTicket.value.updatedAtIso || selectedTicket.value.time,
+  ].filter(Boolean)
+  return parts.join(' / ')
+})
+
 function statusClass(status) {
   return {
     all: 'all',
@@ -114,7 +154,19 @@ function statusClass(status) {
 }
 
 function messageClass(message) {
-  return message?.senderPlatformRole === 'hq_support' ? 'support' : 'tenant'
+  const isSupportMessage = message?.senderPlatformRole === 'hq_support'
+  const isMine = state.currentUser.isHq ? isSupportMessage : !isSupportMessage
+  return isMine ? 'outgoing' : 'incoming'
+}
+
+function messageRoleLabel(message) {
+  return message?.senderPlatformRole === 'hq_support' ? 'پشتیبانی' : 'کاربر'
+}
+
+async function scrollThreadToBottom() {
+  await nextTick()
+  if (!threadRef.value) return
+  threadRef.value.scrollTop = threadRef.value.scrollHeight
 }
 
 function resetForm() {
@@ -144,6 +196,7 @@ async function openTicket(ticketId) {
   if (selectedTicket.value?.status === 'answered') {
     markSupportTicketsSeen([selectedTicket.value.id])
   }
+  await scrollThreadToBottom()
 }
 
 async function submitTicket() {
@@ -156,6 +209,7 @@ async function sendReply(close = false) {
   if (!selectedTicket.value?.id) return
   await submitSupportReply(selectedTicket.value.id, { body: replyBody.value, close })
   replyBody.value = ''
+  await scrollThreadToBottom()
 }
 
 async function sendFeedback() {
@@ -217,11 +271,25 @@ watch(
     await hydrateSupportWorkspace()
   },
 )
+
+watch(
+  () => conversationMessages.value.length,
+  () => {
+    void scrollThreadToBottom()
+  },
+)
 </script>
 
 <template>
   <section class="support-page">
-    <section class="support-hero">
+    <section class="support-hero" aria-label="پشتیبانی">
+      <div class="support-title">
+        <span class="material-symbols-outlined">support_agent</span>
+        <div>
+          <h2>پشتیبانی</h2>
+          <small>{{ filteredTickets.length }} مکالمه</small>
+        </div>
+      </div>
       <div class="support-hero-actions">
         <button
           v-for="item in statusTabs"
@@ -231,12 +299,12 @@ watch(
           @click="activeStatus = item.key"
         >
           <span class="material-symbols-outlined">{{ item.icon }}</span>
+          <span>{{ item.label }}</span>
           <b>{{ item.count }}</b>
-          <small>{{ item.label }}</small>
         </button>
       </div>
-      <button class="support-primary" type="button" @click="modalOpen = true">
-        <span class="material-symbols-outlined">add_circle</span>
+      <button class="support-primary icon-label" type="button" @click="modalOpen = true">
+        <span class="material-symbols-outlined">add</span>
         تیکت جدید
       </button>
     </section>
@@ -248,7 +316,10 @@ watch(
     <section class="support-workspace">
       <aside class="support-inbox">
         <div class="support-tools">
-          <input v-model="query" placeholder="جستجو" />
+          <label class="support-search">
+            <span class="material-symbols-outlined">search</span>
+            <input v-model="query" placeholder="جستجو در تیکت‌ها" />
+          </label>
           <div class="support-chips">
             <button
               v-for="item in categories"
@@ -264,10 +335,12 @@ watch(
 
         <div v-if="state.support.loading" class="support-empty compact">
           <span class="material-symbols-outlined">progress_activity</span>
+          <small>در حال دریافت تیکت‌ها</small>
         </div>
 
         <div v-else-if="!filteredTickets.length" class="support-empty compact">
           <span class="material-symbols-outlined">inbox</span>
+          <small>تیکتی برای این فیلتر نیست</small>
         </div>
 
         <div v-else class="ticket-list">
@@ -279,9 +352,12 @@ watch(
             @click="openTicket(ticket.id)"
           >
             <span :class="['ticket-dot', statusClass(ticket.status)]"></span>
-            <b>{{ ticket.subject }}</b>
-            <small>{{ ticket.organization }} / {{ ticket.lastMessagePreview }}</small>
-            <em>#{{ ticket.id }} / {{ ticket.categoryLabel }} / {{ ticket.priorityLabel }}</em>
+            <span class="ticket-title">
+              <b>{{ ticket.subject }}</b>
+              <time>{{ ticket.time }}</time>
+            </span>
+            <small>{{ ticket.lastMessagePreview || ticket.message }}</small>
+            <em>{{ ticket.organization }} / #{{ ticket.id }} / {{ ticket.categoryLabel }} / {{ ticket.priorityLabel }}</em>
           </button>
         </div>
       </aside>
@@ -289,10 +365,12 @@ watch(
       <main class="support-conversation">
         <div v-if="state.support.detailLoading" class="support-empty compact">
           <span class="material-symbols-outlined">progress_activity</span>
+          <small>در حال دریافت مکالمه</small>
         </div>
 
         <div v-else-if="!selectedTicket" class="support-empty compact">
           <span class="material-symbols-outlined">chat</span>
+          <small>یک تیکت را انتخاب کنید</small>
         </div>
 
         <template v-else>
@@ -300,11 +378,12 @@ watch(
             <div>
               <span :class="['status-pill', statusClass(selectedTicket.status)]">{{ selectedTicket.statusLabel }}</span>
               <h3>{{ selectedTicket.subject }}</h3>
+              <small>{{ selectedTicketSubtitle }}</small>
             </div>
             <div class="conversation-meta">
-              <span>{{ selectedTicket.organization }}</span>
-              <span>{{ selectedTicket.categoryLabel }}</span>
-              <span>{{ selectedTicket.priorityLabel }}</span>
+              <span><i class="material-symbols-outlined">business</i>{{ selectedTicket.organization }}</span>
+              <span><i class="material-symbols-outlined">sell</i>{{ selectedTicket.categoryLabel }}</span>
+              <span><i class="material-symbols-outlined">flag</i>{{ selectedTicket.priorityLabel }}</span>
               <span>#{{ selectedTicket.id }}</span>
             </div>
           </header>
@@ -325,25 +404,32 @@ watch(
             <div><span>کد شرکت</span><b dir="ltr">{{ selectedTicket.actionMeta.companyCode || 'در انتظار ثبت' }}</b></div>
           </section>
 
-          <section class="message-thread">
+          <section ref="threadRef" class="message-thread" aria-live="polite">
             <article
-              v-for="message in selectedTicket.messages || []"
+              v-for="message in conversationMessages"
               :key="message.id"
               :class="['message-row', messageClass(message)]"
             >
               <div :class="['message-bubble', messageClass(message)]">
-                <div>
-                  <b>{{ message.sender }}</b>
-                  <small>{{ message.time }}</small>
+                <div class="message-meta">
+                  <span>
+                    <b>{{ message.sender }}</b>
+                    <em>{{ messageRoleLabel(message) }}</em>
+                  </span>
+                  <time>{{ message.time }}</time>
                 </div>
                 <p>{{ message.body }}</p>
               </div>
             </article>
+            <div v-if="!conversationMessages.length" class="thread-empty">
+              <span class="material-symbols-outlined">forum</span>
+              <small>پیامی برای نمایش وجود ندارد</small>
+            </div>
           </section>
 
           <section v-if="selectedTicket.status !== 'closed'" class="reply-box">
-            <textarea v-model="replyBody" rows="4" placeholder="پاسخ..." />
-            <div>
+            <textarea v-model="replyBody" rows="3" placeholder="پاسخ را بنویسید..." @keydown.ctrl.enter.prevent="sendReply(false)" />
+            <div class="reply-actions">
               <button v-if="canDepositToWallet" class="support-soft" type="button" :disabled="state.support.submitting" @click="openWalletDepositModal">شارژ کیف پول</button>
               <button v-if="canCompleteWalletTransfer" class="support-soft" type="button" :disabled="state.support.submitting" @click="openWalletDepositModal">تکمیل انتقال کیف</button>
               <button v-if="canCompleteBankWithdraw" class="support-soft" type="button" :disabled="state.support.submitting" @click="openBankWithdrawModal">تکمیل برداشت</button>
@@ -357,7 +443,8 @@ watch(
               >
                 بستن
               </button>
-              <button class="support-primary" type="button" :disabled="state.support.submitting || !replyBody.trim()" @click="sendReply(false)">
+              <button class="support-primary icon-label" type="button" :disabled="state.support.submitting || !replyBody.trim()" @click="sendReply(false)">
+                <span class="material-symbols-outlined">send</span>
                 ارسال
               </button>
             </div>
@@ -476,12 +563,17 @@ watch(
 
 <style scoped>
 .support-page {
-  --support-navy: #183153;
-  --support-blue: #3763a8;
-  --support-gold: #e09b58;
-  --support-ink: #1f3557;
-  --support-muted: #66758f;
-  --support-line: rgba(32, 58, 105, 0.08);
+  --support-navy: #111827;
+  --support-blue: var(--button-primary-bg, #17315d);
+  --support-action-bg: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.34), transparent 34%), linear-gradient(135deg, #183766, #3264a9 62%, #839cdf);
+  --support-action-shadow: 0 16px 38px rgba(40, 82, 143, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  --support-green: #667085;
+  --support-gold: #667085;
+  --support-rose: #667085;
+  --support-ink: #344054;
+  --support-muted: #667085;
+  --support-line: #e4e7ec;
+  --support-soft-bg: #f9fafb;
   display: grid;
   gap: 18px;
 }
@@ -514,11 +606,40 @@ watch(
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 14px;
   overflow: hidden;
-  padding: 24px;
+  padding: 16px;
   border-radius: 12px;
   background: var(--surface, #fff);
+}
+
+.support-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 180px;
+}
+
+.support-title > .material-symbols-outlined {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 12px;
+  color: #fff;
+  background: var(--support-navy);
+}
+
+.support-title h2 {
+  margin: 0;
+  color: var(--support-ink);
+  font-size: 1.15rem;
+  line-height: 1.5;
+}
+
+.support-title small {
+  color: var(--support-muted);
+  font-weight: 800;
 }
 
 .support-hero-actions {
@@ -534,6 +655,25 @@ watch(
   color: var(--support-muted);
   font-size: 0.78rem;
   font-weight: 900;
+}
+
+.conversation-meta {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.conversation-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: var(--support-soft-bg);
+}
+
+.conversation-meta i {
+  font-size: 1rem;
 }
 
 .support-primary,
@@ -555,7 +695,7 @@ watch(
 .support-primary,
 .support-soft {
   border: 0;
-  border-radius: 16px;
+  border-radius: 10px;
   min-height: 44px;
   padding: 0 18px;
   display: inline-flex;
@@ -565,9 +705,19 @@ watch(
   font-weight: 900;
 }
 
+.support-primary:disabled,
+.support-soft:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.icon-label .material-symbols-outlined {
+  font-size: 1.15rem;
+}
+
 .support-primary {
   color: #fff;
-  background: linear-gradient(135deg, var(--support-navy), var(--support-blue)) !important;
+  background: var(--support-blue) !important;
   box-shadow: none;
 }
 
@@ -585,16 +735,16 @@ watch(
 }
 
 .support-alert.danger {
-  color: #9f1239;
-  background: #fff1f2;
+  color: var(--support-ink);
+  background: #f9fafb;
 }
 
 .support-status-card {
   flex: 1 1 0;
   min-width: 0;
-  min-height: 54px;
-  padding: 0 14px;
-  border-radius: 18px;
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -606,11 +756,11 @@ watch(
 
 .support-status-card.is-active {
   color: #fff;
-  background: linear-gradient(135deg, var(--support-navy), var(--support-blue));
+  background: var(--support-navy);
 }
 
 .support-status-card.is-active b,
-.support-status-card.is-active small,
+.support-status-card.is-active span,
 .support-status-card.is-active .material-symbols-outlined {
   color: #fff;
 }
@@ -620,22 +770,30 @@ watch(
   font-size: 1rem;
 }
 
-.support-status-card small {
+.support-status-card span:not(.material-symbols-outlined) {
   white-space: nowrap;
+  font-weight: 900;
 }
 
 .support-workspace {
   display: grid;
-  grid-template-columns: 380px minmax(0, 1fr);
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
   gap: 16px;
+  align-items: stretch;
 }
 
 .support-inbox,
 .support-conversation {
-  min-height: 600px;
+  min-height: min(680px, calc(100vh - 210px));
   padding: 18px;
   border-radius: 12px;
   background: var(--surface, #fff);
+}
+
+.support-conversation {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .support-tools {
@@ -644,7 +802,27 @@ watch(
   margin-bottom: 14px;
 }
 
-.support-tools input,
+.support-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid rgba(32, 58, 105, 0.12);
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #fff;
+}
+
+.support-search .material-symbols-outlined {
+  color: var(--support-muted);
+  font-size: 1.1rem;
+}
+
+.support-search input {
+  border: 0;
+  padding-inline: 0;
+}
+
 .support-modal input,
 .support-modal select,
 .support-modal textarea,
@@ -652,7 +830,7 @@ watch(
 .feedback-box textarea {
   width: 100%;
   border: 1px solid rgba(32, 58, 105, 0.12);
-  border-radius: 16px;
+  border-radius: 10px;
   padding: 12px 14px;
   color: var(--support-navy);
   background: #fff;
@@ -666,7 +844,7 @@ watch(
 
 .support-chips button {
   border: 0;
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 8px 12px;
   color: var(--support-muted);
   background: rgba(55, 99, 168, 0.08);
@@ -690,25 +868,52 @@ watch(
 .ticket-row {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 6px 10px;
+  gap: 7px 10px;
   width: 100%;
   padding: 15px;
   border: 1px solid rgba(32, 58, 105, 0.08);
-  border-radius: 12px;
+  border-radius: 10px;
   text-align: start;
   background: #fff;
   cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.ticket-row:hover {
+  border-color: rgba(37, 99, 235, 0.28);
+  background: #f8fbff;
 }
 
 .ticket-row.is-active {
-  border-color: rgba(55, 99, 168, 0.3);
-  background: #f2f7ff;
+  border-color: rgba(37, 99, 235, 0.4);
+  background: #eff6ff;
 }
 
-.ticket-row b,
 .ticket-row small,
 .ticket-row em {
   grid-column: 2;
+}
+
+.ticket-title {
+  grid-column: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ticket-title b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticket-title time {
+  flex: 0 0 auto;
+  color: var(--support-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
 }
 
 .ticket-row b,
@@ -717,12 +922,20 @@ watch(
 }
 
 .ticket-row small,
-.message-bubble small {
+.message-bubble time {
   color: var(--support-muted);
 }
 
+.ticket-row small {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.8;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
 .ticket-row em {
-  color: #8d5d1e;
+  color: var(--support-muted);
   font-style: normal;
   font-size: 0.78rem;
   font-weight: 900;
@@ -743,7 +956,7 @@ watch(
 }
 
 .ticket-dot.closed {
-  background: #4b9968;
+  background: var(--support-blue);
 }
 
 .conversation-head {
@@ -751,6 +964,20 @@ watch(
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--support-line);
+}
+
+.conversation-head h3 {
+  margin: 8px 0 2px;
+  font-size: 1.18rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.conversation-head small {
+  color: var(--support-muted);
+  font-weight: 800;
 }
 
 .status-pill {
@@ -764,8 +991,8 @@ watch(
 }
 
 .status-pill.closed {
-  color: #166534;
-  background: #dcfce7;
+  color: var(--support-ink);
+  background: #f9fafb;
 }
 
 .attachment-strip {
@@ -787,50 +1014,108 @@ watch(
 }
 
 .message-thread {
-  max-height: 420px;
+  flex: 1 1 auto;
+  min-height: 320px;
+  max-height: none;
   overflow: auto;
-  padding: 10px;
+  align-content: end;
+  padding: 18px;
   border-radius: 12px;
-  background: #f6f9fc;
+  background: #f9fafb;
 }
 
 .message-row {
   display: flex;
 }
 
-.message-row.support {
+.message-row.incoming {
   justify-content: flex-start;
 }
 
-.message-row.tenant {
+.message-row.outgoing {
   justify-content: flex-end;
 }
 
 .message-bubble {
   max-width: min(620px, 88%);
-  padding: 14px;
-  border-radius: 20px;
+  padding: 13px 14px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
-.message-bubble.support {
+.message-bubble.outgoing {
   color: #fff;
-  background: linear-gradient(135deg, var(--support-navy), var(--support-blue));
+  border-color: transparent;
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 4px;
+  background: var(--support-blue);
 }
 
-.message-bubble.support b,
-.message-bubble.support small,
-.message-bubble.support p {
+.message-bubble.outgoing b,
+.message-bubble.outgoing em,
+.message-bubble.outgoing time,
+.message-bubble.outgoing p {
   color: #fff;
 }
 
-.message-bubble.tenant {
+.message-bubble.incoming {
   color: var(--support-navy);
-  background: #fff;
+  border-bottom-right-radius: 14px;
+  border-bottom-left-radius: 4px;
+  background: #eef4ff;
+}
+
+.message-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.message-meta span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.message-meta b {
+  overflow: hidden;
+  color: var(--support-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-meta em {
+  flex: 0 0 auto;
+  color: var(--support-muted);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.message-meta time {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 800;
 }
 
 .message-bubble p {
   margin: 8px 0 0;
   line-height: 1.9;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.thread-empty {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  color: var(--support-muted);
+  text-align: center;
 }
 
 .reply-box,
@@ -838,7 +1123,18 @@ watch(
   margin-top: 14px;
   padding: 14px;
   border-radius: 12px;
+  border: 1px solid var(--support-line);
   background: #fff;
+}
+
+.reply-box textarea {
+  min-height: 94px;
+  resize: vertical;
+}
+
+.reply-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .stars {
@@ -862,6 +1158,8 @@ watch(
   min-height: 320px;
   display: grid;
   place-items: center;
+  align-content: center;
+  gap: 8px;
   border-radius: 12px;
   color: rgba(24, 49, 83, 0.5);
   background: rgba(255, 255, 255, 0.72);
@@ -873,6 +1171,10 @@ watch(
 
 .support-empty .material-symbols-outlined {
   font-size: 3rem;
+}
+
+.support-empty small {
+  font-weight: 900;
 }
 
 .support-modal-backdrop {
@@ -946,5 +1248,151 @@ watch(
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* Dashboard-aligned neutral navy theme. */
+.support-page {
+  --support-navy: #111827;
+  --support-blue: var(--button-primary-bg, #17315d);
+  --support-green: #667085;
+  --support-gold: #667085;
+  --support-rose: #667085;
+  --support-ink: #344054;
+  --support-muted: #667085;
+  --support-line: #e4e7ec;
+  --support-soft-bg: #f9fafb;
+}
+
+.support-hero,
+.support-status-card,
+.support-inbox,
+.support-conversation,
+.support-modal,
+.registration-summary,
+.ticket-row,
+.reply-box,
+.feedback-box {
+  background: #ffffff;
+  border: 1px solid var(--support-line);
+  box-shadow: none;
+}
+
+.message-bubble.incoming {
+  background: #eef4ff;
+  border: 1px solid #c7d8f7;
+  box-shadow: none;
+}
+
+.support-title > .material-symbols-outlined,
+.support-primary,
+.support-status-card,
+.support-status-card.is-active,
+.message-bubble.outgoing {
+  color: #ffffff !important;
+  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.34), transparent 34%), linear-gradient(135deg, #183766, #3264a9 62%, #839cdf) !important;
+  border-color: rgba(50, 100, 169, 0.46) !important;
+  box-shadow: none !important;
+}
+
+.support-primary:hover:not(:disabled),
+.support-status-card:hover:not(:disabled),
+.support-status-card.is-active:hover:not(:disabled) {
+  color: #ffffff !important;
+  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.34), transparent 34%), linear-gradient(135deg, #183766, #3264a9 62%, #839cdf) !important;
+  border-color: rgba(50, 100, 169, 0.58) !important;
+  box-shadow: none !important;
+}
+
+.support-soft,
+.support-chips button,
+.conversation-meta span,
+.status-pill,
+.status-pill.closed,
+.attachment-strip button,
+.ticket-row:hover,
+.ticket-row.is-active,
+.support-alert,
+.support-alert.danger {
+  color: var(--support-ink) !important;
+  background: #f9fafb !important;
+  border-color: var(--support-line);
+}
+
+.support-title h2,
+.ticket-row b,
+.conversation-head h3,
+.registration-summary b,
+.message-meta b,
+.message-bubble.incoming,
+.support-modal h3,
+.support-modal input,
+.support-modal select,
+.support-modal textarea,
+.reply-box textarea,
+.feedback-box textarea {
+  color: var(--support-navy);
+}
+
+.support-title small,
+.conversation-meta span,
+.support-modal label span,
+.registration-summary span,
+.ticket-row small,
+.ticket-row em,
+.ticket-title time,
+.conversation-head small,
+.message-meta em,
+.message-meta time,
+.thread-empty,
+.support-empty,
+.support-search .material-symbols-outlined {
+  color: var(--support-muted);
+}
+
+.ticket-dot,
+.ticket-dot.pending,
+.ticket-dot.answered,
+.ticket-dot.closed,
+.stars button.active {
+  color: var(--support-blue);
+}
+
+.support-status-card b,
+.support-status-card span,
+.support-status-card .material-symbols-outlined {
+  color: #ffffff !important;
+}
+
+.ticket-dot,
+.ticket-dot.pending,
+.ticket-dot.answered,
+.ticket-dot.closed {
+  background: var(--support-blue);
+}
+
+.support-search,
+.support-modal input,
+.support-modal select,
+.support-modal textarea,
+.reply-box textarea,
+.feedback-box textarea {
+  background: #ffffff;
+  border: 1px solid var(--support-line);
+}
+
+.message-thread {
+  background: #f9fafb;
+}
+
+.support-empty {
+  background: #ffffff;
+}
+
+.support-modal {
+  background: #ffffff;
+}
+
+.modal-handle {
+  background: #e4e7ec;
 }
 </style>

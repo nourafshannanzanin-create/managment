@@ -79,28 +79,14 @@ const globalLoading = computed(() =>
   state.userSubmitting ||
   state.documentSubmitting ||
   state.support.loading ||
+  state.support.detailLoading ||
+  state.support.submitting ||
   state.wallet.loading ||
+  state.wallet.submitting ||
   state.hq.loading ||
   signatureState.loading,
 )
 let hqSupportRefreshTimer = null
-let routeLoadingTimer = null
-
-function showRouteLoading() {
-  if (routeLoadingTimer) {
-    window.clearTimeout(routeLoadingTimer)
-    routeLoadingTimer = null
-  }
-  routeLoading.value = true
-}
-
-function hideRouteLoading() {
-  if (routeLoadingTimer) window.clearTimeout(routeLoadingTimer)
-  routeLoadingTimer = window.setTimeout(() => {
-    routeLoading.value = false
-    routeLoadingTimer = null
-  }, 220)
-}
 
 async function refreshRouteData(path) {
   if (!state.authToken || path === '/login') return
@@ -140,14 +126,14 @@ async function refreshRouteData(path) {
 watch(
   () => route.fullPath,
   async () => {
-    showRouteLoading()
     state.mobileMenuOpen = false
 
+    if (!state.sessionReady) return
+    routeLoading.value = true
     try {
-      if (!state.sessionReady) return
       await refreshRouteData(route.path)
     } finally {
-      hideRouteLoading()
+      routeLoading.value = false
     }
   },
 )
@@ -164,9 +150,6 @@ onMounted(async () => {
 onUnmounted(() => {
   if (hqSupportRefreshTimer) {
     window.clearInterval(hqSupportRefreshTimer)
-  }
-  if (routeLoadingTimer) {
-    window.clearTimeout(routeLoadingTimer)
   }
 })
 </script>
@@ -255,42 +238,63 @@ onUnmounted(() => {
 
     <SignatureComposerModal :open="modalState.signatureComposer" @close="closeSignatureComposer" />
 
-    <div v-if="globalLoading" class="app-loader-overlay" aria-label="در حال بارگذاری" aria-live="polite" aria-busy="true" role="status">
-      <div class="loader" aria-hidden="true"></div>
-    </div>
+    <Teleport to="body">
+      <div
+        v-if="globalLoading"
+        class="loading-overlay"
+        aria-label="در حال بارگذاری"
+        aria-live="polite"
+        aria-busy="true"
+        role="status"
+      >
+        <div class="app-loading-spinner" aria-hidden="true"></div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
-<style scoped>
-.app-loader-overlay {
+<style>
+.loading-overlay {
   position: fixed;
   inset: 0;
-  z-index: 3000;
-  display: grid;
-  place-items: center;
-  background: rgba(15, 23, 42, 0.36);
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  isolation: isolate;
+  z-index: 2147483647;
 }
 
-.loader {
+.app-loading-spinner {
   width: 65px;
-  aspect-ratio: 1;
+  height: 65px;
+  flex: 0 0 65px;
   position: relative;
+  z-index: 1;
+  color: #ffffff;
+  filter: drop-shadow(0 0 7px rgba(255, 255, 255, 0.55));
 }
 
-.loader::before,
-.loader::after {
-  content: '';
+.app-loading-spinner::before,
+.app-loading-spinner::after {
+  content: "";
   position: absolute;
+  inset: 0;
+  display: block;
   border-radius: 50px;
-  box-shadow: 0 0 0 3px inset #fff;
-  animation: l4 2.5s infinite;
+  box-shadow: inset 0 0 0 3px currentColor;
+  animation: app-loader-orbit 2.5s linear infinite;
 }
 
-.loader::after {
+.app-loading-spinner::after {
   animation-delay: -1.25s;
 }
 
-@keyframes l4 {
+@keyframes app-loader-orbit {
   0% {
     inset: 0 35px 35px 0;
   }
@@ -329,9 +333,9 @@ onUnmounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .loader::before,
-  .loader::after {
-    animation-duration: 1ms;
+  .app-loading-spinner::before,
+  .app-loading-spinner::after {
+    animation-duration: 5s;
   }
 }
 </style>
