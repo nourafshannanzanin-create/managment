@@ -294,6 +294,14 @@ class UserAndSettingsTests(TestCase):
         self.assertEqual(created_user.phone, "09134279848")
         self.assertEqual(response.json()["phone"], "09134279848")
         notify_sms_mock.assert_called_once()
+        sms_tenant, sms_text, sms_recipients = notify_sms_mock.call_args.args[:3]
+        self.assertEqual(sms_tenant, self.organization)
+        self.assertEqual(sms_recipients, ["09134279848"])
+        self.assertIn(f"مجموعه {self.organization.name}", sms_text)
+        self.assertIn("به عنوان کاربر ثبت شدید", sms_text)
+        self.assertIn("نام کاربری: millaad", sms_text)
+        self.assertIn("رمز عبور: Secret123!", sms_text)
+        self.assertIn("آدرس مجموعه: https://carnomand.ir", sms_text)
 
     def test_settings_profile_uses_and_updates_organization_code(self):
         profile_response = self.client.get("/api/v1/settings/profile")

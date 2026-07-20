@@ -111,6 +111,10 @@ PERSIAN_DIGIT_TRANSLATION = str.maketrans("\u06f0\u06f1\u06f2\u06f3\u06f4\u06f5\
 SMS_FOOTER_TEXT = "از طرف کارنومند"
 
 
+def public_app_url() -> str:
+    return str(os.getenv("WORKFLOW_PUBLIC_APP_URL", "https://carnomand.ir") or "https://carnomand.ir").strip().rstrip("/")
+
+
 def has_saved_signature(signature_data: str | None) -> bool:
     normalized = (signature_data or "").strip()
     return bool(normalized) and normalized != DEFAULT_SIGNATURE_DATA
@@ -993,9 +997,11 @@ def create_organization_with_manager(payload: dict, actor: User | None = None) -
         "\n".join(
             [
                 f"{manager.full_name} گرامی",
-                f"حساب کاربری شما در {organization.name} ایجاد شد.",
+                f"شما در مجموعه {organization.name} به عنوان مدیر مجموعه ثبت شدید.",
+                "اطلاعات ورود شما به شرح زیر است:",
                 f"نام کاربری: {manager.slug}",
                 f"رمز عبور: {manager_password}",
+                f"آدرس مجموعه: {public_app_url()}",
             ]
         ),
         [manager.phone],
@@ -1904,9 +1910,12 @@ def support_ticket_approve_registration_view(request: HttpRequest, ticket_id: in
         "\n".join(
             [
                 f"{manager.full_name} گرامی",
-                f"ثبت نام {organization.name} تایید شد.",
+                f"ثبت نام مجموعه {organization.name} تایید شد.",
+                "شما به عنوان مدیر مجموعه ثبت شدید.",
+                "اطلاعات ورود شما به شرح زیر است:",
                 f"نام کاربری: {manager.slug}",
                 "رمز عبور: همان رمزی که هنگام ثبت نام وارد کرده اید.",
+                f"آدرس مجموعه: {public_app_url()}",
             ]
         ),
         [manager.phone],
@@ -2828,9 +2837,11 @@ def users_view(request: HttpRequest):
         "\n".join(
             [
                 f"{user.full_name} گرامی",
-                "حساب کاربری شما ایجاد شد.",
+                f"شما در مجموعه {organization.name} به عنوان کاربر ثبت شدید.",
+                "اطلاعات ورود شما به شرح زیر است:",
                 f"نام کاربری: {user.slug}",
                 f"رمز عبور: {password}",
+                f"آدرس مجموعه: {public_app_url()}",
             ]
         ),
         [user.phone],
