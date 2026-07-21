@@ -1285,7 +1285,8 @@ async function submitWalletTransaction(payload) {
       ? 'برداشت ثبت شد.'
       : 'شارژ ثبت شد.'
   } catch (error) {
-    state.wallet.error = error.message || 'Wallet transaction failed.'
+    const normalized = setLastError(error, 'ثبت تراکنش کیف پول ناموفق بود.')
+    state.wallet.error = normalized.message
     throw error
   } finally {
     state.wallet.submitting = false
@@ -1316,7 +1317,8 @@ async function submitFeaturePurchase(payload) {
     await loadBootstrapData(true)
     return true
   } catch (error) {
-    state.wallet.error = error.message || 'Feature purchase failed.'
+    const normalized = setLastError(error, 'خرید قابلیت ناموفق بود.')
+    state.wallet.error = normalized.message
     return false
   } finally {
     state.wallet.submitting = false
@@ -2047,19 +2049,29 @@ export function useWorkflowHub() {
   }
 
 async function updateUser(userId, payload) {
-  state.lastError = ''
-  const response = await authorizedFetch(`/users/${userId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ...payload,
-      managerId: payload.managerId ? Number(payload.managerId) : null,
-    }),
-  })
-  const updatedUser = normalizeUser(repairPayload(await response.json()))
-  syncUserAcrossState(updatedUser)
-  if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
-    await loadSettings(true)
+  clearLastError()
+  try {
+    const response = await authorizedFetch(`/users/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...payload,
+        managerId: payload.managerId ? Number(payload.managerId) : null,
+      }),
+    })
+    const updatedUser = normalizeUser(repairPayload(await response.json()))
+    syncUserAcrossState(updatedUser)
+    if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
+      try {
+        await loadSettings(true)
+      } catch (error) {
+        setLastError(error, 'کاربر ذخیره شد اما تازه‌سازی تنظیمات انجام نشد.')
+      }
+    }
+    return updatedUser
+  } catch (error) {
+    setLastError(error, 'ذخیره تغییرات کاربر ناموفق بود.')
+    throw error
   }
 }
 
@@ -2198,7 +2210,6 @@ async function updateUser(userId, payload) {
 
   return singleton
 }
-
 
 
 

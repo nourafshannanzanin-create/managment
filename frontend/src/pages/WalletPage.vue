@@ -377,6 +377,9 @@ watch(
           </div>
           <strong>{{ option.title }}</strong>
           <p>{{ option.description }}</p>
+          <small v-if="option.retentionSummary || option.retention_summary" class="wallet-option-retention">
+            {{ option.retentionSummary || option.retention_summary }}
+          </small>
           <template v-if="!optionDisabled(option)">
             <div class="wallet-option-price">
               <span>نقدی</span>
@@ -488,6 +491,10 @@ watch(
           <textarea v-model="transactionForm.note" rows="3"></textarea>
         </label>
 
+        <div v-if="state.wallet.error" class="wallet-alert danger in-modal">
+          {{ state.wallet.error }}
+        </div>
+
         <template v-if="transactionForm.direction === 'out' && usesManagerPaymentFlow">
           <label>
             <span>مقصد</span>
@@ -573,6 +580,9 @@ watch(
         </div>
 
         <p class="purchase-copy">{{ selectedPurchaseOption.description }}</p>
+        <p v-if="selectedPurchaseOption.retentionSummary || selectedPurchaseOption.retention_summary" class="purchase-copy retention">
+          {{ selectedPurchaseOption.retentionSummary || selectedPurchaseOption.retention_summary }}
+        </p>
 
         <div class="purchase-plan-toggle">
           <button type="button" :class="{ active: purchaseForm.paymentPlan === 'cash' }" @click="purchaseForm.paymentPlan = 'cash'">
@@ -617,6 +627,10 @@ watch(
             <small>موجودی قابل استفاده</small>
             <strong>{{ purchaseWallet?.balance || '0.00' }}</strong>
           </div>
+        </div>
+
+        <div v-if="state.wallet.error" class="wallet-alert danger in-modal">
+          {{ state.wallet.error }}
         </div>
 
         <div class="modal-actions">
@@ -842,6 +856,13 @@ watch(
   background: #f9fafb;
 }
 
+.wallet-alert.in-modal {
+  border: 1px solid #fecdca;
+  border-radius: 8px;
+  color: #b42318 !important;
+  background: #fffbfa !important;
+}
+
 .wallet-license-alert {
   display: flex;
   align-items: center;
@@ -930,6 +951,18 @@ watch(
   margin: 0;
   color: var(--wallet-muted);
   line-height: 1.8;
+}
+
+.wallet-option-retention {
+  display: block;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  color: #344054;
+  background: #f9fafb;
+  line-height: 1.8;
+  font-weight: 700;
 }
 
 .wallet-option-price {
@@ -1257,6 +1290,15 @@ watch(
   line-height: 1.9;
 }
 
+.purchase-copy.retention {
+  padding: 12px 14px;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  color: #344054;
+  background: #f9fafb;
+  font-weight: 700;
+}
+
 .purchase-plan-toggle {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1277,9 +1319,16 @@ watch(
 }
 
 .purchase-plan-toggle button.active {
-  color: #fff;
-  border-color: transparent;
-  background: var(--wallet-blue);
+  color: var(--wallet-navy);
+  border-color: #3264a9;
+  background: #eff6ff;
+  box-shadow: inset 0 0 0 2px rgba(50, 100, 169, 0.28);
+}
+
+.purchase-plan-toggle button.active .material-symbols-outlined,
+.purchase-plan-toggle button.active b,
+.purchase-plan-toggle button.active small {
+  color: var(--wallet-navy);
 }
 
 .purchase-plan-toggle small {
@@ -1493,7 +1542,6 @@ watch(
 .wallet-hero-balance .material-symbols-outlined,
 .ledger-head b,
 .purchase-modal-head,
-.purchase-plan-toggle button.active,
 .wallet-modal .action-btn.tone-primary,
 .wallet-option-actions .action-btn.tone-primary,
 .wallet-action,

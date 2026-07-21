@@ -50,6 +50,9 @@ IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
 PDF_EXTENSIONS = {".pdf"}
 HQ_USERNAME = "milad_dhs"
 CORE_FEATURE_KEY = "core_software"
+CLOUD_STORAGE_FEATURE_KEY = "cloud_storage"
+DEFAULT_OPERATIONAL_RETENTION_DAYS = 90
+CLOUD_OPERATIONAL_RETENTION_DAYS = 365
 PURCHASABLE_FEATURES = [
     {
         "feature_key": CORE_FEATURE_KEY,
@@ -68,10 +71,13 @@ PURCHASABLE_FEATURES = [
         "required": True,
     },
     {
-        "feature_key": "cloud_storage",
+        "feature_key": CLOUD_STORAGE_FEATURE_KEY,
         "title": "فضای ابری",
         "subtitle": "نگهداری و مدیریت فایل های سازمانی",
         "description": "بخش فضای ابری برای مشاهده، پیگیری و بارگذاری اسناد سازمانی.",
+        "retention_summary": "داده‌های عملیاتی مانند هزینه‌ها، درخواست‌ها و گزارشات به صورت پیش‌فرض ۳ ماه نگهداری می‌شوند. با خرید فضای ابری، نگهداری کامل داده‌ها تا یک سال فعال می‌شود.",
+        "included_retention_days": 90,
+        "retention_days": 365,
         "accent": "#287a6e",
         "base_price": Decimal("12000000"),
         "monthly_installment_amount": Decimal("2500000"),
@@ -281,6 +287,16 @@ def active_feature_keys(organization: Organization | None) -> set[str]:
     )
 
 
+def operational_retention_days(organization: Organization | None) -> int:
+    if organization is not None and CLOUD_STORAGE_FEATURE_KEY in active_feature_keys(organization):
+        return CLOUD_OPERATIONAL_RETENTION_DAYS
+    return DEFAULT_OPERATIONAL_RETENTION_DAYS
+
+
+def operational_retention_start(organization: Organization | None) -> date:
+    return date.today() - timedelta(days=operational_retention_days(organization))
+
+
 def license_status_payload(organization: Organization | None) -> dict:
     core_purchase = organization_feature_purchase(organization, CORE_FEATURE_KEY)
     if core_purchase is None or not core_purchase.is_active:
@@ -339,7 +355,7 @@ def menu_access_payload(user: User) -> dict:
     features = active_feature_keys(organization)
     return {
         "core_software": CORE_FEATURE_KEY in features,
-        "cloud_storage": "cloud_storage" in features,
+        "cloud_storage": CLOUD_STORAGE_FEATURE_KEY in features,
         "attendance": "attendance" in features,
         "wallet": is_manager(user),
     }
@@ -359,6 +375,12 @@ def wallet_feature_option_payload(config: dict, purchase: FeaturePurchase | None
         "title": config["title"],
         "subtitle": config.get("subtitle", ""),
         "description": config.get("description", ""),
+        "retentionSummary": config.get("retention_summary", ""),
+        "retention_summary": config.get("retention_summary", ""),
+        "retentionDays": int(config.get("retention_days", 0) or 0),
+        "retention_days": int(config.get("retention_days", 0) or 0),
+        "includedRetentionDays": int(config.get("included_retention_days", 0) or 0),
+        "included_retention_days": int(config.get("included_retention_days", 0) or 0),
         "accent": config.get("accent", "#315f9f"),
         "required": bool(config.get("required")),
         "disabled": bool(config.get("disabled")),
@@ -851,8 +873,10 @@ def serialize_approval(document: Document, current_user: User | None = None) -> 
 
 
 def visible_requests(user: User):
+    retention_start = operational_retention_start(get_user_organization(user))
     return (
         Request.objects.filter(Q(requester=user) | Q(approval_assignments__approver=user))
+        .filter(created_at__date__gte=retention_start)
         .select_related("requester", "manager", "department")
         .prefetch_related(
             "assigned_managers",
@@ -866,8 +890,10 @@ def visible_requests(user: User):
 
 
 def visible_expenses(user: User):
+    retention_start = operational_retention_start(get_user_organization(user))
     return (
         Expense.objects.filter(Q(owner=user) | Q(approval_assignments__approver=user))
+        .filter(expense_date__gte=retention_start)
         .select_related("owner", "department")
         .prefetch_related(Prefetch("approval_assignments", queryset=ExpenseApprovalAssignment.objects.select_related("approver").order_by("created_at")))
         .distinct()
@@ -941,10 +967,12 @@ def report_catalog(user: User) -> list[dict]:
 
 def visible_reports_payload(user: User) -> dict:
     organization = get_user_organization(user)
+    retention_start = operational_retention_start(organization)
     users_qs = User.objects.filter(organization_membership__organization=organization).select_related("department", "manager")
     user_ids = list(users_qs.values_list("id", flat=True))
     requests_qs = list(
         Request.objects.filter(requester_id__in=user_ids)
+        .filter(created_at__date__gte=retention_start)
         .select_related("requester", "manager", "department")
         .prefetch_related(
             "assigned_managers",
@@ -956,12 +984,14 @@ def visible_reports_payload(user: User) -> dict:
     )
     expenses_qs = list(
         Expense.objects.filter(owner_id__in=user_ids)
+        .filter(expense_date__gte=retention_start)
         .select_related("owner", "department")
         .prefetch_related(Prefetch("approval_assignments", queryset=ExpenseApprovalAssignment.objects.select_related("approver").order_by("created_at")))
         .order_by("-expense_date", "-created_at")
     )
     approvals_qs = list(
         Document.objects.filter(owner_id__in=user_ids)
+        .filter(uploaded_at__date__gte=retention_start)
         .select_related("owner", "department")
         .prefetch_related(Prefetch("approval_assignments", queryset=ApprovalAssignment.objects.select_related("approver").order_by("created_at")))
         .order_by("-uploaded_at")
@@ -1156,6 +1186,7 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
         approvals_qs = []
         users_qs = []
     elif hq_selected_organization is not None:
+        retention_start = operational_retention_start(hq_selected_organization)
         users_qs = list(
             User.objects.filter(organization_membership__organization=hq_selected_organization)
             .select_related("department", "manager", "organization_membership__organization")
@@ -1164,6 +1195,7 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
         user_ids = [item.id for item in users_qs]
         requests_qs = list(
             Request.objects.filter(requester_id__in=user_ids)
+            .filter(created_at__date__gte=retention_start)
             .select_related("requester", "manager", "department")
             .prefetch_related(
                 "assigned_managers",
@@ -1175,12 +1207,14 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
         )
         expenses_qs = list(
             Expense.objects.filter(owner_id__in=user_ids)
+            .filter(expense_date__gte=retention_start)
             .select_related("owner", "department")
             .prefetch_related(Prefetch("approval_assignments", queryset=ExpenseApprovalAssignment.objects.select_related("approver").order_by("created_at")))
             .order_by("-expense_date", "-created_at")
         )
         approvals_qs = list(
             Document.objects.filter(owner_id__in=user_ids)
+            .filter(uploaded_at__date__gte=retention_start)
             .select_related("owner", "department")
             .prefetch_related(Prefetch("approval_assignments", queryset=ApprovalAssignment.objects.select_related("approver").order_by("created_at")))
             .order_by("-uploaded_at")
@@ -1379,12 +1413,22 @@ def _report_user_ids(user: User, organization_id: int | None, filters: dict | No
     return user_ids
 
 
+def _report_organization(user: User, organization_id: int | None) -> Organization:
+    if user.slug == HQ_USERNAME and organization_id:
+        organization = Organization.objects.exclude(code="hq-control").filter(pk=organization_id).first()
+        if organization is not None:
+            return organization
+    return get_user_organization(user)
+
+
 def render_report_export(report_key: str, user: User, organization_id: int | None = None, filters: dict | None = None) -> tuple[str, str]:
     buffer = StringIO()
     writer = csv.writer(buffer)
     today = date.today().isoformat()
     filters = filters or {}
     start_date, end_date = _report_date_bounds(filters)
+    retention_start = operational_retention_start(_report_organization(user, organization_id))
+    start_date = max(start_date, retention_start) if start_date else retention_start
     user_ids = _report_user_ids(user, organization_id, filters)
 
     if report_key == "requests":

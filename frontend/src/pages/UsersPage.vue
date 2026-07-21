@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
+import ErrorNotice from '../components/ErrorNotice.vue'
 import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -152,6 +153,8 @@ async function saveUserChanges() {
     })
     editableUser.password = ''
     closeUserDetails()
+  } catch {
+    // ErrorNotice renders the normalized backend/frontend error.
   } finally {
     savingUser.value = false
   }
@@ -474,14 +477,21 @@ function userManagerOptions(userId) {
         </section>
 
         <div class="user-access-grid">
-          <label v-for="item in sectionAccessOptions" :key="item.key" class="check-tile">
+          <label
+            v-for="item in sectionAccessOptions"
+            :key="item.key"
+            :class="['check-tile', editableUser.sectionAccess[item.key] && 'is-checked']"
+          >
             <input v-model="editableUser.sectionAccess[item.key]" type="checkbox" :disabled="!canManageUsers" />
+            <span class="check-state material-symbols-outlined">{{ editableUser.sectionAccess[item.key] ? 'check_circle' : 'radio_button_unchecked' }}</span>
             <div>
               <strong>{{ item.title }}</strong>
             </div>
           </label>
         </div>
       </section>
+
+      <ErrorNotice :error="state.lastErrorDetails" compact />
 
       <section class="user-modal-actions">
         <button class="action-btn tone-soft" type="button" @click="closeUserDetails">
@@ -834,6 +844,7 @@ function userManagerOptions(userId) {
 }
 
 .check-tile {
+  position: relative;
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 12px;
@@ -842,10 +853,30 @@ function userManagerOptions(userId) {
   border-radius: 18px;
   border: 1px solid rgba(36, 59, 107, 0.1);
   background: rgba(255, 255, 255, 0.76);
+  color: #203255;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
 .check-tile input {
-  margin-top: 4px;
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.check-tile.is-checked {
+  border-color: #3264a9;
+  background: #eff6ff;
+  box-shadow: inset 3px 0 0 #3264a9;
+}
+
+.check-state {
+  color: #98a2b3;
+  font-size: 22px;
+}
+
+.check-tile.is-checked .check-state,
+.check-tile.is-checked strong {
+  color: #17315d;
 }
 
 .check-tile strong,

@@ -88,8 +88,13 @@ const sectionAccessOptions = [
         </div>
 
         <div class="modal-grid access-check-grid">
-          <label v-for="item in sectionAccessOptions" :key="item.key" class="check-tile">
+          <label
+            v-for="item in sectionAccessOptions"
+            :key="item.key"
+            :class="['check-tile', form.sectionAccess[item.key] && 'is-checked']"
+          >
             <input v-model="form.sectionAccess[item.key]" type="checkbox" />
+            <span class="check-state material-symbols-outlined">{{ form.sectionAccess[item.key] ? 'check_circle' : 'radio_button_unchecked' }}</span>
             <div>
               <strong>{{ item.title }}</strong>
             </div>
@@ -129,6 +134,7 @@ const sectionAccessOptions = [
 }
 
 .check-tile {
+  position: relative;
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 12px;
@@ -137,10 +143,30 @@ const sectionAccessOptions = [
   border-radius: 8px;
   border: 1px solid rgba(36, 59, 107, 0.1);
   background: rgba(255, 255, 255, 0.74);
+  color: #203255;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
 .check-tile input {
-  margin-top: 4px;
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.check-tile.is-checked {
+  border-color: #3264a9;
+  background: #eff6ff;
+  box-shadow: inset 3px 0 0 #3264a9;
+}
+
+.check-state {
+  color: #98a2b3;
+  font-size: 22px;
+}
+
+.check-tile.is-checked .check-state,
+.check-tile.is-checked strong {
+  color: #17315d;
 }
 
 .check-tile strong {

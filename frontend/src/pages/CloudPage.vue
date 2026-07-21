@@ -1,11 +1,24 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const { state, openDocumentComposer, openProtectedFile, downloadProtectedFile } = useWorkflowHub()
+const { state, loadWalletOptions, openDocumentComposer, openProtectedFile, downloadProtectedFile } = useWorkflowHub()
 
 const canUseCloud = computed(() => state.currentUser.isHq || state.currentUser.menuAccess?.cloud_storage === true)
+const cloudOption = computed(() =>
+  (state.wallet.options || []).find((item) => (item.featureKey || item.feature_key) === 'cloud_storage') || null,
+)
+const cloudRetentionText = computed(() =>
+  cloudOption.value?.retentionSummary ||
+  cloudOption.value?.retention_summary ||
+  'داده‌های عملیاتی سامانه به صورت پیش‌فرض تا ۳ ماه نگهداری می‌شوند. با فعال‌سازی فضای ابری، نگهداری کامل داده‌ها تا یک سال انجام می‌شود.',
+)
+const cloudRetentionDays = computed(() =>
+  canUseCloud.value
+    ? (cloudOption.value?.retentionDays || cloudOption.value?.retention_days || 365)
+    : (cloudOption.value?.includedRetentionDays || cloudOption.value?.included_retention_days || 90),
+)
 const files = computed(() =>
   (state.approvals || [])
     .filter((item) => item.previewUrl || item.downloadUrl)
@@ -23,9 +36,14 @@ const files = computed(() =>
 
 const stats = computed(() => [
   { label: 'فایل‌ها', value: files.value.length, icon: 'folder_open' },
+  { label: 'نگهداری داده', value: `${cloudRetentionDays.value} روز`, icon: 'database' },
   { label: 'منتظر تایید', value: state.approvalMetrics.pending || 0, icon: 'pending_actions' },
   { label: 'تایید شده', value: state.approvalMetrics.approved || 0, icon: 'verified' },
 ])
+
+onMounted(() => {
+  if (state.currentUser.isManager || state.currentUser.canUseHq) void loadWalletOptions()
+})
 </script>
 
 <template>
@@ -33,6 +51,7 @@ const stats = computed(() => [
     <div v-if="!canUseCloud" class="cloud-empty">
       <span class="material-symbols-outlined">lock</span>
       <strong>فضای ابری برای این مجموعه فعال نیست.</strong>
+      <p>{{ cloudRetentionText }}</p>
     </div>
 
     <template v-else>
@@ -40,6 +59,7 @@ const stats = computed(() => [
         <div>
           <span>Cloud workspace</span>
           <h1>فضای ابری</h1>
+          <p>{{ cloudRetentionText }}</p>
         </div>
         <button class="action-btn tone-primary" type="button" @click="openDocumentComposer">
           <span class="material-symbols-outlined">upload_file</span>
@@ -111,9 +131,18 @@ const stats = computed(() => [
   font-size: 32px;
 }
 
+.cloud-head p,
+.cloud-empty p {
+  max-width: 760px;
+  margin: 8px 0 0;
+  color: #3f5f59;
+  line-height: 1.9;
+  font-weight: 700;
+}
+
 .cloud-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -197,7 +226,7 @@ const stats = computed(() => [
   }
 
   .cloud-stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>
