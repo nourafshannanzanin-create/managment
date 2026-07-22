@@ -66,7 +66,7 @@ const items = computed(() => {
     position: fixed;
     inset-inline: 0;
     bottom: 0;
-    z-index: 60;
+    z-index: 55;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
     gap: 2px;
@@ -83,6 +83,7 @@ const items = computed(() => {
     backdrop-filter: none;
     transform: none;
     left: auto;
+    transition: opacity 0.18s ease, visibility 0.18s ease;
   }
 
   .mobile-bottom-link {

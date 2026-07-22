@@ -249,7 +249,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'is-auth-route': isAuthRoute, 'has-trial-banner': showTrialBanner }">
+  <div
+    class="app-shell"
+    :class="{
+      'is-auth-route': isAuthRoute,
+      'has-trial-banner': showTrialBanner,
+      'has-mobile-menu-open': !isAuthRoute && state.mobileMenuOpen,
+    }"
+  >
     <template v-if="!isAuthRoute">
       <div class="shell-backdrop" :class="{ 'is-open': state.mobileMenuOpen }" @click="toggleSidebar"></div>
       <AppSidebar :mobile-menu-open="state.mobileMenuOpen" :toggle-sidebar="toggleSidebar" />

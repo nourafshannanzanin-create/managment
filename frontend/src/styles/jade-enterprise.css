@@ -962,9 +962,13 @@ body:has(.app-shell:not(.is-auth-route)),
     position:fixed !important;
     top:0 !important;
     right:0 !important;
+    bottom:0 !important;
+    height:100dvh !important;
+    max-height:100dvh !important;
     transform:translateX(105%) !important;
     transition:transform 180ms ease !important;
     box-shadow:var(--shadow-strong) !important;
+    z-index:210 !important;
   }
 
   #app .app-shell:not(.is-auth-route) .shell-sidebar.is-open {
@@ -975,8 +979,8 @@ body:has(.app-shell:not(.is-auth-route)),
     display:block !important;
     position:fixed !important;
     inset:0 !important;
-    z-index:45 !important;
-    background:rgba(25, 28, 29, 0.25) !important;
+    z-index:200 !important;
+    background:rgba(25, 28, 29, 0.32) !important;
     opacity:0 !important;
     pointer-events:none !important;
     transition:opacity 180ms ease !important;
@@ -2879,9 +2883,9 @@ body:has(.app-shell:not(.is-auth-route)),
   #app .app-shell:not(.is-auth-route) .topbar-shell {
     position: sticky !important;
     top: 0 !important;
-    z-index: 50 !important;
-    padding: 8px 12px !important;
-    gap: 8px !important;
+    z-index: 40 !important;
+    padding: 6px 10px !important;
+    gap: 6px !important;
     background: #f7fbfa !important;
     box-shadow: 0 4px 14px rgba(40, 110, 105, 0.08) !important;
   }
@@ -2890,33 +2894,42 @@ body:has(.app-shell:not(.is-auth-route)),
     display: grid !important;
     grid-template-columns: auto minmax(0, 1fr) !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 6px !important;
+    min-height: 36px !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-intro {
     display: flex !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 6px !important;
     min-width: 0 !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-intro-copy {
     min-width: 0 !important;
+    display: grid !important;
+    gap: 1px !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-intro-copy strong {
     display: block !important;
-    font-size: 0.95rem !important;
-    line-height: 1.25 !important;
+    font-size: 0.88rem !important;
+    line-height: 1.2 !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-eyebrow {
-    min-height: 18px !important;
-    padding: 0 7px !important;
-    font-size: 0.62rem !important;
+    min-height: 16px !important;
+    padding: 0 6px !important;
+    font-size: 0.58rem !important;
+    line-height: 16px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-intro-copy p,
+  #app .app-shell:not(.is-auth-route) .topbar-shell .page-header-description {
+    display: none !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-actions {
@@ -2924,31 +2937,62 @@ body:has(.app-shell:not(.is-auth-route)),
     width: 100% !important;
     display: flex !important;
     flex-wrap: wrap !important;
-    gap: 8px !important;
+    gap: 6px !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-action-row {
     width: 100% !important;
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 8px !important;
+    gap: 6px !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-action-row .action-btn {
     width: 100% !important;
+    min-height: 32px !important;
+    height: 32px !important;
+    padding: 0 10px !important;
+    font-size: 0.78rem !important;
   }
 
   #app .app-shell:not(.is-auth-route) .hq-organization-select {
     width: 100% !important;
-    min-height: 34px !important;
+    min-height: 32px !important;
+    height: 32px !important;
   }
 
   #app .app-shell:not(.is-auth-route) .mobile-menu-trigger {
     display: inline-grid !important;
-    width: 36px !important;
-    height: 36px !important;
-    min-width: 36px !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
     place-items: center !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav {
+    z-index: 55 !important;
+  }
+
+  #app .app-shell.has-mobile-menu-open:not(.is-auth-route) .mobile-bottom-nav,
+  #app .app-shell.has-mobile-menu-open:not(.is-auth-route) .global-trial-banner {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  #app .app-shell.has-mobile-menu-open:not(.is-auth-route) .topbar-shell,
+  #app .app-shell.has-mobile-menu-open:not(.is-auth-route) .topbar-filters,
+  #app .app-shell.has-mobile-menu-open:not(.is-auth-route) .page-filters,
+  #app .app-shell.has-mobile-menu-open:not(.is-auth-route) .modern-page-filters {
+    z-index: 30 !important;
+  }
+
+  #app .app-shell.has-mobile-menu-open:not(.is-auth-route) .shell-backdrop {
+    z-index: 200 !important;
+  }
+
+  #app .app-shell.has-mobile-menu-open:not(.is-auth-route) .shell-sidebar {
+    z-index: 210 !important;
   }
 
   /* Always prefer 2 columns for peer sets */

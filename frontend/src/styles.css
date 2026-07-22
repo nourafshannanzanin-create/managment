@@ -1721,7 +1721,7 @@ a {
     position: fixed;
     inset: 0;
     background: rgba(36, 59, 107, 0.22);
-    z-index: 24;
+    z-index: 200;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease;
@@ -1740,6 +1740,7 @@ a {
     width: min(88vw, 340px);
     transform: translateX(100%);
     transition: transform 0.22s ease;
+    z-index: 210;
   }
 
   .shell-sidebar.is-open {
