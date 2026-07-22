@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './base/IconlyIcon.vue'
 import { computed, ref, watch } from 'vue'
 
 import BaseModal from './BaseModal.vue'
@@ -189,7 +190,7 @@ watch(
 
         <div class="approval-status-panel">
           <div class="approval-status-icon">
-            <span class="material-symbols-outlined">{{ statusIcon }}</span>
+            <IconlyIcon :name="statusIcon" decorative />
           </div>
           <div class="approval-status-copy">
             <strong>{{ approval.status }}</strong>
@@ -202,7 +203,7 @@ watch(
       <section class="approval-meta-board">
         <article v-for="item in metaItems" :key="item.label" class="approval-meta-card">
           <div class="approval-meta-icon">
-            <span class="material-symbols-outlined">{{ item.icon }}</span>
+            <IconlyIcon :name="item.icon" decorative />
           </div>
           <div class="approval-meta-copy">
             <span>{{ item.label }}</span>
@@ -226,7 +227,7 @@ watch(
                 type="button"
                 @click="handlePreviewOpen"
               >
-                <span class="material-symbols-outlined">open_in_new</span>
+                <IconlyIcon name="open_in_new" decorative />
                 <span>باز کردن فایل</span>
               </button>
               <button
@@ -235,7 +236,7 @@ watch(
                 type="button"
                 @click="handleDownload"
               >
-                <span class="material-symbols-outlined">download</span>
+                <IconlyIcon name="download" decorative />
                 <span>{{ isApproved ? 'دانلود نسخه نهایی' : 'دانلود سند' }}</span>
               </button>
             </div>
@@ -244,7 +245,7 @@ watch(
           <div class="approval-preview-stage">
             <div v-if="previewLoading" class="approval-preview-empty">
               <div class="approval-preview-badge">
-                <span class="material-symbols-outlined">progress_activity</span>
+                <IconlyIcon name="progress_activity" decorative />
               </div>
               <strong>در حال بارگذاری پیش نمایش</strong>
               <p>چند لحظه صبر کنید تا فایل برای نمایش داخل مودال آماده شود.</p>
@@ -258,14 +259,14 @@ watch(
             ></iframe>
             <div v-else-if="previewUrl" class="approval-preview-empty">
               <div class="approval-preview-badge">
-                <span class="material-symbols-outlined">{{ isPdf ? 'picture_as_pdf' : 'attach_file' }}</span>
+                <IconlyIcon :name="isPdf ? 'picture_as_pdf' : 'attach_file'" decorative />
               </div>
               <strong>{{ previewTitle }}</strong>
               <p>{{ previewHint }}</p>
             </div>
             <div v-else class="approval-preview-empty">
               <div class="approval-preview-badge">
-                <span class="material-symbols-outlined">description</span>
+                <IconlyIcon name="description" decorative />
               </div>
               <strong>فایل قابل نمایش موجود نیست</strong>
               <p>برای این سند فایل یا پیش نمایش معتبری ثبت نشده است.</p>
@@ -297,7 +298,7 @@ watch(
 
             <div v-if="approval.canApprove" class="signature-readiness-card" :class="{ 'is-ready': signatureState.hasSignature }">
               <div class="signature-readiness-icon">
-                <span class="material-symbols-outlined">{{ signatureState.hasSignature ? 'gesture' : 'draw' }}</span>
+                <IconlyIcon :name="signatureState.hasSignature ? 'gesture' : 'draw'" decorative />
               </div>
               <div class="signature-readiness-copy">
                 <strong>{{ signatureState.hasSignature ? 'امضا آماده است و مهر اختیاری است' : 'پیش از تایید، امضا لازم است' }}</strong>
@@ -308,7 +309,7 @@ watch(
                 </p>
               </div>
               <button class="action-btn tone-soft" type="button" @click="openSignatureComposer">
-                <span class="material-symbols-outlined">draw</span>
+                <IconlyIcon name="draw" decorative />
                 <span>{{ signatureState.hasSignature || signatureState.hasStamp ? 'ویرایش امضا و مهر' : 'ثبت امضا' }}</span>
               </button>
             </div>
@@ -317,7 +318,7 @@ watch(
 
             <div class="approval-action-row">
               <button class="action-btn tone-soft" type="button" @click="$emit('close')">
-                <span class="material-symbols-outlined">close</span>
+                <IconlyIcon name="close" decorative />
                 <span>بستن</span>
               </button>
               <button
@@ -327,7 +328,7 @@ watch(
                 :disabled="loading"
                 @click="referOpen = true"
               >
-                <span class="material-symbols-outlined">forward</span>
+                <IconlyIcon name="forward" decorative />
                 <span>ارجاع</span>
               </button>
               <button
@@ -337,7 +338,7 @@ watch(
                 :disabled="loading"
                 @click="rejectOpen = true"
               >
-                <span class="material-symbols-outlined">cancel</span>
+                <IconlyIcon name="cancel" decorative />
                 <span>رد</span>
               </button>
               <button
@@ -347,7 +348,7 @@ watch(
                 :disabled="loading || signatureState.loading || !canSubmitApproval"
                 @click="handleApprove"
               >
-                <span class="material-symbols-outlined">check_circle</span>
+                <IconlyIcon name="check_circle" decorative />
                 <span>تایید</span>
               </button>
             </div>
@@ -376,7 +377,7 @@ watch(
 
       <div class="modal-actions">
         <button class="action-btn tone-soft" type="button" @click="rejectOpen = false">
-          <span class="material-symbols-outlined">close</span>
+          <IconlyIcon name="close" decorative />
           <span>بستن</span>
         </button>
         <button
@@ -385,7 +386,7 @@ watch(
           :disabled="loading || !rejectReason.trim()"
           @click="handleReject"
         >
-          <span class="material-symbols-outlined">cancel</span>
+          <IconlyIcon name="cancel" decorative />
           <span>ثبت رد</span>
         </button>
       </div>
@@ -404,7 +405,7 @@ watch(
           <button :class="['filter-chip', referTab === 'employees' && 'is-active']" type="button" @click="referTab = 'employees'">کارمندان</button>
         </div>
         <label class="search-shell search-shell-wide">
-          <span class="material-symbols-outlined">search</span>
+          <IconlyIcon name="search" decorative />
           <input v-model="referSearch" :placeholder="referTab === 'managers' ? 'جستجو در مدیران' : 'جستجو در کارمندان'" />
         </label>
       </div>
@@ -420,7 +421,7 @@ watch(
             <strong>{{ item.name }}</strong>
             <small>{{ item.role || item.department }}</small>
           </div>
-          <span class="material-symbols-outlined">check_circle</span>
+          <IconlyIcon name="check_circle" decorative />
         </button>
       </div>
       <div class="modal-actions">
@@ -541,7 +542,7 @@ watch(
   box-shadow: none;
 }
 
-.approval-status-icon .material-symbols-outlined {
+.approval-status-icon .iconly-shell {
   font-size: 28px;
 }
 
@@ -580,7 +581,7 @@ watch(
   color: var(--primary);
 }
 
-.approval-meta-icon .material-symbols-outlined {
+.approval-meta-icon .iconly-shell {
   font-size: 22px;
 }
 
@@ -695,7 +696,7 @@ watch(
   color: #3f58a2;
 }
 
-.approval-preview-badge .material-symbols-outlined {
+.approval-preview-badge .iconly-shell {
   font-size: 34px;
 }
 

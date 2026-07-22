@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed } from 'vue'
 
 import PageHeader from '../components/PageHeader.vue'
@@ -277,7 +278,7 @@ function statusClass(status) {
 
         <div class="dashboard-focus-ribbon">
           <article v-for="item in quickFocus" :key="item.label" class="dashboard-focus-chip">
-            <span class="material-symbols-outlined">{{ item.icon }}</span>
+            <IconlyIcon :name="item.icon" decorative />
             <div>
               <strong>{{ item.value }}</strong>
               <span>{{ item.label }}</span>
@@ -288,7 +289,7 @@ function statusClass(status) {
         <div class="dashboard-stage-summary">
           <article v-for="item in operationalSnapshot" :key="item.label" class="dashboard-summary-card">
             <div class="dashboard-summary-icon">
-              <span class="material-symbols-outlined">{{ item.icon }}</span>
+              <IconlyIcon :name="item.icon" decorative />
             </div>
             <div class="dashboard-summary-copy">
               <strong>{{ item.value }}</strong>
@@ -315,7 +316,7 @@ function statusClass(status) {
           >
             <div class="dashboard-metric-topline">
               <span class="dashboard-metric-accent">{{ item.accent }}</span>
-              <span class="material-symbols-outlined dashboard-metric-icon">{{ item.icon }}</span>
+              <IconlyIcon :name="item.icon" class="dashboard-metric-icon" decorative />
             </div>
             <div class="dashboard-metric-main">
               <span class="dashboard-metric-label">{{ item.label }}</span>
@@ -361,25 +362,18 @@ function statusClass(status) {
 
 <style scoped>
 .dashboard-page-premium {
-  --dashboard-navy: #183153;
-  --dashboard-ink: #1f3557;
-  --dashboard-muted: #66758f;
-  --dashboard-line: rgba(32, 58, 105, 0.08);
-  --dashboard-shadow: 0 18px 42px rgba(24, 41, 77, 0.1);
+  --dashboard-navy: #2f3a55;
+  --dashboard-ink: #2f3a55;
+  --dashboard-muted: #5c6780;
+  --dashboard-line: rgba(47, 58, 85, 0.14);
+  --dashboard-shadow: none;
   position: relative;
   display: grid;
-  gap: 18px;
+  gap: 28px;
 }
 
 .dashboard-page-premium::before {
-  content: '';
-  position: absolute;
-  inset: -20px -20px auto;
-  height: 220px;
-  border-radius: 12px;
-  background: var(--surface, #fff);
-  pointer-events: none;
-  z-index: 0;
+  content: none;
 }
 
 .dashboard-page-premium > * {
@@ -391,10 +385,10 @@ function statusClass(status) {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 18px;
-  padding: 22px 24px;
-  border-radius: 12px;
-  background: var(--surface, #fff);
-  border: 1px solid rgba(34, 58, 102, 0.08);
+  padding: 0 0 8px;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
   box-shadow: none;
 }
 
@@ -453,31 +447,28 @@ function statusClass(status) {
 .dashboard-metric-card,
 .dashboard-action-card {
   position: relative;
-  overflow: hidden;
-  border: 1px solid var(--dashboard-line);
+  overflow: visible;
+  border: 0;
   box-shadow: none;
+  background: transparent;
 }
 
 .dashboard-stage-panel,
 .dashboard-metrics-panel,
 .dashboard-actions-panel {
-  border-radius: 12px;
+  border-radius: 0;
+  padding: 24px;
 }
 
 .dashboard-stage-panel {
-  padding: 22px;
+  padding: 24px;
   display: grid;
   gap: 14px;
-  background: var(--surface, #fff);
+  background: transparent;
 }
 
 .dashboard-stage-panel::after {
-  content: '';
-  position: absolute;
-  inset: 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.54);
-  pointer-events: none;
+  content: none;
 }
 
 .dashboard-stage-copy {
@@ -543,20 +534,20 @@ function statusClass(status) {
   grid-template-columns: auto 1fr;
   gap: 10px;
   align-items: center;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.7);
+  padding: 8px 0;
+  border-radius: 0;
+  background: transparent;
   backdrop-filter: none;
 }
 
-.dashboard-focus-chip .material-symbols-outlined,
+.dashboard-focus-chip .iconly-shell,
 .dashboard-summary-icon,
 .dashboard-metric-icon {
   display: grid;
   place-items: center;
 }
 
-.dashboard-focus-chip .material-symbols-outlined {
+.dashboard-focus-chip .iconly-shell {
   width: 38px;
   height: 38px;
   border-radius: 13px;
@@ -599,9 +590,9 @@ function statusClass(status) {
   grid-template-columns: auto 1fr;
   gap: 12px;
   align-items: center;
-  padding: 16px;
-  border-radius: 20px;
-  background: var(--surface, #fff);
+  padding: 8px 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .dashboard-summary-icon {
@@ -852,7 +843,10 @@ function statusClass(status) {
     align-items: start;
   }
 
-  .dashboard-focus-ribbon,
+  .dashboard-focus-ribbon {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .dashboard-stage-summary,
   .dashboard-metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -893,7 +887,10 @@ function statusClass(status) {
     white-space: normal;
   }
 
-  .dashboard-focus-ribbon,
+  .dashboard-focus-ribbon {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .dashboard-stage-summary,
   .dashboard-metrics-grid,
   .dashboard-queue-grid {
@@ -902,11 +899,14 @@ function statusClass(status) {
 }
 
 @media (max-width: 420px) {
-  .dashboard-focus-ribbon,
+  .dashboard-focus-ribbon {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .dashboard-stage-summary,
   .dashboard-metrics-grid,
   .dashboard-queue-grid {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -934,14 +934,14 @@ function statusClass(status) {
   border-radius: 20px;
 }
 
-/* Flat neutral dashboard override for the new product design language. */
+/* Unified continuous dashboard: no boxed panels. */
 .dashboard-page-premium {
-  --dashboard-navy: #111827;
-  --dashboard-ink: #344054;
-  --dashboard-muted: #667085;
-  --dashboard-line: #e4e7ec;
+  --dashboard-navy: #2a3348;
+  --dashboard-ink: #2a3348;
+  --dashboard-muted: #5f6b82;
+  --dashboard-line: rgba(45, 55, 85, 0.12);
   --dashboard-shadow: none;
-  gap: 16px;
+  gap: 28px;
 }
 
 .dashboard-page-premium::before,
@@ -957,17 +957,31 @@ function statusClass(status) {
 .dashboard-focus-chip,
 .dashboard-metric-card,
 .dashboard-action-card {
-  background: #ffffff;
-  border: 1px solid var(--dashboard-line);
-  border-radius: 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   box-shadow: none;
+  backdrop-filter: none;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 :deep(.page-header) {
-  padding: 0 0 16px;
-  background: transparent;
-  border-width: 0 0 1px;
+  padding: 0 0 8px;
+  margin-bottom: 12px;
+  border: 0;
   border-radius: 0;
+}
+
+.dashboard-stage-grid,
+.dashboard-actions-shell {
+  gap: 28px;
+}
+
+.dashboard-stage-panel,
+.dashboard-metrics-panel,
+.dashboard-actions-panel {
+  padding: 24px;
 }
 
 :deep(.page-eyebrow),
@@ -978,31 +992,32 @@ function statusClass(status) {
   padding: 0;
   color: var(--dashboard-muted);
   background: transparent;
+  border: 0;
   font-size: 11px;
   font-weight: 600;
 }
 
 :deep(.page-header .action-btn),
 .dashboard-action-button {
-  background: #2563eb;
-  border: 1px solid #2563eb;
+  background: #4d5d8a;
+  border: 1px solid #4d5d8a;
   border-radius: 8px;
   box-shadow: none;
   color: #fff;
 }
 
-.dashboard-focus-chip .material-symbols-outlined,
+.dashboard-focus-chip .iconly-shell,
 .dashboard-summary-icon,
 .dashboard-metric-icon {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #2563eb;
-  border-radius: 10px;
+  background: transparent;
+  border: 0;
+  color: #4d5d8a;
+  border-radius: 0;
 }
 
 .dashboard-action-meta span {
-  background: #f9fafb;
-  border: 1px solid #e4e7ec;
-  color: #667085;
+  background: transparent;
+  border: 0;
+  color: #5f6b82;
 }
 </style>

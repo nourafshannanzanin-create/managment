@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './base/IconlyIcon.vue'
 import { computed, reactive, ref, watch } from 'vue'
 
 import BaseModal from './BaseModal.vue'
@@ -118,27 +119,27 @@ async function submitRefer() {
             <p v-if="item.decisionNote">{{ item.decisionNote }}</p>
           </article>
         </div>
-        <div v-else class="empty-state-inline centered-empty"><span class="material-symbols-outlined">hourglass_empty</span><p>ارجاع گیرنده ای ثبت نشده است.</p></div>
+        <div v-else class="empty-state-inline centered-empty"><IconlyIcon name="hourglass_empty" decorative /><p>ارجاع گیرنده ای ثبت نشده است.</p></div>
       </section>
 
       <section class="surface-inline detail-section">
         <div class="section-label-row"><div><h3>فایل های پیوست</h3></div><span class="meta-pill">{{ attachments.length }}</span></div>
         <div v-if="attachments.length" class="file-list">
           <button v-for="file in attachments" :key="file.id" class="file-row file-button" type="button" @click="openProtectedFile(file.fileUrl, file.originalName)">
-            <span class="material-symbols-outlined">attach_file</span>
+            <IconlyIcon name="attach_file" decorative />
             <strong>{{ file.originalName }}</strong>
           </button>
         </div>
-        <div v-else class="empty-state-inline centered-empty"><span class="material-symbols-outlined">attach_file_off</span><p>فایل پیوست وارد نشده است.</p></div>
+        <div v-else class="empty-state-inline centered-empty"><IconlyIcon name="attach_file_off" decorative /><p>فایل پیوست وارد نشده است.</p></div>
       </section>
 
       <p v-if="state.lastError" class="inline-error">{{ state.lastError }}</p>
 
       <div class="modal-actions">
-        <button class="action-btn tone-soft" type="button" @click="$emit('close')"><span class="material-symbols-outlined">close</span><span>بستن</span></button>
-        <button v-if="canApproveSelectedRequest" class="action-btn tone-soft" type="button" @click="referOpen = true"><span class="material-symbols-outlined">forward</span><span>ارجاع</span></button>
-        <button v-if="canApproveSelectedRequest" class="action-btn tone-danger" type="button" @click="rejectOpen = true"><span class="material-symbols-outlined">cancel</span><span>رد</span></button>
-        <button v-if="canApproveSelectedRequest" class="action-btn tone-primary" type="button" @click="approveSelectedRequest"><span class="material-symbols-outlined">check_circle</span><span>تایید</span></button>
+        <button class="action-btn tone-soft" type="button" @click="$emit('close')"><IconlyIcon name="close" decorative /><span>بستن</span></button>
+        <button v-if="canApproveSelectedRequest" class="action-btn tone-soft" type="button" @click="referOpen = true"><IconlyIcon name="forward" decorative /><span>ارجاع</span></button>
+        <button v-if="canApproveSelectedRequest" class="action-btn tone-danger" type="button" @click="rejectOpen = true"><IconlyIcon name="cancel" decorative /><span>رد</span></button>
+        <button v-if="canApproveSelectedRequest" class="action-btn tone-primary" type="button" @click="approveSelectedRequest"><IconlyIcon name="check_circle" decorative /><span>تایید</span></button>
       </div>
     </div>
   </BaseModal>
@@ -159,12 +160,12 @@ async function submitRefer() {
           <button :class="['filter-chip', referTab === 'managers' && 'is-active']" type="button" @click="referTab = 'managers'">مدیران</button>
           <button :class="['filter-chip', referTab === 'employees' && 'is-active']" type="button" @click="referTab = 'employees'">کارمندان</button>
         </div>
-        <label class="search-shell search-shell-wide"><span class="material-symbols-outlined">search</span><input v-model="referSearch" placeholder="جستجو" /></label>
+        <label class="search-shell search-shell-wide"><IconlyIcon name="search" decorative /><input v-model="referSearch" placeholder="جستجو" /></label>
       </div>
       <div class="recipient-grid">
         <button v-for="item in (referTab === 'managers' ? filteredManagers : filteredEmployees)" :key="item.id" :class="['recipient-card', (referTab === 'managers' ? referForm.managerAssigneeIds : referForm.employeeAssigneeIds).map(Number).includes(Number(item.id)) && 'is-selected']" type="button" @click="toggle(referTab === 'managers' ? 'managerAssigneeIds' : 'employeeAssigneeIds', item.id)">
           <div class="recipient-card-main"><strong>{{ item.name }}</strong><small>{{ item.role || item.department }}</small></div>
-          <span class="material-symbols-outlined">check_circle</span>
+          <IconlyIcon name="check_circle" decorative />
         </button>
       </div>
       <div class="modal-actions"><button class="action-btn tone-soft" type="button" @click="referOpen = false">بستن</button><button class="action-btn tone-primary" type="button" :disabled="!referForm.managerAssigneeIds.length && !referForm.employeeAssigneeIds.length" @click="submitRefer">ثبت ارجاع</button></div>

@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 
 import { formatAmountInput } from '../utils/amount'
@@ -284,7 +285,7 @@ watch(
   <section class="support-page">
     <section class="support-hero" aria-label="پشتیبانی">
       <div class="support-title">
-        <span class="material-symbols-outlined">support_agent</span>
+        <IconlyIcon name="support_agent" decorative />
         <div>
           <h2>پشتیبانی</h2>
           <small>{{ filteredTickets.length }} مکالمه</small>
@@ -298,13 +299,13 @@ watch(
           type="button"
           @click="activeStatus = item.key"
         >
-          <span class="material-symbols-outlined">{{ item.icon }}</span>
+          <IconlyIcon :name="item.icon" decorative />
           <span>{{ item.label }}</span>
           <b>{{ item.count }}</b>
         </button>
       </div>
       <button class="support-primary icon-label" type="button" @click="modalOpen = true">
-        <span class="material-symbols-outlined">add</span>
+        <IconlyIcon name="add" decorative />
         تیکت جدید
       </button>
     </section>
@@ -317,7 +318,7 @@ watch(
       <aside class="support-inbox">
         <div class="support-tools">
           <label class="support-search">
-            <span class="material-symbols-outlined">search</span>
+            <IconlyIcon name="search" decorative />
             <input v-model="query" placeholder="جستجو در تیکت‌ها" />
           </label>
           <div class="support-chips">
@@ -334,12 +335,12 @@ watch(
         </div>
 
         <div v-if="state.support.loading" class="support-empty compact">
-          <span class="material-symbols-outlined">progress_activity</span>
+          <IconlyIcon name="progress_activity" decorative />
           <small>در حال دریافت تیکت‌ها</small>
         </div>
 
         <div v-else-if="!filteredTickets.length" class="support-empty compact">
-          <span class="material-symbols-outlined">inbox</span>
+          <IconlyIcon name="inbox" decorative />
           <small>تیکتی برای این فیلتر نیست</small>
         </div>
 
@@ -364,12 +365,12 @@ watch(
 
       <main class="support-conversation">
         <div v-if="state.support.detailLoading" class="support-empty compact">
-          <span class="material-symbols-outlined">progress_activity</span>
+          <IconlyIcon name="progress_activity" decorative />
           <small>در حال دریافت مکالمه</small>
         </div>
 
         <div v-else-if="!selectedTicket" class="support-empty compact">
-          <span class="material-symbols-outlined">chat</span>
+          <IconlyIcon name="chat" decorative />
           <small>یک تیکت را انتخاب کنید</small>
         </div>
 
@@ -381,16 +382,16 @@ watch(
               <small>{{ selectedTicketSubtitle }}</small>
             </div>
             <div class="conversation-meta">
-              <span><i class="material-symbols-outlined">business</i>{{ selectedTicket.organization }}</span>
-              <span><i class="material-symbols-outlined">sell</i>{{ selectedTicket.categoryLabel }}</span>
-              <span><i class="material-symbols-outlined">flag</i>{{ selectedTicket.priorityLabel }}</span>
+              <span><IconlyIcon name="business" decorative />{{ selectedTicket.organization }}</span>
+              <span><IconlyIcon name="sell" decorative />{{ selectedTicket.categoryLabel }}</span>
+              <span><IconlyIcon name="flag" decorative />{{ selectedTicket.priorityLabel }}</span>
               <span>#{{ selectedTicket.id }}</span>
             </div>
           </header>
 
           <section v-if="selectedTicket.attachments?.length" class="attachment-strip">
             <button v-for="item in selectedTicket.attachments" :key="item.id" type="button" @click="openProtectedFile(item.fileUrl, item.originalName)">
-              <span class="material-symbols-outlined">attach_file</span>
+              <IconlyIcon name="attach_file" decorative />
               {{ item.originalName }}
             </button>
           </section>
@@ -422,7 +423,7 @@ watch(
               </div>
             </article>
             <div v-if="!conversationMessages.length" class="thread-empty">
-              <span class="material-symbols-outlined">forum</span>
+              <IconlyIcon name="forum" decorative />
               <small>پیامی برای نمایش وجود ندارد</small>
             </div>
           </section>
@@ -444,7 +445,7 @@ watch(
                 بستن
               </button>
               <button class="support-primary icon-label" type="button" :disabled="state.support.submitting || !replyBody.trim()" @click="sendReply(false)">
-                <span class="material-symbols-outlined">send</span>
+                <IconlyIcon name="send" decorative />
                 ارسال
               </button>
             </div>
@@ -565,7 +566,7 @@ watch(
 .support-page {
   --support-navy: #111827;
   --support-blue: var(--button-primary-bg, #17315d);
-  --support-action-bg: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.34), transparent 34%), linear-gradient(135deg, #183766, #3264a9 62%, #839cdf);
+  --support-action-bg: #34908B;
   --support-action-shadow: 0 16px 38px rgba(40, 82, 143, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.32);
   --support-green: #667085;
   --support-gold: #667085;
@@ -620,7 +621,7 @@ watch(
   min-width: 180px;
 }
 
-.support-title > .material-symbols-outlined {
+.support-title > .iconly-shell {
   display: grid;
   width: 42px;
   height: 42px;
@@ -711,7 +712,7 @@ watch(
   opacity: 0.55;
 }
 
-.icon-label .material-symbols-outlined {
+.icon-label .iconly-shell {
   font-size: 1.15rem;
 }
 
@@ -761,7 +762,7 @@ watch(
 
 .support-status-card.is-active b,
 .support-status-card.is-active span,
-.support-status-card.is-active .material-symbols-outlined {
+.support-status-card.is-active .iconly-shell {
   color: #fff;
 }
 
@@ -770,7 +771,7 @@ watch(
   font-size: 1rem;
 }
 
-.support-status-card span:not(.material-symbols-outlined) {
+.support-status-card span:not(.iconly-shell) {
   white-space: nowrap;
   font-weight: 900;
 }
@@ -813,7 +814,7 @@ watch(
   background: #fff;
 }
 
-.support-search .material-symbols-outlined {
+.support-search .iconly-shell {
   color: var(--support-muted);
   font-size: 1.1rem;
 }
@@ -1169,7 +1170,7 @@ watch(
   min-height: 240px;
 }
 
-.support-empty .material-symbols-outlined {
+.support-empty .iconly-shell {
   font-size: 3rem;
 }
 
@@ -1283,14 +1284,15 @@ watch(
   box-shadow: none;
 }
 
-.support-title > .material-symbols-outlined,
+.support-title > .iconly-shell,
 .support-primary,
 .support-status-card,
 .support-status-card.is-active,
 .message-bubble.outgoing {
   color: #ffffff !important;
-  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.34), transparent 34%), linear-gradient(135deg, #183766, #3264a9 62%, #839cdf) !important;
-  border-color: rgba(50, 100, 169, 0.46) !important;
+  background: #34908B !important;
+  background-image: none !important;
+  border-color: transparent !important;
   box-shadow: none !important;
 }
 
@@ -1298,8 +1300,9 @@ watch(
 .support-status-card:hover:not(:disabled),
 .support-status-card.is-active:hover:not(:disabled) {
   color: #ffffff !important;
-  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.34), transparent 34%), linear-gradient(135deg, #183766, #3264a9 62%, #839cdf) !important;
-  border-color: rgba(50, 100, 169, 0.58) !important;
+  background: #2b7874 !important;
+  background-image: none !important;
+  border-color: transparent !important;
   box-shadow: none !important;
 }
 
@@ -1345,7 +1348,7 @@ watch(
 .message-meta time,
 .thread-empty,
 .support-empty,
-.support-search .material-symbols-outlined {
+.support-search .iconly-shell {
   color: var(--support-muted);
 }
 
@@ -1359,7 +1362,7 @@ watch(
 
 .support-status-card b,
 .support-status-card span,
-.support-status-card .material-symbols-outlined {
+.support-status-card .iconly-shell {
   color: #ffffff !important;
 }
 

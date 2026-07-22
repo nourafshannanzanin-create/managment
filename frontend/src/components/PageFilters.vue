@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './base/IconlyIcon.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
 
 defineProps({
@@ -17,7 +18,7 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
   <section :class="['page-filters', 'modern-page-filters', dense && 'is-dense']">
     <label class="field-shell compact-field filter-field is-search">
       <span class="filter-field-label">
-        <span class="material-symbols-outlined">search</span>
+        <IconlyIcon name="search" decorative />
         <span>جستجو</span>
       </span>
       <div class="filter-field-control">
@@ -33,7 +34,7 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
 
     <label class="field-shell compact-field filter-field">
       <span class="filter-field-label">
-        <span class="material-symbols-outlined">group</span>
+        <IconlyIcon name="group" decorative />
         <span>شخص</span>
       </span>
       <div class="filter-field-control filter-select-wrap">
@@ -41,13 +42,13 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
           <option value="">همه افراد</option>
           <option v-for="item in people" :key="item" :value="item">{{ item }}</option>
         </select>
-        <span class="material-symbols-outlined filter-select-icon">expand_more</span>
+        <IconlyIcon name="expand_more" class="filter-select-icon" decorative />
       </div>
     </label>
 
     <label class="field-shell compact-field filter-field">
       <span class="filter-field-label">
-        <span class="material-symbols-outlined">event_upcoming</span>
+        <IconlyIcon name="event_upcoming" decorative />
         <span>از تاریخ</span>
       </span>
       <div class="filter-field-control">
@@ -62,7 +63,7 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
 
     <label class="field-shell compact-field filter-field">
       <span class="filter-field-label">
-        <span class="material-symbols-outlined">event_available</span>
+        <IconlyIcon name="event_available" decorative />
         <span>تا تاریخ</span>
       </span>
       <div class="filter-field-control">
@@ -76,7 +77,7 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
     </label>
 
     <button class="action-btn tone-soft filter-reset-btn modern-filter-reset" type="button" @click="emit('reset')">
-      <span class="material-symbols-outlined">restart_alt</span>
+      <IconlyIcon name="restart_alt" decorative />
       <span>پاک کردن</span>
     </button>
   </section>
@@ -85,140 +86,184 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
 <style scoped>
 .modern-page-filters {
   display: grid;
-  grid-template-columns: minmax(240px, 1.35fr) minmax(180px, 0.9fr) repeat(2, minmax(180px, 0.95fr)) auto;
-  gap: 12px;
-  align-items: stretch;
+  grid-template-columns: minmax(200px, 1.35fr) minmax(150px, 0.9fr) repeat(2, minmax(150px, 0.95fr)) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 0;
+  background: transparent;
+  border: 0;
 }
 
 .filter-field {
   display: grid;
-  gap: 10px;
-  min-height: 84px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: var(--surface, #fff);
-  border-color: rgba(36, 59, 107, 0.08);
+  grid-template-rows: 18px 36px;
+  align-items: stretch;
+  gap: 6px;
+  min-height: 0;
+  height: auto;
+  padding: 0 !important;
+  margin: 0;
+  border-radius: 0;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 .filter-field-label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  gap: 5px;
+  height: 18px;
+  line-height: 18px;
+  color: var(--muted, #5c6780);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
-.filter-field-label .material-symbols-outlined {
-  font-size: 18px;
-  color: var(--primary);
+.filter-field-label .iconly-shell {
+  font-size: 14px;
+  color: var(--primary, #34908B);
 }
 
 .filter-field-control {
   position: relative;
+  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
 }
 
 .filter-input,
 .filter-select {
+  box-sizing: border-box;
   width: 100%;
-  min-height: 46px;
-  border: 1px solid rgba(36, 59, 107, 0.1);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.85);
-  padding: 0 14px;
-  color: var(--text);
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: #e4f4f2 !important;
+  padding: 0 12px !important;
+  color: var(--text, #2a344c);
   font: inherit;
+  font-size: 0.82rem;
+  line-height: 36px;
   outline: none;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+  box-shadow: none !important;
 }
 
 .filter-input::placeholder {
-  color: rgba(82, 96, 126, 0.78);
+  color: rgba(90, 102, 128, 0.7);
 }
 
 .filter-input:focus,
 .filter-select:focus,
 .modern-page-filters :deep(.shamsi-picker-input:focus) {
-  border-color: rgba(72, 103, 183, 0.4);
+  border: 0 !important;
   box-shadow: none;
-  background: #fff;
+  background: #f7fbfa !important;
 }
 
 .filter-select {
   appearance: none;
-  padding-inline: 14px 42px;
+  padding-inline: 12px 36px !important;
   cursor: pointer;
+  line-height: normal;
 }
 
 .filter-select-wrap {
   position: relative;
+  height: 36px;
 }
 
-.filter-select-icon {
+.filter-select-wrap :deep(.filter-select-icon) {
   position: absolute;
-  inset-inline-start: 12px;
+  inset-inline-end: 10px;
+  inset-inline-start: auto;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--muted);
+  z-index: 2;
+  color: #34908B;
   pointer-events: none;
-  font-size: 20px;
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
 }
 
 .modern-filter-reset {
-  align-self: stretch;
-  min-height: 84px;
-  border-radius: 12px;
-  padding-inline: 18px;
-  background: var(--surface, #fff);
-  border: 1px dashed rgba(36, 59, 107, 0.18);
+  box-sizing: border-box;
+  align-self: end;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  border-radius: 10px;
+  padding: 0 12px !important;
+  background: #e4f4f2 !important;
+  border: 0 !important;
+  font-size: 0.8rem;
+  margin: 0;
 }
 
-.modern-filter-reset .material-symbols-outlined {
-  font-size: 20px;
+.modern-filter-reset .iconly-shell {
+  font-size: 16px;
 }
 
-.modern-page-filters :deep(.shamsi-picker),
-.modern-page-filters :deep(.shamsi-picker-input-wrap) {
+.modern-page-filters :deep(.shamsi-picker) {
   width: 100%;
+  height: 36px;
 }
 
 .modern-page-filters :deep(.shamsi-picker-input-wrap) {
-  min-height: 46px;
-  border: 1px solid rgba(36, 59, 107, 0.1);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.85);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: #e4f4f2 !important;
+  box-shadow: none !important;
+  padding-inline: 12px 36px !important;
+  padding-block: 0 !important;
+  margin: 0 !important;
 }
 
 .modern-page-filters :deep(.shamsi-picker-input) {
-  min-height: 44px;
-  padding-inline: 14px 48px;
-  background: transparent;
-  border: 0;
+  box-sizing: border-box;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  width: 100%;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  font-size: 0.82rem;
+  line-height: 36px;
 }
 
 .modern-page-filters :deep(.shamsi-picker-toggle) {
-  inset-inline-start: 6px;
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  color: var(--primary);
-  background: rgba(72, 103, 183, 0.08);
-}
-
-.modern-page-filters :deep(.shamsi-picker-panel) {
-  margin-top: 10px;
-  border-radius: 20px;
+  position: absolute;
+  inset-inline-end: 5px;
+  inset-inline-start: auto;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  color: #34908B;
+  background: #f3f9f7 !important;
+  z-index: 2;
+  padding: 0;
+  margin: 0;
 }
 
 @media (max-width: 1320px) {
   .modern-page-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .modern-filter-reset {
-    min-height: 58px;
   }
 }
 
@@ -226,16 +271,11 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
   .modern-page-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  .filter-field,
-  .modern-filter-reset {
-    min-height: auto;
-  }
 }
 
 @media (max-width: 420px) {
   .modern-page-filters {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

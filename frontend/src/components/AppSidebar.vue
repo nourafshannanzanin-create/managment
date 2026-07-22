@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './base/IconlyIcon.vue'
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
@@ -70,13 +71,14 @@ const navItems = computed(() => {
   <aside :class="['shell-sidebar', mobileMenuOpen && 'is-open']">
     <div class="sidebar-brand">
       <div class="brand-mark">
-        <span class="material-symbols-outlined">corporate_fare</span>
+        <IconlyIcon name="corporate_fare" decorative />
       </div>
       <div class="brand-copy">
         <strong>{{ organizationTitle }}</strong>
+        <small class="brand-subtitle">مرکز مدیریت</small>
       </div>
       <button class="icon-btn mobile-toggle" type="button" aria-label="بستن منو" @click="toggleSidebar">
-        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        <IconlyIcon name="close" decorative />
       </button>
     </div>
 
@@ -91,14 +93,14 @@ const navItems = computed(() => {
         :aria-current="route.path === item.to ? 'page' : undefined"
         @click="mobileMenuOpen ? toggleSidebar() : undefined"
       >
-        <span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span>
+        <IconlyIcon :name="item.icon" decorative />
         <span class="nav-link-label">{{ item.label }}</span>
         <span v-if="item.badge" class="nav-link-badge">{{ item.badge }}</span>
       </RouterLink>
     </nav>
 
     <button class="action-btn tone-soft sidebar-logout" type="button" @click="logout">
-      <span class="material-symbols-outlined" aria-hidden="true">logout</span>
+      <IconlyIcon name="logout" decorative />
       <span>خروج از سامانه</span>
     </button>
   </aside>

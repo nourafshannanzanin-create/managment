@@ -297,11 +297,12 @@ class UserAndSettingsTests(TestCase):
         sms_tenant, sms_text, sms_recipients = notify_sms_mock.call_args.args[:3]
         self.assertEqual(sms_tenant, self.organization)
         self.assertEqual(sms_recipients, ["09134279848"])
-        self.assertIn(f"مجموعه {self.organization.name}", sms_text)
-        self.assertIn("به عنوان کاربر ثبت شدید", sms_text)
+        self.assertIn("کارنومند | مشخصات ورود به سامانه", sms_text)
+        self.assertIn(f"مجموعه «{self.organization.name}»", sms_text)
+        self.assertIn("این پیامک برای اعلام مشخصات ورود شما", sms_text)
         self.assertIn("نام کاربری: millaad", sms_text)
         self.assertIn("رمز عبور: Secret123!", sms_text)
-        self.assertIn("آدرس مجموعه: https://carnomand.ir", sms_text)
+        self.assertIn("آدرس سامانه: https://carnomand.ir", sms_text)
 
     def test_settings_profile_uses_and_updates_organization_code(self):
         profile_response = self.client.get("/api/v1/settings/profile")
@@ -472,3 +473,70 @@ class UserAndSettingsTests(TestCase):
         self.assertTrue(result["ok"])
         sent_text = send_provider_sms_mock.call_args.args[1]
         self.assertTrue(sent_text.endswith("از طرف کارنومند"))
+
+    @override_settings()
+    @patch.dict("os.environ", {"SMS_PRICE_PER_100_CHARS": "185"}, clear=False)
+    def test_sms_char_blocks_and_send_cost(self):
+        from decimal import Decimal
+
+        from workflow.views import sms_char_blocks, sms_send_cost, sms_text_with_footer
+
+        self.assertEqual(sms_char_blocks(""), 0)
+        self.assertEqual(sms_char_blocks("a" * 1), 1)
+        self.assertEqual(sms_char_blocks("a" * 100), 1)
+        self.assertEqual(sms_char_blocks("a" * 101), 2)
+        self.assertEqual(sms_char_blocks("a" * 200), 2)
+        self.assertEqual(sms_char_blocks("a" * 201), 3)
+
+        one_block = "x" * 50
+        two_blocks = "x" * 150
+        self.assertEqual(sms_send_cost(one_block, ["09120000001"]), Decimal("185"))
+        self.assertEqual(sms_send_cost(two_blocks, ["09120000001"]), Decimal("370"))
+        self.assertEqual(sms_send_cost(one_block, ["09120000001", "09120000002"]), Decimal("370"))
+
+        with_footer = sms_text_with_footer("سلام")
+        expected_blocks = sms_char_blocks(with_footer)
+        self.assertEqual(sms_send_cost(with_footer, ["09120000001"]), Decimal(185 * expected_blocks))
+
+    def test_organization_trial_unlocks_then_locks(self):
+        from datetime import timedelta
+
+        from workflow.models import FeaturePurchase
+        from workflow.services import (
+            CORE_FEATURE_KEY,
+            active_feature_keys,
+            license_status_payload,
+            now,
+            organization_trial_active,
+        )
+
+        trial_org = Organization.objects.create(code="trial-org", name="سازمان آزمایشی رایگان")
+        unlocked = license_status_payload(trial_org)
+        self.assertTrue(organization_trial_active(trial_org))
+        self.assertFalse(unlocked["isLocked"])
+        self.assertEqual(unlocked["reason"], "trial_active")
+        self.assertTrue(unlocked["trialActive"])
+        self.assertGreater(unlocked["trialRemainingSeconds"], 0)
+        self.assertIn(CORE_FEATURE_KEY, active_feature_keys(trial_org))
+        self.assertIn("attendance", active_feature_keys(trial_org))
+        self.assertIn("cloud_storage", active_feature_keys(trial_org))
+
+        trial_org.created_at = now() - timedelta(hours=25)
+        trial_org.save(update_fields=["created_at"])
+        locked = license_status_payload(trial_org)
+        self.assertFalse(organization_trial_active(trial_org))
+        self.assertTrue(locked["isLocked"])
+        self.assertEqual(locked["reason"], "core_purchase_required")
+
+        FeaturePurchase.objects.create(
+            organization=trial_org,
+            feature_key=CORE_FEATURE_KEY,
+            title="خرید نرم افزار",
+            is_active=True,
+            total_amount="4000000.00",
+            paid_amount="1000000.00",
+            remaining_amount="3000000.00",
+        )
+        paid = license_status_payload(trial_org)
+        self.assertFalse(paid["isLocked"])
+        self.assertFalse(paid["trialActive"])

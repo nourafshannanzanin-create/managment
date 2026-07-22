@@ -6,7 +6,7 @@ import os
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 from datetime import date, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from functools import wraps
 from pathlib import Path
 
@@ -97,6 +97,7 @@ from workflow.services import (
     serialize_user,
     wallet_options_payload,
     wallet_dashboard_payload,
+    ensure_organization_wallets,
     update_document_status,
     visible_approvals,
     visible_expenses,
@@ -113,6 +114,61 @@ SMS_FOOTER_TEXT = "از طرف کارنومند"
 
 def public_app_url() -> str:
     return str(os.getenv("WORKFLOW_PUBLIC_APP_URL", "https://carnomand.ir") or "https://carnomand.ir").strip().rstrip("/")
+
+
+def sms_join_lines(*lines: str) -> str:
+    return "\n".join(str(line).strip() for line in lines if str(line or "").strip())
+
+
+def organization_display_name(organization: Organization | None) -> str:
+    if organization is None:
+        return "سامانه کارنومند"
+    return str(organization.name or "").strip() or "سامانه کارنومند"
+
+
+def build_account_credentials_sms(
+    *,
+    full_name: str,
+    organization_name: str,
+    username: str,
+    password: str,
+    role_label: str = "کاربر",
+    app_url: str | None = None,
+) -> str:
+    url = (app_url or public_app_url()).rstrip("/")
+    person = str(full_name or "").strip() or "کاربر گرامی"
+    org = str(organization_name or "").strip() or "سامانه کارنومند"
+    return sms_join_lines(
+        "کارنومند | مشخصات ورود به سامانه",
+        f"{person} گرامی",
+        f"حساب کاربری شما در مجموعه «{org}» ایجاد شد.",
+        f"نقش شما: {role_label}",
+        "این پیامک برای اعلام مشخصات ورود شما به سامانه مدیریت کارنومند ارسال شده است.",
+        "اطلاعات ورود:",
+        f"نام کاربری: {username}",
+        f"رمز عبور: {password}",
+        f"آدرس سامانه: {url}",
+        "پس از ورود می‌توانید رمز عبور خود را از بخش تنظیمات تغییر دهید.",
+    )
+
+
+def build_workflow_event_sms(
+    *,
+    organization: Organization | None,
+    headline: str,
+    details: list[str] | tuple[str, ...] = (),
+    action_hint: str = "برای مشاهده جزئیات وارد سامانه شوید.",
+) -> str:
+    org_name = organization_display_name(organization)
+    lines = [
+        "کارنومند | اطلاع‌رسانی سامانه",
+        f"مجموعه: {org_name}",
+        headline,
+        *[str(item).strip() for item in details if str(item or "").strip()],
+        action_hint,
+        f"آدرس سامانه: {public_app_url()}",
+    ]
+    return sms_join_lines(*lines)
 
 
 def has_saved_signature(signature_data: str | None) -> bool:
@@ -150,10 +206,14 @@ def provider_message_text(provider_data: dict, fallback: str = "ارسال پی�
 
 def normalize_sms_recipient(value: str | None) -> str:
     digits = "".join(char for char in str(value or "").translate(PERSIAN_DIGIT_TRANSLATION) if char.isdigit())
-    if digits.startswith("98") and len(digits) >= 12:
-        digits = f"0{digits[2:]}"
     if digits.startswith("0098") and len(digits) >= 14:
         digits = f"0{digits[4:]}"
+    elif digits.startswith("98") and len(digits) >= 12:
+        digits = f"0{digits[2:]}"
+    elif len(digits) == 10 and digits.startswith("9"):
+        digits = f"0{digits}"
+    if len(digits) == 11 and digits.startswith("09"):
+        return digits
     return digits
 
 
@@ -162,31 +222,33 @@ def normalize_sms_recipients(recipients) -> list[str]:
     seen = set()
     for raw_value in recipients or []:
         phone = normalize_sms_recipient(raw_value)
-        if len(phone) < 10 or phone in seen:
+        if not (len(phone) == 11 and phone.startswith("09")):
+            continue
+        if phone in seen:
             continue
         seen.add(phone)
         normalized.append(phone)
     return normalized
 
 
-def sms_segment_count(text: str) -> int:
-    text = str(text or "").strip()
-    if not text:
+def sms_char_blocks(text: str) -> int:
+    """Billable 100-character blocks for SMS pricing (1-100=1, 101-200=2, ...)."""
+    length = len(str(text or ""))
+    if length <= 0:
         return 0
-    is_ascii = all(ord(char) < 128 for char in text)
-    single_limit = 160 if is_ascii else 70
-    multi_limit = 153 if is_ascii else 67
-    if len(text) <= single_limit:
-        return 1
-    return (len(text) + multi_limit - 1) // multi_limit
+    return (length + 99) // 100
 
 
-def sms_price_per_segment() -> Decimal:
-    raw_value = str(os.getenv("SMS_PRICE_PER_SEGMENT", "300") or "300").strip()
+def sms_price_per_100_chars() -> Decimal:
+    raw_value = str(
+        os.getenv("SMS_PRICE_PER_100_CHARS")
+        or os.getenv("SMS_PRICE_PER_SEGMENT")
+        or "185"
+    ).strip()
     try:
         return Decimal(raw_value)
     except InvalidOperation:
-        return Decimal("0")
+        return Decimal("185")
 
 
 def sms_text_with_footer(text: str) -> str:
@@ -197,16 +259,17 @@ def sms_text_with_footer(text: str) -> str:
 
 
 def sms_send_cost(text: str, recipients: list[str]) -> Decimal:
-    price = sms_price_per_segment()
-    segments = sms_segment_count(text)
-    if price <= 0 or segments <= 0 or not recipients:
+    price = sms_price_per_100_chars()
+    blocks = sms_char_blocks(text)
+    if price <= 0 or blocks <= 0 or not recipients:
         return Decimal("0")
-    return price * Decimal(segments * len(recipients))
+    return (price * Decimal(blocks) * Decimal(len(recipients))).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
 
 def sms_wallet_can_send(tenant: Organization | None, cost: Decimal) -> bool:
     if tenant is None or cost <= 0:
         return False
+    ensure_organization_wallets(tenant)
     wallet = Wallet.objects.filter(organization=tenant, key="sms", is_active=True).first()
     if wallet is None:
         return False
@@ -242,7 +305,7 @@ def charge_sms_wallet(tenant: Organization | None, actor: User | None, text: str
             transaction_type="sms_send",
             amount=amount,
             balance_after=next_balance,
-            note=f"sms:{len(recipients)}:{sms_segment_count(text)}",
+            note=f"sms:{len(recipients)}:{sms_char_blocks(text)}",
             reference_id=provider_id[:80],
         )
 
@@ -253,8 +316,12 @@ def send_provider_sms(tenant, text, recipients, *, provider_config=None):
     line_number = str(config.get("line_number", "") or "").strip()
     base_url = str(config.get("base_url", "https://api.iranpayamak.com") or "https://api.iranpayamak.com").rstrip("/")
     recipients = normalize_sms_recipients(recipients)
+    text = str(text or "").strip()
     if not api_key or not line_number:
         message = "تنظیمات سرویس پیامک کامل نیست."
+        return {"ok": False, "message": message, "provider_status": 0, "provider_data": {}, "raw_body": message, "payload": {}}
+    if not text:
+        message = "متن پیامک خالی است."
         return {"ok": False, "message": message, "provider_status": 0, "provider_data": {}, "raw_body": message, "payload": {}}
     if not recipients:
         message = "شماره موبایل معتبری برای ارسال پیامک ثبت نشده است."
@@ -269,16 +336,16 @@ def send_provider_sms(tenant, text, recipients, *, provider_config=None):
     }
     req = urllib_request.Request(
         url=f"{base_url}/ws/v1/sms/simple",
-        data=json.dumps(payload).encode("utf-8"),
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
         headers={
             "Accept": "application/json",
-            "Content-Type": "application/json",
+            "Content-Type": "application/json; charset=utf-8",
             "Api-Key": api_key,
         },
         method="POST",
     )
     try:
-        with urllib_request.urlopen(req, timeout=15) as response:
+        with urllib_request.urlopen(req, timeout=20) as response:
             raw_body = response.read().decode("utf-8")
             response_status = response.status
     except urllib_error.HTTPError as exc:
@@ -310,7 +377,7 @@ def send_provider_sms(tenant, text, recipients, *, provider_config=None):
         provider_data = json.loads(raw_body or "{}") if raw_body else {}
     except json.JSONDecodeError:
         provider_data = {"status": "error", "message": raw_body}
-    if response_status not in {200, 201} or provider_data.get("status") != "success":
+    if response_status not in {200, 201} or str(provider_data.get("status") or "").lower() != "success":
         return {
             "ok": False,
             "message": provider_message_text(provider_data),
@@ -339,6 +406,16 @@ def notify_sms(tenant: Organization | None, text: str, recipients, *, actor: Use
     try:
         text = sms_text_with_footer(text)
         recipients = normalize_sms_recipients(recipients)
+        if not recipients:
+            message = "شماره موبایل معتبری برای ارسال پیامک ثبت نشده است."
+            return {
+                "ok": False,
+                "message": message,
+                "provider_status": 0,
+                "provider_data": {"message": message},
+                "raw_body": message,
+                "payload": {"text": text, "recipients": recipients},
+            }
         cost = sms_send_cost(text, recipients)
         if not sms_wallet_can_send(tenant, cost):
             message = "به دلیل عدم موجودی کیف پول پیامک، پیامک ارسال نشد."
@@ -356,7 +433,7 @@ def notify_sms(tenant: Organization | None, text: str, recipients, *, actor: Use
                 tenant,
                 actor,
                 text,
-                list(result.get("payload", {}).get("recipients") or []),
+                list(result.get("payload", {}).get("recipients") or recipients),
                 provider_id=str(result.get("provider_id") or ""),
             )
         return result
@@ -994,15 +1071,12 @@ def create_organization_with_manager(payload: dict, actor: User | None = None) -
         )
     notify_sms(
         organization,
-        "\n".join(
-            [
-                f"{manager.full_name} گرامی",
-                f"شما در مجموعه {organization.name} به عنوان مدیر مجموعه ثبت شدید.",
-                "اطلاعات ورود شما به شرح زیر است:",
-                f"نام کاربری: {manager.slug}",
-                f"رمز عبور: {manager_password}",
-                f"آدرس مجموعه: {public_app_url()}",
-            ]
+        build_account_credentials_sms(
+            full_name=manager.full_name,
+            organization_name=organization.name,
+            username=manager.slug,
+            password=manager_password,
+            role_label="مدیر مجموعه",
         ),
         [manager.phone],
         actor=actor,
@@ -1208,9 +1282,19 @@ def create_request_referrals(request_obj: Request, actor: User, manager: User | 
         RequestTimeline.objects.create(request=request_obj, action="employee_referrals", note=f"ارجاع به کارمندان: {', '.join(item.full_name for item in assigned_employees)}", actor_name=actor.full_name)
     recipients = [item.phone for item in unique_users([manager] if manager else [], assigned_managers, assigned_employees)]
     if recipients:
+        org = get_user_organization(actor)
         notify_sms(
-            get_user_organization(actor),
-            f"درخواست {request_obj.code} با عنوان {request_obj.title} توسط {actor.full_name} به شما ارجاع شد.",
+            org,
+            build_workflow_event_sms(
+                organization=org,
+                headline="یک درخواست جدید به شما ارجاع شد.",
+                details=[
+                    f"کد درخواست: {request_obj.code}",
+                    f"عنوان: {request_obj.title}",
+                    f"ثبت‌کننده/ارجاع‌دهنده: {actor.full_name}",
+                ],
+                action_hint="لطفا وارد سامانه شوید و درخواست را بررسی کنید.",
+            ),
             recipients,
             actor=actor,
         )
@@ -1238,9 +1322,19 @@ def create_expense_referrals(expense: Expense, actor: User, manager_assignee_ids
         expense.status = ExpenseStatus.UNDER_REVIEW
         expense.save(update_fields=["status"])
     AuditLog.objects.create(actor=actor, actor_name=actor.full_name, action="expense_referred", entity_type="expense", entity_code=expense.code, detail=expense.title, icon="forward_to_inbox")
+    org = get_user_organization(actor)
     notify_sms(
-        get_user_organization(actor),
-        f"هزینه {expense.code} با شرح {expense.title} توسط {actor.full_name} به شما ارجاع شد.",
+        org,
+        build_workflow_event_sms(
+            organization=org,
+            headline="یک هزینه جدید به شما ارجاع شد.",
+            details=[
+                f"کد هزینه: {expense.code}",
+                f"شرح: {expense.title}",
+                f"ارجاع‌دهنده: {actor.full_name}",
+            ],
+            action_hint="لطفا وارد سامانه شوید و هزینه را بررسی کنید.",
+        ),
         [item.phone for item in unique_users(assignees)],
         actor=actor,
     )
@@ -1275,9 +1369,19 @@ def create_document_referrals(document: Document, actor: User, assignee_ids: lis
         document.approved_at = None
         document.save(update_fields=["status", "rejection_reason", "rejected_at", "approved_at"])
     AuditLog.objects.create(actor=actor, actor_name=actor.full_name, action="document_referred", entity_type="document", entity_code=document.code, detail=document.title, icon="forward_to_inbox")
+    org = get_user_organization(actor)
     notify_sms(
-        get_user_organization(actor),
-        f"سند {document.code} با عنوان {document.title} توسط {actor.full_name} به شما ارجاع شد.",
+        org,
+        build_workflow_event_sms(
+            organization=org,
+            headline="یک سند/تأییدیه جدید به شما ارجاع شد.",
+            details=[
+                f"کد سند: {document.code}",
+                f"عنوان: {document.title}",
+                f"ارجاع‌دهنده: {actor.full_name}",
+            ],
+            action_hint="لطفا وارد سامانه شوید و سند را بررسی کنید.",
+        ),
         [item.phone for item in unique_users(approvers)],
         actor=actor,
     )
@@ -1907,16 +2011,12 @@ def support_ticket_approve_registration_view(request: HttpRequest, ticket_id: in
 
     notify_sms(
         organization,
-        "\n".join(
-            [
-                f"{manager.full_name} گرامی",
-                f"ثبت نام مجموعه {organization.name} تایید شد.",
-                "شما به عنوان مدیر مجموعه ثبت شدید.",
-                "اطلاعات ورود شما به شرح زیر است:",
-                f"نام کاربری: {manager.slug}",
-                "رمز عبور: همان رمزی که هنگام ثبت نام وارد کرده اید.",
-                f"آدرس مجموعه: {public_app_url()}",
-            ]
+        build_account_credentials_sms(
+            full_name=manager.full_name,
+            organization_name=organization.name,
+            username=manager.slug,
+            password="همان رمزی که هنگام ثبت‌نام وارد کرده‌اید",
+            role_label="مدیر مجموعه",
         ),
         [manager.phone],
         actor=request.current_user,
@@ -2447,9 +2547,19 @@ def requests_view(request: HttpRequest):
     request_obj = Request.objects.select_related("requester", "manager", "department").prefetch_related("assigned_managers", "assigned_employees", "attachments", "approval_assignments__approver").get(pk=request_obj.pk)
     request_obj._current_user = request.current_user
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="request_created", entity_type="request", entity_code=request_obj.code, detail=request_obj.title, icon="assignment")
+    org = get_user_organization(request.current_user)
     notify_sms(
-        get_user_organization(request.current_user),
-        f"درخواست {request_obj.code} با عنوان {request_obj.title} توسط {request.current_user.full_name} به شما ارجاع شد.",
+        org,
+        build_workflow_event_sms(
+            organization=org,
+            headline="یک درخواست جدید به شما ارجاع شد.",
+            details=[
+                f"کد درخواست: {request_obj.code}",
+                f"عنوان: {request_obj.title}",
+                f"ثبت‌کننده: {request.current_user.full_name}",
+            ],
+            action_hint="لطفا وارد سامانه شوید و درخواست را بررسی کنید.",
+        ),
         [item.phone for item in unique_users([manager] if manager else [], assigned_managers, assigned_employees)],
         actor=request.current_user,
     )
@@ -2503,9 +2613,19 @@ def request_approve_view(request: HttpRequest, request_code: str):
     update_request_status_from_assignments(request_obj)
     RequestTimeline.objects.create(request=request_obj, action="approved", note="تایید درخواست", actor_name=request.current_user.full_name)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="request_approved", entity_type="request", entity_code=request_obj.code, detail=request_obj.title, icon="assignment_turned_in")
+    org = get_user_organization(request.current_user)
     notify_sms(
-        get_user_organization(request.current_user),
-        f"درخواست {request_obj.code} با عنوان {request_obj.title} توسط {request.current_user.full_name} تایید شد. وضعیت فعلی: {request_obj.get_status_display()}",
+        org,
+        build_workflow_event_sms(
+            organization=org,
+            headline="وضعیت درخواست شما به‌روزرسانی شد.",
+            details=[
+                f"کد درخواست: {request_obj.code}",
+                f"عنوان: {request_obj.title}",
+                f"نتیجه: تایید توسط {request.current_user.full_name}",
+                f"وضعیت فعلی: {request_obj.get_status_display()}",
+            ],
+        ),
         [request_obj.requester.phone],
         actor=request.current_user,
     )
@@ -2536,9 +2656,19 @@ def request_reject_view(request: HttpRequest, request_code: str):
     update_request_status_from_assignments(request_obj)
     RequestTimeline.objects.create(request=request_obj, action="rejected", note=reason, actor_name=request.current_user.full_name)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="request_rejected", entity_type="request", entity_code=request_obj.code, detail=request_obj.title, icon="cancel")
+    org = get_user_organization(request.current_user)
     notify_sms(
-        get_user_organization(request.current_user),
-        f"درخواست {request_obj.code} با عنوان {request_obj.title} توسط {request.current_user.full_name} رد شد. علت: {reason}",
+        org,
+        build_workflow_event_sms(
+            organization=org,
+            headline="وضعیت درخواست شما به‌روزرسانی شد.",
+            details=[
+                f"کد درخواست: {request_obj.code}",
+                f"عنوان: {request_obj.title}",
+                f"نتیجه: رد توسط {request.current_user.full_name}",
+                f"علت: {reason}",
+            ],
+        ),
         [request_obj.requester.phone],
         actor=request.current_user,
     )
@@ -2631,9 +2761,19 @@ def expenses_view(request: HttpRequest):
     expense = Expense.objects.select_related("owner", "department").prefetch_related("approval_assignments__approver").get(pk=expense.pk)
     expense._current_user = request.current_user
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="expense_created", entity_type="expense", entity_code=expense.code, detail=expense.title, icon="payments")
+    org = get_user_organization(request.current_user)
     notify_sms(
-        get_user_organization(request.current_user),
-        f"هزینه {expense.code} با شرح {expense.title} توسط {request.current_user.full_name} به شما ارجاع شد.",
+        org,
+        build_workflow_event_sms(
+            organization=org,
+            headline="یک هزینه جدید به شما ارجاع شد.",
+            details=[
+                f"کد هزینه: {expense.code}",
+                f"شرح: {expense.title}",
+                f"ثبت‌کننده: {request.current_user.full_name}",
+            ],
+            action_hint="لطفا وارد سامانه شوید و هزینه را بررسی کنید.",
+        ),
         [item.phone for item in unique_users(assignees)],
         actor=request.current_user,
     )
@@ -2672,9 +2812,19 @@ def expense_approve_view(request: HttpRequest, expense_code: str):
     assignment.save(update_fields=["status", "decision_note", "acted_at"])
     update_expense_status_from_assignments(expense)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="expense_approved", entity_type="expense", entity_code=expense.code, detail=expense.title, icon="payments")
+    org = get_user_organization(request.current_user)
     notify_sms(
-        get_user_organization(request.current_user),
-        f"هزینه {expense.code} با شرح {expense.title} توسط {request.current_user.full_name} تایید شد. وضعیت فعلی: {expense.get_status_display()}",
+        org,
+        build_workflow_event_sms(
+            organization=org,
+            headline="وضعیت هزینه شما به‌روزرسانی شد.",
+            details=[
+                f"کد هزینه: {expense.code}",
+                f"شرح: {expense.title}",
+                f"نتیجه: تایید توسط {request.current_user.full_name}",
+                f"وضعیت فعلی: {expense.get_status_display()}",
+            ],
+        ),
         [expense.owner.phone],
         actor=request.current_user,
     )
@@ -2708,9 +2858,19 @@ def expense_reject_view(request: HttpRequest, expense_code: str):
     expense.save(update_fields=["notes"])
     update_expense_status_from_assignments(expense)
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="expense_rejected", entity_type="expense", entity_code=expense.code, detail=expense.title, icon="payments")
+    org = get_user_organization(request.current_user)
     notify_sms(
-        get_user_organization(request.current_user),
-        f"هزینه {expense.code} با شرح {expense.title} توسط {request.current_user.full_name} رد شد. علت: {reason}",
+        org,
+        build_workflow_event_sms(
+            organization=org,
+            headline="وضعیت هزینه شما به‌روزرسانی شد.",
+            details=[
+                f"کد هزینه: {expense.code}",
+                f"شرح: {expense.title}",
+                f"نتیجه: رد توسط {request.current_user.full_name}",
+                f"علت: {reason}",
+            ],
+        ),
         [expense.owner.phone],
         actor=request.current_user,
     )
@@ -2834,15 +2994,12 @@ def users_view(request: HttpRequest):
     )
     notify_sms(
         get_user_organization(request.current_user),
-        "\n".join(
-            [
-                f"{user.full_name} گرامی",
-                f"شما در مجموعه {organization.name} به عنوان کاربر ثبت شدید.",
-                "اطلاعات ورود شما به شرح زیر است:",
-                f"نام کاربری: {user.slug}",
-                f"رمز عبور: {password}",
-                f"آدرس مجموعه: {public_app_url()}",
-            ]
+        build_account_credentials_sms(
+            full_name=user.full_name,
+            organization_name=organization.name,
+            username=user.slug,
+            password=password,
+            role_label=user.job_title or ("مدیر" if role != UserRole.EMPLOYEE else "کارمند"),
         ),
         [user.phone],
         actor=request.current_user,
@@ -3133,9 +3290,18 @@ def approval_approve_view(request: HttpRequest, document_code: str):
         document.rejection_reason = ""
         document.save(update_fields=["status", "approved_at", "rejected_at", "rejection_reason"])
         AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="hq_document_approved", entity_type="document", entity_code=document.code, detail=document.title, icon="fact_check")
+        org = get_user_organization(document.owner)
         notify_sms(
-            get_user_organization(document.owner),
-            f"سند {document.code} با عنوان {document.title} تایید شد.",
+            org,
+            build_workflow_event_sms(
+                organization=org,
+                headline="وضعیت سند/تأییدیه شما به‌روزرسانی شد.",
+                details=[
+                    f"کد سند: {document.code}",
+                    f"عنوان: {document.title}",
+                    "نتیجه: تایید شد",
+                ],
+            ),
             [document.owner.phone],
             actor=request.current_user,
         )
@@ -3176,7 +3342,16 @@ def approval_approve_view(request: HttpRequest, document_code: str):
         return json_error("امضای سند با خطا مواجه شد.", status=500)
     notify_sms(
         get_user_organization(request.current_user),
-        f"سند {document.code} با عنوان {document.title} توسط {request.current_user.full_name} تایید شد. وضعیت فعلی: {document.get_status_display()}",
+        build_workflow_event_sms(
+            organization=get_user_organization(request.current_user),
+            headline="وضعیت سند/تأییدیه شما به‌روزرسانی شد.",
+            details=[
+                f"کد سند: {document.code}",
+                f"عنوان: {document.title}",
+                f"نتیجه: تایید توسط {request.current_user.full_name}",
+                f"وضعیت فعلی: {document.get_status_display()}",
+            ],
+        ),
         [document.owner.phone],
         actor=request.current_user,
     )
@@ -3212,9 +3387,19 @@ def approval_reject_view(request: HttpRequest, document_code: str):
         document.approved_at = None
         document.save(update_fields=["status", "rejection_reason", "rejected_at", "approved_at"])
         AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="hq_document_rejected", entity_type="document", entity_code=document.code, detail=document.title, icon="cancel")
+        org = get_user_organization(document.owner)
         notify_sms(
-            get_user_organization(document.owner),
-            f"سند {document.code} با عنوان {document.title} رد شد. علت: {reason}",
+            org,
+            build_workflow_event_sms(
+                organization=org,
+                headline="وضعیت سند/تأییدیه شما به‌روزرسانی شد.",
+                details=[
+                    f"کد سند: {document.code}",
+                    f"عنوان: {document.title}",
+                    "نتیجه: رد شد",
+                    f"علت: {reason}",
+                ],
+            ),
             [document.owner.phone],
             actor=request.current_user,
         )
@@ -3239,7 +3424,16 @@ def approval_reject_view(request: HttpRequest, document_code: str):
     update_document_status(document)
     notify_sms(
         get_user_organization(request.current_user),
-        f"سند {document.code} با عنوان {document.title} توسط {request.current_user.full_name} رد شد. علت: {reason}",
+        build_workflow_event_sms(
+            organization=get_user_organization(request.current_user),
+            headline="وضعیت سند/تأییدیه شما به‌روزرسانی شد.",
+            details=[
+                f"کد سند: {document.code}",
+                f"عنوان: {document.title}",
+                f"نتیجه: رد توسط {request.current_user.full_name}",
+                f"علت: {reason}",
+            ],
+        ),
         [document.owner.phone],
         actor=request.current_user,
     )

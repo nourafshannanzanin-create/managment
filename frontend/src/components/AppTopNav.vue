@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './base/IconlyIcon.vue'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -135,7 +136,7 @@ function handleHqOrganizationChange(event) {
     <div class="topbar-main-row">
       <div class="topbar-intro">
         <button class="icon-btn mobile-menu-trigger" type="button" aria-label="باز کردن منو" @click="toggleSidebar">
-          <span class="material-symbols-outlined" aria-hidden="true">menu</span>
+          <IconlyIcon name="menu" decorative />
         </button>
 
         <div class="topbar-intro-copy">
@@ -146,7 +147,7 @@ function handleHqOrganizationChange(event) {
 
       <div class="topbar-actions">
         <label v-if="state.currentUser.canUseHq" class="hq-organization-select">
-          <span class="material-symbols-outlined" aria-hidden="true">corporate_fare</span>
+          <IconlyIcon name="corporate_fare" decorative />
           <select :value="state.hq.selectedOrganizationId" @change="handleHqOrganizationChange">
             <option value="">مجموعه</option>
             <option v-for="organization in hqOrganizations" :key="organization.id" :value="organization.id">
@@ -163,7 +164,7 @@ function handleHqOrganizationChange(event) {
             type="button"
             @click="action.handler"
           >
-            <span class="material-symbols-outlined" aria-hidden="true">{{ action.icon }}</span>
+            <IconlyIcon :name="action.icon" decorative />
             <span>{{ action.label }}</span>
           </button>
         </div>

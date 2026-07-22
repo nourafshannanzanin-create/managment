@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, reactive, ref, watch } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
@@ -213,7 +214,7 @@ function userManagerOptions(userId) {
       <article v-for="item in userStats" :key="item.label" :class="['metric-card', 'approval-metric-card', item.tone]">
         <div class="metric-card-headline">
           <span class="metric-label">{{ item.label }}</span>
-          <span class="material-symbols-outlined approval-metric-icon">{{ item.icon }}</span>
+          <IconlyIcon :name="item.icon" class="approval-metric-icon" decorative />
         </div>
         <strong>{{ item.value }}</strong>
       </article>
@@ -224,16 +225,26 @@ function userManagerOptions(userId) {
         <div class="users-toolbar-head">
           <div>
             <h3>فهرست کاربران</h3>
+            <p>جستجو، فیلتر و مدیریت کاربران سازمان</p>
           </div>
 
           <div class="users-header-actions">
             <span class="meta-pill">{{ filteredUsers.length }} نتیجه</span>
+            <button
+              v-if="canManageUsers"
+              class="action-btn tone-primary users-add-btn"
+              type="button"
+              @click="openUserComposer"
+            >
+              <IconlyIcon name="person_add" decorative />
+              <span>افزودن کاربر</span>
+            </button>
           </div>
         </div>
 
         <div class="filter-toolbar users-toolbar-primary">
           <label class="search-shell search-shell-wide users-search-shell">
-            <span class="material-symbols-outlined">search</span>
+            <IconlyIcon name="search" decorative />
             <input v-model="searchQuery" type="text" placeholder="جستجو در کاربران..." />
           </label>
 
@@ -293,7 +304,7 @@ function userManagerOptions(userId) {
       </div>
 
       <div v-else class="empty-state-inline">
-        <span class="material-symbols-outlined">group_off</span>
+        <IconlyIcon name="group_off" decorative />
         <p>کاربری با این فیلترها پیدا نشد.</p>
       </div>
     </section>
@@ -323,7 +334,7 @@ function userManagerOptions(userId) {
 
         <div class="user-status-panel">
           <div class="user-status-icon">
-            <span class="material-symbols-outlined">{{ selectedUser.isActive ? 'verified_user' : 'person_off' }}</span>
+            <IconlyIcon :name="selectedUser.isActive ? 'verified_user' : 'person_off'" decorative />
           </div>
           <div class="user-status-copy">
             <strong>{{ selectedUser.status || '-' }}</strong>
@@ -333,31 +344,31 @@ function userManagerOptions(userId) {
 
       <section class="user-meta-board">
         <article class="user-meta-card">
-          <div class="user-meta-icon"><span class="material-symbols-outlined">badge</span></div>
+          <div class="user-meta-icon"><IconlyIcon name="badge" decorative /></div>
           <div class="user-meta-copy"><span>سمت</span><strong>{{ selectedUser.jobTitle || selectedUser.role || '-' }}</strong></div>
         </article>
         <article class="user-meta-card">
-          <div class="user-meta-icon"><span class="material-symbols-outlined">apartment</span></div>
+          <div class="user-meta-icon"><IconlyIcon name="apartment" decorative /></div>
           <div class="user-meta-copy"><span>بخش</span><strong>{{ selectedUser.department || '-' }}</strong></div>
         </article>
         <article class="user-meta-card">
-          <div class="user-meta-icon"><span class="material-symbols-outlined">mail</span></div>
+          <div class="user-meta-icon"><IconlyIcon name="mail" decorative /></div>
           <div class="user-meta-copy"><span>نام کاربری</span><strong dir="ltr">{{ selectedUser.username || '-' }}</strong></div>
         </article>
         <article class="user-meta-card">
-          <div class="user-meta-icon"><span class="material-symbols-outlined">smartphone</span></div>
+          <div class="user-meta-icon"><IconlyIcon name="smartphone" decorative /></div>
           <div class="user-meta-copy"><span>موبایل</span><strong dir="ltr">{{ selectedUser.phone || '-' }}</strong></div>
         </article>
         <article class="user-meta-card">
-          <div class="user-meta-icon"><span class="material-symbols-outlined">supervisor_account</span></div>
+          <div class="user-meta-icon"><IconlyIcon name="supervisor_account" decorative /></div>
           <div class="user-meta-copy"><span>مدیر مستقیم</span><strong>{{ selectedUser.manager || 'ندارد' }}</strong></div>
         </article>
         <article class="user-meta-card">
-          <div class="user-meta-icon"><span class="material-symbols-outlined">award_star</span></div>
+          <div class="user-meta-icon"><IconlyIcon name="award_star" decorative /></div>
           <div class="user-meta-copy"><span>پاداش</span><strong>{{ selectedUser.bonusAmount || '0.00' }}</strong></div>
         </article>
         <article class="user-meta-card">
-          <div class="user-meta-icon"><span class="material-symbols-outlined">gavel</span></div>
+          <div class="user-meta-icon"><IconlyIcon name="gavel" decorative /></div>
           <div class="user-meta-copy"><span>جریمه</span><strong>{{ selectedUser.penaltyAmount || '0.00' }}</strong></div>
         </article>
       </section>
@@ -483,10 +494,11 @@ function userManagerOptions(userId) {
             :class="['check-tile', editableUser.sectionAccess[item.key] && 'is-checked']"
           >
             <input v-model="editableUser.sectionAccess[item.key]" type="checkbox" :disabled="!canManageUsers" />
-            <span class="check-state material-symbols-outlined">{{ editableUser.sectionAccess[item.key] ? 'check_circle' : 'radio_button_unchecked' }}</span>
+            <IconlyIcon :name="editableUser.sectionAccess[item.key] ? 'check_circle' : 'radio_button_unchecked'" class="check-state" decorative />
             <div>
               <strong>{{ item.title }}</strong>
             </div>
+            <span class="check-tile-badge">انتخاب شده</span>
           </label>
         </div>
       </section>
@@ -495,7 +507,7 @@ function userManagerOptions(userId) {
 
       <section class="user-modal-actions">
         <button class="action-btn tone-soft" type="button" @click="closeUserDetails">
-          <span class="material-symbols-outlined">close</span>
+          <IconlyIcon name="close" decorative />
           <span>بستن</span>
         </button>
 
@@ -507,7 +519,7 @@ function userManagerOptions(userId) {
           :disabled="savingUser"
           @click="toggleSelectedUserStatus"
         >
-          <span class="material-symbols-outlined">{{ editableUser.isActive ? 'person_off' : 'person_check' }}</span>
+          <IconlyIcon :name="editableUser.isActive ? 'person_off' : 'person_check'" decorative />
           <span>{{ savingUser ? 'در حال ذخیره...' : editableUser.isActive ? 'غیرفعال‌سازی' : 'فعال‌سازی' }}</span>
         </button>
 
@@ -518,7 +530,7 @@ function userManagerOptions(userId) {
           :disabled="savingUser"
           @click="saveUserChanges"
         >
-          <span class="material-symbols-outlined">save</span>
+          <IconlyIcon name="save" decorative />
           <span>{{ savingUser ? 'در حال ذخیره...' : 'ذخیره تغییرات' }}</span>
         </button>
       </section>
@@ -530,6 +542,9 @@ function userManagerOptions(userId) {
 .users-toolbar-panel,
 .users-grid-panel {
   overflow: hidden;
+  background: #f7fbfa;
+  border-radius: 16px;
+  box-shadow: 0 8px 22px rgba(40, 110, 105, 0.12);
 }
 
 .users-toolbar-stack {
@@ -539,10 +554,12 @@ function userManagerOptions(userId) {
 
 .users-toolbar-head {
   display: flex;
-  align-items: end;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(52, 144, 139, 0.14);
 }
 
 .users-toolbar-head h3,
@@ -550,27 +567,44 @@ function userManagerOptions(userId) {
   margin: 0;
 }
 
+.users-toolbar-head h3 {
+  color: #152523;
+  font-size: 1rem;
+}
+
 .users-toolbar-head p {
-  color: var(--muted);
+  margin-top: 4px;
+  color: #45605c;
+  font-size: 0.78rem;
 }
 
 .users-header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
+}
+
+.users-add-btn {
+  min-height: 34px !important;
+  white-space: nowrap;
 }
 
 .users-toolbar-primary {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
+  padding: 12px;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(40, 110, 105, 0.08);
 }
 
 .users-search-shell {
   min-width: min(100%, 220px);
   flex: 0 1 240px;
+  background: #e4f4f2 !important;
 }
 
 .users-chip-row,
@@ -580,10 +614,17 @@ function userManagerOptions(userId) {
   flex-wrap: wrap;
 }
 
+.users-toolbar-secondary {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(40, 110, 105, 0.08);
+}
+
 .user-directory-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 
 .compact-user-card {
@@ -591,18 +632,18 @@ function userManagerOptions(userId) {
   gap: 12px;
   min-width: 0;
   padding: 14px;
-  border: 1px solid rgba(38, 56, 92, 0.08);
-  border-radius: 12px;
-  background: var(--surface, #fff);
-  box-shadow: none;
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  border: 0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(40, 110, 105, 0.1);
+  transition: transform 160ms ease, box-shadow 160ms ease;
   text-align: right;
 }
 
 .compact-user-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(72, 103, 183, 0.18);
-  box-shadow: none;
+  border-color: transparent;
+  box-shadow: 0 8px 20px rgba(40, 110, 105, 0.14);
 }
 
 .user-card-head {
@@ -620,15 +661,15 @@ function userManagerOptions(userId) {
 }
 
 .user-avatar {
-  width: 46px;
-  height: 46px;
-  flex: 0 0 46px;
-  border-radius: 16px;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
-  background: var(--surface, #fff);
-  color: #203255;
-  font-weight: 900;
+  background: #dcefec;
+  color: #1f5c59;
+  font-weight: 800;
 }
 
 .user-card-copy {
@@ -646,20 +687,27 @@ function userManagerOptions(userId) {
 }
 
 .user-card-copy strong {
-  color: #203255;
-  font-size: 15px;
+  color: #152523;
+  font-size: 0.9rem;
 }
 
 .user-card-copy small {
-  color: var(--muted);
-  font-size: 12px;
+  color: #45605c;
+  font-size: 0.75rem;
 }
 
 .user-card-details {
   display: grid;
-  gap: 6px;
-  color: #59657f;
-  font-size: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  color: #1f5c59;
+  font-size: 0.72rem;
+}
+
+.user-card-details span {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #e4f4f2;
 }
 
 .user-modal-shell {
@@ -864,19 +912,19 @@ function userManagerOptions(userId) {
 }
 
 .check-tile.is-checked {
-  border-color: #3264a9;
-  background: #eff6ff;
-  box-shadow: inset 3px 0 0 #3264a9;
+  border-color: #34908B;
+  background: #dcefec;
+  box-shadow: inset 0 0 0 2px #34908B;
 }
 
 .check-state {
-  color: #98a2b3;
+  color: #5f7a76;
   font-size: 22px;
 }
 
 .check-tile.is-checked .check-state,
 .check-tile.is-checked strong {
-  color: #17315d;
+  color: #1f5c59;
 }
 
 .check-tile strong,

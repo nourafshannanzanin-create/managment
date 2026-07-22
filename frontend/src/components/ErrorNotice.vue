@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './base/IconlyIcon.vue'
 defineProps({
   error: { type: Object, default: null },
   compact: { type: Boolean, default: false },
@@ -8,7 +9,7 @@ defineProps({
 <template>
   <section v-if="error?.message" :class="['error-notice', compact && 'is-compact']" role="alert">
     <div class="error-notice-icon">
-      <span class="material-symbols-outlined">error</span>
+      <IconlyIcon name="error" decorative />
     </div>
     <div class="error-notice-copy">
       <strong>{{ error.title || 'خطا در انجام عملیات' }}</strong>

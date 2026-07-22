@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
@@ -219,30 +220,36 @@ onMounted(() => loadReports(true))
     <section class="surface-block report-controls">
       <div class="report-tabs">
         <button v-for="tab in tabs" :key="tab.key" :class="['report-tab', activeTab === tab.key && 'is-active']" type="button" @click="activeTab = tab.key">
-          <span class="material-symbols-outlined">{{ tab.icon }}</span>
+          <IconlyIcon :name="tab.icon" decorative />
           <span>{{ tab.label }}</span>
         </button>
       </div>
 
       <div class="report-filter-grid">
-        <div class="chip-row">
+        <div class="chip-row report-period-chips">
           <button v-for="item in periods" :key="item.key" :class="['filter-chip', filters.period === item.key && 'is-active']" type="button" @click="filters.period = item.key">
             {{ item.label }}
           </button>
         </div>
-        <label class="field-shell compact-field">
-          <span>شخص</span>
-          <select v-model="filters.userId">
+        <label class="report-filter-field">
+          <span class="report-filter-label">شخص</span>
+          <select v-model="filters.userId" class="report-filter-control">
             <option value="">همه افراد</option>
             <option v-for="user in reportUsers" :key="user.id" :value="user.id">{{ user.name }}</option>
           </select>
         </label>
         <template v-if="filters.period === 'custom'">
-          <label class="field-shell compact-field"><span>از تاریخ</span><ShamsiDatePicker v-model="filters.startDate" model-type="jalali" /></label>
-          <label class="field-shell compact-field"><span>تا تاریخ</span><ShamsiDatePicker v-model="filters.endDate" model-type="jalali" /></label>
+          <label class="report-filter-field">
+            <span class="report-filter-label">از تاریخ</span>
+            <ShamsiDatePicker v-model="filters.startDate" model-type="jalali" />
+          </label>
+          <label class="report-filter-field">
+            <span class="report-filter-label">تا تاریخ</span>
+            <ShamsiDatePicker v-model="filters.endDate" model-type="jalali" />
+          </label>
         </template>
-        <button class="action-btn tone-primary" type="button" @click="exportActiveTab">
-          <span class="material-symbols-outlined">download</span>
+        <button class="action-btn tone-primary report-export-btn" type="button" @click="exportActiveTab">
+          <IconlyIcon name="download" decorative />
           <span>دانلود جدول</span>
         </button>
       </div>
@@ -278,7 +285,7 @@ onMounted(() => loadReports(true))
       <article v-if="selectedReportRow" class="report-detail-modal">
         <header class="report-detail-hero">
           <div class="report-detail-icon">
-            <span class="material-symbols-outlined">{{ selectedTabMeta.icon }}</span>
+            <IconlyIcon :name="selectedTabMeta.icon" decorative />
           </div>
           <div class="report-detail-title">
             <span class="page-eyebrow">{{ selectedTabMeta.label }}</span>
@@ -290,7 +297,7 @@ onMounted(() => loadReports(true))
 
         <section class="report-detail-metrics">
           <article v-for="item in selectedPrimaryMetrics" :key="item.label" class="report-detail-metric">
-            <span class="material-symbols-outlined">{{ item.icon }}</span>
+            <IconlyIcon :name="item.icon" decorative />
             <small>{{ item.label }}</small>
             <strong>{{ item.value }}</strong>
           </article>
@@ -318,18 +325,18 @@ onMounted(() => loadReports(true))
             </article>
           </div>
           <div v-else class="empty-state-inline compact-empty">
-            <span class="material-symbols-outlined">pending_actions</span>
+            <IconlyIcon name="pending_actions" decorative />
             <p>تصمیمی برای این مورد ثبت نشده است.</p>
           </div>
         </section>
 
         <footer class="report-detail-actions">
           <a v-if="rowFileUrl()" class="action-btn tone-primary" :href="rowFileUrl()" target="_blank" rel="noreferrer">
-            <span class="material-symbols-outlined">open_in_new</span>
+            <IconlyIcon name="open_in_new" decorative />
             <span>مشاهده فایل</span>
           </a>
           <button class="action-btn tone-soft" type="button" @click="closeReportDetails">
-            <span class="material-symbols-outlined">close</span>
+            <IconlyIcon name="close" decorative />
             <span>بستن</span>
           </button>
         </footer>
@@ -342,10 +349,106 @@ onMounted(() => loadReports(true))
 
 <style scoped>
 .reports-page { gap: 16px; }
-.report-controls { display: grid; gap: 16px; }
-.report-tabs, .report-filter-grid { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.report-tab { min-height: 44px; border: 0; border-radius: 14px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; color: #31405f; background: rgba(72,103,183,.09); font-weight: 900; cursor: pointer; }
-.report-tab.is-active { color: #fff; background: var(--surface, #fff); }
+.report-controls { display: grid; gap: 14px; }
+.report-tabs,
+.report-filter-grid {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.report-tab {
+  min-height: 34px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #1f5c59;
+  background: #e4f4f2;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.report-tab.is-active {
+  color: #fff;
+  background: #34908B;
+}
+.report-period-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-height: 36px;
+}
+.report-filter-field {
+  display: grid;
+  grid-template-rows: 18px 36px;
+  gap: 6px;
+  min-width: 180px;
+  margin: 0;
+}
+.report-filter-label {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #45605c;
+}
+.report-filter-control {
+  box-sizing: border-box;
+  width: 100%;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: #e4f4f2 !important;
+  color: #152523;
+  font: inherit;
+  font-size: 0.82rem;
+}
+.report-filter-field :deep(.shamsi-picker),
+.report-filter-field :deep(.shamsi-picker-input-wrap) {
+  width: 100%;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+}
+.report-filter-field :deep(.shamsi-picker-input-wrap) {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding-inline: 12px 36px !important;
+  padding-block: 0 !important;
+  border-radius: 10px !important;
+  background: #e4f4f2 !important;
+}
+.report-filter-field :deep(.shamsi-picker-input) {
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  line-height: 36px;
+}
+.report-filter-field :deep(.shamsi-picker-toggle) {
+  position: absolute;
+  inset-inline-end: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: #f3f9f7 !important;
+}
+.report-export-btn {
+  height: 36px !important;
+  min-height: 36px !important;
+  align-self: end;
+}
 .compact-field { min-width: 190px; margin: 0; }
 .report-table-wrap { overflow-x: auto; }
 .report-table { width: 100%; min-width: 980px; border-collapse: collapse; }
@@ -359,7 +462,7 @@ onMounted(() => loadReports(true))
 }
 .report-click-row:hover,
 .report-click-row:focus-visible {
-  background: rgba(72, 103, 183, 0.07);
+  background: rgba(52, 144, 139, 0.08);
   box-shadow: none;
 }
 .report-detail-modal {

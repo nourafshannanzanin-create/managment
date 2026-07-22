@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './base/IconlyIcon.vue'
 import { computed, ref } from 'vue'
 
 import BaseModal from './BaseModal.vue'
@@ -102,7 +103,7 @@ function openReferral() {
         <label :class="['field-shell', fieldHasError('manager') && 'has-error']">
           <span>ارجاع گیرنده</span>
           <button class="action-btn tone-soft inline-open-btn" type="button" @click="openReferral">
-            <span class="material-symbols-outlined">group_add</span>
+            <IconlyIcon name="group_add" decorative />
             <span>{{ selectedNames() }}</span>
           </button>
         </label>
@@ -129,7 +130,7 @@ function openReferral() {
 
         <label class="upload-pad compact-upload">
           <input type="file" multiple @change="setRequestFiles($event.target.files)" />
-          <span class="material-symbols-outlined">attach_file</span>
+          <IconlyIcon name="attach_file" decorative />
           <strong>افزودن پیوست</strong>
           <small>اختیاری</small>
         </label>
@@ -142,7 +143,7 @@ function openReferral() {
             <small>{{ Math.round(file.size / 1024) }} KB</small>
           </div>
           <button class="icon-btn" type="button" @click="removeAttachment(index)">
-            <span class="material-symbols-outlined">delete</span>
+            <IconlyIcon name="delete" decorative />
           </button>
         </article>
       </div>
@@ -154,11 +155,11 @@ function openReferral() {
 
       <div class="action-group modal-actions">
         <button class="action-btn tone-soft" type="button" @click="$emit('close')">
-          <span class="material-symbols-outlined">close</span>
+          <IconlyIcon name="close" decorative />
           <span>بستن</span>
         </button>
         <button class="action-btn tone-primary" :disabled="submitting" type="button" @click="submitRequest">
-          <span class="material-symbols-outlined">send</span>
+          <IconlyIcon name="send" decorative />
           <span>{{ submitting ? 'در حال ثبت...' : 'ثبت و ارجاع' }}</span>
         </button>
       </div>
@@ -179,7 +180,7 @@ function openReferral() {
         </div>
 
         <label class="search-shell search-shell-wide">
-          <span class="material-symbols-outlined">search</span>
+          <IconlyIcon name="search" decorative />
           <input v-model="referralSearch" placeholder="جستجو" />
         </label>
       </div>
@@ -199,7 +200,7 @@ function openReferral() {
             <strong>{{ item.name }}</strong>
             <small>{{ item.role || item.department }}</small>
           </div>
-          <span class="material-symbols-outlined">check_circle</span>
+          <IconlyIcon name="check_circle" decorative />
         </button>
       </div>
 

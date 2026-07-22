@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed } from 'vue'
 
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -36,7 +37,7 @@ function priorityLabel(priority) {
       <article v-for="item in requestStats" :key="item.label" :class="['metric-card', 'approval-metric-card', item.tone]">
         <div class="metric-card-headline">
           <span class="metric-label">{{ item.label }}</span>
-          <span class="material-symbols-outlined approval-metric-icon">{{ item.icon }}</span>
+          <IconlyIcon :name="item.icon" class="approval-metric-icon" decorative />
         </div>
         <strong>{{ item.value }}</strong>
         <small class="approval-metric-note">{{ item.note }}</small>

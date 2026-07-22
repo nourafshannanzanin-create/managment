@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>مدیریت درخواست‌ها | نِظام الإدارة المتكامل</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;300;400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-low": "#f2f4f5",
+                    "surface-container-high": "#e6e8e9",
+                    "inverse-primary": "#a5d0be",
+                    "secondary-fixed": "#dce1ff",
+                    "error": "#ba1a1a",
+                    "on-background": "#191c1d",
+                    "on-tertiary-fixed-variant": "#584400",
+                    "on-secondary": "#ffffff",
+                    "on-secondary-fixed-variant": "#28418e",
+                    "outline-variant": "#c0c8c3",
+                    "on-primary-fixed": "#002117",
+                    "secondary-fixed-dim": "#b6c4ff",
+                    "secondary": "#425aa7",
+                    "on-error": "#ffffff",
+                    "primary-fixed-dim": "#a5d0be",
+                    "tertiary": "#745b00",
+                    "inverse-surface": "#2e3132",
+                    "primary-container": "#8fb9a8",
+                    "secondary-container": "#93aafe",
+                    "surface-tint": "#3e6658",
+                    "on-primary": "#ffffff",
+                    "background": "#f8fafb",
+                    "error-container": "#ffdad6",
+                    "on-surface-variant": "#414845",
+                    "tertiary-container": "#d0ac3e",
+                    "on-primary-fixed-variant": "#264e41",
+                    "on-secondary-fixed": "#00164f",
+                    "on-primary-container": "#224a3d",
+                    "on-error-container": "#93000a",
+                    "surface": "#f8fafb",
+                    "on-tertiary-container": "#534100",
+                    "primary": "#3e6658",
+                    "surface-container-highest": "#e1e3e4",
+                    "on-tertiary": "#ffffff",
+                    "primary-fixed": "#c0ecda",
+                    "surface-variant": "#e1e3e4",
+                    "tertiary-fixed-dim": "#e8c352",
+                    "surface-container": "#eceeef",
+                    "on-secondary-container": "#223c88",
+                    "outline": "#717975",
+                    "inverse-on-surface": "#eff1f2",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-dim": "#d8dadb",
+                    "on-surface": "#191c1d",
+                    "on-tertiary-fixed": "#241a00",
+                    "surface-bright": "#f8fafb",
+                    "tertiary-fixed": "#ffe08b"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-sm": "0.5rem",
+                    "stack-lg": "2rem",
+                    "stack-md": "1rem",
+                    "container-margin": "2rem",
+                    "gutter-md": "1.5rem"
+            },
+            "fontFamily": {
+                    "display-lg": ["Vazirmatn"],
+                    "body-md": ["Vazirmatn"],
+                    "headline-lg-mobile": ["Vazirmatn"],
+                    "headline-md": ["Vazirmatn"],
+                    "body-lg": ["Vazirmatn"],
+                    "headline-lg": ["Vazirmatn"],
+                    "label-md": ["Vazirmatn"]
+            },
+            "fontSize": {
+                    "display-lg": ["40px", {"lineHeight": "52px", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "44px", "fontWeight": "600"}],
+                    "label-md": ["14px", {"lineHeight": "20px", "fontWeight": "500"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background-color: #f8fafb;
+            color: #191c1d;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(225, 227, 228, 0.5);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+        }
+        .stat-card-glow-blue { border-bottom: 4px solid #425aa7; }
+        .stat-card-glow-gold { border-bottom: 4px solid #d0ac3e; }
+        .stat-card-glow-jade { border-bottom: 4px solid #3e6658; }
+        .stat-card-glow-red { border-bottom: 4px solid #ba1a1a; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #c0c8c3; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-surface selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- Top AppBar -->
+<header class="fixed top-0 right-0 left-0 h-16 mr-[280px] px-container-margin flex justify-between items-center bg-surface-bright/80 backdrop-blur-md z-40 border-b border-outline-variant rtl">
+<div class="flex items-center gap-4">
+<h1 class="font-headline-md text-headline-md font-bold text-on-surface">نظام الإدارة المتكامل</h1>
+<div class="h-8 w-[1px] bg-outline-variant mx-2"></div>
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-md font-body-md w-64" placeholder="جستجو..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-full hover:bg-surface-container-low transition-all cursor-pointer">
+<span class="material-symbols-outlined text-on-surface-variant">help_outline</span>
+</button>
+<button class="p-2 rounded-full hover:bg-surface-container-low transition-all cursor-pointer relative">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<div class="flex items-center gap-3 pr-4 border-r border-outline-variant">
+<div class="text-left rtl:text-right">
+<p class="font-label-md text-label-md text-on-surface">سلام علیک</p>
+<p class="text-[12px] text-on-surface-variant">مدیر ارشد</p>
+</div>
+<div class="w-10 h-10 rounded-xl overflow-hidden bg-primary-fixed flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a corporate manager in a clean, minimalist studio setting. The lighting is soft and high-key, reflecting a modern light-mode interface aesthetic. The subject wears business attire, conveying a composed and efficient persona in line with the sophisticated Jade Enterprise brand." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvnJyOsQMn-R16KqdoaT9q7xd0N7CrzB7v-UcdVarZeZU79Jsa4V3qtSBYorXY9WRN1Jh-F9Ibem7JKXtvzZCm0R8IAQRrYWoxyqg3EcQ_49l3UMHZX1fwz6Egjkqf0IT1WneNm6FWU0MNyljiET9ZtlKZ5veF6PtHh85qZDye_BrRKe_f17HuZWMONU2WqwX3I9nutlb0cmqdXuGHE1tDfwLCcXS5ijqkFP2yP6Ux8eLqsV0nWyI"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Side Navigation Bar -->
+<aside class="fixed right-0 top-0 h-screen w-[280px] bg-surface border-l border-outline-variant shadow-sm z-50 flex flex-col rtl">
+<div class="p-6 flex flex-col items-center gap-2">
+<div class="w-16 h-16 bg-primary-container rounded-2xl flex items-center justify-center mb-2">
+<span class="material-symbols-outlined text-white text-[32px]" style="font-variation-settings: 'FILL' 1;">account_balance</span>
+</div>
+<h2 class="font-headline-md text-headline-md font-bold text-primary">مرکز الإدارة</h2>
+<p class="font-body-md text-body-md text-on-surface-variant opacity-70">إدارة المؤسسة</p>
+</div>
+<nav class="flex-1 px-4 py-2 space-y-1 overflow-y-auto">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-body-md text-body-md">لوحة القيادة</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary border-r-4 border-primary rounded-l-xl" href="#">
+<span class="material-symbols-outlined" data-icon="description" style="font-variation-settings: 'FILL' 1;">description</span>
+<span class="font-body-md text-body-md font-bold">إدارة الطلبات</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="fact_check">fact_check</span>
+<span class="font-body-md text-body-md">الموافقات</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-body-md text-body-md">المصاريف</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span class="font-body-md text-body-md">المحفظة</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="support_agent">support_agent</span>
+<span class="font-body-md text-body-md">الدعم</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="assessment">assessment</span>
+<span class="font-body-md text-body-md">التقارير</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="group_work">group_work</span>
+<span class="font-body-md text-body-md">المستخدمين والأدوار</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-body-md text-body-md">الإعدادات</span>
+</a>
+</nav>
+<div class="p-4 border-t border-outline-variant">
+<button class="w-full flex items-center justify-center gap-3 py-3 px-4 bg-surface-container-low text-on-surface hover:bg-error/10 hover:text-error transition-all rounded-xl font-label-md text-label-md">
+<span class="material-symbols-outlined">logout</span>
+<span>خروج از سامانه</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="mr-[280px] mt-16 p-stack-lg min-h-screen">
+<!-- Header & Action Row -->
+<div class="flex justify-between items-end mb-8">
+<div class="space-y-1">
+<h2 class="font-headline-lg text-headline-lg text-on-surface">مدیریت درخواست‌های سازمانی</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">مشاهده، بررسی و تایید درخواست‌های جاری سیستم</p>
+</div>
+<button class="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl shadow-lg hover:shadow-xl active:scale-95 transition-all font-label-md text-label-md">
+<span class="material-symbols-outlined">add_circle</span>
+<span>ثبت درخواست جدید</span>
+</button>
+</div>
+<!-- Filter Bar -->
+<div class="glass-card rounded-2xl p-6 mb-8 flex flex-wrap items-end gap-6">
+<div class="flex-1 min-w-[200px]">
+<label class="block font-label-md text-label-md text-on-surface-variant mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">search</span>
+                    جستجو
+                </label>
+<input class="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 transition-all" placeholder="نام، عنوان، شناسه..." type="text"/>
+</div>
+<div class="w-48">
+<label class="block font-label-md text-label-md text-on-surface-variant mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">person</span>
+                    شخص
+                </label>
+<select class="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer">
+<option>همه افراد</option>
+<option>مدیران</option>
+<option>کارمندان</option>
+</select>
+</div>
+<div class="w-48">
+<label class="block font-label-md text-label-md text-on-surface-variant mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">calendar_today</span>
+                    از تاریخ
+                </label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none rounded-xl px-10 py-3 focus:ring-2 focus:ring-primary/20 transition-all" type="text" value="1402/01/01"/>
+<span class="material-symbols-outlined absolute right-3 top-3 text-on-surface-variant">event</span>
+</div>
+</div>
+<div class="w-48">
+<label class="block font-label-md text-label-md text-on-surface-variant mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">calendar_month</span>
+                    تا تاریخ
+                </label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none rounded-xl px-10 py-3 focus:ring-2 focus:ring-primary/20 transition-all" type="text" value="1402/12/29"/>
+<span class="material-symbols-outlined absolute right-3 top-3 text-on-surface-variant">event</span>
+</div>
+</div>
+<button class="flex items-center gap-2 px-6 py-3 text-on-surface-variant hover:text-error hover:bg-error/5 rounded-xl transition-all font-label-md text-label-md border border-outline-variant border-dashed">
+<span class="material-symbols-outlined">refresh</span>
+<span>پاک کردن فیلترها</span>
+</button>
+</div>
+<!-- Bento Stats Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter-md mb-8">
+<!-- Total Stats -->
+<div class="glass-card rounded-2xl p-6 stat-card-glow-blue flex items-center gap-4 group hover:-translate-y-1 transition-all duration-300">
+<div class="w-14 h-14 rounded-2xl bg-secondary-container/20 text-secondary flex items-center justify-center group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[32px]" style="font-variation-settings: 'FILL' 1;">assignment</span>
+</div>
+<div>
+<p class="text-on-surface-variant font-label-md text-label-md">کل درخواست‌ها</p>
+<div class="flex items-baseline gap-2">
+<span class="text-display-lg font-display-lg text-secondary">۱۲۸</span>
+<span class="text-[12px] text-on-surface-variant">+۱۲٪ از ماه پیش</span>
+</div>
+</div>
+</div>
+<!-- In Progress Stats -->
+<div class="glass-card rounded-2xl p-6 stat-card-glow-gold flex items-center gap-4 group hover:-translate-y-1 transition-all duration-300">
+<div class="w-14 h-14 rounded-2xl bg-tertiary-container/20 text-tertiary flex items-center justify-center group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[32px]" style="font-variation-settings: 'FILL' 1;">pending_actions</span>
+</div>
+<div>
+<p class="text-on-surface-variant font-label-md text-label-md">در حال بررسی</p>
+<div class="flex items-baseline gap-2">
+<span class="text-display-lg font-display-lg text-tertiary">۱۴</span>
+<span class="text-[12px] text-tertiary font-bold">نیاز به اقدام</span>
+</div>
+</div>
+</div>
+<!-- Approved Stats -->
+<div class="glass-card rounded-2xl p-6 stat-card-glow-jade flex items-center gap-4 group hover:-translate-y-1 transition-all duration-300">
+<div class="w-14 h-14 rounded-2xl bg-primary-container/20 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[32px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+<div>
+<p class="text-on-surface-variant font-label-md text-label-md">تأیید شده</p>
+<div class="flex items-baseline gap-2">
+<span class="text-display-lg font-display-lg text-primary">۹۶</span>
+<span class="text-[12px] text-on-surface-variant">گردش کامل</span>
+</div>
+</div>
+</div>
+<!-- Urgent Stats -->
+<div class="glass-card rounded-2xl p-6 stat-card-glow-red flex items-center gap-4 group hover:-translate-y-1 transition-all duration-300">
+<div class="w-14 h-14 rounded-2xl bg-error-container/20 text-error flex items-center justify-center group-hover:scale-110 transition-transform animate-pulse">
+<span class="material-symbols-outlined text-[32px]" style="font-variation-settings: 'FILL' 1;">warning</span>
+</div>
+<div>
+<p class="text-on-surface-variant font-label-md text-label-md">فوری و بحرانی</p>
+<div class="flex items-baseline gap-2">
+<span class="text-display-lg font-display-lg text-error">۸</span>
+<span class="text-[12px] text-error font-bold">اولویت بالا</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Requests List Table Section -->
+<div class="glass-card rounded-2xl overflow-hidden mb-8">
+<div class="p-6 border-b border-outline-variant flex justify-between items-center bg-surface-bright">
+<h3 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">list_alt</span>
+                    فهرست درخواست‌ها
+                </h3>
+<div class="flex gap-2">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all">
+<span class="material-symbols-outlined">download</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-right">
+<thead class="bg-surface-container-low text-on-surface-variant">
+<tr>
+<th class="px-6 py-4 font-label-md text-label-md">شماره</th>
+<th class="px-6 py-4 font-label-md text-label-md">عنوان درخواست</th>
+<th class="px-6 py-4 font-label-md text-label-md">ثبت‌کننده</th>
+<th class="px-6 py-4 font-label-md text-label-md">مدیر مسئول</th>
+<th class="px-6 py-4 font-label-md text-label-md">وضعیت</th>
+<th class="px-6 py-4 font-label-md text-label-md">اولویت</th>
+<th class="px-6 py-4 font-label-md text-label-md">تاریخ</th>
+<th class="px-6 py-4 font-label-md text-label-md text-center">عملیات</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Table Row 1 -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-5 font-body-md text-body-md text-on-surface-variant">#REQ-2401</td>
+<td class="px-6 py-5">
+<p class="font-label-md text-label-md text-on-surface">خرید تجهیزات سخت‌افزاری</p>
+<p class="text-[12px] text-on-surface-variant">بخش IT - سرور مرکزی</p>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-secondary-fixed flex items-center justify-center text-[12px] font-bold">عل</div>
+<span class="font-body-md text-body-md">علی علوی</span>
+</div>
+</td>
+<td class="px-6 py-5 font-body-md text-body-md">مهندس کریمی</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full text-[12px] font-bold">تأیید شده</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-1 text-tertiary">
+<span class="material-symbols-outlined text-[16px]">stat_2</span>
+<span class="text-[12px]">متوسط</span>
+</div>
+</td>
+<td class="px-6 py-5 font-body-md text-body-md text-on-surface-variant">1402/10/12</td>
+<td class="px-6 py-5 text-center">
+<button class="p-2 text-primary hover:bg-primary/10 rounded-lg transition-all">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</td>
+</tr>
+<!-- Table Row 2 -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-5 font-body-md text-body-md text-on-surface-variant">#REQ-2402</td>
+<td class="px-6 py-5">
+<p class="font-label-md text-label-md text-on-surface">درخواست مرخصی سالانه</p>
+<p class="text-[12px] text-on-surface-variant">منابع انسانی</p>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-tertiary-fixed flex items-center justify-center text-[12px] font-bold">سپ</div>
+<span class="font-body-md text-body-md">سارا سپهری</span>
+</div>
+</td>
+<td class="px-6 py-5 font-body-md text-body-md">خانم احمدی</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-tertiary/10 text-tertiary border border-tertiary/20 rounded-full text-[12px] font-bold">در انتظار</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">stat_1</span>
+<span class="text-[12px]">کم</span>
+</div>
+</td>
+<td class="px-6 py-5 font-body-md text-body-md text-on-surface-variant">1402/10/15</td>
+<td class="px-6 py-5 text-center">
+<button class="p-2 text-primary hover:bg-primary/10 rounded-lg transition-all">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</td>
+</tr>
+<!-- Table Row 3 (Urgent) -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-5 font-body-md text-body-md text-on-surface-variant">#REQ-2403</td>
+<td class="px-6 py-5">
+<p class="font-label-md text-label-md text-on-surface">تعمیر و نگهداری سیستم سرمایش</p>
+<p class="text-[12px] text-on-surface-variant">خدمات رفاهی - فوری</p>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-error-container flex items-center justify-center text-[12px] font-bold text-on-error-container">حم</div>
+<span class="font-body-md text-body-md">حمید حمیدی</span>
+</div>
+</td>
+<td class="px-6 py-5 font-body-md text-body-md">مهندس رضایی</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-error/10 text-error border border-error/20 rounded-full text-[12px] font-bold">بحرانی</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-1 text-error font-bold">
+<span class="material-symbols-outlined text-[16px]">stat_3</span>
+<span class="text-[12px]">بسیار بالا</span>
+</div>
+</td>
+<td class="px-6 py-5 font-body-md text-body-md text-on-surface-variant">1402/10/16</td>
+<td class="px-6 py-5 text-center">
+<button class="p-2 text-primary hover:bg-primary/10 rounded-lg transition-all">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Empty State Illustration Placeholder (if no data) -->
+<div class="hidden flex flex-col items-center justify-center py-20 bg-surface" id="empty-state">
+<div class="w-48 h-48 mb-6 opacity-20">
+<span class="material-symbols-outlined text-[120px]">content_paste_off</span>
+</div>
+<p class="font-headline-md text-headline-md text-on-surface-variant">در این بازه موردی برای نمایش وجود ندارد.</p>
+<button class="mt-4 text-primary font-label-md text-label-md hover:underline">بازنشانی فیلترها</button>
+</div>
+<!-- Pagination -->
+<div class="p-4 border-t border-outline-variant flex justify-between items-center bg-surface-bright">
+<span class="font-label-md text-label-md text-on-surface-variant">نمایش ۱ تا ۱۰ از ۱۲۸ مورد</span>
+<div class="flex gap-1">
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition-all text-on-surface-variant">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg bg-primary text-white font-bold">۱</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition-all">۲</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition-all">۳</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition-all text-on-surface-variant">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Micro-interaction for filter reset
+        document.querySelector('button.border-dashed').addEventListener('click', function() {
+            this.classList.add('animate-spin');
+            setTimeout(() => {
+                this.classList.remove('animate-spin');
+                document.querySelectorAll('input').forEach(i => i.value = '');
+            }, 500);
+        });
+
+        // Simple mock for "No Data" toggle
+        const toggleEmpty = (show) => {
+            const table = document.querySelector('table');
+            const pagination = table.nextElementSibling.nextElementSibling;
+            const empty = document.getElementById('empty-state');
+            
+            if(show) {
+                table.parentElement.classList.add('hidden');
+                pagination.classList.add('hidden');
+                empty.classList.remove('hidden');
+            } else {
+                table.parentElement.classList.remove('hidden');
+                pagination.classList.remove('hidden');
+                empty.classList.add('hidden');
+            }
+        };
+    </script>
+</body></html>

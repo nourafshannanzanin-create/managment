@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './components/base/IconlyIcon.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 
@@ -9,6 +10,7 @@ import DocumentComposerModal from './components/DocumentComposerModal.vue'
 import ErrorNotice from './components/ErrorNotice.vue'
 import ExpenseComposerModal from './components/ExpenseComposerModal.vue'
 import ExpenseDetailModal from './components/ExpenseDetailModal.vue'
+import MobileBottomNav from './components/MobileBottomNav.vue'
 import RequestComposerModal from './components/RequestComposerModal.vue'
 import RequestDetailModal from './components/RequestDetailModal.vue'
 import SignatureComposerModal from './components/SignatureComposerModal.vue'
@@ -18,6 +20,9 @@ import { useWorkflowHub } from './stores/workflowHub'
 const route = useRoute()
 const hub = useWorkflowHub()
 const routeLoading = ref(false)
+const nowTick = ref(Date.now())
+let trialCountdownTimer = null
+let trialExpiryHandled = false
 
 const {
   state,
@@ -50,7 +55,8 @@ const {
 
 const isAuthRoute = computed(() => route.path === '/login' || route.meta.publicCanvas)
 const licenseSafeRoutes = new Set(['/dashboard', '/wallet', '/support', '/login'])
-const isLicenseLocked = computed(() => Boolean(state.currentUser.licenseStatus?.isLocked || state.currentUser.licenseStatus?.is_locked))
+const licenseStatus = computed(() => state.currentUser.licenseStatus || {})
+const isLicenseLocked = computed(() => Boolean(licenseStatus.value?.isLocked || licenseStatus.value?.is_locked))
 const showSmsBalanceWarning = computed(() =>
   !isAuthRoute.value &&
   state.authToken &&
@@ -66,6 +72,78 @@ const smsBalanceWarningText = computed(() =>
     ? 'شارژ پیامک تمام شده است؛ برای ادامه ارسال پیامک، پنل فراز/کیف پیامک را شارژ کنید.'
     : 'شارژ پیامک رو به اتمام است؛ قبل از توقف ارسال پیامک، پنل فراز/کیف پیامک را شارژ کنید.',
 )
+
+function toFaDigits(value) {
+  return String(value ?? '').replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit] || digit)
+}
+
+function formatCountdown(totalSeconds) {
+  const safe = Math.max(0, Number(totalSeconds) || 0)
+  const hours = Math.floor(safe / 3600)
+  const minutes = Math.floor((safe % 3600) / 60)
+  const seconds = safe % 60
+  const pad = (n) => String(n).padStart(2, '0')
+  return toFaDigits(`${pad(hours)}:${pad(minutes)}:${pad(seconds)}`)
+}
+
+const trialEndsAtMs = computed(() => {
+  const raw = licenseStatus.value?.trialEndsAt || licenseStatus.value?.trial_ends_at || ''
+  if (!raw) return 0
+  const parsed = Date.parse(raw)
+  return Number.isFinite(parsed) ? parsed : 0
+})
+
+const trialRemainingSeconds = computed(() => {
+  if (!trialEndsAtMs.value) return 0
+  return Math.max(0, Math.floor((trialEndsAtMs.value - nowTick.value) / 1000))
+})
+
+const showTrialBanner = computed(() =>
+  !isAuthRoute.value &&
+  Boolean(state.authToken) &&
+  Boolean(state.bootstrapLoaded) &&
+  !state.currentUser.isHq &&
+  Boolean(licenseStatus.value?.trialActive || licenseStatus.value?.trial_active) &&
+  trialRemainingSeconds.value > 0,
+)
+
+const trialProgressPercent = computed(() => {
+  const totalHours = Number(licenseStatus.value?.trialHours || licenseStatus.value?.trial_hours || 24) || 24
+  const totalSeconds = Math.max(totalHours * 3600, 1)
+  return Math.min(100, Math.max(0, (trialRemainingSeconds.value / totalSeconds) * 100))
+})
+
+const trialBannerText = computed(() =>
+  `زمان باقی‌مانده تا اتمام استفاده رایگان: ${formatCountdown(trialRemainingSeconds.value)}`,
+)
+
+function stopTrialCountdown() {
+  if (trialCountdownTimer) {
+    window.clearInterval(trialCountdownTimer)
+    trialCountdownTimer = null
+  }
+}
+
+function startTrialCountdown() {
+  stopTrialCountdown()
+  nowTick.value = Date.now()
+  trialCountdownTimer = window.setInterval(() => {
+    nowTick.value = Date.now()
+  }, 1000)
+}
+
+async function handleTrialExpiry() {
+  if (trialExpiryHandled) return
+  trialExpiryHandled = true
+  stopTrialCountdown()
+  try {
+    await loadBootstrapData(true)
+  } finally {
+    if (isLicenseLocked.value && !licenseSafeRoutes.has(route.path)) {
+      await hub.navigateTo('/wallet')
+    }
+  }
+}
 const globalLoading = computed(() =>
   routeLoading.value ||
   !state.sessionReady ||
@@ -87,6 +165,21 @@ const globalLoading = computed(() =>
   signatureState.loading,
 )
 let hqSupportRefreshTimer = null
+
+watch(showTrialBanner, (active) => {
+  if (active) {
+    trialExpiryHandled = false
+    startTrialCountdown()
+    return
+  }
+  stopTrialCountdown()
+}, { immediate: true })
+
+watch(trialRemainingSeconds, (value, previous) => {
+  if ((previous ?? 0) > 0 && value <= 0 && (licenseStatus.value?.trialActive || licenseStatus.value?.trial_active)) {
+    void handleTrialExpiry()
+  }
+})
 
 async function refreshRouteData(path) {
   if (!state.authToken || path === '/login') return
@@ -151,20 +244,35 @@ onUnmounted(() => {
   if (hqSupportRefreshTimer) {
     window.clearInterval(hqSupportRefreshTimer)
   }
+  stopTrialCountdown()
 })
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'is-auth-route': isAuthRoute }">
+  <div class="app-shell" :class="{ 'is-auth-route': isAuthRoute, 'has-trial-banner': showTrialBanner }">
     <template v-if="!isAuthRoute">
       <div class="shell-backdrop" :class="{ 'is-open': state.mobileMenuOpen }" @click="toggleSidebar"></div>
       <AppSidebar :mobile-menu-open="state.mobileMenuOpen" :toggle-sidebar="toggleSidebar" />
 
       <div class="shell-main">
+        <div
+          v-if="showTrialBanner"
+          class="global-trial-banner"
+          role="status"
+          aria-live="polite"
+        >
+          <div class="global-trial-banner__content">
+            <IconlyIcon name="calendar" decorative />
+            <strong>{{ trialBannerText }}</strong>
+          </div>
+          <div class="global-trial-banner__track" aria-hidden="true">
+            <span class="global-trial-banner__fill" :style="{ width: `${trialProgressPercent}%` }"></span>
+          </div>
+        </div>
         <AppTopNav />
         <main class="shell-content">
           <div v-if="showSmsBalanceWarning" class="global-sms-warning">
-            <span class="material-symbols-outlined">sms_failed</span>
+            <IconlyIcon name="sms_failed" decorative />
             <strong>{{ smsBalanceWarningText }}</strong>
           </div>
           <ErrorNotice
@@ -175,6 +283,7 @@ onUnmounted(() => {
             <component :is="Component" :key="route.fullPath" />
           </RouterView>
         </main>
+        <MobileBottomNav />
       </div>
     </template>
 

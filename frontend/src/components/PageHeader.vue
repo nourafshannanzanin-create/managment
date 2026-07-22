@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './base/IconlyIcon.vue'
 defineProps({
   eyebrow: { type: String, default: '' },
   title: { type: String, required: true },
@@ -24,7 +25,7 @@ const emit = defineEmits(['update:searchValue', 'action', 'menu'])
 
     <div v-if="showSearch || actionLabel" class="page-header-tools">
       <label v-if="showSearch" class="search-shell page-header-search">
-        <span class="material-symbols-outlined" aria-hidden="true">search</span>
+        <IconlyIcon name="search" decorative />
         <input
           :value="searchValue"
           type="search"
@@ -39,7 +40,7 @@ const emit = defineEmits(['update:searchValue', 'action', 'menu'])
         type="button"
         @click="emit('action')"
       >
-        <span class="material-symbols-outlined" aria-hidden="true">{{ actionIcon }}</span>
+        <IconlyIcon :name="actionIcon" decorative />
         <span>{{ actionLabel }}</span>
       </button>
     </div>

@@ -24,20 +24,20 @@ defineProps({
 
 <style scoped>
 .mobile-topbar {
-  min-height: 92px;
-  padding: 20px 20px 18px;
+  min-height: 56px;
+  padding: 10px 14px;
   display: grid;
-  grid-template-columns: 88px minmax(0, 1fr) 88px;
+  grid-template-columns: 56px minmax(0, 1fr) 56px;
   align-items: center;
   gap: 8px;
-  background: #fbf5ef;
-  border-bottom: 1px solid rgba(46, 67, 116, 0.14);
+  background: #f7fbfa;
+  border-bottom: 1px solid rgba(52, 144, 139, 0.12);
 }
 
 .mobile-topbar-side {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .mobile-topbar-side-right {
@@ -55,16 +55,16 @@ defineProps({
 
 .mobile-topbar-center h1 {
   margin: 0;
-  color: #2E4374;
-  font-size: 20px;
-  font-weight: 800;
-  line-height: 1.2;
+  color: #152523;
+  font-size: 0.95rem;
+  font-weight: 750;
+  line-height: 1.25;
 }
 
 .mobile-topbar-center p {
-  margin: 4px 0 0;
-  color: #7C81AD;
-  font-size: 12px;
-  line-height: 1.4;
+  margin: 2px 0 0;
+  color: #45605c;
+  font-size: 0.7rem;
+  line-height: 1.3;
 }
 </style>

@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;300;400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-low": "#f2f4f5",
+                        "surface-container-high": "#e6e8e9",
+                        "inverse-primary": "#a5d0be",
+                        "secondary-fixed": "#dce1ff",
+                        "error": "#ba1a1a",
+                        "on-background": "#191c1d",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed-variant": "#28418e",
+                        "outline-variant": "#c0c8c3",
+                        "on-primary-fixed": "#002117",
+                        "secondary-fixed-dim": "#b6c4ff",
+                        "secondary": "#425aa7",
+                        "on-error": "#ffffff",
+                        "primary-fixed-dim": "#a5d0be",
+                        "tertiary": "#745b00",
+                        "inverse-surface": "#2e3132",
+                        "primary-container": "#8fb9a8",
+                        "secondary-container": "#93aafe",
+                        "surface-tint": "#3e6658",
+                        "on-primary": "#ffffff",
+                        "background": "#f8fafb",
+                        "error-container": "#ffdad6",
+                        "on-surface-variant": "#414845",
+                        "tertiary-container": "#d0ac3e",
+                        "on-primary-fixed-variant": "#264e41",
+                        "on-secondary-fixed": "#00164f",
+                        "on-primary-container": "#224a3d",
+                        "on-error-container": "#93000a",
+                        "surface": "#f8fafb",
+                        "on-tertiary-container": "#534100",
+                        "primary": "#3e6658",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#c0ecda",
+                        "surface-variant": "#e1e3e4",
+                        "tertiary-fixed-dim": "#e8c352",
+                        "surface-container": "#eceeef",
+                        "on-secondary-container": "#223c88",
+                        "outline": "#717975",
+                        "inverse-on-surface": "#eff1f2",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-dim": "#d8dadb",
+                        "on-surface": "#191c1d",
+                        "on-tertiary-fixed": "#241a00",
+                        "surface-bright": "#f8fafb",
+                        "tertiary-fixed": "#ffe08b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-sm": "0.5rem",
+                        "stack-lg": "2rem",
+                        "stack-md": "1rem",
+                        "container-margin": "2rem",
+                        "gutter-md": "1.5rem"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Vazirmatn"],
+                        "body-md": ["Vazirmatn"],
+                        "headline-lg-mobile": ["Vazirmatn"],
+                        "headline-md": ["Vazirmatn"],
+                        "body-lg": ["Vazirmatn"],
+                        "headline-lg": ["Vazirmatn"],
+                        "label-md": ["Vazirmatn"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["40px", {"lineHeight": "52px", "fontWeight": "700"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "44px", "fontWeight": "600"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "fontWeight": "500"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #f8fafb;
+            font-family: 'Vazirmatn', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c0c8c3;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- SideNavBar (Shared Component) -->
+<aside class="fixed right-0 top-0 h-screen w-[280px] bg-surface border-l border-outline-variant flex flex-col z-50 rtl shadow-sm">
+<div class="p-6 flex flex-col gap-1">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">corporate_fare</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">مرکز مدیریت</h1>
+<p class="font-body-md text-body-md text-on-surface-variant opacity-70">مدیریت مؤسسه</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 overflow-y-auto custom-scrollbar mt-4">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">لوحه القیادة</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-body-md text-body-md">إدارة الطلبات</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">fact_check</span>
+<span class="font-body-md text-body-md">الموافقات</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-body-md text-body-md">المصاریف</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span class="font-body-md text-body-md">المحفظة</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">support_agent</span>
+<span class="font-body-md text-body-md">الدعم</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span class="font-body-md text-body-md">التقاریر</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">group_work</span>
+<span class="font-body-md text-body-md">المستخدمین والأدوار</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary border-r-4 border-primary transition-all duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-md text-body-md">الإعدادات</span>
+</a>
+</nav>
+<div class="p-4 border-t border-outline-variant bg-surface-container-lowest">
+<div class="flex items-center gap-3 p-2 rounded-xl hover:bg-surface-container-high cursor-pointer transition-colors">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="A professional headshot of a middle-aged Iranian male executive in a sleek modern office setting. He is wearing a minimalist dark blazer over a crisp white shirt. The lighting is soft and professional, emphasizing a composed and efficient character. The background is slightly blurred showing a modern workspace with soft jade accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKPnHk-AO6gq0DwR44CL_4iKJRkcqgk2Lz5x5fzKWz7yp8xeUZF7lcHDTUUyetmwSPV81HGvVuq8rSgMpyA2LeD-kxDLUFQRgaOSXW4guGI7lOxUT9iA8MqeSC8yrZ_BcLLnUExCCASrXmqdAiCdwxlhxLE8o1LbX4xsGTNszI73amPg2dFLQnLW4I7owbvToGDA7XZ7Znybls7OkN_aiW_4Dhu5kR15_YmzQu_2jhuMWgpN3f9Uk"/>
+<div class="flex-1">
+<p class="font-label-md text-label-md font-bold truncate text-on-surface">امیرحسین رضایی</p>
+<p class="text-[10px] text-on-surface-variant">مدیر کل سازمان</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">logout</span>
+</div>
+</div>
+</aside>
+<!-- TopAppBar (Shared Component) -->
+<header class="fixed top-0 left-0 right-[280px] h-16 bg-surface-bright/80 backdrop-blur-md border-b border-outline-variant flex justify-between items-center px-container-margin z-40 rtl shadow-sm">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-full max-w-md">
+<input class="w-full bg-surface-container-low border-none rounded-full py-2 px-10 focus:ring-2 focus:ring-primary/20 text-body-md" placeholder="جستجو در تنظیمات..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-on-surface-variant">search</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container-low transition-all">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<button class="relative w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container-low transition-all">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2.5 right-2.5 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant mx-2"></div>
+<span class="font-headline-md text-headline-md font-bold text-on-surface">نظام الإدارة المتکامل</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="mr-[280px] pt-24 px-container-margin pb-12 rtl min-h-screen">
+<div class="max-w-[1440px] mx-auto space-y-12">
+<!-- Page Header -->
+<div class="flex justify-between items-end">
+<div>
+<span class="bg-primary/10 text-primary px-3 py-1 rounded-full text-label-md font-medium mb-2 inline-block">تنظیمات</span>
+<h2 class="font-headline-lg text-headline-lg font-extrabold text-on-surface">پیکربندی سازمان و سطح دسترسی</h2>
+</div>
+<button class="bg-primary text-on-primary px-6 py-2.5 rounded-xl font-label-md flex items-center gap-2 hover:shadow-lg active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[20px]">save</span>
+<span>ذخیره تغییرات</span>
+</button>
+</div>
+<!-- Top Grid Section: Profile & Summary -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter-md">
+<!-- Organization Profile Card -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-sm border border-outline-variant hover:border-primary/30 transition-all">
+<div class="flex items-center gap-3 mb-8">
+<span class="material-symbols-outlined text-primary">domain</span>
+<h3 class="font-headline-md text-headline-md font-bold text-on-surface">پروفایل سازمان</h3>
+</div>
+<div class="space-y-6">
+<div class="space-y-2">
+<label class="font-label-md text-on-surface-variant block mr-1">نام سازمان</label>
+<div class="relative group">
+<input class="w-full bg-surface-container-low border-none rounded-xl py-4 px-4 focus:ring-2 focus:ring-primary/40 font-body-lg transition-all text-on-surface" type="text" value="سلام علیک"/>
+<span class="material-symbols-outlined absolute left-4 top-4 text-outline opacity-0 group-focus-within:opacity-100 transition-opacity">edit</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="font-label-md text-on-surface-variant block mr-1">کد سازمان</label>
+<div class="relative group">
+<input class="w-full bg-surface-container-low border-none rounded-xl py-4 px-4 focus:ring-2 focus:ring-primary/40 font-body-lg transition-all text-on-surface tracking-widest" type="text" value="456987"/>
+<span class="material-symbols-outlined absolute left-4 top-4 text-outline opacity-0 group-focus-within:opacity-100 transition-opacity">lock</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Permissions Summary Card -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-sm border border-outline-variant hover:border-primary/30 transition-all flex flex-col">
+<div class="flex items-center gap-3 mb-8">
+<span class="material-symbols-outlined text-primary">key</span>
+<h3 class="font-headline-md text-headline-md font-bold text-on-surface">خلاصه دسترسی‌ها</h3>
+</div>
+<div class="flex-1 flex flex-col justify-center space-y-6">
+<!-- Stat Row 1 -->
+<div class="flex items-center gap-4 group">
+<span class="font-label-md text-on-surface w-24">کاربران</span>
+<div class="flex-1 h-3 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[35%] rounded-full group-hover:w-[40%] transition-all duration-700"></div>
+</div>
+<span class="font-label-md text-on-surface-variant bg-surface-container-low px-3 py-1 rounded-full">۱ نفر</span>
+</div>
+<!-- Stat Row 2 -->
+<div class="flex items-center gap-4 group">
+<span class="font-label-md text-on-surface w-24">هزینه‌ها</span>
+<div class="flex-1 h-3 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary/60 w-[60%] rounded-full group-hover:w-[65%] transition-all duration-700"></div>
+</div>
+<span class="font-label-md text-on-surface-variant bg-surface-container-low px-3 py-1 rounded-full">۲ نفر</span>
+</div>
+<!-- Stat Row 3 -->
+<div class="flex items-center gap-4 group">
+<span class="font-label-md text-on-surface w-24">گزارشات</span>
+<div class="flex-1 h-3 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary/60 w-[55%] rounded-full group-hover:w-[60%] transition-all duration-700"></div>
+</div>
+<span class="font-label-md text-on-surface-variant bg-surface-container-low px-3 py-1 rounded-full">۲ نفر</span>
+</div>
+<!-- Stat Row 4 -->
+<div class="flex items-center gap-4 group">
+<span class="font-label-md text-on-surface w-24">تنظیمات</span>
+<div class="flex-1 h-3 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary/40 w-[45%] rounded-full group-hover:w-[50%] transition-all duration-700"></div>
+</div>
+<span class="font-label-md text-on-surface-variant bg-surface-container-low px-3 py-1 rounded-full">۲ نفر</span>
+</div>
+</div>
+</section>
+</div>
+<!-- Bottom Section: Organization Units -->
+<section class="space-y-8">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">account_tree</span>
+<h3 class="font-headline-md text-headline-md font-bold text-on-surface">بخش‌های سازمان</h3>
+</div>
+<button class="text-primary font-label-md flex items-center gap-1 hover:bg-primary/5 px-4 py-2 rounded-lg transition-colors">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+<span>افزودن بخش جدید</span>
+</button>
+</div>
+<!-- Bento-style Grid for Units -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Management Unit -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-1 h-full bg-primary"></div>
+<div class="flex justify-between items-start mb-6">
+<span class="text-xs font-medium text-outline uppercase tracking-wider">management</span>
+<span class="material-symbols-outlined text-primary/30 group-hover:text-primary transition-colors">admin_panel_settings</span>
+</div>
+<div class="space-y-4">
+<div>
+<p class="text-[10px] text-on-surface-variant mb-1">نام بخش</p>
+<p class="font-body-lg font-bold text-on-surface">مدیریت (Management)</p>
+</div>
+<div class="pt-4 border-t border-outline-variant/30 flex justify-between items-center">
+<div class="flex -space-x-2 space-x-reverse">
+<div class="w-8 h-8 rounded-full border-2 border-white bg-surface-container-high flex items-center justify-center text-[10px] font-bold">M</div>
+<div class="w-8 h-8 rounded-full border-2 border-white bg-primary-container flex items-center justify-center text-[10px] font-bold text-on-primary-container">AR</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer">arrow_left_alt</span>
+</div>
+</div>
+</div>
+<!-- Finance Unit -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-1 h-full bg-secondary"></div>
+<div class="flex justify-between items-start mb-6">
+<span class="text-xs font-medium text-outline uppercase tracking-wider">finance</span>
+<span class="material-symbols-outlined text-secondary/30 group-hover:text-secondary transition-colors">account_balance</span>
+</div>
+<div class="space-y-4">
+<div>
+<p class="text-[10px] text-on-surface-variant mb-1">نام بخش</p>
+<p class="font-body-lg font-bold text-on-surface">امور مالی</p>
+</div>
+<div class="pt-4 border-t border-outline-variant/30 flex justify-between items-center">
+<div class="flex -space-x-2 space-x-reverse">
+<div class="w-8 h-8 rounded-full border-2 border-white bg-secondary-container flex items-center justify-center text-[10px] font-bold text-on-secondary-container">F</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-secondary cursor-pointer">arrow_left_alt</span>
+</div>
+</div>
+</div>
+<!-- Marketing Unit -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-1 h-full bg-tertiary-container"></div>
+<div class="flex justify-between items-start mb-6">
+<span class="text-xs font-medium text-outline uppercase tracking-wider">marketing</span>
+<span class="material-symbols-outlined text-tertiary/30 group-hover:text-tertiary transition-colors">campaign</span>
+</div>
+<div class="space-y-4">
+<div>
+<p class="text-[10px] text-on-surface-variant mb-1">نام بخش</p>
+<p class="font-body-lg font-bold text-on-surface">بازاریابی</p>
+</div>
+<div class="pt-4 border-t border-outline-variant/30 flex justify-between items-center">
+<div class="flex -space-x-2 space-x-reverse">
+<div class="w-8 h-8 rounded-full border-2 border-white bg-tertiary-fixed-dim flex items-center justify-center text-[10px] font-bold">MK</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-tertiary cursor-pointer">arrow_left_alt</span>
+</div>
+</div>
+</div>
+<!-- IT Unit -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-1 h-full bg-primary/40"></div>
+<div class="flex justify-between items-start mb-6">
+<span class="text-xs font-medium text-outline uppercase tracking-wider">it</span>
+<span class="material-symbols-outlined text-primary/30 group-hover:text-primary transition-colors">terminal</span>
+</div>
+<div class="space-y-4">
+<div>
+<p class="text-[10px] text-on-surface-variant mb-1">نام بخش</p>
+<p class="font-body-lg font-bold text-on-surface">فناوری اطلاعات</p>
+</div>
+<div class="pt-4 border-t border-outline-variant/30 flex justify-between items-center">
+<div class="flex -space-x-2 space-x-reverse">
+<div class="w-8 h-8 rounded-full border-2 border-white bg-primary-fixed flex items-center justify-center text-[10px] font-bold">IT</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer">arrow_left_alt</span>
+</div>
+</div>
+</div>
+<!-- Ops Unit -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-1 h-full bg-secondary/50"></div>
+<div class="flex justify-between items-start mb-6">
+<span class="text-xs font-medium text-outline uppercase tracking-wider">ops</span>
+<span class="material-symbols-outlined text-secondary/30 group-hover:text-secondary transition-colors">settings_suggest</span>
+</div>
+<div class="space-y-4">
+<div>
+<p class="text-[10px] text-on-surface-variant mb-1">نام بخش</p>
+<p class="font-body-lg font-bold text-on-surface">عملیات</p>
+</div>
+<div class="pt-4 border-t border-outline-variant/30 flex justify-between items-center">
+<div class="flex -space-x-2 space-x-reverse">
+<div class="w-8 h-8 rounded-full border-2 border-white bg-secondary-fixed-dim flex items-center justify-center text-[10px] font-bold">OP</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-secondary cursor-pointer">arrow_left_alt</span>
+</div>
+</div>
+</div>
+<!-- Procurement Unit -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-1 h-full bg-error/40"></div>
+<div class="flex justify-between items-start mb-6">
+<span class="text-xs font-medium text-outline uppercase tracking-wider">procurement</span>
+<span class="material-symbols-outlined text-error/30 group-hover:text-error transition-colors">shopping_cart</span>
+</div>
+<div class="space-y-4">
+<div>
+<p class="text-[10px] text-on-surface-variant mb-1">نام بخش</p>
+<p class="font-body-lg font-bold text-on-surface">تدارکات و خرید</p>
+</div>
+<div class="pt-4 border-t border-outline-variant/30 flex justify-between items-center">
+<div class="flex -space-x-2 space-x-reverse">
+<div class="w-8 h-8 rounded-full border-2 border-white bg-error-container flex items-center justify-center text-[10px] font-bold text-on-error-container">PR</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant hover:text-error cursor-pointer">arrow_left_alt</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Contextual FAB (Only for specific screens, hidden here to prioritize focus but showing logic) -->
+<div class="fixed bottom-8 left-8 flex flex-col gap-4 z-50">
+<button class="w-14 h-14 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all group">
+<span class="material-symbols-outlined text-[28px]">support</span>
+<span class="absolute right-16 bg-surface px-4 py-2 rounded-lg shadow-md text-label-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-outline-variant">ارسال بازخورد</span>
+</button>
+</div>
+<script>
+        // Micro-interactions for form focus effects
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('focus', () => {
+                input.parentElement.parentElement.classList.add('border-primary');
+            });
+            input.addEventListener('blur', () => {
+                input.parentElement.parentElement.classList.remove('border-primary');
+            });
+        });
+
+        // Simple animation for the progress bars on load
+        window.addEventListener('load', () => {
+            const bars = document.querySelectorAll('.h-full.bg-primary');
+            bars.forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0%';
+                setTimeout(() => {
+                    bar.style.width = width;
+                }, 300);
+            });
+        });
+    </script>
+</body></html>

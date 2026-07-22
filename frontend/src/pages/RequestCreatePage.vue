@@ -1,4 +1,5 @@
 ﻿<script setup>
+import IconlyIcon from '../components/base/IconlyIcon.vue'
 import PageHeader from '../components/PageHeader.vue'
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -92,7 +93,7 @@ const {
 
         <label class="upload-pad">
           <input type="file" multiple @change="setRequestFiles($event.target.files)" />
-          <span class="material-symbols-outlined">cloud_upload</span>
+          <IconlyIcon name="cloud_upload" decorative />
           <strong>افزودن فایل</strong>
           <small>PDF, Excel, Word, PNG, JPG</small>
         </label>
@@ -104,7 +105,7 @@ const {
               <small>{{ Math.round(file.size / 1024) }} KB</small>
             </div>
             <button class="icon-btn" type="button" @click="removeAttachment(index)">
-              <span class="material-symbols-outlined">delete</span>
+              <IconlyIcon name="delete" decorative />
             </button>
           </article>
         </div>
@@ -139,7 +140,7 @@ const {
         </div>
 
         <button class="action-btn tone-primary request-submit-btn" type="button" @click="submitRequest">
-          <span class="material-symbols-outlined">send</span>
+          <IconlyIcon name="send" decorative />
           <span>ثبت</span>
         </button>
       </section>

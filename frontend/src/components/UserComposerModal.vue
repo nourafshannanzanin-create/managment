@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './base/IconlyIcon.vue'
 import BaseModal from './BaseModal.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -94,10 +95,11 @@ const sectionAccessOptions = [
             :class="['check-tile', form.sectionAccess[item.key] && 'is-checked']"
           >
             <input v-model="form.sectionAccess[item.key]" type="checkbox" />
-            <span class="check-state material-symbols-outlined">{{ form.sectionAccess[item.key] ? 'check_circle' : 'radio_button_unchecked' }}</span>
+            <IconlyIcon :name="form.sectionAccess[item.key] ? 'check_circle' : 'radio_button_unchecked'" class="check-state" decorative />
             <div>
               <strong>{{ item.title }}</strong>
             </div>
+            <span class="check-tile-badge">انتخاب شده</span>
           </label>
         </div>
       </section>
@@ -106,11 +108,11 @@ const sectionAccessOptions = [
 
       <div class="action-group modal-actions">
         <button class="action-btn tone-soft" type="button" @click="$emit('close')">
-          <span class="material-symbols-outlined">close</span>
+          <IconlyIcon name="close" decorative />
           <span>بستن</span>
         </button>
         <button class="action-btn tone-primary" type="button" :disabled="submitting" @click="submitUser">
-          <span class="material-symbols-outlined">person_add</span>
+          <IconlyIcon name="person_add" decorative />
           <span>{{ submitting ? 'در حال ایجاد...' : 'ایجاد کاربر' }}</span>
         </button>
       </div>

@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -196,11 +197,11 @@ onMounted(() => {
 
     <section class="attendance-tabs">
       <button :class="['attendance-tab', activeTab === 'dashboard' && 'is-active']" type="button" @click="switchTab('dashboard')">
-        <span class="material-symbols-outlined">space_dashboard</span>
+        <IconlyIcon name="space_dashboard" decorative />
         <span>داشبورد</span>
       </button>
       <button :class="['attendance-tab', activeTab === 'reports' && 'is-active']" type="button" @click="switchTab('reports')">
-        <span class="material-symbols-outlined">table_chart</span>
+        <IconlyIcon name="table_chart" decorative />
         <span>گزارشات</span>
       </button>
     </section>
@@ -208,7 +209,7 @@ onMounted(() => {
     <template v-if="activeTab === 'dashboard'">
     <section class="attendance-toolbar">
       <label class="search-shell search-shell-wide">
-        <span class="material-symbols-outlined">search</span>
+        <IconlyIcon name="search" decorative />
         <input v-model="search" type="text" placeholder="جستجو در نام، سمت، بخش یا موبایل..." />
       </label>
       <label class="field-shell">
@@ -220,7 +221,7 @@ onMounted(() => {
         </select>
       </label>
       <button class="action-btn tone-soft" type="button" @click="loadDashboard">
-        <span class="material-symbols-outlined">refresh</span>
+        <IconlyIcon name="refresh" decorative />
         <span>بروزرسانی</span>
       </button>
     </section>
@@ -243,18 +244,18 @@ onMounted(() => {
           <code class="attendance-link">{{ attendanceLink(user) }}</code>
           <div class="attendance-actions">
             <button class="action-btn tone-primary" type="button" :disabled="submitting || user.status === 'in'" @click="submitManagerEvent(user, 'in')">
-              <span class="material-symbols-outlined">login</span>
+              <IconlyIcon name="login" decorative />
               <span>ثبت ورود</span>
             </button>
             <button class="action-btn tone-soft" type="button" :disabled="submitting || user.status !== 'in'" @click="submitManagerEvent(user, 'out')">
-              <span class="material-symbols-outlined">logout</span>
+              <IconlyIcon name="logout" decorative />
               <span>ثبت خروج</span>
             </button>
             <button class="icon-btn" type="button" title="کپی لینک" @click="copyLink(user)">
-              <span class="material-symbols-outlined">content_copy</span>
+              <IconlyIcon name="content_copy" decorative />
             </button>
             <a class="icon-btn" title="باز کردن لینک" :href="attendanceLink(user)" target="_blank" rel="noreferrer">
-              <span class="material-symbols-outlined">open_in_new</span>
+              <IconlyIcon name="open_in_new" decorative />
             </a>
           </div>
         </article>
@@ -280,7 +281,7 @@ onMounted(() => {
       <section class="attendance-report-panel">
         <div class="report-filter-grid">
           <label class="search-shell search-shell-wide">
-            <span class="material-symbols-outlined">search</span>
+            <IconlyIcon name="search" decorative />
             <input v-model="reportFilters.q" type="text" placeholder="جستجو در نام، سمت، بخش یا یادداشت..." @keyup.enter="loadReports" />
           </label>
           <label class="field-shell">
@@ -307,11 +308,11 @@ onMounted(() => {
             </select>
           </label>
           <button class="action-btn tone-primary" type="button" @click="loadReports">
-            <span class="material-symbols-outlined">manage_search</span>
+            <IconlyIcon name="manage_search" decorative />
             <span>اعمال فیلتر</span>
           </button>
           <button class="action-btn tone-soft" type="button" @click="resetReportFilters">
-            <span class="material-symbols-outlined">filter_alt_off</span>
+            <IconlyIcon name="filter_alt_off" decorative />
             <span>حذف فیلتر</span>
           </button>
         </div>
@@ -384,11 +385,11 @@ onMounted(() => {
 
       <div class="public-action-grid">
         <button class="public-action is-in" type="button" :disabled="submitting || publicUser.status === 'in'" @click="submitPublicEvent('in')">
-          <span class="material-symbols-outlined">login</span>
+          <IconlyIcon name="login" decorative />
           <strong>ثبت ورود</strong>
         </button>
         <button class="public-action is-out" type="button" :disabled="submitting || publicUser.status !== 'in'" @click="submitPublicEvent('out')">
-          <span class="material-symbols-outlined">logout</span>
+          <IconlyIcon name="logout" decorative />
           <strong>ثبت خروج</strong>
         </button>
       </div>
@@ -585,7 +586,7 @@ onMounted(() => {
 .attendance-public-head p { margin: 0; color: var(--muted); }
 .public-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .public-action { min-height: 132px; display: grid; place-items: center; gap: 8px; border-radius: 12px; color: #fff; box-shadow: none; }
-.public-action .material-symbols-outlined { font-size: 34px; }
+.public-action .iconly-shell { font-size: 34px; }
 .public-action.is-in { background: var(--surface, #fff); }
 .public-action.is-out { background: var(--surface, #fff); }
 .public-note { display: grid; gap: 8px; }
@@ -595,7 +596,7 @@ onMounted(() => {
 .public-timeline { display: grid; gap: 10px; }
 @media (max-width: 1100px) {
   .attendance-hero, .attendance-layout { grid-template-columns: 1fr; }
-  .attendance-users { grid-template-columns: 1fr; }
+  .attendance-users { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .report-filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .report-filter-grid .search-shell { grid-column: span 3; }
   .report-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }

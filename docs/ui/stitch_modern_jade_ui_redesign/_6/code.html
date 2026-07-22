@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>کیف پول | مرکز مدیریت</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-low": "#f2f4f5",
+                    "surface-container-high": "#e6e8e9",
+                    "inverse-primary": "#a5d0be",
+                    "secondary-fixed": "#dce1ff",
+                    "error": "#ba1a1a",
+                    "on-background": "#191c1d",
+                    "on-tertiary-fixed-variant": "#584400",
+                    "on-secondary": "#ffffff",
+                    "on-secondary-fixed-variant": "#28418e",
+                    "outline-variant": "#c0c8c3",
+                    "on-primary-fixed": "#002117",
+                    "secondary-fixed-dim": "#b6c4ff",
+                    "secondary": "#425aa7",
+                    "on-error": "#ffffff",
+                    "primary-fixed-dim": "#a5d0be",
+                    "tertiary": "#745b00",
+                    "inverse-surface": "#2e3132",
+                    "primary-container": "#8fb9a8",
+                    "secondary-container": "#93aafe",
+                    "surface-tint": "#3e6658",
+                    "on-primary": "#ffffff",
+                    "background": "#f8fafb",
+                    "error-container": "#ffdad6",
+                    "on-surface-variant": "#414845",
+                    "tertiary-container": "#d0ac3e",
+                    "on-primary-fixed-variant": "#264e41",
+                    "on-secondary-fixed": "#00164f",
+                    "on-primary-container": "#224a3d",
+                    "on-error-container": "#93000a",
+                    "surface": "#f8fafb",
+                    "on-tertiary-container": "#534100",
+                    "primary": "#3e6658",
+                    "surface-container-highest": "#e1e3e4",
+                    "on-tertiary": "#ffffff",
+                    "primary-fixed": "#c0ecda",
+                    "surface-variant": "#e1e3e4",
+                    "tertiary-fixed-dim": "#e8c352",
+                    "surface-container": "#eceeef",
+                    "on-secondary-container": "#223c88",
+                    "outline": "#717975",
+                    "inverse-on-surface": "#eff1f2",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-dim": "#d8dadb",
+                    "on-surface": "#191c1d",
+                    "on-tertiary-fixed": "#241a00",
+                    "surface-bright": "#f8fafb",
+                    "tertiary-fixed": "#ffe08b"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-sm": "0.5rem",
+                    "stack-lg": "2rem",
+                    "stack-md": "1rem",
+                    "container-margin": "2rem",
+                    "gutter-md": "1.5rem"
+            },
+            "fontFamily": {
+                    "display-lg": ["Vazirmatn"],
+                    "body-md": ["Vazirmatn"],
+                    "headline-lg-mobile": ["Vazirmatn"],
+                    "headline-md": ["Vazirmatn"],
+                    "body-lg": ["Vazirmatn"],
+                    "headline-lg": ["Vazirmatn"],
+                    "label-md": ["Vazirmatn"]
+            },
+            "fontSize": {
+                    "display-lg": ["40px", {"lineHeight": "52px", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "44px", "fontWeight": "600"}],
+                    "label-md": ["14px", {"lineHeight": "20px", "fontWeight": "500"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background-color: #f8fafb;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .sidebar-active {
+            position: relative;
+        }
+        .sidebar-active::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 0;
+            height: 100%;
+            width: 4px;
+            background-color: #3e6658;
+            border-radius: 2px 0 0 2px;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- Side Navigation Shell -->
+<aside class="fixed right-0 top-0 h-screen w-[280px] bg-surface border-l border-outline-variant shadow-sm z-50 flex flex-col rtl">
+<div class="p-6 flex flex-col gap-1">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 bg-primary-container rounded-xl flex items-center justify-center text-on-primary-container shadow-sm">
+<span class="material-symbols-outlined text-3xl">account_balance_wallet</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">مرکز مدیریت</h1>
+<p class="text-xs text-on-surface-variant">مدیریت مالی یکپارچه</p>
+</div>
+</div>
+</div>
+<nav class="mt-4 flex-1 space-y-1 px-3">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">dashboard</span>
+<span class="font-body-md text-body-md">لوحه القیادة</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">description</span>
+<span class="font-body-md text-body-md">إدارة الطلبات</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">fact_check</span>
+<span class="font-body-md text-body-md">الموافقات</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">payments</span>
+<span class="font-body-md text-body-md">المصاريف</span>
+</a>
+<a class="sidebar-active flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary transition-colors duration-200 rounded-lg" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+<span class="font-body-md text-body-md font-bold">المحفظة</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">support_agent</span>
+<span class="font-body-md text-body-md">الدعم</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">assessment</span>
+<span class="font-body-md text-body-md">التقارير</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">group_work</span>
+<span class="font-body-md text-body-md">المستخدمين والأدوار</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors duration-200 rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">settings</span>
+<span class="font-body-md text-body-md">الإعدادات</span>
+</a>
+</nav>
+<div class="p-4 border-t border-outline-variant">
+<button class="w-full flex items-center justify-center gap-2 py-3 bg-surface-container-low hover:bg-error-container hover:text-error transition-all duration-300 rounded-xl group">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-md text-label-md font-bold">خروج از سامانه</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="mr-[280px] min-h-screen flex flex-col rtl">
+<!-- Top App Bar -->
+<header class="h-16 flex items-center justify-between px-8 bg-surface-bright/80 backdrop-blur-md sticky top-0 z-40 border-b border-outline-variant/30">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-96 max-w-full">
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-full py-2 pr-10 pl-4 focus:ring-2 focus:ring-primary/20 text-body-md" placeholder="جستجو در سامانه..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-3">
+<button class="p-2 hover:bg-surface-container-low rounded-full transition-colors relative">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="p-2 hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">help_outline</span>
+</button>
+</div>
+<div class="h-8 w-px bg-outline-variant"></div>
+<div class="flex items-center gap-3 cursor-pointer group">
+<div class="text-left rtl">
+<p class="text-sm font-bold text-on-surface">سلام علیک</p>
+<p class="text-[10px] text-on-surface-variant">مدیر سیستم</p>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-primary-fixed overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional studio portrait of a modern executive smiling, high-end photography, soft corporate lighting, minimalist office background, pastel green color grade to match the UI aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVvWBc0CY2Bdgo8SWQ--BM5rVtAi8Xx0D_D9n4P3SLPT8tnfTTP6K5eKByi9fQsYFm8ko4GPnC6TAHOeB_tOcV8mQpIvJ__zT20LnQX4RoHJE8lKf8oOv3Ho2HLyoqXB9O_3yy8546aYA_iCXn376SSVr_D-6R3-qVrGAdEGmAvVw-E1-XQCnJ1IBdceQYuB_Z7sm9K0Z6x3co_73J_Y2aGl23G6Bv3tUJ0zz4Lxk1uWDoFN_gLI8"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Page Canvas -->
+<div class="p-8 max-w-[1440px] mx-auto w-full space-y-8">
+<!-- Hero Wallet Section -->
+<section class="relative overflow-hidden rounded-[2rem] bg-gradient-to-bl from-primary to-primary-container p-12 text-on-primary shadow-xl">
+<!-- Background Decorative Element -->
+<div class="absolute -top-24 -left-24 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+<div class="absolute -bottom-24 -right-24 w-96 h-96 bg-secondary/10 rounded-full blur-3xl"></div>
+<div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
+<!-- Balance Display -->
+<div class="flex-1 text-center md:text-right">
+<div class="inline-flex items-center gap-2 bg-white/20 px-4 py-1.5 rounded-full mb-6 backdrop-blur-md">
+<span class="material-symbols-outlined text-sm">account_balance_wallet</span>
+<span class="text-xs font-bold uppercase tracking-wider">Wallet</span>
+</div>
+<h2 class="text-on-primary/80 font-headline-md mb-2">موجودی کیف پول</h2>
+<div class="flex items-baseline gap-4 justify-center md:justify-start">
+<span class="text-6xl md:text-7xl font-bold tracking-tight">64,995,999,000.00</span>
+<span class="text-2xl font-medium opacity-80">تومان</span>
+</div>
+<p class="mt-4 text-on-primary/60 font-body-md">آخرین بروزرسانی: امروز ساعت ۱۲:۴۵</p>
+</div>
+<!-- Actions -->
+<div class="flex flex-col gap-4 min-w-[200px]">
+<button class="flex items-center justify-center gap-3 bg-white text-primary px-8 py-4 rounded-2xl font-bold shadow-lg hover:scale-[1.02] active:scale-95 transition-all">
+<span class="material-symbols-outlined">add_card</span>
+<span>شارژ حساب</span>
+</button>
+<button class="flex items-center justify-center gap-3 border-2 border-white/30 text-white px-8 py-4 rounded-2xl font-bold hover:bg-white/10 active:scale-95 transition-all">
+<span class="material-symbols-outlined">payments</span>
+<span>برداشت وجه</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Status Alert Bar -->
+<div class="bg-surface-container-lowest border border-outline-variant p-4 rounded-2xl flex items-center gap-4 text-on-surface-variant">
+<span class="material-symbols-outlined text-primary">check_circle</span>
+<p class="font-body-md">خرید با موفقیت از کیف پول انجام شد. تراکنش شماره #۴۸۲۹ در تاریخچه ثبت گردید.</p>
+</div>
+<!-- Product Cards Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter-md">
+<!-- Card 1: Software Purchase -->
+<div class="glass-card p-6 rounded-[2rem] flex flex-col justify-between shadow-sm border-b-4 border-secondary">
+<div class="flex items-start justify-between mb-8">
+<div class="w-12 h-12 rounded-2xl bg-secondary/10 text-secondary flex items-center justify-center">
+<span class="material-symbols-outlined text-2xl">shopping_cart</span>
+</div>
+<span class="bg-secondary/10 text-secondary text-[10px] font-bold px-3 py-1 rounded-full">اجباری</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md font-bold mb-4">خرید نرم افزار</h3>
+<p class="text-on-surface-variant font-body-md mb-6 leading-relaxed">تا زمانی که این گزینه فعال نشود، دسترسی عملیاتی سازمان قفل می‌ماند.</p>
+<div class="space-y-3 mb-8">
+<div class="flex justify-between items-center bg-surface-container-low p-3 rounded-xl">
+<span class="text-xs text-on-surface-variant">نقدی</span>
+<span class="font-bold">4,000,000.00</span>
+</div>
+<div class="flex justify-between items-center bg-surface-container-low p-3 rounded-xl">
+<span class="text-xs text-on-surface-variant">پیش‌پرداخت</span>
+<span class="font-bold">1,000,000.00</span>
+</div>
+</div>
+</div>
+<button class="w-full py-3 bg-secondary text-white rounded-xl font-bold hover:opacity-90 transition-opacity">مشاهده و فعال‌سازی</button>
+</div>
+<!-- Card 2: Cloud Space -->
+<div class="glass-card p-6 rounded-[2rem] flex flex-col justify-between shadow-sm border-b-4 border-tertiary">
+<div class="flex items-start justify-between mb-8">
+<div class="w-12 h-12 rounded-2xl bg-tertiary/10 text-tertiary flex items-center justify-center">
+<span class="material-symbols-outlined text-2xl">cloud</span>
+</div>
+<span class="bg-surface-container-low text-on-surface-variant text-[10px] font-bold px-3 py-1 rounded-full">قابل خرید</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md font-bold mb-4">فضای ابری</h3>
+<p class="text-on-surface-variant font-body-md mb-6 leading-relaxed">بخش فضای ابری برای مشاهده، پیگیری و بارگذاری اسناد سازمانی.</p>
+<div class="bg-tertiary/5 p-4 rounded-xl mb-6">
+<p class="text-xs text-on-surface-variant leading-5 italic">داده‌های عملیاتی مانند هزینه‌ها و گزارشات به صورت پیش‌فرض ۳ ماه نگهداری می‌شوند. با خرید فضای ابری این بازه تا یک سال افزایش می‌یابد.</p>
+</div>
+<div class="flex justify-between items-center mb-6">
+<span class="font-bold text-lg">12,000,000.00</span>
+<span class="text-xs text-on-surface-variant">نقدی سالانه</span>
+</div>
+</div>
+<button class="w-full py-3 border-2 border-tertiary text-tertiary rounded-xl font-bold hover:bg-tertiary/5 transition-colors">انتخاب پلان</button>
+</div>
+<!-- Card 3: Entry/Exit -->
+<div class="glass-card p-6 rounded-[2rem] flex flex-col justify-between shadow-sm border-b-4 border-primary">
+<div class="flex items-start justify-between mb-8">
+<div class="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-2xl">login</span>
+</div>
+<span class="bg-surface-container-low text-on-surface-variant text-[10px] font-bold px-3 py-1 rounded-full">قابل خرید</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md font-bold mb-4">ورود و خروج</h3>
+<p class="text-on-surface-variant font-body-md mb-6 leading-relaxed">فعال‌سازی کامل گزینه‌های ورود و خروج و کنترل دسترسی کاربران در تمام شعب.</p>
+<div class="space-y-3 mb-8">
+<div class="flex justify-between items-center bg-surface-container-low p-3 rounded-xl">
+<span class="text-xs text-on-surface-variant">نقدی</span>
+<span class="font-bold">8,000,000.00</span>
+</div>
+<div class="flex justify-between items-center bg-surface-container-low p-3 rounded-xl">
+<span class="text-xs text-on-surface-variant">پیش‌پرداخت</span>
+<span class="font-bold">0.00</span>
+</div>
+</div>
+</div>
+<button class="w-full py-3 bg-primary text-white rounded-xl font-bold hover:shadow-lg transition-all">تائید و خرید</button>
+</div>
+<!-- Card 4: Accounting (Disabled) -->
+<div class="bg-surface-container-low/50 border border-outline-variant/30 p-6 rounded-[2rem] flex flex-col justify-between opacity-70 grayscale">
+<div class="flex items-start justify-between mb-8">
+<div class="w-12 h-12 rounded-2xl bg-on-surface-variant/10 text-on-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-2xl">lock</span>
+</div>
+<span class="bg-on-surface-variant/10 text-on-surface-variant text-[10px] font-bold px-3 py-1 rounded-full">غیرفعال</span>
+</div>
+<div class="flex-1 flex flex-col justify-center text-center">
+<h3 class="font-headline-md text-headline-md font-bold mb-4 text-on-surface-variant">حسابداری</h3>
+<p class="text-on-surface-variant font-body-md mb-6 px-4">این گزینه فعلاً غیرفعال است و پس از آماده‌سازی امکان خرید آن فعال می‌شود.</p>
+</div>
+<button class="w-full py-3 bg-outline-variant text-on-surface-variant/50 rounded-xl font-bold cursor-not-allowed" disabled="">به زودی</button>
+</div>
+</div>
+<!-- Transactions List Placeholder -->
+<section class="mt-12 bg-surface-container-lowest p-8 rounded-[2rem] border border-outline-variant/30">
+<div class="flex items-center justify-between mb-8">
+<h3 class="font-headline-md text-headline-md font-bold">تراکنش‌های اخیر</h3>
+<button class="text-primary font-bold text-sm flex items-center gap-1 hover:underline">
+<span>مشاهده همه</span>
+<span class="material-symbols-outlined text-sm">arrow_back_ios</span>
+</button>
+</div>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-low transition-colors rounded-2xl">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-error/10 text-error rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">remove</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">تمدید فضای ابری</p>
+<p class="text-xs text-on-surface-variant">۲۴ اردیبهشت، ۱۴۰۲</p>
+</div>
+</div>
+<div class="text-left rtl">
+<p class="font-bold text-error">- 12,000,000.00</p>
+<p class="text-[10px] text-on-surface-variant">شناسه: #۸۲۷۴۹</p>
+</div>
+</div>
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-low transition-colors rounded-2xl">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">add</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">شارژ کیف پول - درگاه ملت</p>
+<p class="text-xs text-on-surface-variant">۲۲ اردیبهشت، ۱۴۰۲</p>
+</div>
+</div>
+<div class="text-left rtl">
+<p class="font-bold text-primary">+ 50,000,000.00</p>
+<p class="text-[10px] text-on-surface-variant">شناسه: #۸۲۷۴۱</p>
+</div>
+</div>
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-low transition-colors rounded-2xl">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-error/10 text-error rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">remove</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">خرید ماژول ورود و خروج</p>
+<p class="text-xs text-on-surface-variant">۱۸ اردیبهشت، ۱۴۰۲</p>
+</div>
+</div>
+<div class="text-left rtl">
+<p class="font-bold text-error">- 8,000,000.00</p>
+<p class="text-[10px] text-on-surface-variant">شناسه: #۸۲۷۳۰</p>
+</div>
+</div>
+</div>
+</section>
+</div>
+<footer class="mt-auto p-8 text-center text-on-surface-variant font-label-md">
+            تمامی حقوق برای سامانه مدیریت یکپارچه محفوظ است © ۱۴۰۲
+        </footer>
+</main>
+<!-- Floating Action Button Contextual Check: Suppressed on Wallet (Transactional focused) -->
+<script>
+        // Simple micro-interaction for cards
+        document.querySelectorAll('.glass-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.classList.add('shadow-md', '-translate-y-1');
+                card.style.transition = 'all 0.3s ease';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.classList.remove('shadow-md', '-translate-y-1');
+            });
+        });
+    </script>
+</body></html>

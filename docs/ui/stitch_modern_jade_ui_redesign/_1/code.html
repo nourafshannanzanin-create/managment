@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;300;400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-low": "#f2f4f5",
+                        "surface-container-high": "#e6e8e9",
+                        "inverse-primary": "#a5d0be",
+                        "secondary-fixed": "#dce1ff",
+                        "error": "#ba1a1a",
+                        "on-background": "#191c1d",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed-variant": "#28418e",
+                        "outline-variant": "#c0c8c3",
+                        "on-primary-fixed": "#002117",
+                        "secondary-fixed-dim": "#b6c4ff",
+                        "secondary": "#425aa7",
+                        "on-error": "#ffffff",
+                        "primary-fixed-dim": "#a5d0be",
+                        "tertiary": "#745b00",
+                        "inverse-surface": "#2e3132",
+                        "primary-container": "#8fb9a8",
+                        "secondary-container": "#93aafe",
+                        "surface-tint": "#3e6658",
+                        "on-primary": "#ffffff",
+                        "background": "#f8fafb",
+                        "error-container": "#ffdad6",
+                        "on-surface-variant": "#414845",
+                        "tertiary-container": "#d0ac3e",
+                        "on-primary-fixed-variant": "#264e41",
+                        "on-secondary-fixed": "#00164f",
+                        "on-primary-container": "#224a3d",
+                        "on-error-container": "#93000a",
+                        "surface": "#f8fafb",
+                        "on-tertiary-container": "#534100",
+                        "primary": "#3e6658",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#c0ecda",
+                        "surface-variant": "#e1e3e4",
+                        "tertiary-fixed-dim": "#e8c352",
+                        "surface-container": "#eceeef",
+                        "on-secondary-container": "#223c88",
+                        "outline": "#717975",
+                        "inverse-on-surface": "#eff1f2",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-dim": "#d8dadb",
+                        "on-surface": "#191c1d",
+                        "on-tertiary-fixed": "#241a00",
+                        "surface-bright": "#f8fafb",
+                        "tertiary-fixed": "#ffe08b"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-sm": "0.5rem",
+                        "stack-lg": "2rem",
+                        "stack-md": "1rem",
+                        "container-margin": "2rem",
+                        "gutter-md": "1.5rem"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Vazirmatn"],
+                        "body-md": ["Vazirmatn"],
+                        "headline-lg-mobile": ["Vazirmatn"],
+                        "headline-md": ["Vazirmatn"],
+                        "body-lg": ["Vazirmatn"],
+                        "headline-lg": ["Vazirmatn"],
+                        "label-md": ["Vazirmatn"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["40px", {"lineHeight": "52px", "fontWeight": "700"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "44px", "fontWeight": "600"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "fontWeight": "500"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Vazirmatn', sans-serif; background-color: #f8fafb; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.4); }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #c0c8c3; border-radius: 2px; }
+    </style>
+</head>
+<body class="bg-background text-on-surface select-none">
+<!-- Right SideNavBar -->
+<aside class="fixed right-0 top-0 h-screen w-[280px] bg-surface-container-lowest border-l border-outline-variant z-50 flex flex-col rtl">
+<div class="p-6 flex flex-col gap-2">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-white">
+<span class="material-symbols-outlined">corporate_fare</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">مرکز مدیریت</h1>
+<p class="text-label-md font-label-md text-on-surface-variant">مدیریت مؤسسه</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 overflow-y-auto px-4 custom-scrollbar">
+<div class="mb-4">
+<span class="px-4 text-[10px] uppercase tracking-widest text-outline font-bold">منوی اصلی</span>
+</div>
+<div class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary border-r-4 border-primary rounded-l-lg transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-body-md text-body-md">لوحه القیادة</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-body-md text-body-md">إدارة الطلبات</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">fact_check</span>
+<span class="font-body-md text-body-md">الموافقات</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-body-md text-body-md">المصاريف</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span class="font-body-md text-body-md">المحفظة</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">support_agent</span>
+<span class="font-body-md text-body-md">الدعم</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span class="font-body-md text-body-md">التقارير</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">group_work</span>
+<span class="font-body-md text-body-md">المستخدمین والأدوار</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-md text-body-md">الإعدادات</span>
+</a>
+</div>
+</nav>
+<div class="p-6 mt-auto">
+<button class="w-full flex items-center justify-center gap-2 py-3 bg-surface-container-high text-on-surface rounded-xl hover:bg-surface-container-highest transition-colors active:scale-95">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-md text-label-md">خروج از سامانه</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="mr-[280px] min-h-screen flex flex-col rtl">
+<!-- TopAppBar -->
+<header class="h-16 flex items-center justify-between px-container-margin bg-surface-bright/80 backdrop-blur-md sticky top-0 z-40 border-b border-outline-variant">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-96 max-w-full">
+<input class="w-full h-10 pr-10 pl-4 bg-surface-container-low border-none rounded-full text-label-md focus:ring-2 focus:ring-primary/20" placeholder="جستجو در سیستم..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-2 text-outline">search</span>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">help_outline</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-colors relative">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full ring-2 ring-surface"></span>
+</button>
+</div>
+<div class="flex items-center gap-3 pl-4 border-r border-outline-variant h-8">
+<div class="text-left">
+<p class="text-label-md font-bold leading-tight">سلام علیک</p>
+<p class="text-[10px] text-on-surface-variant">مدیر ارشد</p>
+</div>
+<div class="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A high-end professional headshot of a business executive in a modern workspace, soft lighting, professional corporate aesthetic with pastel jade undertones and clear digital interface in the background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDqBxtX1f5RGobCEnzEU-eird3edcXgm_vQvuiZF2PexXUVh8k4qH5Pop63OOgJszovb1wKbFcJLfux0Bkh-HmqCA0ExhAHfafUQXnsPxoBAcjrmnQDt9jL_S3_kP-F8zJHhnYt61ads3-3KjT5BDNTac2wJlHg1Ts8jrMMGqEkpGtlaaJekaw2jwArzjx3sh7IBkC47rsL_1hSddTBjk3fXq2lFVONupDkyIeUocVQlBUe9S7TkjI"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Page Canvas -->
+<div class="p-container-margin max-w-[1440px] mx-auto w-full space-y-gutter-md">
+<!-- Dashboard Header Section -->
+<div class="flex justify-between items-end mb-8">
+<div>
+<span class="px-3 py-1 bg-primary/10 text-primary rounded-full text-label-md mb-2 inline-block">مرکز کنترل</span>
+<h2 class="font-headline-lg text-headline-lg font-bold text-on-surface">داشبورد اجرایی</h2>
+</div>
+<button class="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95">
+<span class="material-symbols-outlined">add_circle</span>
+<span class="font-label-md text-label-md">ثبت درخواست</span>
+</button>
+</div>
+<!-- Management Summary -->
+<section class="glass-card rounded-3xl p-8 relative overflow-hidden">
+<div class="absolute -top-24 -left-24 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
+<div class="relative z-10">
+<div class="flex items-center gap-3 mb-2">
+<span class="px-3 py-1 bg-surface-container-high text-on-surface-variant rounded-full text-[10px] font-bold">مرکز عملیات</span>
+</div>
+<h3 class="font-headline-lg text-headline-lg font-bold mb-3">داشبورد مدیریتی</h3>
+<p class="text-on-surface-variant max-w-2xl leading-relaxed">امروز 1405/04/31 است. این نما، وضعیت درخواست‌ها، هزینه‌ها و تاییدها را به صورت خلاصه نشان می‌دهد.</p>
+</div>
+<div class="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter-md">
+<!-- Stat Card 1 -->
+<div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant shadow-sm flex items-center justify-between group hover:border-primary transition-all">
+<div class="space-y-1">
+<span class="px-2 py-0.5 bg-primary/10 text-primary text-[10px] rounded font-bold">جریان باز</span>
+<p class="text-label-md text-on-surface-variant">درخواست‌های فعال</p>
+<h4 class="text-[40px] font-bold text-on-surface">0</h4>
+<p class="text-[10px] text-outline">در گردش</p>
+</div>
+<div class="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-on-surface-variant group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined">assignment</span>
+</div>
+</div>
+<!-- Stat Card 2 -->
+<div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant shadow-sm flex items-center justify-between group hover:border-primary transition-all">
+<div class="space-y-1">
+<span class="px-2 py-0.5 bg-tertiary/10 text-tertiary text-[10px] rounded font-bold">مصارف</span>
+<p class="text-label-md text-on-surface-variant">هزینه ماه جاری</p>
+<h4 class="text-[32px] font-bold text-on-surface">2,000,000.00</h4>
+<p class="text-[10px] text-outline">جمع ماه</p>
+</div>
+<div class="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-on-surface-variant group-hover:bg-tertiary/10 group-hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined">payments</span>
+</div>
+</div>
+<!-- Stat Card 3 -->
+<div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant shadow-sm flex items-center justify-between group hover:border-primary transition-all">
+<div class="space-y-1">
+<span class="px-2 py-0.5 bg-error/10 text-error text-[10px] rounded font-bold">اقدام فوری</span>
+<p class="text-label-md text-on-surface-variant">در انتظار تایید</p>
+<h4 class="text-[40px] font-bold text-on-surface">0</h4>
+<p class="text-[10px] text-outline">نیازمند تصمیم</p>
+</div>
+<div class="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-on-surface-variant group-hover:bg-error/10 group-hover:text-error transition-colors">
+<span class="material-symbols-outlined">pending_actions</span>
+</div>
+</div>
+<!-- Stat Card 4 -->
+<div class="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant shadow-sm flex items-center justify-between group hover:border-primary transition-all">
+<div class="space-y-1">
+<span class="px-2 py-0.5 bg-secondary/10 text-secondary text-[10px] rounded font-bold">بایگانی</span>
+<p class="text-label-md text-on-surface-variant">اسناد تایید شده</p>
+<h4 class="text-[40px] font-bold text-on-surface">2</h4>
+<p class="text-[10px] text-outline">نهایی شده</p>
+</div>
+<div class="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center text-on-surface-variant group-hover:bg-secondary/10 group-hover:text-secondary transition-colors">
+<span class="material-symbols-outlined">verified_user</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Grid Bento Section -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter-md">
+<!-- Live Decisions View -->
+<div class="lg:col-span-2 glass-card rounded-3xl p-8">
+<div class="flex justify-between items-center mb-6">
+<div>
+<span class="px-3 py-1 bg-surface-container-high text-on-surface-variant rounded-full text-[10px] font-bold mb-2 inline-block">نمای زنده عملیات</span>
+<h3 class="font-headline-md text-headline-md font-bold">نمای زنده تصمیم‌ها و بار عملیاتی</h3>
+<p class="text-on-surface-variant text-label-md">مهم‌ترین شاخص‌ها و پرونده‌های قابل اقدام در یک نگاه.</p>
+</div>
+<div class="flex gap-2">
+<button class="w-8 h-8 rounded-lg bg-surface-container-low flex items-center justify-center hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-sm">refresh</span>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+<!-- Item 1 -->
+<div class="p-6 bg-surface-container-low/50 rounded-2xl flex flex-col items-center text-center gap-4 hover:scale-[1.02] transition-transform cursor-pointer border border-transparent hover:border-primary/20">
+<div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">fact_check</span>
+</div>
+<div>
+<p class="text-display-lg font-display-lg leading-none">0</p>
+<p class="text-label-md text-on-surface-variant mt-1">صف تایید</p>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="p-6 bg-surface-container-low/50 rounded-2xl flex flex-col items-center text-center gap-4 hover:scale-[1.02] transition-transform cursor-pointer border border-transparent hover:border-primary/20">
+<div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">receipt_long</span>
+</div>
+<div>
+<p class="text-display-lg font-display-lg leading-none">2</p>
+<p class="text-label-md text-on-surface-variant mt-1">هزینه‌های باز</p>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="p-6 bg-surface-container-low/50 rounded-2xl flex flex-col items-center text-center gap-4 hover:scale-[1.02] transition-transform cursor-pointer border border-transparent hover:border-primary/20">
+<div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">feed</span>
+</div>
+<div>
+<p class="text-display-lg font-display-lg leading-none">0</p>
+<p class="text-label-md text-on-surface-variant mt-1">فرم‌های فعال</p>
+</div>
+</div>
+<!-- Item 4 -->
+<div class="p-6 bg-surface-container-low/50 rounded-2xl flex flex-col items-center text-center gap-4 hover:scale-[1.02] transition-transform cursor-pointer border border-transparent hover:border-primary/20">
+<div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">group</span>
+</div>
+<div>
+<p class="text-display-lg font-display-lg leading-none">3</p>
+<p class="text-label-md text-on-surface-variant mt-1">کاربران فعال</p>
+<p class="text-[10px] text-outline">ساختار سازمانی</p>
+</div>
+</div>
+<!-- Item 5 -->
+<div class="p-6 bg-surface-container-low/50 rounded-2xl flex flex-col items-center text-center gap-4 hover:scale-[1.02] transition-transform cursor-pointer border border-transparent hover:border-primary/20">
+<div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">apartment</span>
+</div>
+<div>
+<p class="text-display-lg font-display-lg leading-none">7</p>
+<p class="text-label-md text-on-surface-variant mt-1">واحدها</p>
+<p class="text-[10px] text-outline">بخش‌های ثبت شده</p>
+</div>
+</div>
+<!-- Item 6 -->
+<div class="p-6 bg-surface-container-low/50 rounded-2xl flex flex-col items-center text-center gap-4 hover:scale-[1.02] transition-transform cursor-pointer border border-transparent hover:border-primary/20">
+<div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">analytics</span>
+</div>
+<div>
+<p class="text-display-lg font-display-lg leading-none">4</p>
+<p class="text-label-md text-on-surface-variant mt-1">گزارش‌ها</p>
+<p class="text-[10px] text-outline">خروجی آماده</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Recent Activity/News Sidebar -->
+<div class="space-y-gutter-md">
+<!-- Mini Profile/Identity -->
+<div class="glass-card rounded-3xl p-6 flex items-center gap-4">
+<div class="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center text-white text-3xl">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">security</span>
+</div>
+<div>
+<h4 class="font-bold text-body-lg">سیستم مرکزی</h4>
+<p class="text-label-md text-on-surface-variant">آخرین دسترسی: هم اکنون</p>
+</div>
+</div>
+<!-- Today's Highlights -->
+<div class="glass-card rounded-3xl p-6 flex-1 h-full">
+<div class="flex items-center justify-between mb-4">
+<h4 class="font-bold">مرور سریع</h4>
+<span class="text-primary text-[10px] font-bold">شاخص‌های کلیدی امروز</span>
+</div>
+<div class="space-y-4">
+<div class="p-4 bg-surface-container-highest/30 rounded-xl flex gap-3 items-start border-r-4 border-primary">
+<span class="material-symbols-outlined text-primary">bolt</span>
+<div>
+<p class="text-label-md font-bold">6 فعالیت جدید</p>
+<p class="text-[11px] text-on-surface-variant">رخدادهای اخیر ثبت شده در سیستم از بخش‌های مختلف.</p>
+</div>
+</div>
+<div class="p-4 bg-surface-container-highest/30 rounded-xl flex gap-3 items-start border-r-4 border-tertiary">
+<span class="material-symbols-outlined text-tertiary">star</span>
+<div>
+<p class="text-label-md font-bold">موفقیت‌آمیز</p>
+<p class="text-[11px] text-on-surface-variant">تاییدیه نهایی برای پروژه شماره 401 صادر گردید.</p>
+</div>
+</div>
+<div class="mt-4">
+<div class="bg-surface-container-low rounded-xl p-4">
+<div class="flex justify-between items-center mb-2">
+<span class="text-[10px] font-bold text-outline uppercase">ظرفیت عملیاتی</span>
+<span class="text-[10px] font-bold text-primary">85%</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full transition-all duration-1000" style="width: 85%"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Dashboard Sub-widgets -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter-md pb-container-margin">
+<div class="bg-surface-container-low p-4 rounded-2xl flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-primary shadow-sm">
+<span class="material-symbols-outlined">calendar_today</span>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant leading-none">تقویم کاری</p>
+<p class="text-label-md font-bold">پنجشنبه، 31 تیر</p>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-2xl flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-primary shadow-sm">
+<span class="material-symbols-outlined">mail</span>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant leading-none">پیام‌ها</p>
+<p class="text-label-md font-bold">12 پیام جدید</p>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-2xl flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-primary shadow-sm">
+<span class="material-symbols-outlined">schedule</span>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant leading-none">زمان سپری شده</p>
+<p class="text-label-md font-bold">04:22:15</p>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-2xl flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-primary shadow-sm">
+<span class="material-symbols-outlined">cloud_sync</span>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant leading-none">آخرین همگام‌سازی</p>
+<p class="text-label-md font-bold">2 دقیقه پیش</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Micro-interactions and subtle effects
+        document.querySelectorAll('a, button').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                // Optional hover sound or subtle scale would go here
+            });
+        });
+
+        // Initialize progress bar animation
+        window.addEventListener('load', () => {
+            const bars = document.querySelectorAll('.bg-primary.h-full');
+            bars.forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0';
+                setTimeout(() => {
+                    bar.style.width = width;
+                }, 300);
+            });
+        });
+    </script>
+</body></html>

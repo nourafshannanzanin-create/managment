@@ -121,7 +121,58 @@ a {
   direction: rtl;
 }
 
-.global-sms-warning .material-symbols-outlined {
+.global-trial-banner {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: grid;
+  gap: 8px;
+  padding: 10px 18px 8px;
+  background: #34908B;
+  color: #ffffff;
+  direction: rtl;
+  box-shadow: 0 1px 0 rgba(16, 52, 48, 0.12);
+}
+
+.global-trial-banner__content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 24px;
+}
+
+.global-trial-banner__content .iconly-shell {
+  color: #ffffff;
+  --iconly-filter: brightness(0) saturate(100%) invert(100%);
+}
+
+.global-trial-banner__content strong {
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.global-trial-banner__track {
+  width: min(420px, 100%);
+  height: 3px;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  overflow: hidden;
+}
+
+.global-trial-banner__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #ffffff;
+  transition: width 0.4s linear;
+}
+
+.global-sms-warning .iconly-shell {
   flex: 0 0 auto;
   color: #944f54;
 }
@@ -312,28 +363,33 @@ a {
 }
 
 .nav-link {
-  min-height: 58px;
-  padding: 0 16px;
-  border-radius: 20px;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   gap: 12px;
   justify-content: flex-start;
-  color: #5f647d;
-  border: 1px solid transparent;
-  transition: transform 0.18s ease, background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  color: rgba(42, 52, 76, 0.72);
+  border: 0;
+  transition: background-color 160ms ease, color 160ms ease;
 }
 
 .nav-link:hover,
 .nav-link.is-active {
-  color: #2e4374;
-  background: var(--surface, #fff);
-  border-color: rgba(216, 175, 140, 0.34);
+  color: #2a344c;
+  background: rgba(255, 255, 255, 0.36);
+  border-color: transparent;
   box-shadow: none;
-  transform: translateX(-4px);
+  transform: none;
 }
 
-.nav-link .material-symbols-outlined {
+.nav-link.is-active {
+  background: rgba(255, 255, 255, 0.48);
+  font-weight: 780;
+}
+
+.nav-link .iconly-shell {
   font-size: 24px;
 }
 
@@ -870,7 +926,7 @@ a {
   color: #fff;
 }
 
-.quick-action-card .material-symbols-outlined {
+.quick-action-card .iconly-shell {
   font-size: 34px;
 }
 
@@ -1940,7 +1996,7 @@ a {
     font-size: 12px;
   }
 
-  .nav-link .material-symbols-outlined {
+  .nav-link .iconly-shell {
     font-size: 19px;
   }
 
@@ -2133,8 +2189,8 @@ a {
     font-size: 11px;
   }
 
-  .nav-link .material-symbols-outlined,
-  .topbar-shell .material-symbols-outlined {
+  .nav-link .iconly-shell,
+  .topbar-shell .iconly-shell {
     font-size: 18px;
   }
 
@@ -2567,7 +2623,7 @@ body {
   gap: 12px;
 }
 
-.metric-card-headline .material-symbols-outlined {
+.metric-card-headline .iconly-shell {
   color: var(--muted);
   font-size: 20px;
 }
@@ -3074,7 +3130,7 @@ body {
     transform: none;
   }
 
-  .nav-link .material-symbols-outlined {
+  .nav-link .iconly-shell {
     font-size: 18px;
   }
 
@@ -3156,7 +3212,7 @@ body {
     min-height: 104px;
   }
 
-  .quick-action-card .material-symbols-outlined,
+  .quick-action-card .iconly-shell,
   .approval-metric-icon {
     font-size: 19px;
   }
@@ -3625,7 +3681,7 @@ textarea:focus-visible,
   z-index: 2;
 }
 
-.material-symbols-outlined {
+.iconly-shell {
   line-height: 1;
 }
 
@@ -4167,8 +4223,7 @@ body {
   border-color: #b2ddff !important;
 }
 
-#app :where(.material-symbols-outlined) {
-  font-size: 20px;
+#app :where(.iconly-shell) {
   line-height: 1;
 }
 
@@ -4274,12 +4329,9 @@ body,
 #app,
 #app :where(.app-shell, .shell-main, .auth-main) {
   color: var(--color-text) !important;
-  background:
-    radial-gradient(circle at 82% 6%, rgba(46, 95, 168, 0.22) 0, transparent 30%),
-    radial-gradient(circle at 18% 10%, rgba(216, 175, 140, 0.34) 0, transparent 34%),
-    radial-gradient(circle at 52% 92%, rgba(118, 132, 173, 0.18) 0, transparent 38%),
-    linear-gradient(145deg, #fff8ef 0%, #f3e7db 46%, #eef3fb 100%) !important;
-  background-attachment: fixed !important;
+  background: #c7cbdd !important;
+  background-image: none !important;
+  background-attachment: scroll !important;
 }
 
 #app *::before,
@@ -4307,20 +4359,19 @@ body,
 #app .shell-sidebar {
   width: 292px;
   padding: 18px 14px !important;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(255, 248, 241, 0.56)) !important;
-  border-left: 1px solid rgba(255, 255, 255, 0.62) !important;
-  box-shadow: -18px 0 55px rgba(46, 67, 116, 0.11) !important;
-  backdrop-filter: blur(24px) saturate(145%) !important;
+  background: transparent !important;
+  border-left: 1px solid rgba(47, 58, 85, 0.14) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 #app .topbar-shell {
   min-height: 72px !important;
   padding: 14px 28px !important;
-  background: rgba(255, 255, 255, 0.56) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.68) !important;
-  box-shadow: 0 14px 38px rgba(46, 67, 116, 0.08) !important;
-  backdrop-filter: blur(22px) saturate(150%) !important;
+  background: transparent !important;
+  border-bottom: 1px solid rgba(47, 58, 85, 0.14) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 #app .sidebar-brand,
@@ -4371,18 +4422,19 @@ body,
 #app .report-table-wrap,
 #app .settings-access-table,
 #app .attendance-table-wrap {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.42)) !important;
-  border: 1px solid var(--glass-border) !important;
-  border-radius: var(--radius-4) !important;
-  box-shadow: var(--glass-shadow-soft) !important;
-  backdrop-filter: blur(18px) saturate(145%) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 #app .page-header {
-  padding: 22px 24px !important;
-  border-bottom: 1px solid var(--glass-border) !important;
-  box-shadow: var(--glass-shadow) !important;
+  padding: 0 0 18px !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(47, 58, 85, 0.14) !important;
+  box-shadow: none !important;
+  background: transparent !important;
 }
 
 #app .page-header h1,
@@ -4417,8 +4469,7 @@ body,
 #app .avatar,
 #app .attendance-avatar {
   color: #fff !important;
-  background:
-    linear-gradient(135deg, rgba(46, 95, 168, 0.98), rgba(118, 132, 173, 0.94)) !important;
+  background: transparent !important;
   border: 1px solid rgba(255, 255, 255, 0.42) !important;
   box-shadow: var(--glow-blue) !important;
 }
@@ -4434,20 +4485,19 @@ body,
   color: var(--text) !important;
   background: rgba(255, 255, 255, 0.46) !important;
   border-color: rgba(255, 255, 255, 0.64) !important;
-  box-shadow: 0 8px 24px rgba(46, 67, 116, 0.08) !important;
+  box-shadow: none !important;
 }
 
 #app .nav-link.is-active {
   color: var(--primary-strong) !important;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(46, 95, 168, 0.12)) !important;
+  background: transparent !important;
   border-color: rgba(46, 95, 168, 0.22) !important;
-  box-shadow: 0 14px 32px rgba(46, 95, 168, 0.14) !important;
+  box-shadow: none !important;
 }
 
 #app .nav-link.is-active::before {
-  background: linear-gradient(180deg, var(--primary), var(--accent)) !important;
-  box-shadow: 0 0 18px rgba(46, 95, 168, 0.36) !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 #app .action-btn,
@@ -4458,11 +4508,10 @@ body,
   min-height: 44px !important;
   border-radius: 14px !important;
   border: 1px solid rgba(255, 255, 255, 0.54) !important;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.38)) !important;
+  background: transparent !important;
   color: var(--text) !important;
-  box-shadow: 0 10px 26px rgba(46, 67, 116, 0.08) !important;
-  backdrop-filter: blur(14px) saturate(150%) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 #app .tone-primary,
@@ -4472,8 +4521,7 @@ body,
 #app button[type='submit'],
 #app .stitch-submit-btn {
   border-color: rgba(46, 95, 168, 0.34) !important;
-  background:
-    linear-gradient(135deg, #193b73 0%, #2e5fa8 58%, #6e8bd5 100%) !important;
+  background: transparent !important;
   color: #fff !important;
   box-shadow: var(--glow-blue) !important;
 }
@@ -4482,15 +4530,14 @@ body,
 #app .action-btn.tone-soft,
 #app .icon-btn {
   color: var(--primary-strong) !important;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 248, 241, 0.44)) !important;
+  background: transparent !important;
   border-color: rgba(255, 255, 255, 0.66) !important;
 }
 
 #app :where(.action-btn, .icon-btn, .dashboard-action-button, .public-action, button):hover:not(:disabled) {
   opacity: 1;
   transform: translateY(-1px);
-  box-shadow: 0 16px 36px rgba(46, 67, 116, 0.14) !important;
+  box-shadow: none !important;
 }
 
 #app :where(input, textarea, select, .field-shell, .search-shell, .filter-input, .filter-select, .hq-organization-select, .shamsi-picker-input-wrap) {
@@ -4499,7 +4546,7 @@ body,
   border: 1px solid rgba(255, 255, 255, 0.66) !important;
   border-radius: 14px !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.56), 0 8px 22px rgba(46, 67, 116, 0.06) !important;
-  backdrop-filter: blur(14px) saturate(145%) !important;
+  backdrop-filter: none !important;
 }
 
 #app :where(input, textarea, select):focus {
@@ -4510,7 +4557,7 @@ body,
 #app :where(.data-table th, .report-table th, .attendance-report-table th) {
   color: var(--primary-strong) !important;
   background: rgba(255, 255, 255, 0.52) !important;
-  backdrop-filter: blur(12px) !important;
+  backdrop-filter: none !important;
 }
 
 #app :where(.table-click-row, .report-click-row, tbody tr):hover {
@@ -4519,15 +4566,14 @@ body,
 
 #app .modal-layer {
   background: rgba(23, 33, 58, 0.38) !important;
-  backdrop-filter: blur(10px) saturate(130%) !important;
+  backdrop-filter: none !important;
 }
 
 #app .modal-shell {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(255, 248, 241, 0.72)) !important;
+  background: transparent !important;
   border: 1px solid rgba(255, 255, 255, 0.72) !important;
-  box-shadow: 0 32px 90px rgba(23, 33, 58, 0.22) !important;
-  backdrop-filter: blur(28px) saturate(150%) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 #app .status-badge,
@@ -4539,65 +4585,54 @@ body,
 #app .nav-link-badge {
   background: rgba(255, 255, 255, 0.52) !important;
   border-color: rgba(255, 255, 255, 0.64) !important;
-  box-shadow: 0 8px 18px rgba(46, 67, 116, 0.06) !important;
-  backdrop-filter: blur(12px) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 #app .global-sms-warning,
 #app .error-notice,
 #app .registration-success {
-  box-shadow: 0 14px 34px rgba(46, 67, 116, 0.09) !important;
-  backdrop-filter: blur(14px) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 #app .dashboard-stage-panel,
 #app .wallet-hero,
 #app .support-hero,
 #app .attendance-hero {
-  background:
-    radial-gradient(circle at 86% 12%, rgba(46, 95, 168, 0.2), transparent 34%),
-    radial-gradient(circle at 12% 0%, rgba(216, 175, 140, 0.3), transparent 36%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.38)) !important;
+  background: transparent !important;
 }
 
 #app .dashboard-metric-card.is-expense,
 #app .dashboard-action-card.is-expense {
-  background:
-    linear-gradient(145deg, rgba(255, 252, 247, 0.8), rgba(216, 175, 140, 0.18)) !important;
+  background: transparent !important;
 }
 
 #app .dashboard-metric-card.is-request,
 #app .dashboard-action-card.is-request {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.8), rgba(46, 95, 168, 0.14)) !important;
+  background: transparent !important;
 }
 
 #app .dashboard-metric-card.is-approval,
 #app .dashboard-action-card.is-approval {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(216, 175, 140, 0.16)) !important;
+  background: transparent !important;
 }
 
 #app .dashboard-metric-card.is-success {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(6, 118, 71, 0.1)) !important;
+  background: transparent !important;
 }
 
 #app .stitch-login-page {
-  background:
-    radial-gradient(circle at 78% 12%, rgba(46, 95, 168, 0.34) 0, transparent 34%),
-    radial-gradient(circle at 18% 22%, rgba(216, 175, 140, 0.42) 0, transparent 38%),
-    linear-gradient(145deg, #fff8ef 0%, #f0e3d6 50%, #edf4ff 100%) !important;
+  background: transparent !important;
 }
 
 #app .stitch-brand-panel,
 #app .stitch-form-panel {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.36)) !important;
+  background: transparent !important;
   border: 1px solid rgba(255, 255, 255, 0.68) !important;
   border-radius: 28px !important;
-  box-shadow: 0 24px 70px rgba(46, 67, 116, 0.14) !important;
-  backdrop-filter: blur(24px) saturate(150%) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 #app .stitch-brand-copy h1 {
@@ -4613,13 +4648,13 @@ body,
 #app .stitch-stat-row article {
   background: rgba(255, 255, 255, 0.48) !important;
   border-color: rgba(255, 255, 255, 0.64) !important;
-  box-shadow: 0 12px 28px rgba(46, 67, 116, 0.08) !important;
-  backdrop-filter: blur(14px) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 #app .stitch-chip-dot {
-  background: linear-gradient(135deg, var(--primary), var(--accent)) !important;
-  box-shadow: 0 0 0 6px rgba(46, 95, 168, 0.12), 0 0 24px rgba(216, 175, 140, 0.3) !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 #app .stitch-field-group input {
@@ -4687,11 +4722,8 @@ html,
 body,
 #app,
 #app :where(.app-shell, .shell-main, .auth-main) {
-  background:
-    radial-gradient(circle at 84% 4%, rgba(45, 101, 190, 0.3) 0, transparent 28%),
-    radial-gradient(circle at 18% 14%, rgba(230, 188, 150, 0.5) 0, transparent 34%),
-    radial-gradient(circle at 72% 82%, rgba(134, 152, 211, 0.24) 0, transparent 32%),
-    linear-gradient(135deg, #fff9f2 0%, #f2e4d7 43%, #edf5ff 100%) !important;
+  background: #c7cbdd !important;
+  background-image: none !important;
 }
 
 #app :where(.shell-main, .auth-main)::before {
@@ -4761,16 +4793,13 @@ body,
 }
 
 #app .shell-sidebar {
-  background:
-    radial-gradient(circle at 70% 0%, rgba(46, 95, 168, 0.16), transparent 38%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.68), rgba(255, 246, 238, 0.44)) !important;
+  background: transparent !important;
   box-shadow: -22px 0 70px rgba(25, 43, 82, 0.14), inset 1px 0 0 rgba(255, 255, 255, 0.45) !important;
 }
 
 #app .topbar-shell {
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.34)) !important;
-  box-shadow: 0 18px 46px rgba(25, 43, 82, 0.1), inset 0 -1px 0 rgba(255, 255, 255, 0.34) !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 #app .page-header,
@@ -4794,20 +4823,18 @@ body,
 #app .wallet-hero,
 #app .support-hero,
 #app .attendance-hero {
-  box-shadow: var(--glass-shadow) !important;
+  box-shadow: none !important;
 }
 
 #app .page-header {
-  background:
-    radial-gradient(circle at 92% 0%, rgba(46, 95, 168, 0.18), transparent 34%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.34)) !important;
+  background: transparent !important;
 }
 
 #app .dashboard-stage-panel,
 #app .wallet-hero,
 #app .support-hero,
 #app .attendance-hero {
-  box-shadow: 0 28px 86px rgba(25, 43, 82, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.58) !important;
+  box-shadow: none !important;
 }
 
 #app .action-btn,
@@ -4826,18 +4853,15 @@ body,
 #app .public-action.is-in,
 #app button[type='submit'],
 #app .stitch-submit-btn {
-  background:
-    radial-gradient(circle at 15% 0%, rgba(255, 255, 255, 0.28), transparent 34%),
-    linear-gradient(135deg, #173767 0%, #2e5fa8 52%, #7e98df 100%) !important;
-  box-shadow: 0 20px 50px rgba(46, 95, 168, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 #app .tone-soft,
 #app .action-btn.tone-soft,
 #app .icon-btn {
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 248, 241, 0.3)) !important;
-  box-shadow: 0 12px 32px rgba(25, 43, 82, 0.11), inset 0 1px 0 rgba(255, 255, 255, 0.56) !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 #app :where(input, textarea, select, .field-shell, .search-shell, .filter-input, .filter-select, .hq-organization-select, .shamsi-picker-input-wrap) {
@@ -4879,20 +4903,16 @@ body,
 }
 
 #app .modal-shell {
-  box-shadow: 0 38px 110px rgba(23, 33, 58, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.62) !important;
+  box-shadow: none !important;
 }
 
 #app .stitch-login-page {
-  background:
-    radial-gradient(circle at 82% 10%, rgba(46, 95, 168, 0.4) 0, transparent 32%),
-    radial-gradient(circle at 14% 16%, rgba(230, 188, 150, 0.58) 0, transparent 38%),
-    radial-gradient(circle at 60% 90%, rgba(126, 152, 223, 0.22) 0, transparent 36%),
-    linear-gradient(145deg, #fff9f2 0%, #f1e1d4 48%, #eaf3ff 100%) !important;
+  background: transparent !important;
 }
 
 #app .stitch-brand-panel,
 #app .stitch-form-panel {
-  box-shadow: 0 30px 90px rgba(25, 43, 82, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.62) !important;
+  box-shadow: none !important;
 }
 
 /* Micro modernity pass: richer glass, cleaner motion, more current SaaS feel. */
@@ -4912,11 +4932,8 @@ html,
 body,
 #app,
 #app :where(.app-shell, .shell-main, .auth-main) {
-  background:
-    radial-gradient(circle at 86% 2%, rgba(36, 87, 166, 0.34) 0, transparent 27%),
-    radial-gradient(circle at 15% 16%, rgba(226, 180, 137, 0.58) 0, transparent 35%),
-    radial-gradient(circle at 54% 102%, rgba(126, 152, 223, 0.28) 0, transparent 36%),
-    linear-gradient(135deg, #fffaf4 0%, #f2dfd1 42%, #eaf4ff 100%) !important;
+  background: #c7cbdd !important;
+  background-image: none !important;
 }
 
 #app .page-shell,
@@ -4947,28 +4964,21 @@ body,
 #app .attendance-hero,
 #app .stitch-brand-panel,
 #app .stitch-form-panel {
-  background:
-    radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.52), transparent 28%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.3)) !important;
-  box-shadow: var(--glass-shadow) !important;
-  backdrop-filter: blur(26px) saturate(165%) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 #app .dashboard-stage-panel,
 #app .wallet-hero,
 #app .support-hero,
 #app .attendance-hero {
-  background:
-    radial-gradient(circle at 82% 8%, rgba(36, 87, 166, 0.28), transparent 32%),
-    radial-gradient(circle at 12% 0%, rgba(226, 180, 137, 0.38), transparent 36%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.28)) !important;
+  background: transparent !important;
 }
 
 #app .nav-link.is-active {
-  background:
-    radial-gradient(circle at 8% 0%, rgba(255, 255, 255, 0.58), transparent 34%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.66), rgba(36, 87, 166, 0.18)) !important;
-  box-shadow: 0 18px 42px rgba(36, 87, 166, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.58) !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 #app .tone-primary,
@@ -4977,9 +4987,7 @@ body,
 #app .public-action.is-in,
 #app button[type='submit'],
 #app .stitch-submit-btn {
-  background:
-    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.32), transparent 32%),
-    linear-gradient(135deg, #102f63 0%, #2457a6 50%, #8ba4ef 100%) !important;
+  background: transparent !important;
   box-shadow: var(--glow-blue) !important;
 }
 
@@ -5015,7 +5023,7 @@ body,
 #app .dashboard-action-type {
   background: rgba(255, 255, 255, 0.38) !important;
   color: var(--primary-strong) !important;
-  backdrop-filter: blur(10px) saturate(155%) !important;
+  backdrop-filter: none !important;
 }
 
 #app .brand-mark,
@@ -5024,9 +5032,7 @@ body,
 #app .dashboard-metric-icon,
 #app .avatar,
 #app .attendance-avatar {
-  background:
-    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.38), transparent 34%),
-    linear-gradient(135deg, #16396f, #2e67ba 62%, #91a8ea) !important;
+  background: transparent !important;
 }
 
 /* Pleasant professional refinement: calm, warm, readable, still premium. */
@@ -5049,11 +5055,8 @@ html,
 body,
 #app,
 #app :where(.app-shell, .shell-main, .auth-main) {
-  background:
-    radial-gradient(circle at 84% 4%, rgba(40, 82, 143, 0.25) 0, transparent 27%),
-    radial-gradient(circle at 15% 14%, rgba(217, 170, 125, 0.48) 0, transparent 35%),
-    radial-gradient(circle at 58% 100%, rgba(130, 151, 210, 0.2) 0, transparent 36%),
-    linear-gradient(135deg, #fffaf5 0%, #f4e5d8 45%, #eef5fd 100%) !important;
+  background: #c7cbdd !important;
+  background-image: none !important;
 }
 
 #app :where(.shell-main, .auth-main)::before {
@@ -5065,16 +5068,13 @@ body,
 }
 
 #app .topbar-shell {
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 250, 245, 0.38)) !important;
-  box-shadow: 0 16px 42px rgba(21, 33, 58, 0.09), inset 0 -1px 0 rgba(255, 255, 255, 0.28) !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 #app .shell-sidebar {
-  background:
-    radial-gradient(circle at 72% 0%, rgba(40, 82, 143, 0.12), transparent 38%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 248, 241, 0.48)) !important;
-  box-shadow: -18px 0 58px rgba(21, 33, 58, 0.12), inset 1px 0 0 rgba(255, 255, 255, 0.34) !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 #app .page-header,
@@ -5100,11 +5100,9 @@ body,
 #app .attendance-hero,
 #app .stitch-brand-panel,
 #app .stitch-form-panel {
-  background:
-    radial-gradient(circle at 10% 0%, rgba(255, 255, 255, 0.46), transparent 30%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.34)) !important;
-  box-shadow: var(--glass-shadow) !important;
-  backdrop-filter: blur(24px) saturate(148%) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 #app .page-header h1,
@@ -5130,19 +5128,16 @@ body,
 #app .public-action.is-in,
 #app button[type='submit'],
 #app .stitch-submit-btn {
-  background:
-    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.26), transparent 32%),
-    linear-gradient(135deg, #17315d 0%, #28528f 52%, #7392d5 100%) !important;
+  background: transparent !important;
   box-shadow: var(--glow-blue) !important;
 }
 
 #app .tone-soft,
 #app .action-btn.tone-soft,
 #app .icon-btn {
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 249, 243, 0.42)) !important;
+  background: transparent !important;
   color: var(--primary-strong) !important;
-  box-shadow: 0 10px 28px rgba(21, 33, 58, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.56) !important;
+  box-shadow: none !important;
 }
 
 #app .nav-link {
@@ -5150,10 +5145,8 @@ body,
 }
 
 #app .nav-link.is-active {
-  background:
-    radial-gradient(circle at 8% 0%, rgba(255, 255, 255, 0.5), transparent 34%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.64), rgba(40, 82, 143, 0.14)) !important;
-  box-shadow: 0 14px 34px rgba(40, 82, 143, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.54) !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 #app :where(input, textarea, select, .field-shell, .search-shell, .filter-input, .filter-select, .hq-organization-select, .shamsi-picker-input-wrap) {
@@ -5186,10 +5179,8 @@ body,
 #app .dashboard-metric-icon,
 #app .avatar,
 #app .attendance-avatar {
-  background:
-    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.34), transparent 34%),
-    linear-gradient(135deg, #183766, #3264a9 62%, #839cdf) !important;
-  box-shadow: 0 16px 38px rgba(40, 82, 143, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.32) !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 @media (max-width: 720px) {
@@ -5198,32 +5189,61 @@ body,
   }
 }
 
-/* Performance and contrast correction layer. */
+/* Flat calm design layer: no glass, no shadow, no gradient atmosphere. */
 :root {
-  --surface: #ffffff;
-  --surface-strong: #ffffff;
-  --surface-soft: #f8fafc;
-  --surface-muted: #eef2f7;
-  --line: rgba(31, 42, 68, 0.14);
-  --line-strong: rgba(31, 42, 68, 0.24);
-  --button-text: #17213a;
-  --button-soft-bg: #ffffff;
-  --button-soft-hover: #f3f7fb;
-  --button-primary-bg: #17315d;
-  --button-primary-hover: #10284f;
+  --bg: #c7cbdd;
+  --bg-strong: #c7cbdd;
+  --color-app-bg: #c7cbdd;
+  --color-app-bg-strong: #c7cbdd;
+  --surface: transparent;
+  --surface-strong: #e8ebf4;
+  --surface-soft: transparent;
+  --surface-muted: transparent;
+  --primary: #4d5d8a;
+  --primary-strong: #3f4d74;
+  --secondary: #667085;
+  --accent: #4d5d8a;
+  --accent-strong: #3f4d74;
+  --text: #2a3348;
+  --muted: #5f6b82;
+  --line: rgba(45, 55, 85, 0.18);
+  --line-strong: rgba(45, 55, 85, 0.28);
+  --button-text: #2a3348;
+  --button-soft-bg: transparent;
+  --button-soft-hover: rgba(45, 55, 85, 0.08);
+  --button-primary-bg: #4d5d8a;
+  --button-primary-hover: #3f4d74;
   --button-danger-bg: #b42318;
   --button-danger-hover: #912018;
-  --shadow-soft: 0 6px 16px rgba(21, 33, 58, 0.07);
-  --shadow-strong: 0 14px 34px rgba(21, 33, 58, 0.12);
-  --glass-shadow: var(--shadow-soft);
-  --glass-shadow-soft: var(--shadow-soft);
-  --glow-blue: 0 8px 20px rgba(40, 82, 143, 0.18);
+  --shadow-soft: none;
+  --shadow-strong: none;
+  --glass-bg: transparent;
+  --glass-bg-strong: transparent;
+  --glass-border: var(--line);
+  --glass-shadow: none;
+  --glass-shadow-soft: none;
+  --glow-blue: none;
+  --glow-warm: none;
+  --color-surface: transparent;
+  --color-surface-raised: #e8ebf4;
+  --color-surface-muted: transparent;
+  --color-accent-blue: #4d5d8a;
+  --color-accent-blue-strong: #3f4d74;
+  --color-accent-blue-soft: rgba(77, 93, 138, 0.12);
+  --color-text-strong: #2a3348;
+  --color-text: #2a3348;
+  --color-text-muted: #5f6b82;
+  --color-border: var(--line);
+  --color-border-strong: var(--line-strong);
 }
 
 html,
 body,
 #app,
 #app :where(.app-shell, .shell-main, .auth-main) {
+  color: var(--text) !important;
+  background: #c7cbdd !important;
+  background-image: none !important;
   background-attachment: scroll !important;
 }
 
@@ -5232,37 +5252,134 @@ body,
   content: none !important;
 }
 
-#app :where(.shell-sidebar, .topbar-shell, .page-header, .surface-block, .metric-card, .quick-action-card, .pipeline-card, .report-card, .insight-card, .approval-card, .user-card, .compact-user-card, .list-card, .settings-access-card, .recipient-card, .approval-lane-card, .report-card-modern, .access-selection-row, .dashboard-stage-panel, .dashboard-metrics-panel, .dashboard-actions-panel, .dashboard-summary-card, .dashboard-focus-chip, .dashboard-metric-card, .dashboard-action-card, .wallet-hero, .wallet-summary-card, .wallet-panel, .support-hero, .support-panel, .attendance-hero, .attendance-card, .attendance-public-card, .detail-card, .approval-detail-card, .settings-panel, .cloud-panel, .hq-panel, .field-shell, .search-shell, .filter-input, .filter-select, .hq-organization-select, .shamsi-picker-input-wrap, .table-shell, .report-table-wrap, .settings-access-table, .attendance-table-wrap, .modal-shell, .stitch-brand-panel, .stitch-form-panel, .user-hero, .user-meta-card, .user-status-panel, .user-form-panel, .user-finance-panel) {
+#app .app-shell:not(.is-auth-route),
+#app .app-shell:not(.is-auth-route) *,
+#app .app-shell:not(.is-auth-route) *::before,
+#app .app-shell:not(.is-auth-route) *::after,
+.modal-layer,
+.modal-shell,
+.modal-shell * {
+  box-shadow: none !important;
+  text-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  box-shadow: var(--shadow-soft) !important;
-  border: 1px solid var(--line) !important;
 }
 
-#app :where(.shell-sidebar, .topbar-shell, .page-header, .surface-block, .metric-card, .quick-action-card, .pipeline-card, .report-card, .insight-card, .approval-card, .user-card, .compact-user-card, .list-card, .settings-access-card, .recipient-card, .approval-lane-card, .report-card-modern, .access-selection-row, .dashboard-stage-panel, .dashboard-metrics-panel, .dashboard-actions-panel, .dashboard-summary-card, .dashboard-focus-chip, .dashboard-metric-card, .dashboard-action-card, .wallet-summary-card, .wallet-panel, .support-panel, .attendance-card, .attendance-public-card, .detail-card, .approval-detail-card, .settings-panel, .cloud-panel, .hq-panel, .field-shell, .search-shell, .filter-input, .filter-select, .hq-organization-select, .shamsi-picker-input-wrap, .table-shell, .report-table-wrap, .settings-access-table, .attendance-table-wrap, .modal-shell, .stitch-brand-panel, .stitch-form-panel, .user-hero, .user-meta-card, .user-status-panel, .user-form-panel, .user-finance-panel) {
-  background: var(--surface) !important;
+#app :where(
+  .page-header,
+  .surface-block,
+  .metric-card,
+  .quick-action-card,
+  .pipeline-card,
+  .report-card,
+  .insight-card,
+  .approval-card,
+  .user-card,
+  .compact-user-card,
+  .list-card,
+  .settings-access-card,
+  .recipient-card,
+  .approval-lane-card,
+  .report-card-modern,
+  .access-selection-row,
+  .dashboard-stage-panel,
+  .dashboard-metrics-panel,
+  .dashboard-actions-panel,
+  .dashboard-summary-card,
+  .dashboard-focus-chip,
+  .dashboard-metric-card,
+  .dashboard-action-card,
+  .wallet-hero,
+  .wallet-summary-card,
+  .wallet-panel,
+  .support-hero,
+  .support-panel,
+  .attendance-hero,
+  .attendance-card,
+  .attendance-public-card,
+  .detail-card,
+  .approval-detail-card,
+  .settings-panel,
+  .cloud-panel,
+  .hq-panel,
+  .table-shell,
+  .report-table-wrap,
+  .settings-access-table,
+  .attendance-table-wrap,
+  .user-hero,
+  .user-meta-card,
+  .user-status-panel,
+  .user-form-panel,
+  .user-finance-panel
+) {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+#app :where(.page-shell, .enterprise-page, .dashboard-stage-grid, .dashboard-actions-shell, .dashboard-metrics-grid, .dashboard-focus-ribbon, .dashboard-stage-summary, .dashboard-queue-grid) {
+  gap: 28px !important;
+}
+
+#app .page-header {
+  padding: 0 0 8px !important;
+  margin: 0 0 20px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+#app :where(.shell-sidebar, .topbar-shell) {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+#app .shell-sidebar {
+  border: 0 !important;
+}
+
+#app .topbar-shell {
+  border: 0 !important;
+}
+
+#app :where(.field-shell, .search-shell, .filter-input, .filter-select, .hq-organization-select, .shamsi-picker-input-wrap, input, textarea, select) {
+  background: rgba(255, 255, 255, 0.34) !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
 }
 
 #app .modal-layer {
-  background: rgba(15, 23, 42, 0.5) !important;
+  background: rgba(42, 51, 72, 0.45) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
-#app .modal-shell {
+#app .modal-shell,
+.modal-shell {
   color: var(--text) !important;
-  box-shadow: var(--shadow-strong) !important;
+  background: #c7cbdd !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: 1px solid rgba(47, 58, 85, 0.18) !important;
 }
 
 #app :where(.action-btn, .dashboard-action-button, .public-action, .stitch-submit-btn, button[type='submit']) {
   min-height: 42px !important;
   border: 1px solid var(--line-strong) !important;
   border-radius: 10px !important;
-  background: var(--button-soft-bg) !important;
+  background: transparent !important;
+  background-image: none !important;
   color: var(--button-text) !important;
   box-shadow: none !important;
   text-shadow: none !important;
-  font-weight: 800 !important;
+  font-weight: 700 !important;
 }
 
 #app :where(.action-btn, .dashboard-action-button, .public-action, .stitch-submit-btn, button[type='submit']) span {
@@ -5271,50 +5388,78 @@ body,
 
 #app :where(.action-btn.tone-primary, .tone-primary, .dashboard-action-button, .public-action.is-in, .stitch-submit-btn, button[type='submit']) {
   border-color: var(--button-primary-bg) !important;
-  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.34), transparent 34%), linear-gradient(135deg, #183766, #3264a9 62%, #839cdf) !important;
-  box-shadow: 0 16px 38px rgba(40, 82, 143, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.32) !important;
+  background: var(--button-primary-bg) !important;
+  background-image: none !important;
   color: #ffffff !important;
 }
 
 #app :where(.action-btn.tone-soft, .tone-soft) {
   border-color: var(--line-strong) !important;
-  background: var(--button-soft-bg) !important;
+  background: transparent !important;
+  background-image: none !important;
   color: var(--button-text) !important;
 }
 
 #app :where(.action-btn.tone-danger, .tone-danger, .public-action.is-out) {
   border-color: var(--button-danger-bg) !important;
   background: var(--button-danger-bg) !important;
+  background-image: none !important;
   color: #ffffff !important;
 }
 
 #app :where(.icon-btn) {
   border: 1px solid var(--line-strong) !important;
-  background: #ffffff !important;
+  background: transparent !important;
+  background-image: none !important;
   color: var(--button-text) !important;
   box-shadow: none !important;
 }
 
 #app :where(.action-btn.tone-primary, .tone-primary, .dashboard-action-button, .public-action.is-in, .stitch-submit-btn, button[type='submit']):hover:not(:disabled) {
-  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.34), transparent 34%), linear-gradient(135deg, #183766, #3264a9 62%, #839cdf) !important;
-  box-shadow: 0 16px 38px rgba(40, 82, 143, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.32) !important;
+  background: var(--button-primary-hover) !important;
+  background-image: none !important;
   color: #ffffff !important;
 }
 
 #app :where(.action-btn.tone-soft, .tone-soft, .icon-btn):hover:not(:disabled) {
   background: var(--button-soft-hover) !important;
+  background-image: none !important;
   color: var(--button-text) !important;
 }
 
 #app :where(.action-btn.tone-danger, .tone-danger, .public-action.is-out):hover:not(:disabled) {
   background: var(--button-danger-hover) !important;
+  background-image: none !important;
   color: #ffffff !important;
 }
 
-#app :where(.filter-chip.is-active, .priority-chip.is-active, .alphabet-chip.is-active) {
+#app :where(.nav-link.is-active, .filter-chip.is-active, .priority-chip.is-active, .alphabet-chip.is-active, .toggle-pill.is-active, .report-tab.is-active) {
+  background: rgba(255, 255, 255, 0.48) !important;
+  background-image: none !important;
+  color: var(--text) !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+}
+
+#app .nav-link.is-active::before {
+  display: none !important;
+}
+
+#app :where(.brand-mark, .topbar-user-avatar, .dashboard-summary-icon, .dashboard-metric-icon, .avatar, .attendance-avatar) {
   background: var(--button-primary-bg) !important;
+  background-image: none !important;
   color: #ffffff !important;
-  border-color: var(--button-primary-bg) !important;
+  box-shadow: none !important;
+}
+
+#app :where(.status-badge, .meta-pill, .filter-chip, .priority-chip, .access-selection-state, .mini-person-pill, .nav-link-badge, .page-eyebrow, .topbar-eyebrow, .sidebar-section-label, .dashboard-stage-badge, .dashboard-section-kicker, .dashboard-metric-accent, .dashboard-action-type) {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  color: var(--primary) !important;
+  box-shadow: none !important;
+  padding-inline: 0 !important;
 }
 
 #app :where(.action-btn, .icon-btn, .dashboard-action-button, .public-action, .stitch-submit-btn, button, a, input, select, textarea, .compact-user-card) {
@@ -5322,63 +5467,67 @@ body,
 }
 
 #app .wallet-page .wallet-actions {
-  padding: 12px !important;
-  border: 1px solid rgba(50, 100, 169, 0.46) !important;
-  border-radius: 14px !important;
-  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.34), transparent 34%), linear-gradient(135deg, #183766, #3264a9 62%, #839cdf) !important;
-  box-shadow: 0 16px 38px rgba(40, 82, 143, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.32) !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
 }
 
 #app .wallet-page .wallet-actions .wallet-action,
 #app .wallet-page .wallet-actions .wallet-action.deposit,
 #app .wallet-page .wallet-actions .wallet-action.withdraw {
-  border: 1px solid rgba(255, 255, 255, 0.28) !important;
-  background: rgba(24, 55, 102, 0.52) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
+  border: 1px solid var(--button-primary-bg) !important;
+  background: var(--button-primary-bg) !important;
+  background-image: none !important;
+  box-shadow: none !important;
   color: #ffffff !important;
 }
 
 #app .wallet-page .wallet-actions .wallet-action:hover:not(:disabled) {
-  background: rgba(16, 40, 79, 0.7) !important;
+  background: var(--button-primary-hover) !important;
   color: #ffffff !important;
 }
 
 #app .support-page .support-hero {
-  border: 1px solid rgba(50, 100, 169, 0.46) !important;
-  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.34), transparent 34%), linear-gradient(135deg, #183766, #3264a9 62%, #839cdf) !important;
-  box-shadow: 0 16px 38px rgba(40, 82, 143, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.32) !important;
+  border: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
 }
 
 #app .support-page .support-hero-actions {
-  padding: 10px !important;
-  border: 1px solid rgba(255, 255, 255, 0.22) !important;
-  border-radius: 14px !important;
-  background: rgba(24, 55, 102, 0.28) !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
 }
 
 #app .support-page .support-title,
 #app .support-page .support-title h2,
 #app .support-page .support-title small {
-  color: #ffffff !important;
+  color: var(--text) !important;
 }
 
-#app .support-page .support-title > .material-symbols-outlined,
+#app .support-page .support-title > .iconly-shell,
 #app .support-page .support-primary,
 #app .support-page .support-status-card,
 #app .support-page .support-status-card.is-active {
-  border: 0 !important;
-  background: rgba(24, 55, 102, 0.52) !important;
+  border: 1px solid var(--button-primary-bg) !important;
+  background: var(--button-primary-bg) !important;
+  background-image: none !important;
   box-shadow: none !important;
   color: #ffffff !important;
 }
 
-#app .support-page .support-title > .material-symbols-outlined {
-  background: rgba(16, 40, 79, 0.72) !important;
+#app .support-page .support-title > .iconly-shell {
+  background: var(--button-primary-bg) !important;
 }
 
 #app .support-page .support-primary:hover:not(:disabled),
 #app .support-page .support-status-card:hover:not(:disabled) {
-  background: rgba(16, 40, 79, 0.7) !important;
+  background: var(--button-primary-hover) !important;
   color: #ffffff !important;
 }
 
@@ -5388,7 +5537,8 @@ body,
 }
 
 #app .support-page .message-thread {
-  background: #f3f6fb !important;
+  background: transparent !important;
+  border: 0 !important;
 }
 
 #app .support-page .message-row {
@@ -5396,14 +5546,15 @@ body,
 }
 
 #app .support-page .message-bubble {
-  border: 1px solid #c7d8f7 !important;
-  background: #eef4ff !important;
+  border: 1px solid var(--line) !important;
+  background: transparent !important;
   box-shadow: none !important;
 }
 
 #app .support-page .message-bubble.outgoing {
-  border-color: rgba(50, 100, 169, 0.46) !important;
-  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.34), transparent 34%), linear-gradient(135deg, #183766, #3264a9 62%, #839cdf) !important;
+  border-color: var(--button-primary-bg) !important;
+  background: var(--button-primary-bg) !important;
+  background-image: none !important;
   color: #ffffff !important;
 }
 
@@ -5412,7 +5563,7 @@ body,
 }
 
 #app .support-page .message-bubble.incoming :where(b, em, time, p) {
-  color: #111827 !important;
+  color: var(--text) !important;
 }
 
 #app :where(.action-btn, .icon-btn, .dashboard-action-button, .public-action, button):hover:not(:disabled),
@@ -5459,10 +5610,10 @@ body,
   overflow: auto !important;
   padding: 28px !important;
   color: var(--text) !important;
-  background: var(--surface) !important;
-  border: 1px solid var(--line) !important;
-  border-radius: var(--radius-4, 20px) !important;
-  box-shadow: var(--shadow-strong) !important;
+  background: #c7cbdd !important;
+  border: 1px solid rgba(47, 58, 85, 0.18) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
   outline: 0 !important;
 }
 
@@ -5531,10 +5682,10 @@ body,
 }
 
 .modal-shell :where(.surface-inline, .modal-section, .approval-hero, .approval-surface, .approval-meta-card, .approval-status-panel, .signature-readiness-card, .stamp-preview-frame, .stamp-upload-shell, .upload-pad, .file-row) {
-  background: var(--surface) !important;
-  border: 1px solid var(--line) !important;
-  border-radius: var(--radius-4, 20px) !important;
-  box-shadow: var(--shadow-soft) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 .modal-shell :where(.surface-inline, .modal-section, .approval-surface, .approval-hero) {
@@ -5614,10 +5765,10 @@ body,
   min-height: 58px !important;
   padding: 12px 14px !important;
   color: var(--text) !important;
-  background: var(--surface) !important;
+  background: #dfe3ef !important;
   border: 1px solid var(--line) !important;
-  border-radius: var(--radius-3, 16px) !important;
-  box-shadow: var(--shadow-soft) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
 }
 
 .modal-shell .field-shell {
@@ -5683,41 +5834,41 @@ body,
 }
 
 .modal-shell :where(.action-btn.tone-primary, .tone-primary) {
-  border-color: #17315d !important;
-  background: linear-gradient(135deg, #17315d 0%, #244d88 100%) !important;
+  border-color: var(--button-primary-bg) !important;
+  background: var(--button-primary-bg) !important;
   color: #ffffff !important;
-  box-shadow: 0 10px 22px rgba(23, 49, 93, 0.24) !important;
+  box-shadow: none !important;
 }
 
 .modal-shell :where(.action-btn.tone-soft, .tone-soft) {
-  border-color: rgba(23, 49, 93, 0.18) !important;
-  background: #eef4ff !important;
-  color: #17315d !important;
-  box-shadow: 0 8px 18px rgba(23, 49, 93, 0.08) !important;
+  border-color: var(--line-strong) !important;
+  background: transparent !important;
+  color: var(--button-text) !important;
+  box-shadow: none !important;
 }
 
 .modal-shell :where(.action-btn.tone-danger, .tone-danger) {
   border-color: var(--button-danger-bg) !important;
-  background: linear-gradient(135deg, #b42318 0%, #912018 100%) !important;
+  background: var(--button-danger-bg) !important;
   color: #ffffff !important;
-  box-shadow: 0 10px 22px rgba(180, 35, 24, 0.2) !important;
+  box-shadow: none !important;
 }
 
 .modal-shell :where(.action-btn.tone-primary, .tone-primary):hover:not(:disabled) {
-  border-color: #10284f !important;
-  background: linear-gradient(135deg, #10284f 0%, #1f457c 100%) !important;
-  box-shadow: 0 12px 26px rgba(23, 49, 93, 0.3) !important;
+  border-color: var(--button-primary-hover) !important;
+  background: var(--button-primary-hover) !important;
+  box-shadow: none !important;
 }
 
 .modal-shell :where(.action-btn.tone-soft, .tone-soft, .icon-btn):hover:not(:disabled) {
-  border-color: rgba(23, 49, 93, 0.28) !important;
-  background: #e3edff !important;
-  box-shadow: 0 10px 22px rgba(23, 49, 93, 0.12) !important;
+  border-color: var(--line-strong) !important;
+  background: var(--button-soft-hover) !important;
+  box-shadow: none !important;
 }
 
 .modal-shell :where(.action-btn.tone-danger, .tone-danger):hover:not(:disabled) {
-  background: linear-gradient(135deg, #912018 0%, #7a1b14 100%) !important;
-  box-shadow: 0 12px 26px rgba(180, 35, 24, 0.26) !important;
+  background: var(--button-danger-hover) !important;
+  box-shadow: none !important;
 }
 
 .modal-shell .modal-actions .action-btn,
@@ -5725,7 +5876,7 @@ body,
   min-width: 132px !important;
 }
 
-.modal-shell .action-btn .material-symbols-outlined {
+.modal-shell .action-btn .iconly-shell {
   font-size: 20px !important;
   line-height: 1 !important;
 }
@@ -5785,10 +5936,10 @@ body,
   justify-content: center !important;
   gap: 8px !important;
   width: fit-content !important;
-  padding: 0 14px !important;
-  border: 1px solid var(--line) !important;
-  border-radius: 999px !important;
-  background: var(--surface-soft) !important;
+  padding: 0 10px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
   color: #475467 !important;
   font-size: 13px !important;
   font-weight: 800 !important;
@@ -5812,12 +5963,13 @@ body,
   grid-template-columns: minmax(0, 1fr) auto !important;
   align-items: center !important;
   gap: 12px !important;
-  padding: 16px !important;
+  padding: 12px 0 !important;
   text-align: right !important;
-  border: 1px solid var(--line) !important;
-  border-radius: var(--radius-3, 16px) !important;
-  background: var(--surface) !important;
-  box-shadow: var(--shadow-soft) !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(45, 55, 85, 0.12) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .modal-shell .recipient-card-main {
@@ -5833,19 +5985,26 @@ body,
   line-height: 1.5 !important;
 }
 
-.modal-shell .recipient-card > .material-symbols-outlined,
-.modal-shell .recipient-card-meta .material-symbols-outlined {
+.modal-shell .recipient-card > .iconly-shell,
+.modal-shell .recipient-card-meta .iconly-shell {
   color: #98a2b3 !important;
   opacity: 0.72 !important;
 }
 
 .modal-shell .recipient-card.is-selected {
-  border-color: rgba(23, 49, 93, 0.42) !important;
-  background: rgba(23, 49, 93, 0.055) !important;
+  border-color: var(--button-primary-bg) !important;
+  background: var(--button-primary-bg) !important;
+  color: #ffffff !important;
 }
 
-.modal-shell .recipient-card.is-selected > .material-symbols-outlined,
-.modal-shell .recipient-card.is-selected .recipient-card-meta .material-symbols-outlined {
+.modal-shell .recipient-card.is-selected strong,
+.modal-shell .recipient-card.is-selected small,
+.modal-shell .recipient-card.is-selected .recipient-card-meta {
+  color: #ffffff !important;
+}
+
+.modal-shell .recipient-card.is-selected > .iconly-shell,
+.modal-shell .recipient-card.is-selected .recipient-card-meta .iconly-shell {
   color: var(--button-primary-bg) !important;
   opacity: 1 !important;
 }
@@ -5874,7 +6033,7 @@ body,
   cursor: pointer !important;
 }
 
-.modal-shell :where(.upload-pad, .stamp-upload-shell) .material-symbols-outlined {
+.modal-shell :where(.upload-pad, .stamp-upload-shell) .iconly-shell {
   color: var(--button-primary-bg) !important;
   font-size: 32px !important;
 }
@@ -5997,21 +6156,28 @@ body,
 
 .modal-shell .check-tile {
   display: grid !important;
-  grid-template-columns: auto minmax(0, 1fr) !important;
-  align-items: start !important;
+  grid-template-columns: auto minmax(0, 1fr) auto !important;
+  align-items: center !important;
   gap: 12px !important;
-  padding: 14px !important;
-  border: 1px solid var(--line) !important;
-  border-radius: var(--radius-3, 16px) !important;
-  background: var(--surface) !important;
-  box-shadow: var(--shadow-soft) !important;
+  padding: 12px 14px !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: #f3f9f7 !important;
+  box-shadow: inset 0 0 0 1px rgba(52, 144, 139, 0.12) !important;
+}
+
+.modal-shell .check-tile.is-checked {
+  background: #dcefec !important;
+  box-shadow: inset 0 0 0 2px #34908B !important;
 }
 
 .modal-shell .check-tile input {
-  width: 18px !important;
-  height: 18px !important;
-  margin-top: 4px !important;
-  accent-color: var(--button-primary-bg) !important;
+  position: absolute !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: 0 !important;
 }
 
 .modal-shell :where(button, a, input, select, textarea, [tabindex]):focus-visible {
@@ -6074,7 +6240,7 @@ body,
   .modal-shell .request-composer-grid,
   .modal-shell .recipient-grid,
   .modal-shell .approval-meta-board {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   .modal-shell .detail-summary-grid {
@@ -6085,6 +6251,404 @@ body,
   .modal-shell .action-group,
   .modal-shell .approval-action-row,
   .modal-shell .approval-file-actions {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
+}
+
+/* Final flat calm safety net: kill leftover glass/gradient/shadow. */
+#app .app-shell:not(.is-auth-route),
+#app .app-shell:not(.is-auth-route) *,
+#app .app-shell:not(.is-auth-route) *::before,
+#app .app-shell:not(.is-auth-route) *::after,
+.modal-layer,
+.modal-shell,
+.modal-shell * {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) *::before,
+#app .app-shell:not(.is-auth-route) *::after {
+  background-image: none !important;
+}
+
+#app :where(.shell-sidebar, .topbar-shell, .page-header, .surface-block, .metric-card, .quick-action-card, .pipeline-card, .report-card, .insight-card, .approval-card, .user-card, .compact-user-card, .list-card, .settings-access-card, .recipient-card, .approval-lane-card, .report-card-modern, .access-selection-row, .dashboard-stage-panel, .dashboard-metrics-panel, .dashboard-actions-panel, .dashboard-summary-card, .dashboard-focus-chip, .dashboard-metric-card, .dashboard-action-card, .wallet-hero, .wallet-summary-card, .wallet-panel, .support-hero, .support-panel, .attendance-hero, .attendance-card, .attendance-public-card, .detail-card, .approval-detail-card, .settings-panel, .cloud-panel, .hq-panel, .table-shell, .report-table-wrap, .settings-access-table, .attendance-table-wrap, .user-hero, .user-meta-card, .user-status-panel, .user-form-panel, .user-finance-panel) {
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+#app .shell-sidebar {
+  border-left: 1px solid rgba(45, 55, 85, 0.12) !important;
+}
+
+#app .topbar-shell {
+  border-bottom: 1px solid rgba(45, 55, 85, 0.12) !important;
+}
+
+#app .page-header {
+  border-bottom: 1px solid rgba(45, 55, 85, 0.12) !important;
+}
+
+#app :where(.field-shell, .search-shell, .filter-input, .filter-select, .hq-organization-select, .shamsi-picker-input-wrap) {
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(47, 58, 85, 0.22) !important;
+  border-radius: 0 !important;
+}
+
+#app :where(.action-btn.tone-primary, .tone-primary, .dashboard-action-button, .public-action.is-in, .stitch-submit-btn, button[type='submit'], .nav-link.is-active, .filter-chip.is-active, .priority-chip.is-active, .alphabet-chip.is-active, .toggle-pill.is-active, .report-tab.is-active, .brand-mark, .topbar-user-avatar, .avatar, .attendance-avatar) {
+  background-image: none !important;
+}
+
+.modal-shell,
+.modal-shell :where(.field-shell, .search-shell) {
+  background-color: #c7cbdd !important;
+  background-image: none !important;
+}
+
+.modal-shell :where(.surface-inline, .modal-section, .approval-hero, .approval-surface, .approval-meta-card, .approval-status-panel, .signature-readiness-card, .stamp-preview-frame, .stamp-upload-shell, .upload-pad, .file-row, .recipient-card, .check-tile) {
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+.modal-shell :where(.action-btn.tone-primary, .tone-primary, .filter-chip.is-active, .priority-chip.is-active, .signature-mode-chip.is-active, .recipient-card.is-selected) {
+  background-color: #4d5d8a !important;
+  background-image: none !important;
+  color: #ffffff !important;
+}
+
+/* Unified continuous surface: no boxes, cohesive palette on #c7cbdd. */
+:root {
+  --bg: #c7cbdd;
+  --bg-strong: #c7cbdd;
+  --color-app-bg: #c7cbdd;
+  --surface: transparent;
+  --surface-strong: transparent;
+  --surface-soft: rgba(255, 255, 255, 0.28);
+  --surface-muted: rgba(47, 58, 85, 0.06);
+  --primary: #3f4f72;
+  --primary-strong: #2f3d5c;
+  --secondary: #5a6680;
+  --accent: #3f4f72;
+  --text: #2a344c;
+  --muted: #5a6680;
+  --line: transparent;
+  --line-strong: transparent;
+  --button-primary-bg: #3f4f72;
+  --button-primary-hover: #2f3d5c;
+  --button-text: #2a344c;
+  --button-soft-bg: rgba(255, 255, 255, 0.28);
+  --button-soft-hover: rgba(255, 255, 255, 0.46);
+  --color-text: #2a344c;
+  --color-text-strong: #2a344c;
+  --color-text-muted: #5a6680;
+  --color-accent-blue: #3f4f72;
+  --shadow-soft: none;
+  --shadow-strong: none;
+  --glass-shadow: none;
+  --glass-shadow-soft: none;
+  --glow-blue: none;
+  --radius-control: 12px;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-shell,
+#app .app-shell:not(.is-auth-route) .shell-sidebar,
+#app .app-shell:not(.is-auth-route) .page-header,
+#app .app-shell:not(.is-auth-route) .surface-block,
+#app .app-shell:not(.is-auth-route) .table-shell,
+#app .app-shell:not(.is-auth-route) .section-label-row,
+#app .app-shell:not(.is-auth-route) .page-filters,
+#app .app-shell:not(.is-auth-route) .modern-page-filters,
+#app .app-shell:not(.is-auth-route) .topbar-filters,
+#app .app-shell:not(.is-auth-route) .filter-field,
+#app .app-shell:not(.is-auth-route) .field-shell,
+#app .app-shell:not(.is-auth-route) .search-shell,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-grid,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-metrics-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-actions-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card,
+#app .app-shell:not(.is-auth-route) .dashboard-focus-chip,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-action-card,
+#app .app-shell:not(.is-auth-route) .metric-card,
+#app .app-shell:not(.is-auth-route) .pipeline-card,
+#app .app-shell:not(.is-auth-route) .report-card,
+#app .app-shell:not(.is-auth-route) .insight-card,
+#app .app-shell:not(.is-auth-route) .approval-card,
+#app .app-shell:not(.is-auth-route) .user-card,
+#app .app-shell:not(.is-auth-route) .list-card,
+#app .app-shell:not(.is-auth-route) .wallet-hero,
+#app .app-shell:not(.is-auth-route) .wallet-panel,
+#app .app-shell:not(.is-auth-route) .support-hero,
+#app .app-shell:not(.is-auth-route) .support-panel,
+#app .app-shell:not(.is-auth-route) .attendance-hero,
+#app .app-shell:not(.is-auth-route) .attendance-card,
+#app .app-shell:not(.is-auth-route) .settings-panel,
+#app .app-shell:not(.is-auth-route) .cloud-panel,
+#app .app-shell:not(.is-auth-route) .hq-panel {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .surface-block,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-metrics-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-actions-panel,
+#app .app-shell:not(.is-auth-route) .table-shell,
+#app .app-shell:not(.is-auth-route) .topbar-shell {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shell-sidebar,
+#app .app-shell:not(.is-auth-route) .topbar-shell,
+#app .app-shell:not(.is-auth-route) .page-header,
+#app .app-shell:not(.is-auth-route) .section-label-row,
+#app .app-shell:not(.is-auth-route) .filter-input,
+#app .app-shell:not(.is-auth-route) .filter-select,
+#app .app-shell:not(.is-auth-route) .shamsi-picker-input-wrap,
+#app .app-shell:not(.is-auth-route) .hq-organization-select,
+#app .app-shell:not(.is-auth-route) .data-table th,
+#app .app-shell:not(.is-auth-route) .data-table td,
+#app .app-shell:not(.is-auth-route) .data-table,
+#app .app-shell:not(.is-auth-route) .action-btn,
+#app .app-shell:not(.is-auth-route) .icon-btn,
+#app .app-shell:not(.is-auth-route) .nav-link,
+#app .app-shell:not(.is-auth-route) .nav-link.is-active {
+  border: 0 !important;
+  border-top: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  border-left: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-shell {
+  padding-top: 18px !important;
+  padding-bottom: 10px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-header,
+#app .app-shell:not(.is-auth-route) .section-label-row {
+  margin-bottom: 20px !important;
+  padding-bottom: 8px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-shell,
+#app .app-shell:not(.is-auth-route) .enterprise-page,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-grid,
+#app .app-shell:not(.is-auth-route) .dashboard-actions-shell {
+  gap: 32px !important;
+}
+
+/* Soft filled controls — identifiable without borders. */
+#app .app-shell:not(.is-auth-route) .filter-input,
+#app .app-shell:not(.is-auth-route) .filter-select,
+#app .app-shell:not(.is-auth-route) .shamsi-picker-input-wrap,
+#app .app-shell:not(.is-auth-route) .hq-organization-select,
+#app .app-shell:not(.is-auth-route) .field-shell:not(.filter-field),
+#app .app-shell:not(.is-auth-route) .search-shell {
+  background: rgba(255, 255, 255, 0.34) !important;
+  background-image: none !important;
+  border-radius: var(--radius-control) !important;
+  min-height: 44px !important;
+  padding-inline: 14px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .filter-field {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .filter-field .filter-input,
+#app .app-shell:not(.is-auth-route) .filter-field .filter-select,
+#app .app-shell:not(.is-auth-route) .filter-field .shamsi-picker-input-wrap {
+  background: rgba(255, 255, 255, 0.34) !important;
+}
+
+/* Navigation: calm selected state, no gradient / border / slide. */
+#app .app-shell:not(.is-auth-route) .nav-link {
+  min-height: 48px !important;
+  padding: 0 14px !important;
+  border-radius: 14px !important;
+  color: rgba(42, 52, 76, 0.72) !important;
+  background: transparent !important;
+  background-image: none !important;
+  transform: none !important;
+  font-weight: 600 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link:hover {
+  color: var(--text) !important;
+  background: rgba(255, 255, 255, 0.28) !important;
+  background-image: none !important;
+  transform: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link.is-active {
+  color: var(--text) !important;
+  background: rgba(255, 255, 255, 0.48) !important;
+  background-image: none !important;
+  font-weight: 780 !important;
+  transform: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link.is-active::before,
+#app .app-shell:not(.is-auth-route) .nav-link.is-active::after {
+  content: none !important;
+  display: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link .iconly-shell {
+  font-size: 22px !important;
+  color: inherit !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link-badge {
+  background: rgba(63, 79, 114, 0.14) !important;
+  color: var(--primary) !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+}
+
+/* Actions */
+#app .app-shell:not(.is-auth-route) .action-btn,
+#app .app-shell:not(.is-auth-route) .dashboard-action-button,
+#app .app-shell:not(.is-auth-route) .icon-btn {
+  border: 0 !important;
+  border-radius: var(--radius-control) !important;
+  box-shadow: none !important;
+  min-height: 44px !important;
+  font-weight: 700 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .action-btn.tone-primary,
+#app .app-shell:not(.is-auth-route) .tone-primary,
+#app .app-shell:not(.is-auth-route) .dashboard-action-button,
+#app .app-shell:not(.is-auth-route) button[type='submit'] {
+  background: var(--button-primary-bg) !important;
+  background-image: none !important;
+  color: #fff !important;
+}
+
+#app .app-shell:not(.is-auth-route) .action-btn.tone-primary:hover:not(:disabled),
+#app .app-shell:not(.is-auth-route) .tone-primary:hover:not(:disabled),
+#app .app-shell:not(.is-auth-route) .dashboard-action-button:hover:not(:disabled) {
+  background: var(--button-primary-hover) !important;
+  background-image: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .action-btn.tone-soft,
+#app .app-shell:not(.is-auth-route) .tone-soft,
+#app .app-shell:not(.is-auth-route) .icon-btn,
+#app .app-shell:not(.is-auth-route) .modern-filter-reset {
+  background: rgba(255, 255, 255, 0.28) !important;
+  background-image: none !important;
+  color: var(--text) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .action-btn.tone-soft:hover:not(:disabled),
+#app .app-shell:not(.is-auth-route) .icon-btn:hover:not(:disabled),
+#app .app-shell:not(.is-auth-route) .modern-filter-reset:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.46) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .filter-chip.is-active,
+#app .app-shell:not(.is-auth-route) .priority-chip.is-active,
+#app .app-shell:not(.is-auth-route) .alphabet-chip.is-active,
+#app .app-shell:not(.is-auth-route) .report-tab.is-active {
+  background: rgba(255, 255, 255, 0.48) !important;
+  background-image: none !important;
+  color: var(--text) !important;
+  border: 0 !important;
+}
+
+/* Type & table rhythm */
+#app .app-shell:not(.is-auth-route) .topbar-intro-copy strong,
+#app .app-shell:not(.is-auth-route) h1,
+#app .app-shell:not(.is-auth-route) h2,
+#app .app-shell:not(.is-auth-route) h3 {
+  color: var(--text) !important;
+  letter-spacing: -0.01em !important;
+  font-weight: 750 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-eyebrow,
+#app .app-shell:not(.is-auth-route) .page-eyebrow,
+#app .app-shell:not(.is-auth-route) .section-label-row p,
+#app .app-shell:not(.is-auth-route) .page-header-description,
+#app .app-shell:not(.is-auth-route) small,
+#app .app-shell:not(.is-auth-route) .table-muted {
+  color: var(--muted) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  font-weight: 600 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .data-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+}
+
+#app .app-shell:not(.is-auth-route) .data-table th {
+  color: var(--muted) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  padding: 12px 10px !important;
+  background: transparent !important;
+}
+
+#app .app-shell:not(.is-auth-route) .data-table td {
+  color: var(--text) !important;
+  padding: 14px 10px !important;
+  background: transparent !important;
+}
+
+#app .app-shell:not(.is-auth-route) .data-table tbody tr {
+  background: transparent !important;
+}
+
+#app .app-shell:not(.is-auth-route) .data-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.22) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shell-content {
+  padding: 28px 32px 40px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shell-sidebar {
+  padding: 22px 16px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .brand-copy strong,
+#app .app-shell:not(.is-auth-route) .sidebar-profile-copy strong {
+  color: var(--text) !important;
+  font-weight: 780 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .brand-mark,
+#app .app-shell:not(.is-auth-route) .topbar-user-avatar,
+#app .app-shell:not(.is-auth-route) .avatar,
+#app .app-shell:not(.is-auth-route) .attendance-avatar,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-icon,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-icon {
+  background: rgba(63, 79, 114, 0.16) !important;
+  background-image: none !important;
+  color: var(--primary) !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }

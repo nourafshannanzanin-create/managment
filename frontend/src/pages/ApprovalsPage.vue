@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed } from 'vue'
 
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -72,7 +73,7 @@ async function handleDownload(item) {
             <span class="metric-label approval-metric-label">{{ item.label }}</span>
             <strong class="approval-metric-value">{{ item.value }}</strong>
           </div>
-          <span class="material-symbols-outlined approval-metric-icon">{{ item.icon }}</span>
+          <IconlyIcon :name="item.icon" class="approval-metric-icon" decorative />
         </div>
         <div class="approval-metric-bottom">
           <small class="approval-metric-note">{{ item.note }}</small>
@@ -87,7 +88,7 @@ async function handleDownload(item) {
           <p>اسنادی که هنوز در جریان تایید هستند و نیاز به اقدام دارند.</p>
         </div>
         <button v-if="state.currentUser.canApproveDocuments" class="action-btn tone-soft" type="button" @click="openSignatureComposer">
-          <span class="material-symbols-outlined">approval</span>
+          <IconlyIcon name="approval" decorative />
           <span>بارگذاری مهر</span>
         </button>
       </div>
@@ -104,11 +105,11 @@ async function handleDownload(item) {
 
           <div class="list-card-actions">
             <button v-if="item.downloadUrl" class="action-btn tone-soft" type="button" @click="handleDownload(item)">
-              <span class="material-symbols-outlined">download</span>
+              <IconlyIcon name="download" decorative />
               <span>دانلود فایل</span>
             </button>
             <button class="action-btn tone-primary" type="button" @click="openApprovalDetail(item.id)">
-              <span class="material-symbols-outlined">visibility</span>
+              <IconlyIcon name="visibility" decorative />
               <span>جزئیات و اقدام</span>
             </button>
           </div>

@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, onMounted, reactive, watch } from 'vue'
 
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
@@ -323,17 +324,17 @@ watch(
 <template>
   <section class="wallet-page">
     <div v-if="!canUseWallet" class="wallet-empty">
-      <span class="material-symbols-outlined">lock</span>
+      <IconlyIcon name="lock" decorative />
     </div>
 
     <div v-else-if="needsOrganization" class="wallet-empty">
-      <span class="material-symbols-outlined">corporate_fare</span>
+      <IconlyIcon name="corporate_fare" decorative />
     </div>
 
     <template v-else>
       <div class="wallet-hero">
         <div class="wallet-hero-balance">
-          <span class="material-symbols-outlined">account_balance_wallet</span>
+          <IconlyIcon name="account_balance_wallet" decorative />
           <strong>{{ state.wallet.summary.totalBalance }}</strong>
           <small>{{ state.wallet.organization?.name || state.currentUser.organization }}</small>
         </div>
@@ -346,7 +347,7 @@ watch(
             type="button"
             @click="openTransaction(item.direction)"
           >
-            <span class="material-symbols-outlined">{{ item.icon }}</span>
+            <IconlyIcon :name="item.icon" decorative />
             <b>{{ item.label }}</b>
           </button>
         </div>
@@ -357,10 +358,21 @@ watch(
       </div>
 
       <div v-if="licenseLocked" class="wallet-license-alert">
-        <span class="material-symbols-outlined">lock</span>
+        <IconlyIcon name="lock" decorative />
         <div>
           <strong>حساب کاربری به دلیل اتمام اعتبار قفل شده است.</strong>
           <small>{{ licenseStatus.notice || 'برای تمدید دسترسی، یکی از گزینه‌های پایین را از کیف پول خریداری کنید.' }}</small>
+        </div>
+      </div>
+
+      <div
+        v-else-if="licenseStatus.trialActive || licenseStatus.trial_active"
+        class="wallet-license-alert wallet-trial-alert"
+      >
+        <IconlyIcon name="calendar" decorative />
+        <div>
+          <strong>استفاده رایگان فعال است.</strong>
+          <small>{{ licenseStatus.notice || 'پس از پایان مهلت رایگان، برای ادامه باید خرید نرم‌افزار ثبت شود.' }}</small>
         </div>
       </div>
 
@@ -372,7 +384,7 @@ watch(
           :class="{ active: option.isActive || option.is_active, required: option.required, disabled: optionDisabled(option) }"
         >
           <div class="wallet-option-head">
-            <span class="material-symbols-outlined">{{ optionIcon(option) }}</span>
+            <IconlyIcon :name="optionIcon(option)" decorative />
             <small>{{ optionStatus(option) }}</small>
           </div>
           <strong>{{ option.title }}</strong>
@@ -400,13 +412,13 @@ watch(
             <div class="wallet-option-actions">
               <button class="action-btn tone-soft" type="button" :disabled="state.wallet.submitting || option.isActive || option.is_active" @click="openPurchase(option, 'installment')">قسطی</button>
               <button class="action-btn tone-primary" type="button" :disabled="state.wallet.submitting || option.isActive || option.is_active" @click="openPurchase(option, 'cash')">
-                <span class="material-symbols-outlined">shopping_cart_checkout</span>
+                <IconlyIcon name="shopping_cart_checkout" decorative />
                 <span>خرید نقدی</span>
               </button>
             </div>
           </template>
           <div v-else class="wallet-option-disabled">
-            <span class="material-symbols-outlined">lock</span>
+            <IconlyIcon name="lock" decorative />
             <b>فعلا غیرفعال است</b>
           </div>
         </article>
@@ -414,7 +426,7 @@ watch(
 
       <div class="wallet-summary-grid">
         <article v-for="card in summaryCards" :key="card.label" :class="['wallet-summary-card', card.tone]">
-          <span class="material-symbols-outlined">{{ card.icon }}</span>
+          <IconlyIcon :name="card.icon" decorative />
           <small>{{ card.label }}</small>
           <strong>{{ card.value }}</strong>
         </article>
@@ -429,7 +441,7 @@ watch(
             type="button"
             @click="transactionForm.walletId = String(wallet.id); paymentSetup.walletId = String(wallet.id); paymentGuide.walletId = String(wallet.id); paymentForm.walletId = String(wallet.id); purchaseForm.walletId = String(wallet.id)"
           >
-            <span class="material-symbols-outlined">{{ wallet.key === 'sms' ? 'sms' : 'account_balance' }}</span>
+            <IconlyIcon :name="wallet.key === 'sms' ? 'sms' : 'account_balance'" decorative />
             <b>{{ wallet.name }}</b>
             <strong>{{ wallet.balance }}</strong>
             <small v-if="wallet.isLow">کمبود موجودی</small>
@@ -443,17 +455,17 @@ watch(
           </div>
 
           <div v-if="state.wallet.loading" class="wallet-loading">
-            <span class="material-symbols-outlined">progress_activity</span>
+            <IconlyIcon name="progress_activity" decorative />
           </div>
 
           <div v-else-if="!ledgerItems.length" class="wallet-empty compact">
-            <span class="material-symbols-outlined">receipt_long</span>
+            <IconlyIcon name="receipt_long" decorative />
           </div>
 
           <div v-else class="ledger-list">
             <article v-for="item in ledgerItems" :key="item.id" class="ledger-row">
               <div :class="['ledger-icon', item.direction]">
-                <span class="material-symbols-outlined">{{ item.direction === 'in' ? 'south_west' : 'north_east' }}</span>
+                <IconlyIcon :name="item.direction === 'in' ? 'south_west' : 'north_east'" decorative />
               </div>
               <div>
                 <b>{{ item.walletName }}</b>
@@ -470,7 +482,7 @@ watch(
       <form class="wallet-modal" @submit.prevent="submitTransaction">
         <div class="modal-handle"></div>
         <div class="modal-title">
-          <span class="material-symbols-outlined">{{ transactionForm.direction === 'in' ? 'add_card' : 'payments' }}</span>
+          <IconlyIcon :name="transactionForm.direction === 'in' ? 'add_card' : 'payments'" decorative />
           <strong>{{ transactionForm.direction === 'in' ? 'شارژ کیف پول' : 'برداشت از کیف پول' }}</strong>
         </div>
 
@@ -518,7 +530,7 @@ watch(
         <div class="modal-actions">
           <button class="action-btn tone-soft" type="button" @click="closeTransaction">بستن</button>
           <button class="action-btn tone-primary" type="submit" :disabled="state.wallet.submitting">
-            <span class="material-symbols-outlined">check</span>
+            <IconlyIcon name="check" decorative />
             ثبت
           </button>
         </div>
@@ -529,7 +541,7 @@ watch(
       <form class="wallet-modal payment-request-modal" @submit.prevent="continuePaymentFlow">
         <div class="modal-handle"></div>
         <div class="modal-title">
-          <span class="material-symbols-outlined">payments</span>
+          <IconlyIcon name="payments" decorative />
           <strong>درخواست پرداخت</strong>
         </div>
 
@@ -561,7 +573,7 @@ watch(
         <div class="modal-actions">
           <button class="action-btn tone-soft" type="button" @click="closePaymentSetup">بستن</button>
           <button class="action-btn tone-primary" type="submit">
-            <span class="material-symbols-outlined">arrow_back</span>
+            <IconlyIcon name="arrow_back" decorative />
             ادامه
           </button>
         </div>
@@ -572,7 +584,7 @@ watch(
       <form class="wallet-modal purchase-modal" @submit.prevent="submitPurchase">
         <div class="modal-handle"></div>
         <div class="purchase-modal-head">
-          <span class="material-symbols-outlined">workspace_premium</span>
+          <IconlyIcon name="workspace_premium" decorative />
           <div>
             <small>خرید قابلیت از کیف پول</small>
             <strong>{{ selectedPurchaseOption.title }}</strong>
@@ -586,12 +598,12 @@ watch(
 
         <div class="purchase-plan-toggle">
           <button type="button" :class="{ active: purchaseForm.paymentPlan === 'cash' }" @click="purchaseForm.paymentPlan = 'cash'">
-            <span class="material-symbols-outlined">payments</span>
+            <IconlyIcon name="payments" decorative />
             <b>نقدی</b>
             <small>{{ selectedPurchaseOption.cashAmount || selectedPurchaseOption.totalAmount }}</small>
           </button>
           <button type="button" :class="{ active: purchaseForm.paymentPlan === 'installment' }" @click="purchaseForm.paymentPlan = 'installment'">
-            <span class="material-symbols-outlined">calendar_month</span>
+            <IconlyIcon name="calendar_month" decorative />
             <b>قسطی</b>
             <small>{{ selectedPurchaseOption.upfrontAmount || selectedPurchaseOption.monthlyInstallmentAmount }} تومان</small>
           </button>
@@ -622,7 +634,7 @@ watch(
         </label>
 
         <div class="purchase-wallet-box">
-          <span class="material-symbols-outlined">account_balance_wallet</span>
+          <IconlyIcon name="account_balance_wallet" decorative />
           <div>
             <small>موجودی قابل استفاده</small>
             <strong>{{ purchaseWallet?.balance || '0.00' }}</strong>
@@ -636,7 +648,7 @@ watch(
         <div class="modal-actions">
           <button class="action-btn tone-soft" type="button" @click="closePurchase">بستن</button>
           <button class="action-btn tone-primary" type="submit" :disabled="state.wallet.submitting">
-            <span class="material-symbols-outlined">verified</span>
+            <IconlyIcon name="verified" decorative />
             تایید و پرداخت
           </button>
         </div>
@@ -647,7 +659,7 @@ watch(
       <div class="wallet-modal payment-guide-modal">
         <div class="modal-handle"></div>
         <div class="modal-title">
-          <span class="material-symbols-outlined">credit_card</span>
+          <IconlyIcon name="credit_card" decorative />
           <strong>پرداخت کارت به کارت</strong>
         </div>
 
@@ -666,7 +678,7 @@ watch(
         <div class="modal-actions">
           <button class="action-btn tone-soft" type="button" @click="closePaymentGuide">بازگشت</button>
           <button class="action-btn tone-primary" type="button" @click="openPaymentForm">
-            <span class="material-symbols-outlined">verified</span>
+            <IconlyIcon name="verified" decorative />
             ثبت رسید
           </button>
         </div>
@@ -677,7 +689,7 @@ watch(
       <form class="wallet-modal payment-request-modal" @submit.prevent="submitPaymentTicket">
         <div class="modal-handle"></div>
         <div class="modal-title">
-          <span class="material-symbols-outlined">support_agent</span>
+          <IconlyIcon name="support_agent" decorative />
           <strong>ثبت اطلاعات رسید پرداخت</strong>
         </div>
 
@@ -715,7 +727,7 @@ watch(
         <div class="modal-actions">
           <button class="action-btn tone-soft" type="button" @click="closePaymentForm">بستن</button>
           <button class="action-btn tone-primary" type="submit" :disabled="state.support.submitting">
-            <span class="material-symbols-outlined">send</span>
+            <IconlyIcon name="send" decorative />
             ارسال برای HQ
           </button>
         </div>
@@ -728,8 +740,8 @@ watch(
 .wallet-page {
   --wallet-navy: #111827;
   --wallet-blue: var(--button-primary-bg, #17315d);
-  --wallet-action-bg: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.34), transparent 34%), linear-gradient(135deg, #183766, #3264a9 62%, #839cdf);
-  --wallet-action-shadow: 0 16px 38px rgba(40, 82, 143, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  --wallet-action-bg: #34908B;
+  --wallet-action-shadow: 0 8px 20px rgba(52, 144, 139, 0.22);
   --wallet-gold: #667085;
   --wallet-ink: #344054;
   --wallet-muted: #667085;
@@ -772,7 +784,7 @@ watch(
   gap: 10px;
 }
 
-.wallet-hero-balance .material-symbols-outlined {
+.wallet-hero-balance .iconly-shell {
   width: 48px;
   height: 48px;
   display: grid;
@@ -823,7 +835,7 @@ watch(
   cursor: pointer;
 }
 
-.wallet-action .material-symbols-outlined,
+.wallet-action .iconly-shell,
 .wallet-action b {
   color: inherit;
 }
@@ -874,7 +886,17 @@ watch(
   background: #f9fafb;
 }
 
-.wallet-license-alert .material-symbols-outlined {
+.wallet-license-alert.wallet-trial-alert {
+  border-color: rgba(52, 144, 139, 0.2);
+  color: #1f5f5b;
+  background: rgba(52, 144, 139, 0.08);
+}
+
+.wallet-license-alert.wallet-trial-alert .iconly-shell {
+  background: #34908B;
+}
+
+.wallet-license-alert .iconly-shell {
   width: 42px;
   height: 42px;
   display: grid;
@@ -914,7 +936,7 @@ watch(
   background: #fff;
 }
 
-.wallet-option-card.disabled .wallet-option-head .material-symbols-outlined,
+.wallet-option-card.disabled .wallet-option-head .iconly-shell,
 .wallet-option-card.disabled .wallet-option-head small {
   color: var(--wallet-blue);
 }
@@ -933,7 +955,7 @@ watch(
   gap: 10px;
 }
 
-.wallet-option-head .material-symbols-outlined {
+.wallet-option-head .iconly-shell {
   color: var(--wallet-blue);
 }
 
@@ -994,7 +1016,7 @@ watch(
   font-weight: 800;
 }
 
-.wallet-option-disabled .material-symbols-outlined {
+.wallet-option-disabled .iconly-shell {
   color: var(--wallet-blue);
 }
 
@@ -1016,7 +1038,7 @@ watch(
 }
 
 .wallet-summary-card small,
-.wallet-summary-card .material-symbols-outlined,
+.wallet-summary-card .iconly-shell,
 .wallet-summary-card strong {
   color: inherit;
 }
@@ -1061,7 +1083,7 @@ watch(
   color: #8e6130;
 }
 
-.wallet-summary-card .material-symbols-outlined {
+.wallet-summary-card .iconly-shell {
   opacity: 0.96;
 }
 
@@ -1104,7 +1126,7 @@ watch(
 
 .wallet-tile.is-active b,
 .wallet-tile.is-active strong,
-.wallet-tile.is-active .material-symbols-outlined {
+.wallet-tile.is-active .iconly-shell {
   color: var(--wallet-navy);
 }
 
@@ -1210,8 +1232,8 @@ watch(
   background: #f9fafb;
 }
 
-.wallet-empty .material-symbols-outlined,
-.wallet-loading .material-symbols-outlined {
+.wallet-empty .iconly-shell,
+.wallet-loading .iconly-shell {
   font-size: 2.55rem;
 }
 
@@ -1259,7 +1281,7 @@ watch(
   background: var(--wallet-blue);
 }
 
-.purchase-modal-head > .material-symbols-outlined {
+.purchase-modal-head > .iconly-shell {
   width: 46px;
   height: 46px;
   display: grid;
@@ -1325,7 +1347,7 @@ watch(
   box-shadow: inset 0 0 0 2px rgba(50, 100, 169, 0.28);
 }
 
-.purchase-plan-toggle button.active .material-symbols-outlined,
+.purchase-plan-toggle button.active .iconly-shell,
 .purchase-plan-toggle button.active b,
 .purchase-plan-toggle button.active small {
   color: var(--wallet-navy);
@@ -1368,7 +1390,7 @@ watch(
   align-items: center;
 }
 
-.purchase-wallet-box .material-symbols-outlined {
+.purchase-wallet-box .iconly-shell {
   width: 42px;
   height: 42px;
   display: grid;
@@ -1503,11 +1525,11 @@ watch(
 @media (max-width: 420px) {
   .wallet-options-grid,
   .purchase-plan-toggle,
-  .purchase-details-grid,
-  .payment-grid {
-    grid-template-columns: 1fr;
+  .purchase-details-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .payment-grid,
   .wallet-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1539,7 +1561,7 @@ watch(
   box-shadow: none;
 }
 
-.wallet-hero-balance .material-symbols-outlined,
+.wallet-hero-balance .iconly-shell,
 .ledger-head b,
 .purchase-modal-head,
 .wallet-modal .action-btn.tone-primary,
@@ -1548,18 +1570,20 @@ watch(
 .wallet-action.deposit,
 .wallet-action.withdraw {
   color: #ffffff !important;
-  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.34), transparent 34%), linear-gradient(135deg, #183766, #3264a9 62%, #839cdf) !important;
-  border-color: rgba(50, 100, 169, 0.46) !important;
-  box-shadow: 0 16px 38px rgba(40, 82, 143, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.32) !important;
+  background: #34908B !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: 0 8px 20px rgba(52, 144, 139, 0.22) !important;
 }
 
 .wallet-action:hover:not(:disabled),
 .wallet-modal .action-btn.tone-primary:hover:not(:disabled),
 .wallet-option-actions .action-btn.tone-primary:hover:not(:disabled) {
   color: #ffffff !important;
-  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.34), transparent 34%), linear-gradient(135deg, #183766, #3264a9 62%, #839cdf) !important;
-  border-color: rgba(50, 100, 169, 0.58) !important;
-  box-shadow: 0 16px 38px rgba(40, 82, 143, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.32) !important;
+  background: #2b7874 !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: 0 10px 24px rgba(52, 144, 139, 0.26) !important;
 }
 
 .wallet-hero-balance strong,
@@ -1614,11 +1638,11 @@ watch(
   color: var(--wallet-muted);
 }
 
-.wallet-summary-card .material-symbols-outlined,
-.wallet-option-head .material-symbols-outlined,
+.wallet-summary-card .iconly-shell,
+.wallet-option-head .iconly-shell,
 .wallet-option-head small,
-.wallet-option-disabled .material-symbols-outlined,
-.purchase-wallet-box .material-symbols-outlined,
+.wallet-option-disabled .iconly-shell,
+.purchase-wallet-box .iconly-shell,
 .ledger-icon.in,
 .ledger-icon.out,
 .ledger-row strong.in,
@@ -1626,9 +1650,9 @@ watch(
   color: var(--wallet-blue);
 }
 
-.wallet-summary-card .material-symbols-outlined,
-.wallet-option-head .material-symbols-outlined,
-.purchase-wallet-box .material-symbols-outlined,
+.wallet-summary-card .iconly-shell,
+.wallet-option-head .iconly-shell,
+.purchase-wallet-box .iconly-shell,
 .ledger-icon.in,
 .ledger-icon.out {
   background: #eff6ff;
@@ -1649,8 +1673,8 @@ watch(
   border-color: var(--wallet-line);
 }
 
-.wallet-license-alert .material-symbols-outlined,
-.purchase-modal-head > .material-symbols-outlined {
+.wallet-license-alert .iconly-shell,
+.purchase-modal-head > .iconly-shell {
   color: var(--wallet-blue);
   background: #eff6ff;
   border: 1px solid #bfdbfe;

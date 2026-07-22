@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './base/IconlyIcon.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   getJalaliMonthLabel,
@@ -227,7 +228,7 @@ watch(open, async (isOpen) => {
         @blur="applyTypedValue"
       />
       <button class="shamsi-picker-toggle" type="button" @click.stop="toggleOpen">
-        <span class="material-symbols-outlined">calendar_month</span>
+        <IconlyIcon name="calendar_month" decorative />
       </button>
     </div>
   </div>
@@ -236,11 +237,11 @@ watch(open, async (isOpen) => {
     <div v-if="open" ref="panel" class="shamsi-picker-panel shamsi-picker-panel-teleport" :style="panelStyle">
       <div class="shamsi-picker-head">
         <button type="button" class="icon-btn" :disabled="!canNextMonth" @click="nextMonth">
-          <span class="material-symbols-outlined">chevron_right</span>
+          <IconlyIcon name="chevron_right" decorative />
         </button>
         <strong>{{ monthLabel }}</strong>
         <button type="button" class="icon-btn" :disabled="!canPrevMonth" @click="prevMonth">
-          <span class="material-symbols-outlined">chevron_left</span>
+          <IconlyIcon name="chevron_left" decorative />
         </button>
       </div>
 

@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './base/IconlyIcon.vue'
 import { reactive, watch } from 'vue'
 
 import BaseModal from './BaseModal.vue'
@@ -80,11 +81,11 @@ function reset() {
 
     <div class="modal-actions">
       <button class="action-btn tone-soft" type="button" @click="reset">
-        <span class="material-symbols-outlined">restart_alt</span>
+        <IconlyIcon name="restart_alt" decorative />
         <span>پاک کردن</span>
       </button>
       <button class="action-btn tone-primary" type="button" @click="apply">
-        <span class="material-symbols-outlined">task_alt</span>
+        <IconlyIcon name="task_alt" decorative />
         <span>تایید فیلتر</span>
       </button>
     </div>

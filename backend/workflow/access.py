@@ -84,7 +84,13 @@ def can_access_users(user: User) -> bool:
 
 
 def can_manage_users(user: User) -> bool:
-    return user.role == UserRole.ADMIN
+    if user.role == UserRole.ADMIN:
+        return True
+    if user.role == UserRole.EXECUTIVE_MANAGER:
+        return True
+    if user.role == UserRole.MANAGER and has_section_access(user, SECTION_USERS):
+        return True
+    return False
 
 
 def can_view_reports(user: User) -> bool:

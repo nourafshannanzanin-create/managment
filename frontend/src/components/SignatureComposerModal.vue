@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './base/IconlyIcon.vue'
 import { computed, ref, watch } from 'vue'
 
 import BaseModal from './BaseModal.vue'
@@ -139,7 +140,7 @@ function clearStamp() {
             type="button"
             @click="setSignatureInputMode('draw')"
           >
-            <span class="material-symbols-outlined">draw</span>
+            <IconlyIcon name="draw" decorative />
             <span>رسم امضا</span>
           </button>
           <button
@@ -147,7 +148,7 @@ function clearStamp() {
             type="button"
             @click="setSignatureInputMode('upload')"
           >
-            <span class="material-symbols-outlined">upload_file</span>
+            <IconlyIcon name="upload_file" decorative />
             <span>بارگذاری امضا</span>
           </button>
         </div>
@@ -159,7 +160,7 @@ function clearStamp() {
         <div v-else class="signature-upload-stack">
           <label class="stamp-upload-shell signature-upload-shell">
             <input accept="image/*" class="stamp-upload-input" type="file" @change="handleSignatureChange" />
-            <span class="material-symbols-outlined">upload_file</span>
+            <IconlyIcon name="upload_file" decorative />
             <strong>{{ readingSignature ? 'در حال خواندن فایل...' : 'انتخاب فایل امضا' }}</strong>
             <small>{{ signatureFileName || 'PNG, JPG, WEBP' }}</small>
           </label>
@@ -170,7 +171,7 @@ function clearStamp() {
 
           <div v-if="hasSignature" class="modal-actions stamp-actions">
             <button class="action-btn tone-soft" type="button" @click="clearSignatureUpload">
-              <span class="material-symbols-outlined">delete</span>
+              <IconlyIcon name="delete" decorative />
               <span>حذف امضا</span>
             </button>
           </div>
@@ -185,7 +186,7 @@ function clearStamp() {
 
         <label class="stamp-upload-shell">
           <input accept="image/*" class="stamp-upload-input" type="file" @change="handleStampChange" />
-          <span class="material-symbols-outlined">upload_file</span>
+          <IconlyIcon name="upload_file" decorative />
           <strong>{{ readingStamp ? 'در حال خواندن فایل...' : 'انتخاب فایل مهر' }}</strong>
           <small>{{ stampFileName || 'PNG, JPG, WEBP' }}</small>
         </label>
@@ -196,7 +197,7 @@ function clearStamp() {
 
         <div v-if="hasStamp" class="modal-actions stamp-actions">
           <button class="action-btn tone-soft" type="button" @click="clearStamp">
-            <span class="material-symbols-outlined">delete</span>
+            <IconlyIcon name="delete" decorative />
             <span>حذف مهر</span>
           </button>
         </div>
@@ -206,7 +207,7 @@ function clearStamp() {
 
       <div class="action-group modal-actions">
         <button class="action-btn tone-soft" type="button" @click="$emit('close')">
-          <span class="material-symbols-outlined">close</span>
+          <IconlyIcon name="close" decorative />
           <span>بستن</span>
         </button>
         <button
@@ -215,7 +216,7 @@ function clearStamp() {
           :disabled="signatureState.loading || readingSignature || readingStamp || !signatureDraft"
           @click="saveSignature(signatureDraft, stampDraft)"
         >
-          <span class="material-symbols-outlined">draw</span>
+          <IconlyIcon name="draw" decorative />
           <span>{{ signatureState.loading ? 'در حال ذخیره...' : 'ذخیره امضا' }}</span>
         </button>
       </div>
@@ -293,7 +294,7 @@ function clearStamp() {
   cursor: pointer;
 }
 
-.stamp-upload-shell .material-symbols-outlined {
+.stamp-upload-shell .iconly-shell {
   font-size: 32px;
   color: #3b5aa8;
 }

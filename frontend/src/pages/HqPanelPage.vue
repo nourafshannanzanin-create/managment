@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, onMounted, reactive } from 'vue'
 
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -67,14 +68,14 @@ onMounted(() => {
 <template>
   <section class="page-shell hq-report-page">
     <section v-if="!state.currentUser.canUseHq" class="surface-block hq-locked">
-      <span class="material-symbols-outlined">lock</span>
+      <IconlyIcon name="lock" decorative />
       <strong>HQ</strong>
     </section>
 
     <template v-else>
       <section class="hq-report-grid">
         <article v-for="item in summaryCards" :key="item.label" class="hq-report-card">
-          <span class="material-symbols-outlined">{{ item.icon }}</span>
+          <IconlyIcon :name="item.icon" decorative />
           <strong>{{ item.value }}</strong>
           <small>{{ item.label }}</small>
         </article>
@@ -84,7 +85,7 @@ onMounted(() => {
         <div class="section-label-row">
           <h3>مجموعه‌ها</h3>
           <button class="icon-btn" type="button" :disabled="state.hq.loading" @click="loadHqPanel(true)">
-            <span class="material-symbols-outlined">sync</span>
+            <IconlyIcon name="sync" decorative />
           </button>
         </div>
 
@@ -114,7 +115,7 @@ onMounted(() => {
                 <td>{{ organization.documents }}</td>
                 <td>
                   <button class="action-btn tone-soft" type="button" @click="openOrganization(organization.id)">
-                    <span class="material-symbols-outlined">input</span>
+                    <IconlyIcon name="input" decorative />
                     <span>انتخاب</span>
                   </button>
                 </td>
@@ -159,7 +160,7 @@ onMounted(() => {
             <input v-model="organizationForm.managerPassword" dir="ltr" required type="password" />
           </label>
           <button class="action-btn tone-primary hq-create-submit" type="submit" :disabled="state.hq.saving">
-            <span class="material-symbols-outlined">domain_add</span>
+            <IconlyIcon name="domain_add" decorative />
             <span>{{ state.hq.saving ? 'در حال ثبت' : 'ثبت مجموعه' }}</span>
           </button>
         </form>
@@ -280,7 +281,7 @@ onMounted(() => {
   color: var(--muted);
 }
 
-.hq-report-card .material-symbols-outlined {
+.hq-report-card .iconly-shell {
   color: var(--accent-strong);
 }
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import os
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
@@ -279,12 +280,81 @@ def organization_feature_purchase(organization: Organization | None, feature_key
     return FeaturePurchase.objects.filter(organization=organization, feature_key=feature_key).first()
 
 
+def organization_trial_hours() -> int:
+    try:
+        return max(int(os.getenv("ORG_TRIAL_HOURS", "24") or "24"), 0)
+    except (TypeError, ValueError):
+        return 24
+
+
+def organization_has_active_core(organization: Organization | None) -> bool:
+    purchase = organization_feature_purchase(organization, CORE_FEATURE_KEY)
+    return bool(purchase and purchase.is_active)
+
+
+def organization_trial_ends_at(organization: Organization | None) -> datetime | None:
+    if organization is None:
+        return None
+    hours = organization_trial_hours()
+    if hours <= 0:
+        return None
+    started = organization.created_at
+    if started is None:
+        return None
+    if started.tzinfo is None:
+        started = started.replace(tzinfo=timezone.utc)
+    else:
+        started = started.astimezone(timezone.utc)
+    return started + timedelta(hours=hours)
+
+
+def organization_trial_active(organization: Organization | None) -> bool:
+    if organization is None or organization_has_active_core(organization):
+        return False
+    ends_at = organization_trial_ends_at(organization)
+    return ends_at is not None and now() < ends_at
+
+
+def organization_trial_remaining_seconds(organization: Organization | None) -> int:
+    if not organization_trial_active(organization):
+        return 0
+    ends_at = organization_trial_ends_at(organization)
+    if ends_at is None:
+        return 0
+    return max(int((ends_at - now()).total_seconds()), 0)
+
+
+def trial_status_fields(organization: Organization | None) -> dict:
+    ends_at = organization_trial_ends_at(organization)
+    active = organization_trial_active(organization)
+    remaining = organization_trial_remaining_seconds(organization) if active else 0
+    ends_iso = ""
+    if ends_at is not None:
+        ends_iso = ends_at.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    hours = organization_trial_hours()
+    return {
+        "trialActive": active,
+        "trial_active": active,
+        "trialEndsAt": ends_iso,
+        "trial_ends_at": ends_iso,
+        "trialRemainingSeconds": remaining,
+        "trial_remaining_seconds": remaining,
+        "trialHours": hours,
+        "trial_hours": hours,
+    }
+
+
 def active_feature_keys(organization: Organization | None) -> set[str]:
     if organization is None:
         return set()
-    return set(
+    keys = set(
         FeaturePurchase.objects.filter(organization=organization, is_active=True).values_list("feature_key", flat=True)
     )
+    if organization_trial_active(organization):
+        for config in PURCHASABLE_FEATURES:
+            if not config.get("disabled"):
+                keys.add(config["feature_key"])
+    return keys
 
 
 def operational_retention_days(organization: Organization | None) -> int:
@@ -298,17 +368,31 @@ def operational_retention_start(organization: Organization | None) -> date:
 
 
 def license_status_payload(organization: Organization | None) -> dict:
+    trial = trial_status_fields(organization)
     core_purchase = organization_feature_purchase(organization, CORE_FEATURE_KEY)
     if core_purchase is None or not core_purchase.is_active:
+        if trial["trialActive"]:
+            return {
+                "isLocked": False,
+                "is_locked": False,
+                "reason": "trial_active",
+                "notice": "استفاده رایگان فعال است. پس از پایان مهلت، برای ادامه باید خرید نرم‌افزار ثبت شود.",
+                "graceDays": 0,
+                "grace_days": 0,
+                "amountDue": "0.00",
+                "amount_due": "0.00",
+                **trial,
+            }
         return {
             "isLocked": True,
             "is_locked": True,
             "reason": "core_purchase_required",
-            "notice": "برای استفاده از نرم افزار باید خرید اصلی ثبت و تایید شود.",
+            "notice": "مهلت استفاده رایگان به پایان رسیده است. برای ادامه باید خرید اصلی ثبت و تایید شود.",
             "graceDays": 0,
             "grace_days": 0,
             "amountDue": "0.00" if core_purchase is None else format_money(core_purchase.remaining_amount),
             "amount_due": "0.00" if core_purchase is None else format_money(core_purchase.remaining_amount),
+            **trial,
         }
     if Decimal(core_purchase.remaining_amount or 0) <= 0 and core_purchase.renewal_due_at:
         renewal_overdue_days = max((date.today() - core_purchase.renewal_due_at).days, 0)
@@ -326,6 +410,7 @@ def license_status_payload(organization: Organization | None) -> dict:
                 "amount_due": format_money(annual_due),
                 "renewalDueAt": format_date(core_purchase.renewal_due_at),
                 "renewal_due_at": format_date(core_purchase.renewal_due_at),
+                **trial,
             }
     overdue_days = 0
     if core_purchase.next_installment_due_at and core_purchase.remaining_amount > 0:
@@ -340,6 +425,7 @@ def license_status_payload(organization: Organization | None) -> dict:
         "grace_days": 7,
         "amountDue": format_money(core_purchase.remaining_amount),
         "amount_due": format_money(core_purchase.remaining_amount),
+        **trial,
     }
 
 
@@ -658,16 +744,23 @@ def serialize_expense(expense: Expense) -> dict:
 
 def ensure_organization_wallets(organization: Organization) -> list[Wallet]:
     defaults = [
-        ("main", "کیف پول اصلی", Decimal("1000000")),
-        ("sms", "کیف پول پیامک", Decimal("1500000")),
+        ("main", "کیف پول اصلی", Decimal("0")),
+        ("sms", "کیف پول پیامک", Decimal("0")),
     ]
     wallets = []
     for key, name, threshold in defaults:
-        wallet, _ = Wallet.objects.get_or_create(
+        wallet, created = Wallet.objects.get_or_create(
             organization=organization,
             key=key,
-            defaults={"name": name, "balance": Decimal("15000000") if key == "sms" else Decimal("0"), "low_balance_threshold": threshold},
+            defaults={
+                "name": name,
+                "balance": Decimal("0"),
+                "low_balance_threshold": threshold,
+            },
         )
+        if not created and Decimal(wallet.low_balance_threshold) != threshold and Decimal(wallet.balance) == 0:
+            wallet.low_balance_threshold = threshold
+            wallet.save(update_fields=["low_balance_threshold"])
         wallets.append(wallet)
     return wallets
 

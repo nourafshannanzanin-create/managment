@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './base/IconlyIcon.vue'
 import { nextTick, ref, watch } from 'vue'
 
 const props = defineProps({
@@ -33,7 +34,7 @@ watch(
           @keydown.esc.stop.prevent="emit('close')"
         >
           <button class="icon-btn modal-close" type="button" aria-label="بستن پنجره" @click="emit('close')">
-            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            <IconlyIcon name="close" decorative />
           </button>
           <slot />
         </div>

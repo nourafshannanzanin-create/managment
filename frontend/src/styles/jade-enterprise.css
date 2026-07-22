@@ -1,0 +1,3343 @@
+/*
+  Pastel Jade Enterprise final override layer.
+  Auth and loading routes are intentionally excluded from app-shell selectors.
+*/
+
+html,
+body,
+#app {
+  background: #aeffea !important;
+}
+
+html:has(.app-shell:not(.is-auth-route)),
+body:has(.app-shell:not(.is-auth-route)),
+#app:has(.app-shell:not(.is-auth-route)) {
+  background: rgb(230, 242, 239) !important;
+}
+
+#app .app-shell:not(.is-auth-route) {
+  --bg: rgb(230, 242, 239);
+  --primary: #34908B;
+  --primary-strong: #2b7874;
+  --primary-container: #dcefec;
+  --on-primary: #ffffff;
+  --on-primary-container: #1f5c59;
+  --secondary: #3d7a8c;
+  --tertiary: #c8732a;
+  --surface: #f3f9f7;
+  --surface-strong: #f7fbfa;
+  --surface-soft: #dcefec;
+  --surface-muted: #d5ebe8;
+  --surface-container-low: #e4f4f2;
+  --surface-container-high: #d5ebe8;
+  --outline-variant: #b7cbc7;
+  --outline: #5f7a76;
+  --on-surface: #152523;
+  --on-surface-variant: #45605c;
+  --text: #152523;
+  --muted: #45605c;
+  --line: #b7cbc7;
+  --line-strong: #5f7a76;
+  --error: #c45a4a;
+  --danger: #c45a4a;
+  --danger-soft: rgba(196, 90, 74, 0.12);
+  --success: #1f7a72;
+  --success-soft: rgba(31, 122, 114, 0.12);
+  --warning: #b07a12;
+  --warning-soft: rgba(176, 122, 18, 0.14);
+  --shadow-soft: 0 10px 28px rgba(40, 110, 105, 0.1);
+  --shadow-strong: 0 18px 44px rgba(31, 92, 89, 0.14);
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 28px;
+  --sidebar-width: 280px;
+  --container-width: 1440px;
+  --button-primary-bg: #34908B;
+  --button-primary-hover: #2b7874;
+  --button-soft-bg: #dcefec;
+  --button-soft-hover: #d5e8f2;
+  --button-text: #191c1d;
+  display:flex !important;
+  flex-direction:row-reverse !important;
+  min-height:100vh !important;
+  direction:ltr !important;
+  color:var(--on-surface) !important;
+  background: rgb(230, 242, 239) !important;
+  background-image:none !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(input, textarea, select, button) {
+  font-family:var(--app-font-family) !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.shell-main, .shell-content) {
+  min-width:0 !important;
+  background:var(--bg) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shell-main {
+  flex:1 1 auto !important;
+  width:calc(100% - var(--sidebar-width)) !important;
+  min-height:100vh !important;
+  direction:rtl !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shell-content {
+  width:min(100%, var(--container-width)) !important;
+  margin:0 auto !important;
+  padding:32px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-shell {
+  width:100% !important;
+  max-width:var(--container-width) !important;
+  gap:24px !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.page-eyebrow, .topbar-eyebrow, .dashboard-section-kicker, .approval-surface-kicker, .section-kicker) {
+  color:var(--primary) !important;
+  font-weight:800 !important;
+  letter-spacing:0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(h1, h2, h3, h4, strong) {
+  color:var(--on-surface) !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(p, small, .page-header-description, .metric-label, .table-muted) {
+  color:var(--on-surface-variant) !important;
+}
+
+/* Sidebar */
+#app .app-shell:not(.is-auth-route) .shell-sidebar {
+  position:sticky !important;
+  top:0 !important;
+  flex:0 0 var(--sidebar-width) !important;
+  width:var(--sidebar-width) !important;
+  height:100vh !important;
+  padding:24px 16px !important;
+  display:grid !important;
+  grid-template-rows:auto auto minmax(0, 1fr) auto !important;
+  gap:16px !important;
+  direction:rtl !important;
+  background:var(--surface) !important;
+  border:0 !important;
+  border-right:0 !important;
+  box-shadow:var(--shadow-soft) !important;
+  overflow:hidden !important;
+  z-index:50 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-brand {
+  display:grid !important;
+  grid-template-columns:auto 1fr auto !important;
+  align-items:center !important;
+  gap:12px !important;
+  padding:8px 8px 18px !important;
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .brand-mark {
+  width:40px !important;
+  height:40px !important;
+  border-radius:12px !important;
+  color:var(--on-primary) !important;
+  background:var(--primary) !important;
+  box-shadow:none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .brand-mark .iconly-shell {
+  --iconly-filter: brightness(0) invert(1);
+}
+
+#app .app-shell:not(.is-auth-route) .brand-copy {
+  gap:2px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .brand-copy strong {
+  color:var(--primary) !important;
+  font-size:1.25rem !important;
+  font-weight:850 !important;
+  line-height:1.35 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .brand-copy small,
+#app .app-shell:not(.is-auth-route) .brand-subtitle {
+  color:var(--on-surface-variant) !important;
+  font-size:0.78rem !important;
+  line-height:1.5 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-section-label {
+  padding:0 16px !important;
+  color:var(--outline) !important;
+  font-size:10px !important;
+  font-weight:900 !important;
+  letter-spacing:0.12em !important;
+  text-transform:uppercase !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-nav {
+  display:flex !important;
+  flex-direction:column !important;
+  gap:4px !important;
+  padding:0 0 8px 4px !important;
+  overflow-y:auto !important;
+  scrollbar-width:thin !important;
+  scrollbar-color:var(--outline-variant) transparent !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-nav::-webkit-scrollbar {
+  width:4px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-nav::-webkit-scrollbar-thumb {
+  background:var(--outline-variant) !important;
+  border-radius:999px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link {
+  position:relative !important;
+  min-height:48px !important;
+  padding:0 16px !important;
+  display:flex !important;
+  align-items:center !important;
+  gap:12px !important;
+  color:var(--on-surface-variant) !important;
+  background:transparent !important;
+  border:0 !important;
+  border-right:4px solid transparent !important;
+  border-radius:12px 0 0 12px !important;
+  font-size:1rem !important;
+  font-weight:600 !important;
+  box-shadow:none !important;
+  transform:none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link:hover {
+  color:var(--on-surface) !important;
+  background:var(--surface-container-high) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link.is-active {
+  color:var(--primary) !important;
+  background:rgba(52, 144, 139, 0.1) !important;
+  border-right-color:var(--primary) !important;
+  font-weight:850 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link .iconly-shell {
+  --iconly-filter: brightness(0) saturate(100%) invert(26%) sepia(9%) saturate(516%) hue-rotate(104deg) brightness(94%) contrast(90%);
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link.is-active .iconly-shell,
+#app .app-shell:not(.is-auth-route) .nav-link:hover .iconly-shell {
+  --iconly-filter: brightness(0) saturate(100%) invert(36%) sepia(17%) saturate(697%) hue-rotate(104deg) brightness(91%) contrast(88%);
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link-badge {
+  margin-inline-start:auto !important;
+  min-width:22px !important;
+  height:22px !important;
+  padding:0 7px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border-radius:999px !important;
+  color:var(--on-primary) !important;
+  background:var(--primary) !important;
+  font-size:0.72rem !important;
+  font-weight:850 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-logout {
+  width:100% !important;
+  min-height:48px !important;
+  border-radius:14px !important;
+  color:var(--on-surface) !important;
+  background:var(--surface-container-high) !important;
+  border:0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-logout:hover {
+  color:var(--error) !important;
+  background:rgba(186, 26, 26, 0.1) !important;
+  border-color:transparent !important;
+}
+
+/* Topbar and page frame */
+#app .app-shell:not(.is-auth-route) .topbar-shell {
+  position:sticky !important;
+  top:0 !important;
+  z-index:40 !important;
+  padding:16px 32px !important;
+  display:grid !important;
+  gap:14px !important;
+  background:#f3f9f7 !important;
+  backdrop-filter:blur(14px) !important;
+  border:0 !important;
+  box-shadow:none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-main-row,
+#app .app-shell:not(.is-auth-route) .topbar-intro,
+#app .app-shell:not(.is-auth-route) .topbar-actions,
+#app .app-shell:not(.is-auth-route) .topbar-action-row {
+  display:flex !important;
+  align-items:center !important;
+  gap:12px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-main-row {
+  justify-content:space-between !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-intro-copy strong {
+  font-size:clamp(1.35rem, 2vw, 2rem) !important;
+  font-weight:800 !important;
+  line-height:1.35 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-eyebrow,
+#app .app-shell:not(.is-auth-route) .page-eyebrow {
+  display:inline-flex !important;
+  width:fit-content !important;
+  align-items:center !important;
+  min-height:28px !important;
+  padding:0 12px !important;
+  border-radius:999px !important;
+  background:rgba(52, 144, 139, 0.1) !important;
+  color:var(--primary) !important;
+  font-size:0.78rem !important;
+  font-weight:850 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .hq-organization-select {
+  min-height:42px !important;
+  padding:0 12px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:8px !important;
+  border-radius:999px !important;
+  color:var(--on-surface-variant) !important;
+  background:var(--surface-container-low) !important;
+  border:0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .hq-organization-select:focus-within {
+  border-color:rgba(52, 144, 139, 0.35) !important;
+  box-shadow:0 0 0 4px rgba(52, 144, 139, 0.12) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-header {
+  align-items:flex-end !important;
+  padding:0 0 8px !important;
+  background:transparent !important;
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-header h1 {
+  color:var(--on-surface) !important;
+  font-size:clamp(1.7rem, 2.5vw, 2.5rem) !important;
+  font-weight:850 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-header-tools {
+  gap:10px !important;
+}
+
+/* Buttons, controls and chips */
+#app .app-shell:not(.is-auth-route) :where(.action-btn, .icon-btn, .filter-chip, .priority-chip, .dashboard-action-button, .attendance-tab) {
+  border:0 !important;
+  box-shadow:none !important;
+  transform:none !important;
+  transition:background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease !important;
+}
+
+#app .app-shell:not(.is-auth-route) .action-btn {
+  min-height:44px !important;
+  padding:0 18px !important;
+  gap:8px !important;
+  border-radius:14px !important;
+  font-weight:800 !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.action-btn.tone-primary, .tone-primary, .dashboard-action-button) {
+  color:var(--on-primary) !important;
+  background:var(--primary) !important;
+  border-color:var(--primary) !important;
+  box-shadow:var(--shadow-soft) !important;
+  background-image:none !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.action-btn.tone-primary, .tone-primary, .dashboard-action-button):hover:not(:disabled) {
+  background:var(--on-primary-container) !important;
+  border-color:var(--on-primary-container) !important;
+  box-shadow:0 8px 24px rgba(52, 144, 139, 0.16) !important;
+  transform:translateY(-1px) !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.action-btn.tone-soft, .tone-soft) {
+  color:var(--on-surface) !important;
+  background:var(--surface-container-high) !important;
+  border-color:transparent !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.action-btn.tone-soft, .tone-soft):hover:not(:disabled) {
+  color:var(--primary) !important;
+  background:var(--surface-container-low) !important;
+  border-color:transparent !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.action-btn.tone-danger, .tone-danger) {
+  color:var(--error) !important;
+  background:rgba(186, 26, 26, 0.1) !important;
+  border-color:rgba(186, 26, 26, 0.14) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .icon-btn {
+  width:42px !important;
+  height:42px !important;
+  display:inline-grid !important;
+  place-items:center !important;
+  border-radius:999px !important;
+  color:var(--on-surface-variant) !important;
+  background:transparent !important;
+  border-color:transparent !important;
+}
+
+#app .app-shell:not(.is-auth-route) .icon-btn:hover:not(:disabled) {
+  color:var(--primary) !important;
+  background:var(--surface-container-low) !important;
+  transform:none !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.filter-chip, .priority-chip, .meta-pill, .hero-kicker, .dashboard-stage-badge, .dashboard-focus-chip, .approval-type-pill, .user-role-pill) {
+  min-height:32px !important;
+  padding:0 13px !important;
+  border-radius:999px !important;
+  color:var(--on-surface-variant) !important;
+  background:var(--surface-container-low) !important;
+  border:0 !important;
+  font-weight:800 !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.filter-chip.is-active, .priority-chip.is-active, .meta-pill.strong) {
+  color:var(--primary) !important;
+  background:rgba(52, 144, 139, 0.1) !important;
+  border-color:transparent !important;
+}
+
+/* Fields and filters */
+#app .app-shell:not(.is-auth-route) :where(.field-shell, .search-shell, .filter-input, .filter-select, .shamsi-picker-input-wrap) {
+  min-height:48px !important;
+  padding:10px 14px !important;
+  border-radius:12px !important;
+  color:var(--on-surface) !important;
+  background:var(--surface-container-low) !important;
+  border:0 !important;
+  box-shadow:none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .search-shell,
+#app .app-shell:not(.is-auth-route) .page-header-search {
+  border-radius:999px !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.field-shell, .search-shell, .filter-input, .filter-select, .shamsi-picker-input-wrap):focus-within {
+  background:var(--surface) !important;
+  border-color:transparent !important;
+  box-shadow:0 0 0 4px rgba(52, 144, 139, 0.14) !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.field-shell > span, label > span) {
+  color:var(--on-surface-variant) !important;
+  font-size:0.78rem !important;
+  font-weight:800 !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(input, textarea, select) {
+  color:var(--on-surface) !important;
+  background:transparent !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(input, textarea, select)::placeholder {
+  color:rgba(65, 72, 69, 0.58) !important;
+}
+
+#app .app-shell:not(.is-auth-route) textarea {
+  min-height:118px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .filter-toolbar,
+#app .app-shell:not(.is-auth-route) .page-filters,
+#app .app-shell:not(.is-auth-route) .users-toolbar-primary,
+#app .app-shell:not(.is-auth-route) .attendance-toolbar {
+  gap:14px !important;
+}
+
+/* Surfaces and cards */
+#app .app-shell:not(.is-auth-route) .surface-block,
+#app .app-shell:not(.is-auth-route) .surface-inline,
+#app .app-shell:not(.is-auth-route) .metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-metrics-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-actions-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-action-card,
+#app .app-shell:not(.is-auth-route) .table-shell,
+#app .app-shell:not(.is-auth-route) .list-card,
+#app .app-shell:not(.is-auth-route) .user-card,
+#app .app-shell:not(.is-auth-route) .compact-user-card,
+#app .app-shell:not(.is-auth-route) .approval-card,
+#app .app-shell:not(.is-auth-route) .report-card,
+#app .app-shell:not(.is-auth-route) .wallet-hero,
+#app .app-shell:not(.is-auth-route) .wallet-summary-card,
+#app .app-shell:not(.is-auth-route) .wallet-panel,
+#app .app-shell:not(.is-auth-route) .support-hero,
+#app .app-shell:not(.is-auth-route) .support-panel,
+#app .app-shell:not(.is-auth-route) .attendance-hero,
+#app .app-shell:not(.is-auth-route) .attendance-user-card,
+#app .app-shell:not(.is-auth-route) .attendance-feed,
+#app .app-shell:not(.is-auth-route) .attendance-report-panel,
+#app .app-shell:not(.is-auth-route) .report-table-card,
+#app .app-shell:not(.is-auth-route) .department-card,
+#app .app-shell:not(.is-auth-route) .settings-access-table,
+#app .app-shell:not(.is-auth-route) .access-selection-row,
+#app .app-shell:not(.is-auth-route) .access-denied-card,
+#app .app-shell:not(.is-auth-route) .recipient-card,
+#app .app-shell:not(.is-auth-route) .approval-surface,
+#app .app-shell:not(.is-auth-route) .approval-meta-card,
+#app .app-shell:not(.is-auth-route) .approval-status-panel,
+#app .app-shell:not(.is-auth-route) .user-hero,
+#app .app-shell:not(.is-auth-route) .user-meta-card,
+#app .app-shell:not(.is-auth-route) .user-status-panel,
+#app .app-shell:not(.is-auth-route) .user-form-panel,
+#app .app-shell:not(.is-auth-route) .user-finance-panel,
+#app .app-shell:not(.is-auth-route) .cloud-panel,
+#app .app-shell:not(.is-auth-route) .hq-panel,
+#app .app-shell:not(.is-auth-route) .quick-action-card,
+#app .app-shell:not(.is-auth-route) .pipeline-card,
+#app .app-shell:not(.is-auth-route) .insight-card,
+#app .app-shell:not(.is-auth-route) .report-card-modern,
+#app .app-shell:not(.is-auth-route) .topbar-shell {
+  background:#f3f9f7 !important;
+  background-image:none !important;
+  border:0 !important;
+  border-radius:24px !important;
+  box-shadow:0 4px 20px rgba(0, 0, 0, 0.04) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-shell {
+  border-radius:0 !important;
+  border-left:0 !important;
+  border-right:0 !important;
+  border-top:0 !important;
+  border:0 !important;
+  background:#f3f9f7 !important;
+  backdrop-filter:blur(12px) !important;
+  -webkit-backdrop-filter:blur(12px) !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.surface-block, .dashboard-stage-panel, .dashboard-metrics-panel, .dashboard-actions-panel, .wallet-panel, .support-panel, .attendance-report-panel) {
+  padding:24px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-grid {
+  gap:24px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card {
+  position:relative !important;
+  overflow:hidden !important;
+  min-height:150px !important;
+  padding:24px !important;
+  border-radius:20px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card::after,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card::after {
+  content:'' !important;
+  position:absolute !important;
+  inset-inline:0 !important;
+  bottom:0 !important;
+  height:4px !important;
+  background:rgba(52, 144, 139, 0.45) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card.warning::after,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card.warning::after,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card.is-warning::after {
+  background:rgba(116, 91, 0, 0.45) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card.danger::after,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card.danger::after,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card.is-danger::after {
+  background:rgba(186, 26, 26, 0.45) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card.info::after,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card.info::after,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card.is-info::after {
+  background:rgba(66, 90, 167, 0.45) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card strong,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-value,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-copy strong {
+  color:var(--on-surface) !important;
+  font-size:clamp(2rem, 3vw, 2.5rem) !important;
+  font-weight:900 !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.approval-metric-icon, .dashboard-metric-icon, .dashboard-summary-icon, .user-meta-icon, .approval-meta-icon, .attendance-avatar, .user-avatar) {
+  color:var(--primary) !important;
+  background:var(--surface-container-low) !important;
+  border:0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-stage-panel {
+  position:relative !important;
+  overflow:hidden !important;
+  padding:32px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-stage-panel::before {
+  content:'' !important;
+  position:absolute !important;
+  width:260px !important;
+  height:260px !important;
+  top:-120px !important;
+  left:-100px !important;
+  border-radius:50% !important;
+  background:rgba(52, 144, 139, 0.06) !important;
+  filter:blur(18px) !important;
+  pointer-events:none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-stage-copy,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-summary,
+#app .app-shell:not(.is-auth-route) .dashboard-focus-ribbon {
+  position:relative !important;
+  z-index:1 !important;
+}
+
+/* Tables */
+#app .app-shell:not(.is-auth-route) .table-shell,
+#app .app-shell:not(.is-auth-route) .attendance-table-wrap,
+#app .app-shell:not(.is-auth-route) .report-table-wrap {
+  overflow:auto !important;
+  border-radius:20px !important;
+  background:var(--surface) !important;
+  border:0 !important;
+  box-shadow:var(--shadow-soft) !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.data-table, .attendance-report-table) {
+  width:100% !important;
+  border-collapse:collapse !important;
+  color:var(--on-surface) !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.data-table th, .data-table td, .attendance-report-table th, .attendance-report-table td) {
+  padding:15px 18px !important;
+  border-bottom:1px solid rgba(192, 200, 195, 0.72) !important;
+  text-align:right !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.data-table th, .attendance-report-table th) {
+  color:var(--on-surface-variant) !important;
+  background:var(--surface-container-low) !important;
+  font-size:0.76rem !important;
+  font-weight:850 !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.data-table tr:last-child td, .attendance-report-table tr:last-child td) {
+  border-bottom:0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.table-click-row:hover, .table-click-row:focus-visible, .access-selection-row:hover) {
+  background:rgba(52, 144, 139, 0.07) !important;
+  box-shadow:none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .table-link {
+  color:var(--primary) !important;
+  font-weight:850 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .table-empty {
+  color:var(--on-surface-variant) !important;
+  background:var(--surface) !important;
+}
+
+/* Badges and semantic accents */
+#app .app-shell:not(.is-auth-route) .status-badge {
+  min-height:30px !important;
+  padding:0 12px !important;
+  border-radius:999px !important;
+  font-size:0.74rem !important;
+  font-weight:850 !important;
+  color:var(--secondary) !important;
+  background:rgba(66, 90, 167, 0.1) !important;
+  border:0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .status-badge.is-success,
+#app .app-shell:not(.is-auth-route) .status-badge.success,
+#app .app-shell:not(.is-auth-route) .status-badge.approved {
+  color:var(--primary) !important;
+  background:rgba(52, 144, 139, 0.1) !important;
+  border-color:rgba(52, 144, 139, 0.15) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .status-badge.is-warning,
+#app .app-shell:not(.is-auth-route) .status-badge.warning,
+#app .app-shell:not(.is-auth-route) .status-badge.pending {
+  color:var(--tertiary) !important;
+  background:rgba(116, 91, 0, 0.1) !important;
+  border-color:rgba(116, 91, 0, 0.14) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .status-badge.is-danger,
+#app .app-shell:not(.is-auth-route) .status-badge.danger,
+#app .app-shell:not(.is-auth-route) .status-badge.rejected {
+  color:var(--error) !important;
+  background:rgba(186, 26, 26, 0.1) !important;
+  border-color:rgba(186, 26, 26, 0.14) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .global-sms-warning,
+#app .app-shell:not(.is-auth-route) .error-notice,
+#app .app-shell:not(.is-auth-route) .attendance-alert {
+  border-radius:16px !important;
+  border:0 !important;
+  background:#fff7f6 !important;
+  color:var(--error) !important;
+  box-shadow:var(--shadow-soft) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .global-trial-banner {
+  background:#34908B !important;
+  color:#ffffff !important;
+  box-shadow:none !important;
+  border:0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .global-trial-banner__fill {
+  background:#ffffff !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-alert.is-success {
+  border-color:rgba(52, 144, 139, 0.16) !important;
+  background:rgba(52, 144, 139, 0.08) !important;
+  color:var(--primary) !important;
+}
+
+/* Wallet, support, attendance, user and approval detail polish */
+#app .app-shell:not(.is-auth-route) :where(.wallet-hero, .support-hero, .attendance-hero, .approval-hero, .user-hero) {
+  position:relative !important;
+  overflow:hidden !important;
+  padding:28px !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.wallet-hero, .support-hero, .attendance-hero, .approval-hero, .user-hero)::before {
+  content:'' !important;
+  position:absolute !important;
+  inset:auto auto -90px -90px !important;
+  width:220px !important;
+  height:220px !important;
+  border-radius:50% !important;
+  background:rgba(52, 144, 139, 0.06) !important;
+  filter:blur(14px) !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.compact-user-card, .attendance-user-card, .recipient-card, .department-card, .dashboard-action-card, .list-card) {
+  border-radius:18px !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.recipient-card.is-selected, .access-selection-row.is-selected, .check-tile.is-checked) {
+  border-color:rgba(52, 144, 139, 0.42) !important;
+  background:rgba(52, 144, 139, 0.08) !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.alphabet-strip, .dashboard-focus-ribbon, .attendance-tabs) {
+  border-radius:999px !important;
+  background:var(--surface-container-low) !important;
+  border:0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-tab.is-active {
+  color:var(--primary) !important;
+  background:var(--surface) !important;
+  border-color:transparent !important;
+  box-shadow:var(--shadow-soft) !important;
+}
+
+/* Mobile navigation */
+#app .app-shell:not(.is-auth-route) .mobile-topbar,
+#app .app-shell:not(.is-auth-route) .mobile-bottom-nav {
+  background:#f3f9f7 !important;
+  backdrop-filter:blur(14px) !important;
+  border-color:transparent !important;
+  box-shadow:var(--shadow-soft) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .mobile-bottom-nav a,
+#app .app-shell:not(.is-auth-route) .mobile-bottom-nav button {
+  color:var(--on-surface-variant) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .mobile-bottom-nav .is-active {
+  color:var(--primary) !important;
+  background:rgba(52, 144, 139, 0.1) !important;
+}
+
+/* Teleported modals: deliberately not scoped to #app because BaseModal teleports to body. */
+.modal-layer {
+  background:rgba(25, 28, 29, 0.24) !important;
+  backdrop-filter:blur(8px) !important;
+}
+
+.modal-shell {
+  --primary: #34908B;
+  --primary-strong: #2b7874;
+  --on-primary: #ffffff;
+  --surface: #f3f9f7;
+  --surface-container-low: #e4f4f2;
+  --surface-container-high: #d5ebe8;
+  --outline-variant: #b7cbc7;
+  --outline: #5f7a76;
+  --on-surface: #152523;
+  --on-surface-variant: #45605c;
+  --error: #c45a4a;
+  --danger: #c45a4a;
+  --danger-soft: rgba(196, 90, 74, 0.12);
+  --shadow-soft: 0 10px 28px rgba(40, 110, 105, 0.1);
+  --shadow-strong: 0 18px 44px rgba(31, 92, 89, 0.14);
+  color:var(--on-surface) !important;
+  background:var(--surface) !important;
+  border:0 !important;
+  border-radius:24px !important;
+  box-shadow:var(--shadow-strong) !important;
+  background-image:none !important;
+}
+
+.modal-shell :where(.modal-headline h2, h2, h3, strong) {
+  color:var(--on-surface) !important;
+}
+
+.modal-shell :where(.page-eyebrow, .approval-surface-kicker) {
+  display:inline-flex !important;
+  width:fit-content !important;
+  align-items:center !important;
+  min-height:28px !important;
+  padding:0 12px !important;
+  border-radius:999px !important;
+  color:var(--primary) !important;
+  background:rgba(52, 144, 139, 0.12) !important;
+  font-size:0.78rem !important;
+  font-weight:850 !important;
+}
+
+.modal-shell :where(.surface-inline, .modal-section, .approval-hero, .approval-surface, .approval-meta-card, .approval-status-panel, .signature-readiness-card, .stamp-preview-frame, .stamp-upload-shell, .upload-pad, .file-row, .recipient-card) {
+  background:var(--surface) !important;
+  border:0 !important;
+  border-radius:18px !important;
+  box-shadow:var(--shadow-soft) !important;
+}
+
+.modal-shell :where(.field-shell, .search-shell) {
+  min-height:48px !important;
+  padding:10px 14px !important;
+  border-radius:12px !important;
+  color:var(--on-surface) !important;
+  background:var(--surface-container-low) !important;
+  border:0 !important;
+  box-shadow:none !important;
+}
+
+.modal-shell .search-shell {
+  border-radius:999px !important;
+}
+
+.modal-shell :where(.field-shell, .search-shell):focus-within {
+  background:var(--surface) !important;
+  border-color:transparent !important;
+  box-shadow:0 0 0 4px rgba(52, 144, 139, 0.14) !important;
+}
+
+.modal-shell :where(input, textarea, select) {
+  color:var(--on-surface) !important;
+  background:transparent !important;
+}
+
+.modal-shell :where(input, textarea, select)::placeholder {
+  color:rgba(65, 72, 69, 0.58) !important;
+}
+
+.modal-shell :where(.action-btn, .icon-btn, .filter-chip, .signature-mode-chip) {
+  border:0 !important;
+  box-shadow:none !important;
+  transform:none !important;
+}
+
+.modal-shell .action-btn {
+  min-height:44px !important;
+  padding:0 18px !important;
+  border-radius:14px !important;
+  font-weight:800 !important;
+}
+
+.modal-shell :where(.action-btn.tone-primary, .tone-primary) {
+  color:var(--on-primary) !important;
+  background:var(--primary) !important;
+  border-color:var(--primary) !important;
+  box-shadow:var(--shadow-soft) !important;
+  background-image:none !important;
+}
+
+.modal-shell :where(.action-btn.tone-soft, .tone-soft) {
+  color:var(--on-surface) !important;
+  background:var(--surface-container-high) !important;
+  border-color:transparent !important;
+}
+
+.modal-shell :where(.action-btn.tone-danger, .tone-danger) {
+  color:var(--error) !important;
+  background:rgba(186, 26, 26, 0.1) !important;
+  border-color:rgba(186, 26, 26, 0.14) !important;
+}
+
+.modal-shell .icon-btn {
+  width:42px !important;
+  height:42px !important;
+  border-radius:999px !important;
+  color:var(--on-surface-variant) !important;
+  background:var(--surface-container-low) !important;
+}
+
+.modal-shell :where(.filter-chip.is-active, .signature-mode-chip.is-active, .recipient-card.is-selected) {
+  color:var(--primary) !important;
+  background:rgba(52, 144, 139, 0.1) !important;
+  border-color:transparent !important;
+}
+
+.modal-shell .iconly-shell {
+  --iconly-filter: brightness(0) saturate(100%) invert(36%) sepia(17%) saturate(697%) hue-rotate(104deg) brightness(91%) contrast(88%);
+}
+
+@media (max-width: 1220px) {
+  #app .app-shell:not(.is-auth-route) .shell-content {
+    padding:24px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-shell {
+    padding-inline:24px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.metric-grid-4, .dashboard-metrics-grid, .report-summary-grid) {
+    grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 920px) {
+  #app .app-shell:not(.is-auth-route) {
+    display:block !important;
+    direction:rtl !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .shell-main {
+    width:100% !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .shell-sidebar {
+    position:fixed !important;
+    top:0 !important;
+    right:0 !important;
+    transform:translateX(105%) !important;
+    transition:transform 180ms ease !important;
+    box-shadow:var(--shadow-strong) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .shell-sidebar.is-open {
+    transform:translateX(0) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .shell-backdrop {
+    display:block !important;
+    position:fixed !important;
+    inset:0 !important;
+    z-index:45 !important;
+    background:rgba(25, 28, 29, 0.25) !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+    transition:opacity 180ms ease !important;
+    backdrop-filter:blur(4px) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .shell-backdrop.is-open {
+    opacity:1 !important;
+    pointer-events:auto !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-toggle,
+  #app .app-shell:not(.is-auth-route) .mobile-menu-trigger {
+    display:inline-grid !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-main-row,
+  #app .app-shell:not(.is-auth-route) .page-header {
+    align-items:stretch !important;
+    flex-direction:column !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-actions,
+  #app .app-shell:not(.is-auth-route) .topbar-action-row,
+  #app .app-shell:not(.is-auth-route) .page-header-tools {
+    width:100% !important;
+    justify-content:flex-start !important;
+    flex-wrap:wrap !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .page-filters {
+    grid-template-columns:1fr 1fr !important;
+  }
+}
+
+@media (max-width: 720px) {
+  #app .app-shell:not(.is-auth-route) .shell-content {
+    padding:16px 16px 88px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-shell {
+    padding:14px 16px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.surface-block, .dashboard-stage-panel, .dashboard-metrics-panel, .dashboard-actions-panel, .wallet-panel, .support-panel, .attendance-report-panel) {
+    padding:18px !important;
+    border-radius:20px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.metric-grid, .metric-grid-4, .dashboard-metrics-grid, .report-summary-grid, .user-directory-grid, .attendance-layout, .page-filters, .modal-grid.two-col) {
+    grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-intro-copy strong {
+    font-size:1.35rem !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .action-btn {
+    width:100% !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .icon-btn,
+  #app .app-shell:not(.is-auth-route) .mobile-menu-trigger {
+    width:40px !important;
+    min-width:40px !important;
+  }
+
+  .modal-shell {
+    width:calc(100vw - 24px) !important;
+    max-height:calc(100vh - 24px) !important;
+    border-radius:20px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  #app .app-shell:not(.is-auth-route) .shell-sidebar {
+    width:min(280px, 88vw) !important;
+    flex-basis:min(280px, 88vw) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .shell-content {
+    padding-inline:12px !important;
+  }
+}
+
+
+/* White -> #f3f9f7 + no borders on filled surfaces */
+#app .app-shell:not(.is-auth-route) .shell-sidebar,
+#app .app-shell:not(.is-auth-route) .topbar-shell,
+#app .app-shell:not(.is-auth-route) .surface-block,
+#app .app-shell:not(.is-auth-route) .surface-inline,
+#app .app-shell:not(.is-auth-route) .metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-metrics-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-actions-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-action-card,
+#app .app-shell:not(.is-auth-route) .table-shell,
+#app .app-shell:not(.is-auth-route) .list-card,
+#app .app-shell:not(.is-auth-route) .user-card,
+#app .app-shell:not(.is-auth-route) .compact-user-card,
+#app .app-shell:not(.is-auth-route) .approval-card,
+#app .app-shell:not(.is-auth-route) .report-card,
+#app .app-shell:not(.is-auth-route) .wallet-hero,
+#app .app-shell:not(.is-auth-route) .wallet-summary-card,
+#app .app-shell:not(.is-auth-route) .wallet-panel,
+#app .app-shell:not(.is-auth-route) .support-hero,
+#app .app-shell:not(.is-auth-route) .support-panel,
+#app .app-shell:not(.is-auth-route) .attendance-hero,
+#app .app-shell:not(.is-auth-route) .attendance-user-card,
+#app .app-shell:not(.is-auth-route) .attendance-feed,
+#app .app-shell:not(.is-auth-route) .attendance-report-panel,
+#app .app-shell:not(.is-auth-route) .report-table-card,
+#app .app-shell:not(.is-auth-route) .department-card,
+#app .app-shell:not(.is-auth-route) .settings-access-table,
+#app .app-shell:not(.is-auth-route) .access-selection-row,
+#app .app-shell:not(.is-auth-route) .recipient-card,
+#app .app-shell:not(.is-auth-route) .approval-surface,
+#app .app-shell:not(.is-auth-route) .approval-meta-card,
+#app .app-shell:not(.is-auth-route) .approval-status-panel,
+#app .app-shell:not(.is-auth-route) .user-hero,
+#app .app-shell:not(.is-auth-route) .user-meta-card,
+#app .app-shell:not(.is-auth-route) .user-status-panel,
+#app .app-shell:not(.is-auth-route) .user-form-panel,
+#app .app-shell:not(.is-auth-route) .user-finance-panel,
+#app .app-shell:not(.is-auth-route) .cloud-panel,
+#app .app-shell:not(.is-auth-route) .hq-panel,
+#app .app-shell:not(.is-auth-route) .quick-action-card,
+#app .app-shell:not(.is-auth-route) .pipeline-card,
+#app .app-shell:not(.is-auth-route) .insight-card,
+#app .app-shell:not(.is-auth-route) .report-card-modern,
+#app .app-shell:not(.is-auth-route) .field-shell,
+#app .app-shell:not(.is-auth-route) .search-shell,
+#app .app-shell:not(.is-auth-route) .filter-input,
+#app .app-shell:not(.is-auth-route) .filter-select,
+#app .app-shell:not(.is-auth-route) .shamsi-picker-input-wrap,
+#app .app-shell:not(.is-auth-route) .action-btn,
+#app .app-shell:not(.is-auth-route) .icon-btn,
+#app .app-shell:not(.is-auth-route) .filter-chip,
+#app .app-shell:not(.is-auth-route) .priority-chip,
+#app .app-shell:not(.is-auth-route) .status-badge,
+#app .app-shell:not(.is-auth-route) .meta-pill,
+#app .app-shell:not(.is-auth-route) .sidebar-logout,
+#app .app-shell:not(.is-auth-route) .mobile-topbar,
+#app .app-shell:not(.is-auth-route) .mobile-bottom-nav {
+  border: 0 !important;
+  border-color: transparent !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shell-sidebar,
+#app .app-shell:not(.is-auth-route) .topbar-shell,
+#app .app-shell:not(.is-auth-route) .surface-block,
+#app .app-shell:not(.is-auth-route) .metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-metrics-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-actions-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-action-card,
+#app .app-shell:not(.is-auth-route) .table-shell,
+#app .app-shell:not(.is-auth-route) .list-card,
+#app .app-shell:not(.is-auth-route) .user-card,
+#app .app-shell:not(.is-auth-route) .compact-user-card,
+#app .app-shell:not(.is-auth-route) .approval-card,
+#app .app-shell:not(.is-auth-route) .report-card,
+#app .app-shell:not(.is-auth-route) .wallet-panel,
+#app .app-shell:not(.is-auth-route) .support-panel,
+#app .app-shell:not(.is-auth-route) .attendance-report-panel,
+#app .app-shell:not(.is-auth-route) .cloud-panel,
+#app .app-shell:not(.is-auth-route) .hq-panel {
+  background: #f3f9f7 !important;
+  background-image: none !important;
+}
+
+.modal-shell {
+  --surface: #f3f9f7 !important;
+  background: #f3f9f7 !important;
+  border: 0 !important;
+}
+
+.modal-shell :where(.surface-inline, .modal-section, .approval-hero, .approval-surface, .approval-meta-card, .approval-status-panel, .signature-readiness-card, .stamp-preview-frame, .stamp-upload-shell, .upload-pad, .file-row, .recipient-card, .field-shell, .search-shell, .action-btn, .icon-btn, .filter-chip) {
+  border: 0 !important;
+}
+
+.modal-shell :where(.surface-inline, .modal-section, .approval-hero, .approval-surface, .approval-meta-card, .approval-status-panel, .signature-readiness-card, .stamp-preview-frame, .stamp-upload-shell, .upload-pad, .file-row, .recipient-card) {
+  background: #f3f9f7 !important;
+}
+
+/* Keep only the nav active indicator bar */
+#app .app-shell:not(.is-auth-route) .nav-link {
+  border: 0 !important;
+  border-right: 4px solid transparent !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link.is-active {
+  border-right: 4px solid var(--primary) !important;
+}
+
+/* Comfortable inner spacing for all content boxes */
+#app .app-shell:not(.is-auth-route) .surface-block,
+#app .app-shell:not(.is-auth-route) .surface-inline,
+#app .app-shell:not(.is-auth-route) .metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-metrics-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-actions-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-action-card,
+#app .app-shell:not(.is-auth-route) .dashboard-focus-chip,
+#app .app-shell:not(.is-auth-route) .table-shell,
+#app .app-shell:not(.is-auth-route) .list-card,
+#app .app-shell:not(.is-auth-route) .user-card,
+#app .app-shell:not(.is-auth-route) .compact-user-card,
+#app .app-shell:not(.is-auth-route) .approval-card,
+#app .app-shell:not(.is-auth-route) .report-card,
+#app .app-shell:not(.is-auth-route) .report-card-modern,
+#app .app-shell:not(.is-auth-route) .report-table-card,
+#app .app-shell:not(.is-auth-route) .wallet-hero,
+#app .app-shell:not(.is-auth-route) .wallet-summary-card,
+#app .app-shell:not(.is-auth-route) .wallet-panel,
+#app .app-shell:not(.is-auth-route) .support-hero,
+#app .app-shell:not(.is-auth-route) .support-panel,
+#app .app-shell:not(.is-auth-route) .attendance-hero,
+#app .app-shell:not(.is-auth-route) .attendance-user-card,
+#app .app-shell:not(.is-auth-route) .attendance-feed,
+#app .app-shell:not(.is-auth-route) .attendance-report-panel,
+#app .app-shell:not(.is-auth-route) .attendance-table-wrap,
+#app .app-shell:not(.is-auth-route) .report-table-wrap,
+#app .app-shell:not(.is-auth-route) .department-card,
+#app .app-shell:not(.is-auth-route) .settings-access-table,
+#app .app-shell:not(.is-auth-route) .settings-access-card,
+#app .app-shell:not(.is-auth-route) .access-selection-row,
+#app .app-shell:not(.is-auth-route) .access-denied-card,
+#app .app-shell:not(.is-auth-route) .recipient-card,
+#app .app-shell:not(.is-auth-route) .approval-surface,
+#app .app-shell:not(.is-auth-route) .approval-meta-card,
+#app .app-shell:not(.is-auth-route) .approval-status-panel,
+#app .app-shell:not(.is-auth-route) .approval-detail-card,
+#app .app-shell:not(.is-auth-route) .detail-card,
+#app .app-shell:not(.is-auth-route) .user-hero,
+#app .app-shell:not(.is-auth-route) .user-meta-card,
+#app .app-shell:not(.is-auth-route) .user-status-panel,
+#app .app-shell:not(.is-auth-route) .user-form-panel,
+#app .app-shell:not(.is-auth-route) .user-finance-panel,
+#app .app-shell:not(.is-auth-route) .cloud-panel,
+#app .app-shell:not(.is-auth-route) .hq-panel,
+#app .app-shell:not(.is-auth-route) .quick-action-card,
+#app .app-shell:not(.is-auth-route) .pipeline-card,
+#app .app-shell:not(.is-auth-route) .insight-card,
+#app .app-shell:not(.is-auth-route) .page-header {
+  padding: 24px !important;
+  box-sizing: border-box !important;
+}
+
+#app .app-shell:not(.is-auth-route) .section-label-row {
+  padding: 0 0 16px !important;
+  margin: 0 0 16px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .data-table th,
+#app .app-shell:not(.is-auth-route) .data-table td,
+#app .app-shell:not(.is-auth-route) .attendance-report-table th,
+#app .app-shell:not(.is-auth-route) .attendance-report-table td {
+  padding: 14px 16px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .field-shell,
+#app .app-shell:not(.is-auth-route) .search-shell,
+#app .app-shell:not(.is-auth-route) .filter-input,
+#app .app-shell:not(.is-auth-route) .filter-select,
+#app .app-shell:not(.is-auth-route) .shamsi-picker-input-wrap,
+#app .app-shell:not(.is-auth-route) .hq-organization-select {
+  padding: 12px 16px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .action-btn {
+  padding: 0 20px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .filter-field {
+  padding: 0 !important;
+}
+
+.modal-shell {
+  padding: 28px !important;
+}
+
+.modal-shell .surface-inline,
+.modal-shell .modal-section,
+.modal-shell .approval-hero,
+.modal-shell .approval-surface,
+.modal-shell .approval-meta-card,
+.modal-shell .approval-status-panel,
+.modal-shell .signature-readiness-card,
+.modal-shell .stamp-preview-frame,
+.modal-shell .stamp-upload-shell,
+.modal-shell .upload-pad,
+.modal-shell .file-row,
+.modal-shell .recipient-card,
+.modal-shell .check-tile {
+  padding: 18px !important;
+  box-sizing: border-box !important;
+}
+
+.modal-shell .field-shell,
+.modal-shell .search-shell {
+  padding: 12px 16px !important;
+}
+
+.modal-shell .action-btn {
+  padding: 0 20px !important;
+}
+
+@media (max-width: 760px) {
+  #app .app-shell:not(.is-auth-route) .surface-block,
+  #app .app-shell:not(.is-auth-route) .metric-card,
+  #app .app-shell:not(.is-auth-route) .dashboard-stage-panel,
+  #app .app-shell:not(.is-auth-route) .dashboard-metrics-panel,
+  #app .app-shell:not(.is-auth-route) .dashboard-actions-panel,
+  #app .app-shell:not(.is-auth-route) .table-shell,
+  #app .app-shell:not(.is-auth-route) .wallet-panel,
+  #app .app-shell:not(.is-auth-route) .support-panel,
+  #app .app-shell:not(.is-auth-route) .user-card,
+  #app .app-shell:not(.is-auth-route) .list-card,
+  #app .app-shell:not(.is-auth-route) .page-header {
+    padding: 18px !important;
+  }
+}
+
+/* Soulful color layer: jade-mint canvas + soft multi-hue accents */
+#app .app-shell:not(.is-auth-route) {
+  --bg: rgb(230, 242, 239);
+  --canvas: rgb(230, 242, 239);
+  --primary: #34908B;
+  --primary-strong: #2b7874;
+  --primary-container: #dcefec;
+  --on-primary: #ffffff;
+  --on-primary-container: #1f5c59;
+  --secondary: #3d7a8c;
+  --tertiary: #c8732a;
+  --success: #1f7a72;
+  --success-soft: rgba(31, 122, 114, 0.12);
+  --warning: #b07a12;
+  --warning-soft: rgba(176, 122, 18, 0.14);
+  --danger: #c45a4a;
+  --danger-soft: rgba(196, 90, 74, 0.12);
+  --accent-jade: #34908B;
+  --accent-jade-soft: #d7efe6;
+  --accent-blue: #3d7a8c;
+  --accent-blue-soft: #d5e8f2;
+  --accent-jade-main: #34908B;
+  --accent-jade-main-soft: #dcefec;
+  --accent-amber: #b07a12;
+  --accent-amber-soft: #fff0cc;
+  --accent-coral: #c45a4a;
+  --accent-coral-soft: #ffe3de;
+  --accent-teal: #1f7a72;
+  --accent-teal-soft: #d7f3ef;
+  --accent-orange: #c8732a;
+  --accent-orange-soft: #ffe6d1;
+  --surface: #f3f9f7;
+  --surface-strong: #f7fbfa;
+  --surface-soft: #dcefec;
+  --surface-muted: #d5ebe8;
+  --surface-container-low: #e4f4f2;
+  --surface-container-high: #d5ebe8;
+  --button-primary-bg: #34908B;
+  --button-primary-hover: #2b7874;
+  --button-soft-bg: #dcefec;
+  --button-soft-hover: #d5e8f2;
+  --shadow-soft: 0 10px 28px rgba(40, 110, 105, 0.1);
+  --shadow-strong: 0 18px 44px rgba(31, 92, 89, 0.14);
+}
+
+#app .app-shell:not(.is-auth-route) .shell-main,
+#app .app-shell:not(.is-auth-route) .shell-main > main,
+#app .app-shell:not(.is-auth-route) .shell-content,
+#app .app-shell:not(.is-auth-route) main.shell-content {
+  background: rgb(230, 242, 239) !important;
+  background-image: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shell-main::before,
+#app .app-shell:not(.is-auth-route) .shell-main::after {
+  content: none !important;
+  display: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shell-sidebar {
+  background: #f3f9f7 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-shell {
+  background: #f3f9f7 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .surface-block,
+#app .app-shell:not(.is-auth-route) .metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-metrics-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-actions-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-action-card,
+#app .app-shell:not(.is-auth-route) .table-shell,
+#app .app-shell:not(.is-auth-route) .list-card,
+#app .app-shell:not(.is-auth-route) .user-card,
+#app .app-shell:not(.is-auth-route) .compact-user-card,
+#app .app-shell:not(.is-auth-route) .approval-card,
+#app .app-shell:not(.is-auth-route) .report-card,
+#app .app-shell:not(.is-auth-route) .wallet-panel,
+#app .app-shell:not(.is-auth-route) .support-panel,
+#app .app-shell:not(.is-auth-route) .attendance-report-panel,
+#app .app-shell:not(.is-auth-route) .cloud-panel,
+#app .app-shell:not(.is-auth-route) .hq-panel,
+#app .app-shell:not(.is-auth-route) .pipeline-card,
+#app .app-shell:not(.is-auth-route) .insight-card,
+#app .app-shell:not(.is-auth-route) .quick-action-card,
+#app .app-shell:not(.is-auth-route) .report-card-modern,
+#app .app-shell:not(.is-auth-route) .report-table-card,
+#app .app-shell:not(.is-auth-route) .department-card,
+#app .app-shell:not(.is-auth-route) .user-meta-card,
+#app .app-shell:not(.is-auth-route) .user-form-panel,
+#app .app-shell:not(.is-auth-route) .user-status-panel,
+#app .app-shell:not(.is-auth-route) .user-finance-panel,
+#app .app-shell:not(.is-auth-route) .wallet-summary-card,
+#app .app-shell:not(.is-auth-route) .attendance-user-card,
+#app .app-shell:not(.is-auth-route) .attendance-feed {
+  background: #f3f9f7 !important;
+  box-shadow: 0 10px 28px rgba(40, 110, 105, 0.1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link.is-active {
+  color: #34908B !important;
+  background: rgba(52, 144, 139, 0.12) !important;
+  border-right-color: #34908B !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link:hover {
+  background: rgba(63, 95, 191, 0.08) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-eyebrow,
+#app .app-shell:not(.is-auth-route) .topbar-eyebrow,
+#app .app-shell:not(.is-auth-route) .dashboard-section-kicker,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-badge {
+  color: #34908B !important;
+  background: rgba(52, 144, 139, 0.12) !important;
+  border-radius: 999px !important;
+  padding: 4px 12px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .action-btn.tone-primary,
+#app .app-shell:not(.is-auth-route) .tone-primary,
+#app .app-shell:not(.is-auth-route) .dashboard-action-button {
+  background: #34908B !important;
+  box-shadow: 0 10px 24px rgba(52, 144, 139, 0.22) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .action-btn.tone-primary:hover:not(:disabled),
+#app .app-shell:not(.is-auth-route) .tone-primary:hover:not(:disabled),
+#app .app-shell:not(.is-auth-route) .dashboard-action-button:hover:not(:disabled) {
+  background: #2b7874 !important;
+  box-shadow: 0 14px 30px rgba(52, 144, 139, 0.28) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .action-btn.tone-soft,
+#app .app-shell:not(.is-auth-route) .tone-soft,
+#app .app-shell:not(.is-auth-route) .sidebar-logout {
+  background: #dcefec !important;
+  color: #1f5c59 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .action-btn.tone-soft:hover:not(:disabled),
+#app .app-shell:not(.is-auth-route) .tone-soft:hover:not(:disabled) {
+  background: #d5e8f2 !important;
+  color: #3d7a8c !important;
+}
+
+#app .app-shell:not(.is-auth-route) .action-btn.tone-danger,
+#app .app-shell:not(.is-auth-route) .tone-danger {
+  background: #ffe3de !important;
+  color: #c45a4a !important;
+}
+
+#app .app-shell:not(.is-auth-route) .field-shell,
+#app .app-shell:not(.is-auth-route) .search-shell,
+#app .app-shell:not(.is-auth-route) .filter-input,
+#app .app-shell:not(.is-auth-route) .filter-select,
+#app .app-shell:not(.is-auth-route) .shamsi-picker-input-wrap,
+#app .app-shell:not(.is-auth-route) .hq-organization-select {
+  background: #e4f4f2 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .field-shell:focus-within,
+#app .app-shell:not(.is-auth-route) .search-shell:focus-within,
+#app .app-shell:not(.is-auth-route) .filter-input:focus,
+#app .app-shell:not(.is-auth-route) .filter-select:focus,
+#app .app-shell:not(.is-auth-route) .shamsi-picker-input-wrap:focus-within {
+  background: #f7fbfa !important;
+  box-shadow: 0 0 0 4px rgba(52, 144, 139, 0.16) !important;
+}
+
+/* Soft multi-hue metric / summary cards */
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 1),
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 1),
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card:nth-child(6n + 1),
+#app .app-shell:not(.is-auth-route) .wallet-summary-card:nth-child(6n + 1) {
+  background: #dcefec !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 2),
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 2),
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card:nth-child(6n + 2),
+#app .app-shell:not(.is-auth-route) .wallet-summary-card:nth-child(6n + 2) {
+  background: #d5e8f2 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 3),
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 3),
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card:nth-child(6n + 3),
+#app .app-shell:not(.is-auth-route) .wallet-summary-card:nth-child(6n + 3) {
+  background: #d7efe6 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 4),
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 4),
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card:nth-child(6n + 4),
+#app .app-shell:not(.is-auth-route) .wallet-summary-card:nth-child(6n + 4) {
+  background: #fff0cc !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 5),
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 5),
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card:nth-child(6n + 5),
+#app .app-shell:not(.is-auth-route) .wallet-summary-card:nth-child(6n + 5) {
+  background: #ffe6d1 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 6),
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 6),
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card:nth-child(6n + 6),
+#app .app-shell:not(.is-auth-route) .wallet-summary-card:nth-child(6n + 6) {
+  background: #ffe3de !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 1)::after,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 1)::after {
+  background: #34908B !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 2)::after,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 2)::after {
+  background: #3d7a8c !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 3)::after,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 3)::after {
+  background: #1f7a72 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 4)::after,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 4)::after {
+  background: #b07a12 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 5)::after,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 5)::after {
+  background: #c8732a !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 6)::after,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 6)::after {
+  background: #c45a4a !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-metric-icon,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-icon,
+#app .app-shell:not(.is-auth-route) .approval-metric-icon,
+#app .app-shell:not(.is-auth-route) .user-avatar,
+#app .app-shell:not(.is-auth-route) .attendance-avatar,
+#app .app-shell:not(.is-auth-route) .brand-mark {
+  background: #dcefec !important;
+  color: #34908B !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 2) .dashboard-metric-icon,
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 2) .iconly-shell,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card:nth-child(6n + 2) .dashboard-summary-icon {
+  background: #d5e8f2 !important;
+  color: #3d7a8c !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 3) .dashboard-metric-icon,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card:nth-child(6n + 3) .dashboard-summary-icon {
+  background: #d7efe6 !important;
+  color: #1f7a72 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 4) .dashboard-metric-icon,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card:nth-child(6n + 4) .dashboard-summary-icon {
+  background: #fff0cc !important;
+  color: #b07a12 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .status-badge {
+  color: #3d7a8c !important;
+  background: #d5e8f2 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .status-badge.is-success,
+#app .app-shell:not(.is-auth-route) .status-badge.success,
+#app .app-shell:not(.is-auth-route) .status-badge.approved {
+  color: #1f7a72 !important;
+  background: #d7efe6 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .status-badge.is-warning,
+#app .app-shell:not(.is-auth-route) .status-badge.warning,
+#app .app-shell:not(.is-auth-route) .status-badge.pending {
+  color: #b07a12 !important;
+  background: #fff0cc !important;
+}
+
+#app .app-shell:not(.is-auth-route) .status-badge.is-danger,
+#app .app-shell:not(.is-auth-route) .status-badge.danger,
+#app .app-shell:not(.is-auth-route) .status-badge.rejected {
+  color: #c45a4a !important;
+  background: #ffe3de !important;
+}
+
+#app .app-shell:not(.is-auth-route) .filter-chip.is-active,
+#app .app-shell:not(.is-auth-route) .priority-chip.is-active,
+#app .app-shell:not(.is-auth-route) .report-tab.is-active {
+  color: #34908B !important;
+  background: #dcefec !important;
+}
+
+#app .app-shell:not(.is-auth-route) .filter-chip,
+#app .app-shell:not(.is-auth-route) .priority-chip,
+#app .app-shell:not(.is-auth-route) .meta-pill {
+  background: #e4f4f2 !important;
+  color: #1f5c59 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link-badge {
+  background: #34908B !important;
+  color: #fff !important;
+}
+
+#app .app-shell:not(.is-auth-route) .table-click-row:hover,
+#app .app-shell:not(.is-auth-route) .access-selection-row:hover {
+  background: rgba(52, 144, 139, 0.08) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .data-table th {
+  background: #dcefec !important;
+  color: #1f5c59 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-stage-panel::before {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-hero,
+#app .app-shell:not(.is-auth-route) .support-hero,
+#app .app-shell:not(.is-auth-route) .attendance-hero,
+#app .app-shell:not(.is-auth-route) .user-hero {
+  background: #dcefec !important;
+}
+
+.modal-shell {
+  background: #f3f9f7 !important;
+  box-shadow: 0 18px 44px rgba(31, 92, 89, 0.14) !important;
+}
+
+.modal-shell .action-btn.tone-primary,
+.modal-shell .tone-primary {
+  background: #34908B !important;
+  color: #fff !important;
+}
+
+.modal-shell .action-btn.tone-soft,
+.modal-shell .tone-soft {
+  background: #dcefec !important;
+  color: #1f5c59 !important;
+}
+
+.modal-shell .field-shell,
+.modal-shell .search-shell {
+  background: #e4f4f2 !important;
+}
+
+.modal-shell .page-eyebrow,
+.modal-shell .approval-surface-kicker {
+  color: #34908B !important;
+  background: rgba(52, 144, 139, 0.12) !important;
+}
+
+/* Panel hue rhythm ? soft tints so sections feel distinct, not gray */
+
+#app .app-shell:not(.is-auth-route) .dashboard-metrics-panel,
+#app .app-shell:not(.is-auth-route) .page-shell > .surface-block:nth-child(3n + 2),
+#app .app-shell:not(.is-auth-route) .page-shell > section:nth-child(3n + 2) {
+  background: #f7fbfa !important;
+  box-shadow: 0 12px 32px rgba(63, 95, 191, 0.1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-actions-panel,
+#app .app-shell:not(.is-auth-route) .page-shell > .surface-block:nth-child(3n + 3),
+#app .app-shell:not(.is-auth-route) .page-shell > section:nth-child(3n + 3) {
+  background: #f7fbfa !important;
+  box-shadow: 0 12px 32px rgba(31, 122, 114, 0.1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .table-shell,
+#app .app-shell:not(.is-auth-route) .list-card,
+#app .app-shell:not(.is-auth-route) .report-table-card {
+  background: #f7fbfa !important;
+  box-shadow: 0 12px 30px rgba(40, 110, 105, 0.09) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-header {
+  background: #f3f9f7 !important;
+  box-shadow: 0 10px 28px rgba(40, 110, 105, 0.08) !important;
+  border-radius: 24px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .brand-mark,
+#app .app-shell:not(.is-auth-route) .sidebar-brand-mark {
+  background: #34908B !important;
+  color: #fff !important;
+  box-shadow: 0 8px 20px rgba(52, 144, 139, 0.28) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link .iconly-shell {
+  color: #2f6f6a !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link.is-active .iconly-shell {
+  color: #34908B !important;
+  background: rgba(52, 144, 139, 0.14) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-action-card:nth-child(4n + 1),
+#app .app-shell:not(.is-auth-route) .quick-action-card:nth-child(4n + 1),
+#app .app-shell:not(.is-auth-route) .user-card:nth-child(4n + 1) {
+  background: #dcefec !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-action-card:nth-child(4n + 2),
+#app .app-shell:not(.is-auth-route) .quick-action-card:nth-child(4n + 2),
+#app .app-shell:not(.is-auth-route) .user-card:nth-child(4n + 2) {
+  background: #d5e8f2 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-action-card:nth-child(4n + 3),
+#app .app-shell:not(.is-auth-route) .quick-action-card:nth-child(4n + 3),
+#app .app-shell:not(.is-auth-route) .user-card:nth-child(4n + 3) {
+  background: #d7efe6 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-action-card:nth-child(4n + 4),
+#app .app-shell:not(.is-auth-route) .quick-action-card:nth-child(4n + 4),
+#app .app-shell:not(.is-auth-route) .user-card:nth-child(4n + 4) {
+  background: #ffe6d1 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card,
+#app .app-shell:not(.is-auth-route) .dashboard-action-card,
+#app .app-shell:not(.is-auth-route) .user-card,
+#app .app-shell:not(.is-auth-route) .quick-action-card {
+  border-radius: 22px !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:hover,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card:hover,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card:hover,
+#app .app-shell:not(.is-auth-route) .dashboard-action-card:hover,
+#app .app-shell:not(.is-auth-route) .user-card:hover,
+#app .app-shell:not(.is-auth-route) .quick-action-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 16px 36px rgba(40, 110, 105, 0.14) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-tab.is-active,
+#app .app-shell:not(.is-auth-route) .signature-mode-chip.is-active {
+  color: #34908B !important;
+  background: #dcefec !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-filters,
+#app .app-shell:not(.is-auth-route) .modern-page-filters,
+#app .app-shell:not(.is-auth-route) .users-toolbar,
+#app .app-shell:not(.is-auth-route) .toolbar-shell {
+  background: #f7fbfa !important;
+  background-image: none !important;
+  box-shadow: 0 6px 18px rgba(40, 110, 105, 0.08) !important;
+  border-radius: 16px !important;
+  border: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters,
+#app .app-shell:not(.is-auth-route) .page-filters.modern-page-filters {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .icon-btn {
+  background: #dcefec !important;
+  color: #34908B !important;
+}
+
+#app .app-shell:not(.is-auth-route) .icon-btn:hover {
+  background: #d5e8f2 !important;
+  color: #3d7a8c !important;
+}
+
+/* Date picker panel is teleported to body ? needs solid surface (root --surface is transparent). */
+.shamsi-picker-panel,
+.shamsi-picker-panel-teleport {
+  background: #f7fbfa !important;
+  background-image: none !important;
+  color: #191c1d !important;
+  border: 0 !important;
+  border-radius: 18px !important;
+  box-shadow: 0 18px 44px rgba(31, 92, 89, 0.18) !important;
+  padding: 14px !important;
+}
+
+.shamsi-picker-panel .shamsi-picker-head strong,
+.shamsi-picker-panel-teleport .shamsi-picker-head strong {
+  color: #1f5c59 !important;
+}
+
+.shamsi-picker-panel .shamsi-picker-weekdays span,
+.shamsi-picker-panel-teleport .shamsi-picker-weekdays span {
+  color: #5f7a76 !important;
+}
+
+.shamsi-picker-panel .shamsi-picker-day:hover:not(:disabled),
+.shamsi-picker-panel-teleport .shamsi-picker-day:hover:not(:disabled) {
+  background: rgba(52, 144, 139, 0.1) !important;
+}
+
+.shamsi-picker-panel .shamsi-picker-day.is-today,
+.shamsi-picker-panel-teleport .shamsi-picker-day.is-today {
+  background: rgba(52, 144, 139, 0.12) !important;
+  color: #34908B !important;
+}
+
+.shamsi-picker-panel .shamsi-picker-day.is-selected,
+.shamsi-picker-panel-teleport .shamsi-picker-day.is-selected {
+  background: #34908B !important;
+  color: #fff !important;
+}
+
+.shamsi-picker-panel .icon-btn,
+.shamsi-picker-panel-teleport .icon-btn {
+  background: #dcefec !important;
+  color: #34908B !important;
+}
+
+.shamsi-picker-panel .action-btn.tone-soft,
+.shamsi-picker-panel-teleport .action-btn.tone-soft {
+  background: #dcefec !important;
+  color: #1f5c59 !important;
+}
+
+/* Keep select/date icons separated from the control fill */
+#app .app-shell:not(.is-auth-route) .filter-select-wrap {
+  position: relative !important;
+}
+
+#app .app-shell:not(.is-auth-route) .filter-select-wrap .filter-select,
+#app .app-shell:not(.is-auth-route) .filter-field .filter-select {
+  padding-inline: 14px 42px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .filter-select-wrap .filter-select-icon {
+  position: absolute !important;
+  inset-inline-end: 12px !important;
+  inset-inline-start: auto !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 2 !important;
+  pointer-events: none !important;
+  color: #34908B !important;
+  background: transparent !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shamsi-picker-input-wrap {
+  position: relative !important;
+  padding-inline: 14px 44px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shamsi-picker-toggle {
+  position: absolute !important;
+  inset-inline-end: 6px !important;
+  inset-inline-start: auto !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 10px !important;
+  background: #f3f9f7 !important;
+  color: #34908B !important;
+  z-index: 2 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shamsi-picker-input {
+  background: transparent !important;
+  padding-inline: 0 !important;
+}
+
+/* ========== Compact density layer: smaller, tighter, more minimal ========== */
+#app .app-shell:not(.is-auth-route) {
+  --sidebar-width: 248px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 18px;
+  --shadow-soft: 0 6px 18px rgba(40, 110, 105, 0.08);
+  --shadow-strong: 0 12px 28px rgba(31, 92, 89, 0.12);
+  font-size: 13.5px !important;
+  line-height: 1.45 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shell-content {
+  padding: 16px 20px 24px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-shell,
+#app .app-shell:not(.is-auth-route) .enterprise-page,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-grid,
+#app .app-shell:not(.is-auth-route) .dashboard-actions-shell {
+  gap: 14px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shell-sidebar {
+  padding: 14px 10px !important;
+  gap: 10px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-brand,
+#app .app-shell:not(.is-auth-route) .brand-block {
+  gap: 8px !important;
+  padding: 4px 6px 10px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .brand-mark,
+#app .app-shell:not(.is-auth-route) .sidebar-brand-mark {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 12px rgba(52, 144, 139, 0.22) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-brand strong,
+#app .app-shell:not(.is-auth-route) .brand-copy strong {
+  font-size: 0.95rem !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-brand small,
+#app .app-shell:not(.is-auth-route) .brand-copy small {
+  font-size: 0.68rem !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-section-label,
+#app .app-shell:not(.is-auth-route) .sidebar-section-label {
+  padding: 0 0 4px 2px !important;
+  font-size: 0.68rem !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link {
+  min-height: 36px !important;
+  padding: 0 10px !important;
+  gap: 8px !important;
+  border-radius: 10px 0 0 10px !important;
+  font-size: 0.84rem !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link .iconly-shell {
+  font-size: 16px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link-badge {
+  min-width: 18px !important;
+  height: 18px !important;
+  padding: 0 5px !important;
+  font-size: 0.65rem !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-logout {
+  min-height: 36px !important;
+  border-radius: 10px !important;
+  font-size: 0.84rem !important;
+}
+
+/* Shorter header / topbar */
+#app .app-shell:not(.is-auth-route) .topbar-shell {
+  padding: 8px 20px !important;
+  gap: 8px !important;
+  min-height: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-main-row,
+#app .app-shell:not(.is-auth-route) .topbar-intro,
+#app .app-shell:not(.is-auth-route) .topbar-actions,
+#app .app-shell:not(.is-auth-route) .topbar-action-row {
+  gap: 8px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-intro-copy strong {
+  font-size: clamp(1.05rem, 1.5vw, 1.28rem) !important;
+  line-height: 1.25 !important;
+  font-weight: 750 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-eyebrow,
+#app .app-shell:not(.is-auth-route) .page-eyebrow,
+#app .app-shell:not(.is-auth-route) .dashboard-section-kicker,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-badge,
+#app .app-shell:not(.is-auth-route) .approval-surface-kicker,
+#app .app-shell:not(.is-auth-route) .section-kicker {
+  min-height: 22px !important;
+  padding: 0 8px !important;
+  font-size: 0.68rem !important;
+  font-weight: 750 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .hq-organization-select {
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  gap: 6px !important;
+  font-size: 0.8rem !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-header {
+  padding: 12px 14px !important;
+  border-radius: 14px !important;
+  gap: 8px !important;
+  margin-bottom: 4px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-header h1 {
+  font-size: clamp(1.15rem, 1.6vw, 1.45rem) !important;
+  font-weight: 750 !important;
+  line-height: 1.25 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-header-description,
+#app .app-shell:not(.is-auth-route) .page-header p,
+#app .app-shell:not(.is-auth-route) .topbar-intro-copy p {
+  font-size: 0.8rem !important;
+  line-height: 1.4 !important;
+  margin: 2px 0 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-header-tools {
+  gap: 8px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .section-label-row {
+  padding: 0 0 8px !important;
+  margin: 0 0 8px !important;
+}
+
+#app .app-shell:not(.is-auth-route) h2 {
+  font-size: 1.05rem !important;
+  font-weight: 750 !important;
+}
+
+#app .app-shell:not(.is-auth-route) h3 {
+  font-size: 0.92rem !important;
+  font-weight: 700 !important;
+}
+
+#app .app-shell:not(.is-auth-route) h4 {
+  font-size: 0.84rem !important;
+}
+
+#app .app-shell:not(.is-auth-route) p,
+#app .app-shell:not(.is-auth-route) small,
+#app .app-shell:not(.is-auth-route) .metric-label,
+#app .app-shell:not(.is-auth-route) .table-muted {
+  font-size: 0.8rem !important;
+}
+
+/* Controls */
+#app .app-shell:not(.is-auth-route) .action-btn,
+#app .app-shell:not(.is-auth-route) .dashboard-action-button,
+#app .app-shell:not(.is-auth-route) .filter-reset-btn,
+#app .app-shell:not(.is-auth-route) .modern-filter-reset {
+  min-height: 34px !important;
+  height: 34px !important;
+  padding: 0 12px !important;
+  gap: 6px !important;
+  border-radius: 10px !important;
+  font-size: 0.8rem !important;
+}
+
+#app .app-shell:not(.is-auth-route) .icon-btn {
+  width: 32px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  border-radius: 9px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .filter-chip,
+#app .app-shell:not(.is-auth-route) .priority-chip,
+#app .app-shell:not(.is-auth-route) .meta-pill,
+#app .app-shell:not(.is-auth-route) .status-badge,
+#app .app-shell:not(.is-auth-route) .attendance-tab,
+#app .app-shell:not(.is-auth-route) .report-tab,
+#app .app-shell:not(.is-auth-route) .signature-mode-chip {
+  min-height: 26px !important;
+  padding: 0 9px !important;
+  border-radius: 999px !important;
+  font-size: 0.72rem !important;
+}
+
+#app .app-shell:not(.is-auth-route) .field-shell,
+#app .app-shell:not(.is-auth-route) .search-shell,
+#app .app-shell:not(.is-auth-route) .filter-input,
+#app .app-shell:not(.is-auth-route) .filter-select,
+#app .app-shell:not(.is-auth-route) .shamsi-picker-input-wrap,
+#app .app-shell:not(.is-auth-route) .hq-organization-select {
+  min-height: 36px !important;
+  padding: 6px 12px !important;
+  border-radius: 10px !important;
+  font-size: 0.82rem !important;
+}
+
+#app .app-shell:not(.is-auth-route) .filter-field .filter-input,
+#app .app-shell:not(.is-auth-route) .filter-field .filter-select,
+#app .app-shell:not(.is-auth-route) .filter-field .shamsi-picker-input-wrap {
+  min-height: 36px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .filter-select-wrap .filter-select,
+#app .app-shell:not(.is-auth-route) .filter-field .filter-select {
+  padding-inline: 12px 36px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .filter-select-wrap .filter-select-icon {
+  inset-inline-end: 10px !important;
+  font-size: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shamsi-picker-input-wrap {
+  padding-inline: 12px 38px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shamsi-picker-toggle {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 8px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .field-shell > span,
+#app .app-shell:not(.is-auth-route) label > span,
+#app .app-shell:not(.is-auth-route) .filter-field-label {
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-filters,
+#app .app-shell:not(.is-auth-route) .users-toolbar,
+#app .app-shell:not(.is-auth-route) .toolbar-shell {
+  padding: 10px 12px !important;
+  gap: 10px !important;
+  border-radius: 14px !important;
+  background: #f7fbfa !important;
+  background-image: none !important;
+  box-shadow: 0 4px 14px rgba(40, 110, 105, 0.06) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters,
+#app .app-shell:not(.is-auth-route) .page-filters.modern-page-filters {
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-filters {
+  align-items: end !important;
+}
+
+/* Cards / panels */
+#app .app-shell:not(.is-auth-route) .surface-block,
+#app .app-shell:not(.is-auth-route) .metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-metrics-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-actions-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-action-card,
+#app .app-shell:not(.is-auth-route) .table-shell,
+#app .app-shell:not(.is-auth-route) .list-card,
+#app .app-shell:not(.is-auth-route) .user-card,
+#app .app-shell:not(.is-auth-route) .compact-user-card,
+#app .app-shell:not(.is-auth-route) .approval-card,
+#app .app-shell:not(.is-auth-route) .report-card,
+#app .app-shell:not(.is-auth-route) .report-card-modern,
+#app .app-shell:not(.is-auth-route) .report-table-card,
+#app .app-shell:not(.is-auth-route) .wallet-hero,
+#app .app-shell:not(.is-auth-route) .wallet-summary-card,
+#app .app-shell:not(.is-auth-route) .wallet-panel,
+#app .app-shell:not(.is-auth-route) .support-hero,
+#app .app-shell:not(.is-auth-route) .support-panel,
+#app .app-shell:not(.is-auth-route) .attendance-hero,
+#app .app-shell:not(.is-auth-route) .attendance-user-card,
+#app .app-shell:not(.is-auth-route) .attendance-feed,
+#app .app-shell:not(.is-auth-route) .attendance-report-panel,
+#app .app-shell:not(.is-auth-route) .attendance-table-wrap,
+#app .app-shell:not(.is-auth-route) .report-table-wrap,
+#app .app-shell:not(.is-auth-route) .department-card,
+#app .app-shell:not(.is-auth-route) .settings-access-table,
+#app .app-shell:not(.is-auth-route) .settings-access-card,
+#app .app-shell:not(.is-auth-route) .access-selection-row,
+#app .app-shell:not(.is-auth-route) .access-denied-card,
+#app .app-shell:not(.is-auth-route) .recipient-card,
+#app .app-shell:not(.is-auth-route) .approval-surface,
+#app .app-shell:not(.is-auth-route) .approval-meta-card,
+#app .app-shell:not(.is-auth-route) .approval-status-panel,
+#app .app-shell:not(.is-auth-route) .approval-detail-card,
+#app .app-shell:not(.is-auth-route) .detail-card,
+#app .app-shell:not(.is-auth-route) .user-hero,
+#app .app-shell:not(.is-auth-route) .user-meta-card,
+#app .app-shell:not(.is-auth-route) .user-status-panel,
+#app .app-shell:not(.is-auth-route) .user-form-panel,
+#app .app-shell:not(.is-auth-route) .user-finance-panel,
+#app .app-shell:not(.is-auth-route) .cloud-panel,
+#app .app-shell:not(.is-auth-route) .hq-panel,
+#app .app-shell:not(.is-auth-route) .quick-action-card,
+#app .app-shell:not(.is-auth-route) .pipeline-card,
+#app .app-shell:not(.is-auth-route) .insight-card,
+#app .app-shell:not(.is-auth-route) .settings-panel {
+  padding: 14px !important;
+  border-radius: 14px !important;
+  box-shadow: 0 6px 18px rgba(40, 110, 105, 0.08) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-grid,
+#app .app-shell:not(.is-auth-route) .metric-grid-4,
+#app .app-shell:not(.is-auth-route) .dashboard-metrics-grid,
+#app .app-shell:not(.is-auth-route) .report-summary-grid,
+#app .app-shell:not(.is-auth-route) .user-directory-grid {
+  gap: 12px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card,
+#app .app-shell:not(.is-auth-route) .wallet-summary-card {
+  min-height: 92px !important;
+  padding: 12px 14px !important;
+  border-radius: 14px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card strong,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-value,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-copy strong {
+  font-size: clamp(1.25rem, 1.8vw, 1.55rem) !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-metric-icon,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-icon,
+#app .app-shell:not(.is-auth-route) .approval-metric-icon,
+#app .app-shell:not(.is-auth-route) .user-avatar,
+#app .app-shell:not(.is-auth-route) .attendance-avatar {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 10px !important;
+  font-size: 16px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-action-card,
+#app .app-shell:not(.is-auth-route) .quick-action-card,
+#app .app-shell:not(.is-auth-route) .user-card {
+  min-height: 0 !important;
+  border-radius: 14px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card:hover,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card:hover,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card:hover,
+#app .app-shell:not(.is-auth-route) .dashboard-action-card:hover,
+#app .app-shell:not(.is-auth-route) .user-card:hover,
+#app .app-shell:not(.is-auth-route) .quick-action-card:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 10px 22px rgba(40, 110, 105, 0.12) !important;
+}
+
+/* Tables */
+#app .app-shell:not(.is-auth-route) .data-table th,
+#app .app-shell:not(.is-auth-route) .data-table td,
+#app .app-shell:not(.is-auth-route) .attendance-report-table th,
+#app .app-shell:not(.is-auth-route) .attendance-report-table td {
+  padding: 8px 10px !important;
+  font-size: 0.8rem !important;
+}
+
+#app .app-shell:not(.is-auth-route) .data-table th {
+  font-size: 0.72rem !important;
+  font-weight: 750 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .iconly-shell {
+  font-size: 16px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .action-btn .iconly-shell,
+#app .app-shell:not(.is-auth-route) .nav-link .iconly-shell {
+  font-size: 15px !important;
+}
+
+/* Modals slightly tighter too */
+.modal-shell {
+  padding: 18px !important;
+  border-radius: 16px !important;
+  font-size: 13.5px !important;
+}
+
+.modal-shell .modal-headline h2,
+.modal-shell h2 {
+  font-size: 1.15rem !important;
+}
+
+.modal-shell .field-shell,
+.modal-shell .search-shell {
+  min-height: 36px !important;
+  padding: 6px 12px !important;
+}
+
+.modal-shell .action-btn {
+  min-height: 34px !important;
+  padding: 0 12px !important;
+  font-size: 0.8rem !important;
+}
+
+.shamsi-picker-panel,
+.shamsi-picker-panel-teleport {
+  padding: 10px !important;
+  border-radius: 14px !important;
+  font-size: 0.82rem !important;
+}
+
+.shamsi-picker-panel .shamsi-picker-day,
+.shamsi-picker-panel-teleport .shamsi-picker-day {
+  min-height: 30px !important;
+  border-radius: 8px !important;
+  font-size: 0.8rem !important;
+}
+
+@media (max-width: 760px) {
+  #app .app-shell:not(.is-auth-route) .shell-content {
+    padding: 12px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-shell {
+    padding: 8px 12px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .surface-block,
+  #app .app-shell:not(.is-auth-route) .metric-card,
+  #app .app-shell:not(.is-auth-route) .dashboard-stage-panel,
+  #app .app-shell:not(.is-auth-route) .dashboard-metrics-panel,
+  #app .app-shell:not(.is-auth-route) .dashboard-actions-panel,
+  #app .app-shell:not(.is-auth-route) .table-shell,
+  #app .app-shell:not(.is-auth-route) .wallet-panel,
+  #app .app-shell:not(.is-auth-route) .support-panel,
+  #app .app-shell:not(.is-auth-route) .user-card,
+  #app .app-shell:not(.is-auth-route) .list-card,
+  #app .app-shell:not(.is-auth-route) .page-header {
+    padding: 12px !important;
+  }
+}
+
+/* Compact page-specific heroes / big numbers */
+#app .app-shell:not(.is-auth-route) .wallet-hero h1,
+#app .app-shell:not(.is-auth-route) .support-hero h1,
+#app .app-shell:not(.is-auth-route) .attendance-hero h1,
+#app .app-shell:not(.is-auth-route) .user-hero h1,
+#app .app-shell:not(.is-auth-route) .approval-metric-value,
+#app .app-shell:not(.is-auth-route) .wallet-balance,
+#app .app-shell:not(.is-auth-route) .wallet-hero strong,
+#app .app-shell:not(.is-auth-route) .report-summary-value,
+#app .app-shell:not(.is-auth-route) .users-stat-value {
+  font-size: clamp(1.2rem, 1.7vw, 1.55rem) !important;
+  line-height: 1.2 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-hero,
+#app .app-shell:not(.is-auth-route) .support-hero,
+#app .app-shell:not(.is-auth-route) .attendance-hero,
+#app .app-shell:not(.is-auth-route) .user-hero {
+  padding: 14px !important;
+  gap: 8px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .mobile-topbar,
+#app .app-shell:not(.is-auth-route) .mobile-bottom-nav {
+  min-height: 52px !important;
+  padding: 6px 10px !important;
+}
+
+/* Flat luxury: no gradients, no color washes ? solid surfaces only */
+#app .app-shell:not(.is-auth-route),
+#app .app-shell:not(.is-auth-route) .shell-main,
+#app .app-shell:not(.is-auth-route) .shell-content,
+#app .app-shell:not(.is-auth-route) .shell-sidebar,
+#app .app-shell:not(.is-auth-route) .topbar-shell,
+#app .app-shell:not(.is-auth-route) .page-header,
+#app .app-shell:not(.is-auth-route) .surface-block,
+#app .app-shell:not(.is-auth-route) .metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-metrics-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-actions-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-action-card,
+#app .app-shell:not(.is-auth-route) .table-shell,
+#app .app-shell:not(.is-auth-route) .list-card,
+#app .app-shell:not(.is-auth-route) .user-card,
+#app .app-shell:not(.is-auth-route) .quick-action-card,
+#app .app-shell:not(.is-auth-route) .wallet-hero,
+#app .app-shell:not(.is-auth-route) .support-hero,
+#app .app-shell:not(.is-auth-route) .attendance-hero,
+#app .app-shell:not(.is-auth-route) .user-hero,
+#app .app-shell:not(.is-auth-route) .wallet-panel,
+#app .app-shell:not(.is-auth-route) .support-panel,
+#app .app-shell:not(.is-auth-route) .brand-mark,
+#app .app-shell:not(.is-auth-route) .sidebar-brand-mark,
+#app .app-shell:not(.is-auth-route) .action-btn,
+#app .app-shell:not(.is-auth-route) .tone-primary,
+#app .app-shell:not(.is-auth-route) .dashboard-action-button {
+  background-image: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shell-main::before,
+#app .app-shell:not(.is-auth-route) .shell-main::after,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-panel::before,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-panel::after,
+#app .app-shell:not(.is-auth-route) .page-header::before,
+#app .app-shell:not(.is-auth-route) .page-header::after,
+#app .app-shell:not(.is-auth-route) .wallet-hero::before,
+#app .app-shell:not(.is-auth-route) .wallet-hero::after,
+#app .app-shell:not(.is-auth-route) .support-hero::before,
+#app .app-shell:not(.is-auth-route) .support-hero::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .page-header {
+  background: #f3f9f7 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .brand-mark,
+#app .app-shell:not(.is-auth-route) .sidebar-brand-mark {
+  background: #34908B !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-hero,
+#app .app-shell:not(.is-auth-route) .support-hero,
+#app .app-shell:not(.is-auth-route) .attendance-hero,
+#app .app-shell:not(.is-auth-route) .user-hero {
+  background: #dcefec !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-action,
+#app .app-shell:not(.is-auth-route) .support-action,
+#app .app-shell:not(.is-auth-route) .public-action.is-in,
+#app .app-shell:not(.is-auth-route) button[type='submit']:not(.stitch-submit-btn) {
+  background: #34908B !important;
+  background-image: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-metric-card,
+#app .app-shell:not(.is-auth-route) .dashboard-summary-card,
+#app .app-shell:not(.is-auth-route) .dashboard-action-card,
+#app .app-shell:not(.is-auth-route) .user-card,
+#app .app-shell:not(.is-auth-route) .quick-action-card,
+#app .app-shell:not(.is-auth-route) .wallet-summary-card {
+  background-image: none !important;
+}
+
+.modal-shell,
+.modal-shell * {
+  background-image: none !important;
+}
+
+.shamsi-picker-panel,
+.shamsi-picker-panel-teleport {
+  background: #f7fbfa !important;
+  background-image: none !important;
+}
+
+/* Filter row: equal control heights, bottom-aligned */
+#app .app-shell:not(.is-auth-route) .modern-page-filters,
+#app .app-shell:not(.is-auth-route) .page-filters.modern-page-filters {
+  align-items: end !important;
+  gap: 10px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-field,
+#app .app-shell:not(.is-auth-route) .page-filters .filter-field {
+  display: grid !important;
+  grid-template-rows: 18px 36px !important;
+  gap: 6px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-field-control,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-select-wrap {
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-input,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-select,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .shamsi-picker-input-wrap,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .modern-filter-reset,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-reset-btn {
+  box-sizing: border-box !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  margin: 0 !important;
+  line-height: 36px !important;
+  background: #e4f4f2 !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: #152523 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-input:focus,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-select:focus,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .shamsi-picker-input-wrap:focus-within {
+  background: #f3f9f7 !important;
+  box-shadow: 0 0 0 3px rgba(52, 144, 139, 0.14) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-select {
+  line-height: normal !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters .shamsi-picker {
+  height: 36px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters .shamsi-picker-input-wrap {
+  display: flex !important;
+  align-items: center !important;
+  padding-inline: 12px 36px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters .shamsi-picker-input {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  padding: 0 !important;
+  line-height: 36px !important;
+  background: transparent !important;
+}
+
+/* Settings page: clear separation from mint canvas */
+#app .app-shell:not(.is-auth-route) .enterprise-page .surface-block,
+#app .app-shell:not(.is-auth-route) .settings-modern-grid > .surface-block {
+  background: #f7fbfa !important;
+  background-image: none !important;
+  box-shadow: 0 8px 22px rgba(40, 110, 105, 0.12) !important;
+  border-radius: 16px !important;
+  padding: 16px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .section-label-row {
+  margin-bottom: 12px !important;
+  padding-bottom: 10px !important;
+  border-bottom: 1px solid rgba(52, 144, 139, 0.14) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .section-label-row h3 {
+  color: #152523 !important;
+  font-size: 1rem !important;
+  margin: 0 0 4px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .section-label-row p {
+  color: #45605c !important;
+  margin: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .field-shell,
+#app .app-shell:not(.is-auth-route) .enterprise-page .search-shell,
+#app .app-shell:not(.is-auth-route) .enterprise-page .settings-section-search {
+  background: #e4f4f2 !important;
+  box-shadow: inset 0 0 0 1px rgba(52, 144, 139, 0.08) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .department-card {
+  background: #ffffff !important;
+  background-image: none !important;
+  box-shadow: 0 4px 14px rgba(40, 110, 105, 0.1) !important;
+  border-radius: 14px !important;
+  padding: 14px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .department-card .field-shell {
+  background: #e4f4f2 !important;
+  padding: 8px 12px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .department-code {
+  background: #dcefec !important;
+  color: #1f5c59 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .progress-list {
+  display: grid !important;
+  gap: 8px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .progress-row {
+  display: grid !important;
+  grid-template-columns: minmax(90px, 0.8fr) minmax(0, 1.4fr) auto !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(40, 110, 105, 0.08) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .progress-row strong {
+  font-size: 0.82rem !important;
+  color: #152523 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .progress-row small {
+  font-size: 0.75rem !important;
+  color: #1f5c59 !important;
+  background: #dcefec !important;
+  border-radius: 999px !important;
+  padding: 2px 8px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .progress-bar {
+  height: 8px !important;
+  border-radius: 999px !important;
+  background: #e4f4f2 !important;
+  overflow: hidden !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .progress-bar > span {
+  display: block !important;
+  height: 100% !important;
+  border-radius: 999px !important;
+  background: #34908B !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .settings-access-table,
+#app .app-shell:not(.is-auth-route) .enterprise-page .access-selection-table {
+  display: grid !important;
+  gap: 8px !important;
+  padding: 10px !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(40, 110, 105, 0.1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .settings-access-table-head {
+  background: #dcefec !important;
+  color: #1f5c59 !important;
+  border-radius: 10px !important;
+  padding: 10px 12px !important;
+  font-size: 0.72rem !important;
+  font-weight: 750 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .settings-access-table-row,
+#app .app-shell:not(.is-auth-route) .enterprise-page .access-selection-row {
+  background: #f3f9f7 !important;
+  border-radius: 10px !important;
+  padding: 10px 12px !important;
+  box-shadow: none !important;
+  text-align: inherit !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .settings-access-table-row:hover,
+#app .app-shell:not(.is-auth-route) .enterprise-page .access-selection-row:hover {
+  background: #e4f4f2 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .access-selection-row.is-selected {
+  background: #dcefec !important;
+  box-shadow: inset 0 0 0 1px rgba(52, 144, 139, 0.28) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .table-link {
+  color: #34908B !important;
+  font-weight: 700 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .empty-state-inline {
+  background: #ffffff !important;
+  border-radius: 12px !important;
+  padding: 16px !important;
+  box-shadow: 0 2px 10px rgba(40, 110, 105, 0.08) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .settings-stack {
+  gap: 12px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .settings-modern-grid {
+  gap: 14px !important;
+}
+
+/* Settings access modal (teleported) */
+.modal-shell .access-directory-panel,
+.modal-shell .access-selection-table {
+  background: #ffffff !important;
+  background-image: none !important;
+  border-radius: 14px !important;
+  padding: 12px !important;
+  box-shadow: 0 4px 14px rgba(40, 110, 105, 0.1) !important;
+}
+
+.modal-shell .settings-access-table-head {
+  background: #dcefec !important;
+  color: #1f5c59 !important;
+  border-radius: 10px !important;
+  padding: 10px 12px !important;
+}
+
+.modal-shell .access-selection-row {
+  background: #f3f9f7 !important;
+  border-radius: 10px !important;
+  padding: 10px 12px !important;
+}
+
+.modal-shell .access-selection-row:hover {
+  background: #e4f4f2 !important;
+}
+
+.modal-shell .access-selection-row.is-selected {
+  background: #dcefec !important;
+  box-shadow: inset 0 0 0 1px rgba(52, 144, 139, 0.28) !important;
+}
+
+.modal-shell .access-selection-state {
+  background: #e4f4f2 !important;
+  color: #1f5c59 !important;
+  border-radius: 999px !important;
+  padding: 2px 8px !important;
+  font-size: 0.72rem !important;
+}
+
+.modal-shell .access-selection-row.is-selected .access-selection-state {
+  background: #34908B !important;
+  color: #fff !important;
+}
+
+/* User section access tiles in detail/create modals */
+.modal-shell .user-access-grid,
+.modal-shell .access-check-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+
+.modal-shell .check-tile {
+  position: relative !important;
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-height: 56px !important;
+  padding: 12px 14px !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: #f3f9f7 !important;
+  box-shadow: inset 0 0 0 1px rgba(52, 144, 139, 0.12) !important;
+  color: #152523 !important;
+  cursor: pointer !important;
+  transition: background 0.18s ease, box-shadow 0.18s ease !important;
+}
+
+.modal-shell .check-tile:hover {
+  background: #e4f4f2 !important;
+  box-shadow: inset 0 0 0 1px rgba(52, 144, 139, 0.22) !important;
+}
+
+.modal-shell .check-tile.is-checked {
+  background: #dcefec !important;
+  box-shadow: inset 0 0 0 2px #34908B !important;
+  color: #1f5c59 !important;
+}
+
+.modal-shell .check-tile input {
+  position: absolute !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 1px !important;
+  height: 1px !important;
+}
+
+.modal-shell .check-tile .check-state {
+  width: 28px !important;
+  height: 28px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  border-radius: 999px !important;
+  background: #e4f4f2 !important;
+  color: #5f7a76 !important;
+  font-size: 18px !important;
+}
+
+.modal-shell .check-tile.is-checked .check-state {
+  background: #34908B !important;
+  color: #ffffff !important;
+  --iconly-filter: brightness(0) saturate(100%) invert(100%) !important;
+}
+
+.modal-shell .check-tile strong {
+  color: inherit !important;
+  font-size: 0.9rem !important;
+  font-weight: 800 !important;
+}
+
+.modal-shell .check-tile .check-tile-badge {
+  display: none !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 24px !important;
+  padding: 0 10px !important;
+  border-radius: 999px !important;
+  background: #34908B !important;
+  color: #ffffff !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+}
+
+.modal-shell .check-tile.is-checked .check-tile-badge {
+  display: inline-flex !important;
+}
+
+@media (max-width: 720px) {
+  .modal-shell .user-access-grid,
+  .modal-shell .access-check-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.modal-shell .alphabet-chip {
+  background: #e4f4f2 !important;
+  color: #1f5c59 !important;
+}
+
+.modal-shell .alphabet-chip.is-active {
+  background: #34908B !important;
+  color: #fff !important;
+}
+
+/* ========== Mobile responsive system ========== */
+@media (max-width: 920px) {
+  #app .app-shell:not(.is-auth-route) .shell-content {
+    padding: 12px 12px calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-shell {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 50 !important;
+    padding: 8px 12px !important;
+    gap: 8px !important;
+    background: #f7fbfa !important;
+    box-shadow: 0 4px 14px rgba(40, 110, 105, 0.08) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-main-row {
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-intro {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-width: 0 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-intro-copy {
+    min-width: 0 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-intro-copy strong {
+    display: block !important;
+    font-size: 0.95rem !important;
+    line-height: 1.25 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-eyebrow {
+    min-height: 18px !important;
+    padding: 0 7px !important;
+    font-size: 0.62rem !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-actions {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-action-row {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-action-row .action-btn {
+    width: 100% !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .hq-organization-select {
+    width: 100% !important;
+    min-height: 34px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-menu-trigger {
+    display: inline-grid !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    place-items: center !important;
+  }
+
+  /* Always prefer 2 columns for peer sets */
+  #app .app-shell:not(.is-auth-route) .metric-grid,
+  #app .app-shell:not(.is-auth-route) .metric-grid-4,
+  #app .app-shell:not(.is-auth-route) .dashboard-metrics-grid,
+  #app .app-shell:not(.is-auth-route) .dashboard-stage-summary,
+  #app .app-shell:not(.is-auth-route) .dashboard-queue-grid,
+  #app .app-shell:not(.is-auth-route) .report-summary-grid,
+  #app .app-shell:not(.is-auth-route) .user-directory-grid,
+  #app .app-shell:not(.is-auth-route) .wallet-summary-grid,
+  #app .app-shell:not(.is-auth-route) .settings-modern-grid,
+  #app .app-shell:not(.is-auth-route) .page-filters,
+  #app .app-shell:not(.is-auth-route) .modern-page-filters,
+  #app .app-shell:not(.is-auth-route) .modal-grid.two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  /* Quick focus chips stay on one row (3 items) */
+  #app .app-shell:not(.is-auth-route) .dashboard-focus-ribbon {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .dashboard-focus-chip {
+    padding: 6px !important;
+    gap: 6px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .dashboard-focus-chip .iconly-shell {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 8px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .dashboard-focus-chip strong {
+    font-size: 0.95rem !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .dashboard-focus-chip span:last-child {
+    font-size: 0.62rem !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .dashboard-stage-grid,
+  #app .app-shell:not(.is-auth-route) .dashboard-actions-shell,
+  #app .app-shell:not(.is-auth-route) .attendance-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .user-card,
+  #app .app-shell:not(.is-auth-route) .compact-user-card,
+  #app .app-shell:not(.is-auth-route) .list-card,
+  #app .app-shell:not(.is-auth-route) .approval-card,
+  #app .app-shell:not(.is-auth-route) .report-card,
+  #app .app-shell:not(.is-auth-route) .wallet-summary-card,
+  #app .app-shell:not(.is-auth-route) .dashboard-summary-card,
+  #app .app-shell:not(.is-auth-route) .dashboard-metric-card,
+  #app .app-shell:not(.is-auth-route) .metric-card {
+    min-width: 0 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .data-table,
+  #app .app-shell:not(.is-auth-route) .table-shell,
+  #app .app-shell:not(.is-auth-route) .report-table-wrap,
+  #app .app-shell:not(.is-auth-route) .settings-access-table,
+  #app .app-shell:not(.is-auth-route) .access-selection-table {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .settings-access-table-head,
+  #app .app-shell:not(.is-auth-route) .settings-access-table-row,
+  #app .app-shell:not(.is-auth-route) .access-selection-row {
+    min-width: 520px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .page-header {
+    padding: 12px !important;
+    border-radius: 14px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .page-header h1 {
+    font-size: 1.1rem !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .action-btn {
+    width: auto !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .global-sms-warning {
+    margin-bottom: 10px !important;
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+    font-size: 0.78rem !important;
+  }
+}
+
+@media (max-width: 760px) {
+  #app .app-shell:not(.is-auth-route) .modern-page-filters,
+  #app .app-shell:not(.is-auth-route) .page-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .modern-page-filters .modern-filter-reset,
+  #app .app-shell:not(.is-auth-route) .page-filters .filter-reset-btn {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .wallet-actions,
+  #app .app-shell:not(.is-auth-route) .users-toolbar,
+  #app .app-shell:not(.is-auth-route) .toolbar-shell {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  #app .app-shell:not(.is-auth-route) .dashboard-focus-ribbon {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .metric-grid,
+  #app .app-shell:not(.is-auth-route) .metric-grid-4,
+  #app .app-shell:not(.is-auth-route) .dashboard-metrics-grid,
+  #app .app-shell:not(.is-auth-route) .dashboard-stage-summary,
+  #app .app-shell:not(.is-auth-route) .report-summary-grid,
+  #app .app-shell:not(.is-auth-route) .user-directory-grid,
+  #app .app-shell:not(.is-auth-route) .page-filters,
+  #app .app-shell:not(.is-auth-route) .modern-page-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Modals on mobile */
+@media (max-width: 920px) {
+  .modal-layer {
+    padding: 8px !important;
+    align-items: flex-end !important;
+  }
+
+  .modal-shell {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(100dvh - 16px) !important;
+    margin: 0 !important;
+    border-radius: 18px 18px 0 0 !important;
+    padding: 14px !important;
+  }
+
+  .modal-shell .modal-grid.two-col,
+  .modal-shell .detail-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .modal-shell .modal-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .modal-shell .modal-actions .action-btn {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .modal-shell .modal-grid.two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Users page: clearer separation + always-visible add action */
+#app .app-shell:not(.is-auth-route) .enterprise-page .users-toolbar-panel,
+#app .app-shell:not(.is-auth-route) .enterprise-page .users-grid-panel {
+  background: #f7fbfa !important;
+  box-shadow: 0 8px 22px rgba(40, 110, 105, 0.12) !important;
+  border-radius: 16px !important;
+  padding: 16px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .users-toolbar-primary,
+#app .app-shell:not(.is-auth-route) .enterprise-page .users-toolbar-secondary {
+  background: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(40, 110, 105, 0.08) !important;
+  border-radius: 14px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .compact-user-card {
+  background: #ffffff !important;
+  background-image: none !important;
+  box-shadow: 0 4px 14px rgba(40, 110, 105, 0.1) !important;
+  border-radius: 14px !important;
+  padding: 14px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .compact-user-card:hover {
+  box-shadow: 0 8px 20px rgba(40, 110, 105, 0.14) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .user-avatar {
+  background: #dcefec !important;
+  color: #1f5c59 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .user-card-details span {
+  background: #e4f4f2 !important;
+  color: #1f5c59 !important;
+  border-radius: 8px !important;
+  padding: 6px 8px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .users-search-shell,
+#app .app-shell:not(.is-auth-route) .enterprise-page .users-toolbar-primary .search-shell {
+  background: #e4f4f2 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .users-add-btn,
+#app .app-shell:not(.is-auth-route) .enterprise-page .users-header-actions .tone-primary {
+  background: #34908B !important;
+  color: #fff !important;
+  min-height: 34px !important;
+  padding: 0 14px !important;
+  border-radius: 10px !important;
+  box-shadow: 0 6px 16px rgba(52, 144, 139, 0.22) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card {
+  box-shadow: 0 8px 22px rgba(40, 110, 105, 0.1) !important;
+  border: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-total,
+#app .app-shell:not(.is-auth-route) .metric-card.is-total {
+  background: #dcefec !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-pending,
+#app .app-shell:not(.is-auth-route) .metric-card.is-pending {
+  background: #fff0cc !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-approved,
+#app .app-shell:not(.is-auth-route) .metric-card.is-approved {
+  background: #d7efe6 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-rejected,
+#app .app-shell:not(.is-auth-route) .metric-card.is-rejected {
+  background: #ffe3de !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-total::after,
+#app .app-shell:not(.is-auth-route) .metric-card.is-total::after {
+  background: #34908B !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-pending::after,
+#app .app-shell:not(.is-auth-route) .metric-card.is-pending::after {
+  background: #b07a12 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-approved::after,
+#app .app-shell:not(.is-auth-route) .metric-card.is-approved::after {
+  background: #1f7a72 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-rejected::after,
+#app .app-shell:not(.is-auth-route) .metric-card.is-rejected::after {
+  background: #c45a4a !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-total .approval-metric-icon,
+#app .app-shell:not(.is-auth-route) .metric-card.is-total .approval-metric-icon {
+  background: rgba(52, 144, 139, 0.16) !important;
+  color: #34908B !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-pending .approval-metric-icon,
+#app .app-shell:not(.is-auth-route) .metric-card.is-pending .approval-metric-icon {
+  background: rgba(176, 122, 18, 0.16) !important;
+  color: #b07a12 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-approved .approval-metric-icon,
+#app .app-shell:not(.is-auth-route) .metric-card.is-approved .approval-metric-icon {
+  background: rgba(31, 122, 114, 0.16) !important;
+  color: #1f7a72 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-rejected .approval-metric-icon,
+#app .app-shell:not(.is-auth-route) .metric-card.is-rejected .approval-metric-icon {
+  background: rgba(196, 90, 74, 0.16) !important;
+  color: #c45a4a !important;
+}
+
+/* Fallback rainbow when tone class is missing */
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-grid > .metric-card:nth-child(4n + 1):not(.is-total):not(.is-pending):not(.is-approved):not(.is-rejected),
+#app .app-shell:not(.is-auth-route) .metric-grid > .metric-card:nth-child(4n + 1):not(.is-total):not(.is-pending):not(.is-approved):not(.is-rejected) {
+  background: #dcefec !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-grid > .metric-card:nth-child(4n + 2):not(.is-total):not(.is-pending):not(.is-approved):not(.is-rejected),
+#app .app-shell:not(.is-auth-route) .metric-grid > .metric-card:nth-child(4n + 2):not(.is-total):not(.is-pending):not(.is-approved):not(.is-rejected) {
+  background: #fff0cc !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-grid > .metric-card:nth-child(4n + 3):not(.is-total):not(.is-pending):not(.is-approved):not(.is-rejected),
+#app .app-shell:not(.is-auth-route) .metric-grid > .metric-card:nth-child(4n + 3):not(.is-total):not(.is-pending):not(.is-approved):not(.is-rejected) {
+  background: #d7efe6 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .metric-grid > .metric-card:nth-child(4n + 4):not(.is-total):not(.is-pending):not(.is-approved):not(.is-rejected),
+#app .app-shell:not(.is-auth-route) .metric-grid > .metric-card:nth-child(4n + 4):not(.is-total):not(.is-pending):not(.is-approved):not(.is-rejected) {
+  background: #ffe3de !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .filter-chip {
+  background: #e4f4f2 !important;
+  color: #1f5c59 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .filter-chip.is-active,
+#app .app-shell:not(.is-auth-route) .enterprise-page .alphabet-chip.is-active {
+  background: #34908B !important;
+  color: #fff !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .alphabet-chip {
+  background: #e4f4f2 !important;
+  color: #1f5c59 !important;
+  border-radius: 999px !important;
+  min-height: 28px !important;
+  padding: 0 10px !important;
+}
+
+@media (max-width: 760px) {
+  #app .app-shell:not(.is-auth-route) .enterprise-page .users-header-actions {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: auto 1fr !important;
+    gap: 8px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .enterprise-page .users-add-btn {
+    width: 100% !important;
+  }
+}
+
+/* Reports filters: compact equal-height controls */
+#app .app-shell:not(.is-auth-route) .reports-page .report-filter-grid {
+  align-items: end !important;
+  gap: 10px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .reports-page .report-filter-field {
+  display: grid !important;
+  grid-template-rows: 18px 36px !important;
+  gap: 6px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .reports-page .report-filter-control,
+#app .app-shell:not(.is-auth-route) .reports-page .report-export-btn,
+#app .app-shell:not(.is-auth-route) .reports-page .report-filter-field .shamsi-picker-input-wrap {
+  box-sizing: border-box !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .reports-page .report-tab {
+  min-height: 34px !important;
+  height: 34px !important;
+  padding: 0 12px !important;
+  border-radius: 10px !important;
+  background: #e4f4f2 !important;
+  color: #1f5c59 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .reports-page .report-tab.is-active {
+  background: #34908B !important;
+  color: #fff !important;
+}

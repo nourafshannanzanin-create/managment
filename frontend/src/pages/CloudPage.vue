@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, onMounted } from 'vue'
 
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -49,7 +50,7 @@ onMounted(() => {
 <template>
   <section class="cloud-page">
     <div v-if="!canUseCloud" class="cloud-empty">
-      <span class="material-symbols-outlined">lock</span>
+      <IconlyIcon name="lock" decorative />
       <strong>فضای ابری برای این مجموعه فعال نیست.</strong>
       <p>{{ cloudRetentionText }}</p>
     </div>
@@ -62,14 +63,14 @@ onMounted(() => {
           <p>{{ cloudRetentionText }}</p>
         </div>
         <button class="action-btn tone-primary" type="button" @click="openDocumentComposer">
-          <span class="material-symbols-outlined">upload_file</span>
+          <IconlyIcon name="upload_file" decorative />
           <span>بارگذاری سند</span>
         </button>
       </header>
 
       <div class="cloud-stats">
         <article v-for="item in stats" :key="item.label">
-          <span class="material-symbols-outlined">{{ item.icon }}</span>
+          <IconlyIcon :name="item.icon" decorative />
           <small>{{ item.label }}</small>
           <strong>{{ item.value }}</strong>
         </article>
@@ -77,22 +78,22 @@ onMounted(() => {
 
       <div class="cloud-list">
         <article v-for="file in files" :key="file.id" class="cloud-row">
-          <span class="material-symbols-outlined">description</span>
+          <IconlyIcon name="description" decorative />
           <div>
             <strong>{{ file.title }}</strong>
             <small>{{ file.owner }} · {{ file.department }} · {{ file.uploadedAt }}</small>
           </div>
           <b>{{ file.status }}</b>
           <button class="icon-btn" type="button" :disabled="!file.previewUrl" @click="openProtectedFile(file.previewUrl, file.title)">
-            <span class="material-symbols-outlined">visibility</span>
+            <IconlyIcon name="visibility" decorative />
           </button>
           <button class="icon-btn" type="button" :disabled="!file.downloadUrl" @click="downloadProtectedFile(file.downloadUrl, file.title)">
-            <span class="material-symbols-outlined">download</span>
+            <IconlyIcon name="download" decorative />
           </button>
         </article>
 
         <div v-if="!files.length" class="cloud-empty compact">
-          <span class="material-symbols-outlined">cloud_upload</span>
+          <IconlyIcon name="cloud_upload" decorative />
           <strong>هنوز فایلی در فضای ابری ثبت نشده است.</strong>
         </div>
       </div>
@@ -162,7 +163,7 @@ onMounted(() => {
   padding: 18px;
 }
 
-.cloud-stats .material-symbols-outlined {
+.cloud-stats .iconly-shell {
   color: #287a6e;
 }
 
@@ -184,7 +185,7 @@ onMounted(() => {
   padding: 14px;
 }
 
-.cloud-row > .material-symbols-outlined {
+.cloud-row > .iconly-shell {
   width: 42px;
   height: 42px;
   display: grid;

@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './base/IconlyIcon.vue'
 import { onMounted, ref, watch } from 'vue'
 
 const props = defineProps({
@@ -120,7 +121,7 @@ defineExpose({ clearPad })
       @touchend="end"
     ></canvas>
     <button class="action-btn tone-soft signature-clear" type="button" @click="clearPad">
-      <span class="material-symbols-outlined">ink_eraser</span>
+      <IconlyIcon name="ink_eraser" decorative />
       <span>پاک کردن</span>
     </button>
   </div>

@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from './base/IconlyIcon.vue'
 import { computed, ref } from 'vue'
 
 import BaseModal from './BaseModal.vue'
@@ -113,7 +114,7 @@ function isSelected(id) {
 
       <label :class="['upload-pad compact-upload', fieldHasError('file') && 'has-error']">
         <input type="file" accept="image/*,.pdf" @change="setDocumentFile($event.target.files?.[0])" />
-        <span class="material-symbols-outlined">upload_file</span>
+        <IconlyIcon name="upload_file" decorative />
         <strong>{{ form.file?.name || 'افزودن فایل سند' }}</strong>
         <small>فایل PDF یا تصویر</small>
       </label>
@@ -145,7 +146,7 @@ function isSelected(id) {
           </div>
 
           <label class="search-shell">
-            <span class="material-symbols-outlined">search</span>
+            <IconlyIcon name="search" decorative />
             <input v-model="recipientSearch" type="text" placeholder="جستجو در اعضا..." />
           </label>
 
@@ -163,12 +164,12 @@ function isSelected(id) {
               </div>
               <div class="recipient-card-meta">
                 <span>{{ item.department || 'بدون بخش' }}</span>
-                <span class="material-symbols-outlined">{{ isSelected(item.id) ? 'check_circle' : 'add_circle' }}</span>
+                <IconlyIcon :name="isSelected(item.id) ? 'check_circle' : 'add_circle'" decorative />
               </div>
             </button>
           </div>
           <div v-else class="empty-state-inline">
-            <span class="material-symbols-outlined">person_search</span>
+            <IconlyIcon name="person_search" decorative />
             <p>عضوی برای این جستجو پیدا نشد.</p>
           </div>
         </div>
@@ -178,11 +179,11 @@ function isSelected(id) {
 
       <div class="action-group modal-actions">
         <button class="action-btn tone-soft" type="button" @click="$emit('close')">
-          <span class="material-symbols-outlined">close</span>
+          <IconlyIcon name="close" decorative />
           <span>بستن</span>
         </button>
         <button class="action-btn tone-primary" :disabled="submitting || !state.documentForm.assigneeIds.length" type="button" @click="submitDocument">
-          <span class="material-symbols-outlined">send</span>
+          <IconlyIcon name="send" decorative />
           <span>{{ submitting ? 'در حال ارسال...' : 'ثبت سند' }}</span>
         </button>
       </div>

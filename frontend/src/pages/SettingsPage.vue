@@ -1,4 +1,5 @@
 <script setup>
+import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, onMounted, ref } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
@@ -145,7 +146,7 @@ onMounted(async () => {
           </label>
 
           <button v-if="state.settings.canEdit" class="action-btn tone-primary" type="button" @click="persistSettings">
-            <span class="material-symbols-outlined">save</span>
+            <IconlyIcon name="save" decorative />
             <span>{{ saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات' }}</span>
           </button>
         </div>
@@ -190,7 +191,7 @@ onMounted(async () => {
                 type="button"
                 @click="removeDepartment(index)"
               >
-                <span class="material-symbols-outlined">delete</span>
+                <IconlyIcon name="delete" decorative />
                 <span>حذف</span>
               </button>
             </div>
@@ -208,7 +209,7 @@ onMounted(async () => {
         </label>
 
         <button v-if="state.settings.canEdit" class="action-btn tone-primary" type="button" @click="persistDepartments">
-          <span class="material-symbols-outlined">save</span>
+          <IconlyIcon name="save" decorative />
           <span>{{ saving ? 'در حال ذخیره...' : 'ذخیره بخش‌ها' }}</span>
         </button>
       </div>
@@ -223,7 +224,7 @@ onMounted(async () => {
       </div>
 
       <label class="search-shell search-shell-wide settings-section-search">
-        <span class="material-symbols-outlined">search</span>
+        <IconlyIcon name="search" decorative />
         <input v-model="sectionSearch" type="text" placeholder="جستجو در بخش‌ها..." />
       </label>
 
@@ -249,7 +250,7 @@ onMounted(async () => {
         </button>
       </div>
       <div v-else class="empty-state-inline">
-        <span class="material-symbols-outlined">rule</span>
+        <IconlyIcon name="rule" decorative />
         <p>{{ state.settings.sections.length ? 'بخشی مطابق جستجو پیدا نشد.' : 'بخشی برای تنظیم دسترسی دریافت نشد.' }}</p>
       </div>
     </section>
@@ -265,7 +266,7 @@ onMounted(async () => {
       <section class="surface-inline access-directory-panel">
         <div class="filter-toolbar users-filter-toolbar">
           <label class="search-shell search-shell-wide">
-            <span class="material-symbols-outlined">search</span>
+            <IconlyIcon name="search" decorative />
             <input v-model="userSearch" type="text" placeholder="جستجو در اعضا..." />
           </label>
 
@@ -307,11 +308,11 @@ onMounted(async () => {
 
       <div class="modal-actions">
         <button class="action-btn tone-soft" type="button" @click="accessModalOpen = false">
-          <span class="material-symbols-outlined">close</span>
+          <IconlyIcon name="close" decorative />
           <span>بستن</span>
         </button>
         <button class="action-btn tone-primary" type="button" @click="persistSectionAccess">
-          <span class="material-symbols-outlined">save</span>
+          <IconlyIcon name="save" decorative />
           <span>{{ saving ? 'در حال ذخیره...' : 'ذخیره دسترسی' }}</span>
         </button>
       </div>
@@ -334,9 +335,10 @@ onMounted(async () => {
   gap: 12px;
   height: 100%;
   padding: 14px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(32, 58, 105, 0.1);
+  border-radius: 14px;
+  background: #ffffff;
+  border: 0;
+  box-shadow: 0 4px 14px rgba(40, 110, 105, 0.1);
 }
 
 .department-card-head {
@@ -347,20 +349,27 @@ onMounted(async () => {
 }
 
 .department-code {
-  font-size: 0.84rem;
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
   font-weight: 700;
-  color: rgba(23, 37, 84, 0.86);
+  color: #1f5c59;
+  background: #dcefec;
 }
 
 .department-row .field-shell {
   margin: 0;
-  background: transparent;
+  background: #e4f4f2;
   border: 0;
-  padding: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
 }
 
 .department-delete-btn {
-  min-height: 42px;
+  min-height: 32px;
   flex-shrink: 0;
 }
 
@@ -376,4 +385,5 @@ onMounted(async () => {
     align-items: stretch;
   }
 }
+
 </style>
