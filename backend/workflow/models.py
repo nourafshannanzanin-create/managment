@@ -10,6 +10,12 @@ class UserRole(models.TextChoices):
     EMPLOYEE = "employee", "کارمند"
 
 
+class PlatformRole(models.TextChoices):
+    NONE = "", ""
+    HQ_ADMIN = "hq_admin", "HQ Admin"
+    HQ_SUPPORT = "hq_support", "HQ Support"
+
+
 class RequestPriority(models.TextChoices):
     LOW = "low", "پایین"
     MEDIUM = "medium", "متوسط"
@@ -126,6 +132,7 @@ class User(TimeStampedModel):
     phone = models.CharField(max_length=40, blank=True, null=True)
     password_hash = models.CharField(max_length=255)
     role = models.CharField(max_length=32, choices=UserRole.choices)
+    platform_role = models.CharField(max_length=32, choices=PlatformRole.choices, blank=True, default="")
     job_title = models.CharField(max_length=120)
     avatar = models.CharField(max_length=8)
     bio = models.TextField(blank=True, null=True)
@@ -138,6 +145,23 @@ class User(TimeStampedModel):
     manager = models.ForeignKey("self", on_delete=models.SET_NULL, blank=True, null=True, related_name="direct_reports")
     last_login_at = models.DateTimeField(blank=True, null=True)
     attendance_token = models.CharField(max_length=64, unique=True, db_index=True, default=uuid4)
+    support_star_rating = models.DecimalField(max_digits=4, decimal_places=2, default=0)
+    support_rating_count = models.PositiveIntegerField(default=0)
+    support_customer_satisfaction_avg = models.DecimalField(max_digits=4, decimal_places=2, default=0)
+    support_response_quality_avg = models.DecimalField(max_digits=4, decimal_places=2, default=0)
+    support_first_response_minutes_avg = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    support_total_responses = models.PositiveIntegerField(default=0)
+    support_resolved_tickets_count = models.PositiveIntegerField(default=0)
+    support_last_scored_at = models.DateTimeField(blank=True, null=True)
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(blank=True, null=True)
+    deleted_by = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="deleted_users",
+    )
 
     class Meta:
         db_table = "users"
@@ -260,10 +284,20 @@ class SupportTicket(TimeStampedModel):
     category = models.CharField(max_length=32, choices=SupportTicketCategory.choices, default=SupportTicketCategory.TECHNICAL)
     priority = models.CharField(max_length=32, choices=SupportTicketPriority.choices, default=SupportTicketPriority.MEDIUM)
     status = models.CharField(max_length=32, choices=SupportTicketStatus.choices, default=SupportTicketStatus.OPEN)
+    response_text = models.TextField(blank=True, default="")
+    assigned_to = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="assigned_support_tickets",
+    )
     responded_by = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="answered_support_tickets")
     responded_at = models.DateTimeField(blank=True, null=True)
     first_response_at = models.DateTimeField(blank=True, null=True)
+    response_quality_score = models.DecimalField(max_digits=4, decimal_places=2, default=0)
     closed_at = models.DateTimeField(blank=True, null=True)
+    last_message_at = models.DateTimeField(blank=True, null=True)
     customer_satisfaction = models.IntegerField(blank=True, null=True)
     customer_feedback = models.TextField(blank=True)
     updated_at = models.DateTimeField(default=timezone.now)
@@ -273,6 +307,7 @@ class SupportTicket(TimeStampedModel):
         indexes = [
             models.Index(fields=["organization", "-updated_at"], name="idx_support_ticket_org_date"),
             models.Index(fields=["status", "-updated_at"], name="idx_support_ticket_status"),
+            models.Index(fields=["assigned_to", "-last_message_at"], name="idx_support_ticket_assignee"),
         ]
 
 
@@ -282,6 +317,7 @@ class SupportMessage(TimeStampedModel):
     sender_name = models.CharField(max_length=120)
     sender_platform_role = models.CharField(max_length=32, blank=True)
     body = models.TextField()
+    is_internal = models.BooleanField(default=False)
 
     class Meta:
         db_table = "support_messages"

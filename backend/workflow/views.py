@@ -53,6 +53,7 @@ from workflow.models import (
     FeaturePurchase,
     OrganizationMembership,
     OrganizationPreference,
+    PlatformRole,
     Request,
     RequestApprovalAssignment,
     RequestAttachment,
@@ -76,6 +77,14 @@ from workflow.models import (
 )
 from workflow.security import create_access_token, decode_token, get_password_hash, verify_password
 from workflow.seed import ensure_required_login_users, seed_demo_data
+from workflow.support_tickets import (
+    close_stale_support_tickets,
+    default_hq_support_user,
+    is_hq_admin as user_is_hq_admin,
+    is_hq_user as user_is_hq_user,
+    recalculate_support_metrics,
+    response_quality_score,
+)
 from workflow.services import (
     approval_metrics,
     build_bootstrap_payload,
@@ -92,6 +101,7 @@ from workflow.services import (
     serialize_approval,
     serialize_current_user,
     serialize_expense,
+    serialize_hq_team_member,
     serialize_request,
     serialize_support_ticket,
     serialize_user,
@@ -437,6 +447,33 @@ def notify_sms(tenant: Organization | None, text: str, recipients, *, actor: Use
                 provider_id=str(result.get("provider_id") or ""),
             )
         return result
+    except Exception as exc:
+        return {
+            "ok": False,
+            "message": "ارسال پیامک با خطا مواجه شد.",
+            "provider_status": 0,
+            "provider_data": {"message": str(exc)},
+            "raw_body": str(exc),
+            "payload": {},
+        }
+
+
+def notify_system_sms(text: str, recipients, *, actor: User | None = None) -> dict:
+    """Send operational/system SMS without charging an organization SMS wallet."""
+    try:
+        text = sms_text_with_footer(text)
+        recipients = normalize_sms_recipients(recipients)
+        if not recipients:
+            message = "شماره موبایل معتبری برای ارسال پیامک ثبت نشده است."
+            return {
+                "ok": False,
+                "message": message,
+                "provider_status": 0,
+                "provider_data": {"message": message},
+                "raw_body": message,
+                "payload": {"text": text, "recipients": recipients},
+            }
+        return send_provider_sms(None, text, recipients)
     except Exception as exc:
         return {
             "ok": False,
@@ -844,26 +881,43 @@ def scoped_support_organization(request: HttpRequest) -> Organization | None:
     return resolve_wallet_organization(request)
 
 
+def send_ticket_assigned_sms(ticket: SupportTicket) -> dict:
+    assignee = getattr(ticket, "assigned_to", None)
+    phone = (getattr(assignee, "phone", "") or "").strip()
+    if not phone:
+        return {"sent": False, "reason": "no_assignee_phone"}
+    body = sms_join_lines(
+        "کارنومند | تیکت جدید",
+        f"شماره تیکت: {ticket.id}",
+        f"موضوع: {ticket.subject}",
+        f"مجموعه: {ticket.organization.name if ticket.organization_id else '-'}",
+        f"آدرس سامانه: {public_app_url()}",
+    )
+    try:
+        return notify_sms(ticket.organization, body, [phone], actor=None)
+    except Exception as exc:
+        return {"sent": False, "error": str(exc)}
+
+
 def scoped_support_tickets(request: HttpRequest):
     organization = scoped_support_organization(request)
-    if request.current_user.slug == HQ_USERNAME and organization is None:
-        return (
-            SupportTicket.objects.all()
-            .select_related("organization", "requester", "responded_by", "registration_request")
-            .prefetch_related("messages", "attachments")
-            .order_by("-updated_at", "-id")
-        )
+    include_internal = user_is_hq_user(request.current_user)
+    base = (
+        SupportTicket.objects.select_related("organization", "requester", "responded_by", "assigned_to", "registration_request")
+        .prefetch_related("messages", "attachments")
+        .order_by("-last_message_at", "-updated_at", "-id")
+    )
+    if user_is_hq_user(request.current_user) and organization is None:
+        qs = base
+        if not user_is_hq_admin(request.current_user):
+            qs = qs.filter(Q(assigned_to=request.current_user) | Q(assigned_to__isnull=True))
+        return qs
     if organization is None:
         return SupportTicket.objects.none()
     ticket_filter = Q(organization=organization)
-    if request.current_user.slug == HQ_USERNAME:
+    if user_is_hq_user(request.current_user):
         ticket_filter |= Q(registration_request__isnull=False)
-    return (
-        SupportTicket.objects.filter(ticket_filter)
-        .select_related("organization", "requester", "responded_by", "registration_request")
-        .prefetch_related("messages", "attachments")
-        .order_by("-updated_at", "-id")
-    )
+    return base.filter(ticket_filter)
 
 
 def ensure_signature(user: User) -> UserSignature:
@@ -904,6 +958,7 @@ def ensure_hq_control_user() -> None:
             "phone": "",
             "password_hash": get_password_hash("m11051386M!@"),
             "role": UserRole.ADMIN,
+            "platform_role": PlatformRole.HQ_ADMIN,
             "job_title": "HQ",
             "avatar": "MD",
             "bio": "",
@@ -918,6 +973,9 @@ def ensure_hq_control_user() -> None:
     if user.role != UserRole.ADMIN:
         user.role = UserRole.ADMIN
         update_fields.append("role")
+    if getattr(user, "platform_role", "") != PlatformRole.HQ_ADMIN:
+        user.platform_role = PlatformRole.HQ_ADMIN
+        update_fields.append("platform_role")
     if not user.is_active:
         user.is_active = True
         update_fields.append("is_active")
@@ -985,13 +1043,23 @@ def health_view(request: HttpRequest):
 def login_view(request: HttpRequest):
     startup_ready()
     payload = parse_json(request)
-    email = (payload.get("email") or payload.get("username") or "").strip().lower()
+    identifier = (payload.get("email") or payload.get("username") or "").strip()
     password = payload.get("password") or ""
-    user = User.objects.select_related("department").filter(email=email).first()
-    if user is None:
-        user = User.objects.select_related("department").filter(slug=email).first()
-    if user is None or not verify_password(password, user.password_hash):
-        return json_error("ایمیل یا رمز عبور نادرست است.", status=401)
+    identifier_lower = identifier.lower()
+    identifier_slug = normalize_slug(identifier)
+
+    user = None
+    if identifier_lower:
+        user = User.objects.select_related("department").filter(email=identifier_lower).first()
+    if user is None and identifier_lower:
+        user = User.objects.select_related("department").filter(slug=identifier_lower).first()
+    if user is None and identifier_slug and identifier_slug != identifier_lower:
+        user = User.objects.select_related("department").filter(slug=identifier_slug).first()
+    if user is None and identifier_slug:
+        user = User.objects.select_related("department").filter(email=f"{identifier_slug}@hq.local").first()
+
+    if user is None or not user.is_active or getattr(user, "is_deleted", False) or not verify_password(password, user.password_hash):
+        return json_error("نام کاربری/ایمیل یا رمز عبور نادرست است.", status=401)
     ensure_signature(user)
     user.last_login_at = timezone.now()
     user.save(update_fields=["last_login_at"])
@@ -1134,6 +1202,8 @@ def register_view(request: HttpRequest):
             category=SupportTicketCategory.ACCOUNT,
             priority=SupportTicketPriority.HIGH,
             status=SupportTicketStatus.OPEN,
+            assigned_to=default_hq_support_user(),
+            last_message_at=timezone.now(),
             updated_at=timezone.now(),
         )
         SupportMessage.objects.create(ticket=ticket, sender_name=manager_name, sender_platform_role="registration", body=message)
@@ -1155,6 +1225,8 @@ def register_view(request: HttpRequest):
                 mime_type=getattr(document, "content_type", "") or "",
                 size_bytes=getattr(document, "size", 0) or 0,
             )
+    if ticket.assigned_to_id:
+        send_ticket_assigned_sms(ticket)
     return json_response({"ok": True, "message": "درخواست ثبت‌نام ارسال شد و پس از بررسی مدارک فعال می‌شود.", "ticketId": ticket.id}, status=201)
 
 
@@ -1175,13 +1247,19 @@ def bootstrap_view(request: HttpRequest):
 
 
 def ensure_hq_admin(user: User):
-    if user.slug != HQ_USERNAME:
-        return json_error("دسترسی HQ فقط برای حساب HQ فعال است.", status=403)
+    if not user_is_hq_admin(user):
+        return json_error("دسترسی HQ ادمین لازم است.", status=403)
+    return None
+
+
+def ensure_hq_staff(user: User):
+    if not user_is_hq_user(user):
+        return json_error("دسترسی HQ فقط برای حساب مرکزی فعال است.", status=403)
     return None
 
 
 def hq_selected_user_ids(request: HttpRequest) -> list[int] | None:
-    if request.current_user.slug != HQ_USERNAME:
+    if not user_is_hq_user(request.current_user):
         return None
     organization_id = request.GET.get("organizationId")
     if not organization_id or not organization_id.isdigit():
@@ -1429,9 +1507,51 @@ def unique_users(*groups):
 @require_auth
 @methods("GET")
 def hq_panel_view(request: HttpRequest):
-    denied = ensure_hq_admin(request.current_user)
+    denied = ensure_hq_staff(request.current_user)
     if denied:
         return denied
+    if not user_is_hq_admin(request.current_user):
+        close_stale_support_tickets()
+        tickets = list(hq_ticket_queryset(request.current_user)[:300])
+        open_tickets = sum(1 for item in tickets if item.status == SupportTicketStatus.OPEN)
+        pending_tickets = sum(1 for item in tickets if item.status == SupportTicketStatus.PENDING)
+        answered_tickets = sum(1 for item in tickets if item.status == SupportTicketStatus.ANSWERED)
+        return json_response({
+            "summary": {
+                "organizations": 0,
+                "users": 0,
+                "activeUsers": 0,
+                "payments": 0,
+                "paymentTotal": "0.00",
+                "paymentTotalRaw": 0,
+                "pendingPaymentTotal": "0.00",
+                "approvedPaymentTotal": "0.00",
+                "openRequests": 0,
+                "pendingDocuments": 0,
+                "tickets": len(tickets),
+                "openTickets": open_tickets,
+                "pendingTickets": pending_tickets,
+                "answeredTickets": answered_tickets,
+                "auditEvents": 0,
+            },
+            "organizations": [],
+            "users": [],
+            "requests": [],
+            "payments": [],
+            "documents": [],
+            "tickets": [serialize_support_ticket(item, include_internal=True) for item in tickets],
+            "audits": [],
+            "segments": {"roles": [], "payments": [], "requests": [], "documents": [], "tickets": []},
+            "directories": {
+                "organizations": [],
+                "departments": [],
+                "users": [],
+                "roles": [],
+                "requestStatuses": [],
+                "expenseStatuses": [],
+                "documentStatuses": [],
+            },
+        })
     return json_response(build_hq_payload())
 
 
@@ -1731,15 +1851,24 @@ def public_attendance_view(request: HttpRequest, token: str):
 @require_auth
 @methods("GET", "POST")
 def support_tickets_view(request: HttpRequest):
+    close_stale_support_tickets()
     organization = scoped_support_organization(request)
-    if request.current_user.slug == HQ_USERNAME and organization is None:
-        return json_response([], safe=False)
+    if user_is_hq_user(request.current_user) and organization is None and request.method == "GET":
+        tickets = scoped_support_tickets(request)
+        return json_response(
+            [serialize_support_ticket(ticket, include_internal=True) for ticket in tickets[:300]],
+            safe=False,
+        )
     if organization is None:
         return json_error("مجموعه پیدا نشد.", status=404)
 
     if request.method == "GET":
         tickets = scoped_support_tickets(request)
-        return json_response([serialize_support_ticket(ticket) for ticket in tickets], safe=False)
+        include_internal = user_is_hq_user(request.current_user)
+        return json_response(
+            [serialize_support_ticket(ticket, include_internal=include_internal) for ticket in tickets],
+            safe=False,
+        )
 
     subject = (request.POST.get("subject") or "").strip()
     message = (request.POST.get("message") or "").strip()
@@ -1752,6 +1881,8 @@ def support_tickets_view(request: HttpRequest):
     if priority not in SupportTicketPriority.values:
         return json_error("اولویت معتبر نیست.", status=422)
 
+    now_value = timezone.now()
+    assignee = default_hq_support_user()
     with transaction.atomic():
         ticket = SupportTicket.objects.create(
             organization=organization,
@@ -1761,14 +1892,17 @@ def support_tickets_view(request: HttpRequest):
             category=category,
             priority=priority,
             status=SupportTicketStatus.OPEN,
-            updated_at=timezone.now(),
+            assigned_to=assignee,
+            last_message_at=now_value,
+            updated_at=now_value,
         )
         SupportMessage.objects.create(
             ticket=ticket,
             sender=request.current_user,
             sender_name=request.current_user.full_name,
-            sender_platform_role="hq_support" if request.current_user.slug == HQ_USERNAME else "tenant",
+            sender_platform_role="hq_support" if user_is_hq_user(request.current_user) else "tenant",
             body=message,
+            is_internal=False,
         )
         for attachment in request.FILES.getlist("attachments"):
             stored_name = save_uploaded_file(attachment)
@@ -1789,17 +1923,26 @@ def support_tickets_view(request: HttpRequest):
             icon="support_agent",
         )
 
-    ticket = SupportTicket.objects.select_related("organization", "requester", "responded_by").prefetch_related("messages", "attachments").get(pk=ticket.id)
-    return json_response(serialize_support_ticket(ticket, include_detail=True), status=201)
+    if assignee:
+        send_ticket_assigned_sms(ticket)
+
+    ticket = (
+        SupportTicket.objects.select_related("organization", "requester", "responded_by", "assigned_to")
+        .prefetch_related("messages", "attachments")
+        .get(pk=ticket.id)
+    )
+    return json_response(serialize_support_ticket(ticket, include_detail=True, include_internal=user_is_hq_user(request.current_user)), status=201)
 
 
 @require_auth
 @methods("GET")
 def support_ticket_detail_view(request: HttpRequest, ticket_id: int):
+    close_stale_support_tickets()
     ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
     if ticket is None:
         return json_error("تیکت پیدا نشد.", status=404)
-    return json_response(serialize_support_ticket(ticket, include_detail=True))
+    include_internal = user_is_hq_user(request.current_user)
+    return json_response(serialize_support_ticket(ticket, include_detail=True, include_internal=include_internal))
 
 
 @require_auth
@@ -1818,31 +1961,54 @@ def support_ticket_message_view(request: HttpRequest, ticket_id: int):
         return json_error("متن پیام الزامی است.", status=422)
 
     now_value = timezone.now()
+    is_hq = user_is_hq_user(request.current_user)
     with transaction.atomic():
         if body:
             SupportMessage.objects.create(
                 ticket=ticket,
                 sender=request.current_user,
                 sender_name=request.current_user.full_name,
-                sender_platform_role="hq_support" if request.current_user.slug == HQ_USERNAME else "tenant",
+                sender_platform_role="hq_support" if is_hq else "tenant",
                 body=body,
+                is_internal=False,
             )
-        if close_ticket:
+            ticket.last_message_at = now_value
+        if close_ticket and is_hq:
             ticket.status = SupportTicketStatus.CLOSED
             ticket.closed_at = now_value
-        elif request.current_user.slug == HQ_USERNAME:
+        elif is_hq:
             ticket.status = SupportTicketStatus.ANSWERED
             ticket.responded_by = request.current_user
             ticket.responded_at = now_value
+            ticket.response_text = body or ticket.response_text
             if ticket.first_response_at is None:
                 ticket.first_response_at = now_value
+            if body:
+                ticket.response_quality_score = response_quality_score(ticket, body)
+            if not ticket.assigned_to_id:
+                ticket.assigned_to = request.current_user
         else:
-            ticket.status = SupportTicketStatus.PENDING
+            ticket.status = SupportTicketStatus.OPEN
         ticket.updated_at = now_value
-        ticket.save(update_fields=["status", "responded_by", "responded_at", "first_response_at", "closed_at", "updated_at"])
+        ticket.save(
+            update_fields=[
+                "status",
+                "responded_by",
+                "responded_at",
+                "first_response_at",
+                "closed_at",
+                "updated_at",
+                "last_message_at",
+                "response_text",
+                "response_quality_score",
+                "assigned_to",
+            ]
+        )
+        if is_hq and ticket.assigned_to_id:
+            recalculate_support_metrics(ticket.assigned_to)
 
     ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
-    return json_response(serialize_support_ticket(ticket, include_detail=True))
+    return json_response(serialize_support_ticket(ticket, include_detail=True, include_internal=is_hq))
 
 
 @require_auth
@@ -1851,107 +2017,30 @@ def support_ticket_feedback_view(request: HttpRequest, ticket_id: int):
     ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
     if ticket is None:
         return json_error("تیکت پیدا نشد.", status=404)
-    if ticket.status != SupportTicketStatus.CLOSED:
-        return json_error("امتیازدهی فقط برای تیکت بسته شده فعال است.", status=409)
+    if ticket.status not in {SupportTicketStatus.CLOSED, SupportTicketStatus.ANSWERED}:
+        return json_error("امتیازدهی فقط برای تیکت پاسخ‌داده‌شده یا بسته‌شده فعال است.", status=409)
 
     payload = parse_json(request)
     try:
-        score = int(payload.get("score"))
+        score = int(payload.get("score") or payload.get("customer_satisfaction") or 0)
     except (TypeError, ValueError):
         score = 0
     if score < 1 or score > 5:
         return json_error("امتیاز معتبر نیست.", status=422)
 
     ticket.customer_satisfaction = score
-    ticket.customer_feedback = (payload.get("feedback") or "").strip()
+    ticket.customer_feedback = (payload.get("feedback") or payload.get("customer_feedback") or "").strip()
     ticket.updated_at = timezone.now()
     ticket.save(update_fields=["customer_satisfaction", "customer_feedback", "updated_at"])
-    return json_response(serialize_support_ticket(ticket, include_detail=True))
-
-
-@require_auth
-@methods("POST")
-def support_ticket_wallet_deposit_view(request: HttpRequest, ticket_id: int):
-    denied = ensure_hq_admin(request.current_user)
-    if denied:
-        return denied
-
-    ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
-    if ticket is None:
-        return json_error("تیکت پیدا نشد.", status=404)
-    if ticket.category != SupportTicketCategory.FINANCIAL:
-        return json_error("این تیکت برای واریز کیف پول نیست.", status=409)
-
-    wallet_id = support_ticket_wallet_id(ticket)
-    if wallet_id is None:
-        return json_error("شناسه کیف پول در تیکت ثبت نشده است.", status=422)
-
-    payload = parse_json(request)
-    amount = parse_wallet_amount(payload.get("amount"))
-    if amount is None:
-        return json_error("مبلغ معتبر نیست.", status=422)
-
-    now_value = timezone.now()
-    with transaction.atomic():
-        wallet = (
-            Wallet.objects.select_for_update()
-            .filter(pk=wallet_id, organization=ticket.organization, is_active=True)
-            .first()
-        )
-        if wallet is None:
-            return json_error("کیف پول پیدا نشد.", status=404)
-
-        next_balance = Decimal(wallet.balance) + amount
-        wallet.balance = next_balance
-        wallet.updated_at = now_value
-        wallet.save(update_fields=["balance", "updated_at"])
-
-        WalletTransaction.objects.create(
-            organization=ticket.organization,
-            wallet=wallet,
-            actor=request.current_user,
-            direction="in",
-            transaction_type="support_ticket_deposit",
-            amount=amount,
-            balance_after=next_balance,
-            note=f"support_ticket:{ticket.id}",
-            reference_id=str(payload.get("referenceId") or ticket.id),
-        )
-
-        SupportMessage.objects.create(
-            ticket=ticket,
-            sender=request.current_user,
-            sender_name=request.current_user.full_name,
-            sender_platform_role="hq_support",
-            body=f"واریز کیف پول انجام شد. مبلغ: {format_money(amount)}",
-        )
-
-        ticket.status = SupportTicketStatus.ANSWERED
-        ticket.responded_by = request.current_user
-        ticket.responded_at = now_value
-        if ticket.first_response_at is None:
-            ticket.first_response_at = now_value
-        ticket.updated_at = now_value
-        ticket.save(update_fields=["status", "responded_by", "responded_at", "first_response_at", "updated_at"])
-
-        AuditLog.objects.create(
-            actor=request.current_user,
-            actor_name=request.current_user.full_name,
-            action="support_ticket_wallet_deposit",
-            entity_type="wallet",
-            entity_code=wallet.key,
-            detail=f"{ticket.organization.code}:{ticket.id}:{format_money(amount)}",
-            icon="account_balance_wallet",
-        )
-
-    ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
-    return json_response(serialize_support_ticket(ticket, include_detail=True))
+    if ticket.assigned_to_id:
+        recalculate_support_metrics(ticket.assigned_to)
+    return json_response(serialize_support_ticket(ticket, include_detail=True, include_internal=False))
 
 
 @require_auth
 @methods("POST")
 def support_ticket_approve_registration_view(request: HttpRequest, ticket_id: int):
-    denied = ensure_hq_admin(request.current_user)
+    denied = ensure_hq_staff(request.current_user)
     if denied:
         return denied
     company_code = normalize_slug(parse_json(request).get("companyCode") or "")
@@ -2028,7 +2117,7 @@ def support_ticket_approve_registration_view(request: HttpRequest, ticket_id: in
 @require_auth
 @methods("POST")
 def support_ticket_wallet_deposit_view(request: HttpRequest, ticket_id: int):
-    denied = ensure_hq_admin(request.current_user)
+    denied = ensure_hq_staff(request.current_user)
     if denied:
         return denied
     ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
@@ -2094,7 +2183,7 @@ def support_ticket_wallet_deposit_view(request: HttpRequest, ticket_id: int):
 @require_auth
 @methods("POST")
 def support_ticket_bank_withdraw_complete_view(request: HttpRequest, ticket_id: int):
-    denied = ensure_hq_admin(request.current_user)
+    denied = ensure_hq_staff(request.current_user)
     if denied:
         return denied
     ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
@@ -2131,6 +2220,300 @@ def support_ticket_bank_withdraw_complete_view(request: HttpRequest, ticket_id: 
         ticket.save(update_fields=["status", "responded_by", "responded_at", "first_response_at", "updated_at"])
     ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
     return json_response(serialize_support_ticket(ticket, include_detail=True))
+
+
+def hq_ticket_queryset(user: User):
+    qs = (
+        SupportTicket.objects.select_related("organization", "requester", "responded_by", "assigned_to", "registration_request")
+        .prefetch_related("messages", "attachments")
+        .order_by("-last_message_at", "-updated_at", "-id")
+    )
+    if not user_is_hq_admin(user):
+        qs = qs.filter(Q(assigned_to=user) | Q(assigned_to__isnull=True))
+    return qs
+
+
+@require_auth
+@methods("GET")
+def hq_tickets_view(request: HttpRequest):
+    denied = ensure_hq_staff(request.current_user)
+    if denied:
+        return denied
+    close_stale_support_tickets()
+    q = str(request.GET.get("q") or "").strip()
+    status_filter = str(request.GET.get("status") or "all").strip().lower()
+    priority_filter = str(request.GET.get("priority") or "all").strip().lower()
+    organization_id = request.GET.get("organizationId") or request.GET.get("organization_id")
+
+    queryset = hq_ticket_queryset(request.current_user)
+    if status_filter == SupportTicketStatus.OPEN:
+        queryset = queryset.exclude(status=SupportTicketStatus.CLOSED)
+    elif status_filter in SupportTicketStatus.values:
+        queryset = queryset.filter(status=status_filter)
+    if priority_filter in SupportTicketPriority.values:
+        queryset = queryset.filter(priority=priority_filter)
+    if organization_id and str(organization_id).isdigit():
+        queryset = queryset.filter(organization_id=int(organization_id))
+    if q:
+        queryset = queryset.filter(
+            Q(subject__icontains=q)
+            | Q(message__icontains=q)
+            | Q(organization__name__icontains=q)
+            | Q(requester__full_name__icontains=q)
+            | Q(requester__slug__icontains=q)
+        )
+    return json_response([serialize_support_ticket(ticket, include_internal=True) for ticket in queryset[:300]], safe=False)
+
+
+@require_auth
+@methods("GET")
+def hq_ticket_detail_view(request: HttpRequest, ticket_id: int):
+    denied = ensure_hq_staff(request.current_user)
+    if denied:
+        return denied
+    close_stale_support_tickets()
+    ticket = hq_ticket_queryset(request.current_user).filter(pk=ticket_id).first()
+    if ticket is None:
+        return json_error("تیکت پیدا نشد.", status=404)
+    return json_response(serialize_support_ticket(ticket, include_detail=True, include_internal=True))
+
+
+@require_auth
+@methods("POST")
+def hq_ticket_message_view(request: HttpRequest, ticket_id: int):
+    denied = ensure_hq_staff(request.current_user)
+    if denied:
+        return denied
+    ticket = hq_ticket_queryset(request.current_user).filter(pk=ticket_id).first()
+    if ticket is None:
+        return json_error("تیکت پیدا نشد.", status=404)
+
+    payload = parse_json(request)
+    body = (payload.get("body") or "").strip()
+    if not body:
+        return json_error("متن پیام الزامی است.", status=422)
+
+    status_value = (payload.get("status") or "").strip()
+    if status_value and status_value not in SupportTicketStatus.values:
+        return json_error("وضعیت معتبر نیست.", status=422)
+    is_internal = bool(payload.get("isInternal") or payload.get("is_internal"))
+    assign_to_user_id = payload.get("assignToUserId") or payload.get("assign_to_user_id")
+
+    previous_assignee = ticket.assigned_to
+    now_value = timezone.now()
+    with transaction.atomic():
+        if assign_to_user_id:
+            assignee = User.objects.filter(
+                pk=assign_to_user_id,
+                platform_role__in=[PlatformRole.HQ_ADMIN, PlatformRole.HQ_SUPPORT],
+                is_active=True,
+                is_deleted=False,
+            ).first()
+            if assignee:
+                ticket.assigned_to = assignee
+        elif not ticket.assigned_to_id:
+            ticket.assigned_to = request.current_user
+
+        message = SupportMessage.objects.create(
+            ticket=ticket,
+            sender=request.current_user,
+            sender_name=request.current_user.full_name,
+            sender_platform_role="hq_support",
+            body=body,
+            is_internal=is_internal,
+        )
+        ticket.last_message_at = message.created_at
+        if not is_internal:
+            ticket.response_text = body
+            ticket.responded_by = request.current_user
+            ticket.responded_at = message.created_at
+            if not ticket.first_response_at:
+                ticket.first_response_at = message.created_at
+            if status_value:
+                ticket.status = status_value
+                if status_value == SupportTicketStatus.CLOSED:
+                    ticket.closed_at = message.created_at
+            else:
+                ticket.status = SupportTicketStatus.ANSWERED
+            ticket.response_quality_score = response_quality_score(ticket, body)
+        elif status_value:
+            ticket.status = status_value
+            if status_value == SupportTicketStatus.CLOSED:
+                ticket.closed_at = message.created_at
+        ticket.updated_at = now_value
+        ticket.save(
+            update_fields=[
+                "assigned_to",
+                "response_text",
+                "responded_by",
+                "first_response_at",
+                "responded_at",
+                "last_message_at",
+                "status",
+                "closed_at",
+                "response_quality_score",
+                "updated_at",
+            ]
+        )
+        if previous_assignee and previous_assignee.id != ticket.assigned_to_id:
+            recalculate_support_metrics(previous_assignee)
+        if ticket.assigned_to_id:
+            recalculate_support_metrics(ticket.assigned_to)
+
+    ticket = hq_ticket_queryset(request.current_user).filter(pk=ticket_id).first()
+    return json_response(serialize_support_ticket(ticket, include_detail=True, include_internal=True), status=201)
+
+
+@require_auth
+@methods("GET", "POST")
+def hq_team_view(request: HttpRequest):
+    denied = ensure_hq_staff(request.current_user)
+    if denied:
+        return denied
+
+    if request.method == "GET":
+        users = (
+            User.objects.filter(platform_role__in=[PlatformRole.HQ_ADMIN, PlatformRole.HQ_SUPPORT], is_deleted=False)
+            .order_by("platform_role", "full_name")
+        )
+        return json_response([serialize_hq_team_member(user) for user in users], safe=False)
+
+    denied_admin = ensure_hq_admin(request.current_user)
+    if denied_admin:
+        return denied_admin
+
+    payload = parse_json(request)
+    full_name = (payload.get("fullName") or payload.get("full_name") or "").strip()
+    username = normalize_slug(payload.get("username") or payload.get("slug") or "")
+    phone = (payload.get("phone") or "").strip()
+    email = (payload.get("email") or "").strip().lower() or f"{username}@hq.local"
+    password = (payload.get("password") or "").strip() or "Support123!"
+    if not full_name or not username:
+        return json_error("نام و نام کاربری الزامی است.", status=422)
+    if not phone:
+        return json_error("شماره موبایل پشتیبان برای ارسال پیامک مشخصات ورود الزامی است.", status=422)
+    if not normalize_sms_recipients([phone]):
+        return json_error("شماره موبایل پشتیبان معتبر نیست.", status=422)
+    if User.objects.filter(slug=username).exists():
+        return json_error("نام کاربری قبلاً ثبت شده است.", status=409)
+    if User.objects.filter(email=email).exists():
+        return json_error("ایمیل قبلاً ثبت شده است.", status=409)
+
+    hq_org = Organization.objects.filter(code="hq-control").first()
+    hq_dept = Department.objects.filter(code="hq-control").first()
+    user = User.objects.create(
+        slug=username,
+        full_name=full_name,
+        email=email,
+        phone=phone,
+        password_hash=get_password_hash(password),
+        role=UserRole.ADMIN,
+        platform_role=PlatformRole.HQ_SUPPORT,
+        job_title="پشتیبان مرکزی",
+        avatar=(full_name[:2] or "SP").upper(),
+        bio="",
+        is_active=True,
+        department=hq_dept,
+    )
+    if hq_org:
+        OrganizationMembership.objects.update_or_create(user=user, defaults={"organization": hq_org, "display_title": "پشتیبان مرکزی"})
+
+    sms_result = notify_system_sms(
+        build_account_credentials_sms(
+            full_name=full_name,
+            organization_name="پنل مرکزی کارنومند",
+            username=username,
+            password=password,
+            role_label="پشتیبان مرکزی",
+        ),
+        [phone],
+        actor=request.current_user,
+    )
+    AuditLog.objects.create(
+        actor=request.current_user,
+        actor_name=request.current_user.full_name,
+        action="hq_support_created",
+        entity_type="user",
+        entity_code=username,
+        detail=f"{full_name} | sms:{'ok' if sms_result.get('ok') else 'failed'}",
+        icon="support_agent",
+    )
+    payload_out = serialize_hq_team_member(user)
+    payload_out["smsSent"] = bool(sms_result.get("ok"))
+    payload_out["smsMessage"] = sms_result.get("message") or ""
+    return json_response(payload_out, status=201)
+
+
+@require_auth
+@methods("PATCH", "DELETE")
+def hq_team_detail_view(request: HttpRequest, user_id: int):
+    denied = ensure_hq_admin(request.current_user)
+    if denied:
+        return denied
+
+    user = User.objects.filter(pk=user_id, platform_role=PlatformRole.HQ_SUPPORT, is_deleted=False).first()
+    if user is None:
+        return json_error("پشتیبان پیدا نشد.", status=404)
+
+    if request.method == "DELETE":
+        SupportTicket.objects.filter(assigned_to=user).update(assigned_to=None)
+        user.is_active = False
+        user.is_deleted = True
+        user.deleted_at = timezone.now()
+        user.deleted_by = request.current_user
+        user.save(update_fields=["is_active", "is_deleted", "deleted_at", "deleted_by"])
+        return json_response({"softDeleted": True})
+
+    payload = parse_json(request)
+    update_fields = []
+    if "fullName" in payload or "full_name" in payload:
+        user.full_name = (payload.get("fullName") or payload.get("full_name") or user.full_name).strip()
+        user.avatar = (user.full_name[:2] or "SP").upper()
+        update_fields.extend(["full_name", "avatar"])
+    if "username" in payload or "slug" in payload:
+        username = normalize_slug(payload.get("username") or payload.get("slug") or "")
+        if username and username != user.slug:
+            if User.objects.exclude(pk=user.pk).filter(slug=username).exists():
+                return json_error("نام کاربری قبلاً ثبت شده است.", status=409)
+            user.slug = username
+            update_fields.append("slug")
+    if "phone" in payload:
+        user.phone = (payload.get("phone") or "").strip()
+        update_fields.append("phone")
+    if "email" in payload and payload.get("email"):
+        email = str(payload.get("email")).strip().lower()
+        if User.objects.exclude(pk=user.pk).filter(email=email).exists():
+            return json_error("ایمیل قبلاً ثبت شده است.", status=409)
+        user.email = email
+        update_fields.append("email")
+    if "isActive" in payload or "is_active" in payload:
+        user.is_active = bool(payload.get("isActive") if "isActive" in payload else payload.get("is_active"))
+        update_fields.append("is_active")
+    if payload.get("password"):
+        user.password_hash = get_password_hash(str(payload.get("password")))
+        update_fields.append("password_hash")
+    if update_fields:
+        user.save(update_fields=list(dict.fromkeys(update_fields)))
+
+    sms_result = None
+    if payload.get("password") and user.phone:
+        sms_result = notify_system_sms(
+            build_account_credentials_sms(
+                full_name=user.full_name,
+                organization_name="پنل مرکزی کارنومند",
+                username=user.slug,
+                password=str(payload.get("password")),
+                role_label="پشتیبان مرکزی",
+            ),
+            [user.phone],
+            actor=request.current_user,
+        )
+
+    payload_out = serialize_hq_team_member(user)
+    if sms_result is not None:
+        payload_out["smsSent"] = bool(sms_result.get("ok"))
+        payload_out["smsMessage"] = sms_result.get("message") or ""
+    return json_response(payload_out)
 
 
 def normalize_slug(value: str) -> str:

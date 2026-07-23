@@ -30,6 +30,7 @@ from workflow.models import (
     Organization,
     OrganizationMembership,
     OrganizationPreference,
+    PlatformRole,
     Request,
     RequestApprovalAssignment,
     RequestAttachment,
@@ -45,6 +46,8 @@ from workflow.models import (
     Wallet,
     WalletTransaction,
 )
+from workflow.support_tickets import is_hq_admin as user_is_hq_admin
+from workflow.support_tickets import is_hq_user as user_is_hq_user
 
 PERSIAN_WEEK_DAYS = ["شنبه", "یکشنبه", "دوشنبه", "سه شنبه", "چهارشنبه", "پنج شنبه", "جمعه"]
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
@@ -525,7 +528,8 @@ def wallet_options_payload(organization: Organization | None) -> dict:
 
 def serialize_current_user(user: User) -> dict:
     membership = OrganizationMembership.objects.select_related("organization").filter(user=user).first()
-    is_hq = user.slug == HQ_USERNAME
+    is_hq = user_is_hq_user(user)
+    is_hq_admin_flag = user_is_hq_admin(user)
     organization = membership.organization if membership else None
     menu_access = menu_access_payload(user)
     license_status = {"isLocked": False, "is_locked": False, "reason": "", "notice": "", "graceDays": 0, "grace_days": 0, "amountDue": "0.00", "amount_due": "0.00"} if is_hq else license_status_payload(organization)
@@ -539,6 +543,7 @@ def serialize_current_user(user: User) -> dict:
         "name": normalize_person_name(user.full_name),
         "role": user.job_title,
         "accessRole": user.role,
+        "platformRole": getattr(user, "platform_role", "") or "",
         "department": user.department.name if user.department else "",
         "avatar": user.avatar,
         "email": user.email,
@@ -559,6 +564,7 @@ def serialize_current_user(user: User) -> dict:
         "canApproveDocuments": can_approve_documents(user),
         "isManager": is_manager(user),
         "isHq": is_hq,
+        "isHqAdmin": is_hq_admin_flag,
         "canUseHq": is_hq,
         "purchasedMenuAccess": sorted([key for key, allowed in menu_access.items() if allowed]),
         "menuAccess": menu_access,
@@ -880,21 +886,53 @@ def serialize_support_attachment(attachment: SupportAttachment) -> dict:
     }
 
 
-def serialize_support_message(message: SupportMessage) -> dict:
+def serialize_support_message(message: SupportMessage, *, include_internal: bool = True) -> dict:
     return {
         "id": message.id,
         "sender": normalize_person_name(message.sender_name),
         "senderPlatformRole": message.sender_platform_role,
         "body": message.body,
+        "isInternal": bool(getattr(message, "is_internal", False)),
         "createdAt": message.created_at.isoformat(),
         "createdAtIso": format_date(message.created_at.date()),
         "time": relative_time(message.created_at),
     }
 
 
-def serialize_support_ticket(ticket: SupportTicket, include_detail: bool = False) -> dict:
-    messages = list(ticket.messages.all()) if include_detail else []
-    last_message = messages[-1] if messages else ticket.messages.order_by("-created_at").first()
+def serialize_hq_team_member(user: User) -> dict:
+    return {
+        "id": user.id,
+        "slug": user.slug,
+        "username": user.slug,
+        "fullName": normalize_person_name(user.full_name),
+        "name": normalize_person_name(user.full_name),
+        "phone": user.phone or "",
+        "email": user.email,
+        "platformRole": user.platform_role or "",
+        "isActive": bool(user.is_active) and not bool(getattr(user, "is_deleted", False)),
+        "supportStarRating": float(user.support_star_rating or 0),
+        "supportRatingCount": int(user.support_rating_count or 0),
+        "supportCustomerSatisfactionAvg": float(user.support_customer_satisfaction_avg or 0),
+        "supportResponseQualityAvg": float(user.support_response_quality_avg or 0),
+        "supportFirstResponseMinutesAvg": float(user.support_first_response_minutes_avg or 0),
+        "supportTotalResponses": int(user.support_total_responses or 0),
+        "supportResolvedTicketsCount": int(user.support_resolved_tickets_count or 0),
+    }
+
+
+def serialize_support_ticket(ticket: SupportTicket, include_detail: bool = False, *, include_internal: bool = True) -> dict:
+    if include_detail:
+        messages = list(ticket.messages.all())
+        if not include_internal:
+            messages = [item for item in messages if not getattr(item, "is_internal", False)]
+    else:
+        messages = []
+    last_message = messages[-1] if messages else (
+        ticket.messages.filter(is_internal=False).order_by("-created_at").first()
+        if not include_internal
+        else ticket.messages.order_by("-created_at").first()
+    )
+    assigned = getattr(ticket, "assigned_to", None)
     payload = {
         "id": ticket.id,
         "subject": ticket.subject,
@@ -908,13 +946,18 @@ def serialize_support_ticket(ticket: SupportTicket, include_detail: bool = False
         "requester": normalize_person_name(ticket.requester.full_name) if ticket.requester else "",
         "organization": ticket.organization.name,
         "organizationId": ticket.organization_id,
+        "assignedTo": assigned.id if assigned else None,
+        "assignedToName": normalize_person_name(assigned.full_name) if assigned else "",
+        "responseText": getattr(ticket, "response_text", "") or "",
+        "responseQualityScore": float(getattr(ticket, "response_quality_score", 0) or 0),
         "respondedBy": normalize_person_name(ticket.responded_by.full_name) if ticket.responded_by else "",
         "respondedAt": ticket.responded_at.isoformat() if ticket.responded_at else "",
         "firstResponseAt": ticket.first_response_at.isoformat() if ticket.first_response_at else "",
+        "lastMessageAt": ticket.last_message_at.isoformat() if getattr(ticket, "last_message_at", None) else "",
         "closedAt": ticket.closed_at.isoformat() if ticket.closed_at else "",
         "customerSatisfaction": ticket.customer_satisfaction,
         "customerFeedback": ticket.customer_feedback,
-        "messagesCount": ticket.messages.count(),
+        "messagesCount": ticket.messages.count() if include_internal else ticket.messages.filter(is_internal=False).count(),
         "lastMessagePreview": (last_message.body if last_message else ticket.message)[:180],
         "createdAt": ticket.created_at.isoformat(),
         "createdAtIso": format_date(ticket.created_at.date()),
@@ -1270,10 +1313,10 @@ def update_document_status(document: Document) -> None:
 
 def build_bootstrap_payload(user: User, organization_id: int | None = None) -> dict:
     hq_selected_organization = None
-    if user.slug == HQ_USERNAME and organization_id:
+    if user_is_hq_user(user) and organization_id:
         hq_selected_organization = Organization.objects.exclude(code="hq-control").filter(pk=organization_id).first()
 
-    if user.slug == HQ_USERNAME and hq_selected_organization is None:
+    if user_is_hq_user(user) and hq_selected_organization is None:
         requests_qs = []
         expenses_qs = []
         approvals_qs = []

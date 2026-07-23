@@ -10,11 +10,23 @@ const { state } = useWorkflowHub()
 const isLicenseLocked = computed(() => Boolean(state.currentUser.licenseStatus?.isLocked || state.currentUser.licenseStatus?.is_locked))
 
 const items = computed(() => {
+  if (state.currentUser.isHq && !state.currentUser.isHqAdmin) {
+    return [{ to: '/hq', label: 'پشتیبانی', icon: 'support_agent' }]
+  }
+
   if (isLicenseLocked.value) {
     return [
       { to: '/dashboard', label: 'خانه', icon: 'home' },
       { to: '/wallet', label: 'کیف پول', icon: 'account_balance_wallet' },
       { to: '/support', label: 'پشتیبانی', icon: 'support_agent' },
+    ]
+  }
+
+  if (state.currentUser.isHq) {
+    return [
+      { to: '/hq', label: 'HQ', icon: 'admin_panel_settings' },
+      { to: '/dashboard', label: 'خانه', icon: 'home' },
+      { to: '/wallet', label: 'کیف پول', icon: 'account_balance_wallet' },
     ]
   }
 
@@ -38,6 +50,7 @@ const items = computed(() => {
     navItems.push({ to: '/wallet', label: 'کیف پول', icon: 'account_balance_wallet' })
   }
 
+  navItems.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent' })
   return navItems.slice(0, 5)
 })
 </script>

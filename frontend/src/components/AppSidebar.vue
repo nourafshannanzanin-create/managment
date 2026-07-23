@@ -16,9 +16,15 @@ const organizationTitle = computed(() => state.hq.selectedOrganization?.name || 
 const isLicenseLocked = computed(() => Boolean(state.currentUser.licenseStatus?.isLocked || state.currentUser.licenseStatus?.is_locked))
 
 const navItems = computed(() => {
-  const items = [
-    { to: '/dashboard', label: 'داشبورد', icon: 'space_dashboard' },
-  ]
+  const items = []
+
+  // HQ supporters: ticket-focused navigation
+  if (state.currentUser.isHq && !state.currentUser.isHqAdmin) {
+    items.push({ to: '/hq', label: 'میز پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
+    return items
+  }
+
+  items.push({ to: '/dashboard', label: 'داشبورد', icon: 'space_dashboard' })
 
   if (isLicenseLocked.value) {
     items.push({ to: '/wallet', label: 'خرید نرم‌افزار', icon: 'shopping_cart' })
@@ -45,7 +51,9 @@ const navItems = computed(() => {
     items.push({ to: '/cloud', label: 'فضای ابری', icon: 'cloud' })
   }
 
-  items.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
+  if (!state.currentUser.isHq) {
+    items.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
+  }
 
   if (state.currentUser.canViewReports) {
     items.push({ to: '/reports', label: 'گزارشات', icon: 'monitoring' })
@@ -60,7 +68,7 @@ const navItems = computed(() => {
   }
 
   if (state.currentUser.canUseHq) {
-    items.push({ to: '/hq', label: 'HQ', icon: 'admin_panel_settings' })
+    items.push({ to: '/hq', label: 'HQ', icon: 'admin_panel_settings', badge: supportUnreadCount.value })
   }
 
   return items

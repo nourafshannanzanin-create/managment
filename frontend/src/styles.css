@@ -5491,80 +5491,383 @@ body,
   color: #ffffff !important;
 }
 
-#app .support-page .support-hero {
-  border: 0 !important;
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
+/* Support desk — win over flat enterprise !important resets */
+#app .support-page {
+  --jade: #34908b !important;
+  --jade-deep: #2b7874 !important;
+  --jade-soft: rgba(52, 144, 139, 0.14) !important;
+  --ink: #1f2a37 !important;
+  --muted: #5b6b7c !important;
+  --line: rgba(52, 144, 139, 0.2) !important;
+  --surface: rgba(255, 255, 255, 0.92) !important;
+  display: grid !important;
+  gap: 18px !important;
+  color: var(--ink) !important;
 }
 
-#app .support-page .support-hero-actions {
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
+#app .support-page .support-toolbar,
+#app .support-page .surface-card,
+#app .support-page .modal-panel,
+#app .support-page .stat-card,
+#app .support-page .summary-tile,
+#app .support-page .reply-shell,
+#app .support-page .feedback-shell,
+#app .support-page .ticket-attachments-shell,
+#app .support-page .ticket-row,
+#app .support-page .support-sla-banner,
+#app .support-page .support-alert {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 250, 249, 0.96)) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 250, 249, 0.96)) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 14px 34px rgba(31, 42, 55, 0.07) !important;
+  color: var(--ink) !important;
+}
+
+#app .support-page .support-toolbar {
+  padding: 18px 20px !important;
+  background:
+    radial-gradient(circle at top left, rgba(52, 144, 139, 0.18), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(244, 250, 249, 0.96)) !important;
+  background-image:
+    radial-gradient(circle at top left, rgba(52, 144, 139, 0.18), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(244, 250, 249, 0.96)) !important;
 }
 
 #app .support-page .support-title,
 #app .support-page .support-title h2,
-#app .support-page .support-title small {
-  color: var(--text) !important;
+#app .support-page .support-title p,
+#app .support-page .panel-head h3,
+#app .support-page .conversation-title h3 {
+  color: var(--ink) !important;
 }
 
-#app .support-page .support-title > .iconly-shell,
-#app .support-page .support-primary,
-#app .support-page .support-status-card,
-#app .support-page .support-status-card.is-active {
-  border: 1px solid var(--button-primary-bg) !important;
-  background: var(--button-primary-bg) !important;
-  background-image: none !important;
+#app .support-page .title-icon {
+  display: grid !important;
+  place-items: center !important;
+  width: 46px !important;
+  height: 46px !important;
+  border-radius: 16px !important;
+  color: #fff !important;
+  background: linear-gradient(135deg, #34908b, #2b7874) !important;
+  background-image: linear-gradient(135deg, #34908b, #2b7874) !important;
+  box-shadow: 0 12px 24px rgba(52, 144, 139, 0.28) !important;
+}
+
+#app .support-page .support-sla-banner {
+  padding: 14px 16px !important;
+  color: #2b7874 !important;
+  font-weight: 800 !important;
+  background: linear-gradient(135deg, #ffffff, #eef8f7) !important;
+  background-image: linear-gradient(135deg, #ffffff, #eef8f7) !important;
+}
+
+#app .support-page .support-alert {
+  padding: 14px 16px !important;
+  background: rgba(52, 144, 139, 0.12) !important;
+  color: #2b7874 !important;
+  font-weight: 800 !important;
+}
+
+#app .support-page .support-alert.danger {
+  background: #fef3f2 !important;
+  color: #b42318 !important;
+}
+
+#app .support-page .stats-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+}
+
+#app .support-page .stat-card {
+  display: grid !important;
+  gap: 6px !important;
+  min-height: 124px !important;
+  padding: 16px !important;
+  cursor: pointer !important;
+}
+
+#app .support-page .stat-card.active.open {
+  background: linear-gradient(180deg, rgba(219, 234, 254, 0.85), #fff) !important;
+  background-image: linear-gradient(180deg, rgba(219, 234, 254, 0.85), #fff) !important;
+}
+
+#app .support-page .stat-card.active.pending {
+  background: linear-gradient(180deg, rgba(254, 243, 199, 0.9), #fff) !important;
+  background-image: linear-gradient(180deg, rgba(254, 243, 199, 0.9), #fff) !important;
+}
+
+#app .support-page .stat-card.active.answered {
+  background: linear-gradient(180deg, rgba(209, 250, 229, 0.9), #fff) !important;
+  background-image: linear-gradient(180deg, rgba(209, 250, 229, 0.9), #fff) !important;
+}
+
+#app .support-page .stat-card.active.closed {
+  background: linear-gradient(180deg, rgba(226, 232, 240, 0.9), #fff) !important;
+  background-image: linear-gradient(180deg, rgba(226, 232, 240, 0.9), #fff) !important;
+}
+
+#app .support-page .stat-icon {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #2b7874 !important;
+  background: rgba(52, 144, 139, 0.14) !important;
+}
+
+#app .support-page .stat-card strong,
+#app .support-page .stat-card span {
+  color: var(--ink) !important;
+}
+
+#app .support-page .workspace-grid {
+  display: grid !important;
+  grid-template-columns: minmax(320px, 390px) minmax(0, 1fr) !important;
+  gap: 16px !important;
+  align-items: start !important;
+}
+
+#app .support-page .inbox-card,
+#app .support-page .conversation-card {
+  display: grid !important;
+  gap: 14px !important;
+  padding: 18px !important;
+  min-width: 0 !important;
+}
+
+#app .support-page .panel-kicker {
+  display: inline-flex !important;
+  margin: 0 0 6px !important;
+  padding: 7px 11px !important;
+  border-radius: 999px !important;
+  background: rgba(52, 144, 139, 0.14) !important;
+  color: #2b7874 !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+}
+
+#app .support-page .chip-btn,
+#app .support-page .mini-btn,
+#app .support-page .secondary-btn,
+#app .support-page .primary-btn,
+#app .support-page .close-btn,
+#app .support-page .rating-star-btn,
+#app .support-page .ticket-attachment-item {
+  border: 1px solid var(--line) !important;
+  border-radius: 14px !important;
+  min-height: 42px !important;
+  padding: 0 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
   box-shadow: none !important;
-  color: #ffffff !important;
 }
 
-#app .support-page .support-title > .iconly-shell {
-  background: var(--button-primary-bg) !important;
+#app .support-page .primary-btn,
+#app .support-page button.primary-btn,
+#app .support-page button[type='submit'].primary-btn {
+  color: #fff !important;
+  border-color: #34908b !important;
+  background: linear-gradient(135deg, #34908b, #2b7874) !important;
+  background-image: linear-gradient(135deg, #34908b, #2b7874) !important;
 }
 
-#app .support-page .support-primary:hover:not(:disabled),
-#app .support-page .support-status-card:hover:not(:disabled) {
-  background: var(--button-primary-hover) !important;
-  color: #ffffff !important;
+#app .support-page .secondary-btn,
+#app .support-page .mini-btn {
+  color: var(--ink) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
 }
 
-#app .support-page .support-status-card :where(span, b, small),
-#app .support-page .support-primary :where(span, b, small) {
-  color: #ffffff !important;
+#app .support-page .chip-btn {
+  border-radius: 999px !important;
+  background: #eef4f3 !important;
+  color: var(--muted) !important;
+  min-height: 40px !important;
+}
+
+#app .support-page .chip-btn.active {
+  color: #fff !important;
+  border-color: #34908b !important;
+  background: linear-gradient(135deg, #34908b, #2b7874) !important;
+  background-image: linear-gradient(135deg, #34908b, #2b7874) !important;
+}
+
+#app .support-page .meta-pill,
+#app .support-page .status-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 28px !important;
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+  border: 1px solid var(--line) !important;
+  background: rgba(52, 144, 139, 0.1) !important;
+  color: #2b7874 !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+#app .support-page .status-pill.open { background: #dbeafe !important; color: #1d4ed8 !important; border-color: #93c5fd !important; }
+#app .support-page .status-pill.pending { background: #fef3c7 !important; color: #b45309 !important; border-color: #fcd34d !important; }
+#app .support-page .status-pill.answered { background: #d1fae5 !important; color: #047857 !important; border-color: #6ee7b7 !important; }
+#app .support-page .status-pill.closed { background: #e2e8f0 !important; color: #475569 !important; border-color: #cbd5e1 !important; }
+
+#app .support-page .ticket-row {
+  display: grid !important;
+  gap: 8px !important;
+  padding: 14px !important;
+  border-radius: 18px !important;
+  cursor: pointer !important;
+}
+
+#app .support-page .ticket-row.selected {
+  border-color: #34908b !important;
+  box-shadow: 0 0 0 2px rgba(52, 144, 139, 0.18) !important;
+}
+
+#app .support-page .ticket-row h4,
+#app .support-page .ticket-row p {
+  color: var(--ink) !important;
+  margin: 0 !important;
 }
 
 #app .support-page .message-thread {
-  background: transparent !important;
-  border: 0 !important;
+  display: grid !important;
+  gap: 12px !important;
+  max-height: 46vh !important;
+  overflow: auto !important;
+  padding: 12px !important;
+  border-radius: 18px !important;
+  border: 1px solid var(--line) !important;
+  background: rgba(244, 250, 249, 0.85) !important;
 }
 
 #app .support-page .message-row {
-  padding: 2px 0 !important;
+  display: flex !important;
+  padding: 0 !important;
 }
 
+#app .support-page .message-row.outgoing { justify-content: flex-start !important; }
+#app .support-page .message-row.incoming { justify-content: flex-end !important; }
+
 #app .support-page .message-bubble {
+  width: min(86%, 520px) !important;
+  padding: 12px 14px !important;
+  border-radius: 18px !important;
   border: 1px solid var(--line) !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  background: #fff !important;
+  color: var(--ink) !important;
+  box-shadow: 0 8px 18px rgba(31, 42, 55, 0.05) !important;
 }
 
 #app .support-page .message-bubble.outgoing {
-  border-color: var(--button-primary-bg) !important;
-  background: var(--button-primary-bg) !important;
-  background-image: none !important;
-  color: #ffffff !important;
+  border-color: #34908b !important;
+  background: linear-gradient(135deg, #34908b, #2b7874) !important;
+  background-image: linear-gradient(135deg, #34908b, #2b7874) !important;
+  color: #fff !important;
 }
 
-#app .support-page .message-bubble.outgoing :where(b, em, time, p) {
-  color: #ffffff !important;
+#app .support-page .message-bubble.outgoing :where(b, em, time, p, span) {
+  color: #fff !important;
 }
 
-#app .support-page .message-bubble.incoming :where(b, em, time, p) {
-  color: var(--text) !important;
+#app .support-page .message-bubble.incoming :where(b, em, time, p, span) {
+  color: var(--ink) !important;
+}
+
+#app .support-page .sender-tag {
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+#app .support-page .search-shell {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 14px !important;
+  min-height: 44px !important;
+}
+
+#app .support-page .search-shell input,
+#app .support-page textarea,
+#app .support-page select,
+#app .support-page input {
+  color: var(--ink) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 12px !important;
+}
+
+#app .support-page .search-shell input {
+  border: 0 !important;
+  background: transparent !important;
+}
+
+#app .support-page .rating-star-btn {
+  min-width: 42px !important;
+  font-size: 1.25rem !important;
+  color: #cbd5e1 !important;
+  background: #fff !important;
+}
+
+#app .support-page .rating-star-btn.active {
+  color: #f59e0b !important;
+  border-color: #fbbf24 !important;
+  background: #fffbeb !important;
+}
+
+#app .support-page .modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 80 !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 20px !important;
+  background: rgba(31, 42, 55, 0.45) !important;
+}
+
+#app .support-page .modal-panel {
+  width: min(720px, 100%) !important;
+  max-height: 90vh !important;
+  overflow: auto !important;
+  padding: 20px !important;
+}
+
+#app .support-page .empty-state,
+#app .support-page .loading-state,
+#app .support-page .thread-empty {
+  display: grid !important;
+  gap: 10px !important;
+  place-items: center !important;
+  text-align: center !important;
+  padding: 28px 16px !important;
+  color: var(--muted) !important;
+}
+
+@media (max-width: 1080px) {
+  #app .support-page .workspace-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #app .support-page .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  #app .support-page .stats-grid {
+    display: flex !important;
+    overflow-x: auto !important;
+  }
+
+  #app .support-page .stat-card {
+    min-width: 148px !important;
+  }
 }
 
 #app :where(.action-btn, .icon-btn, .dashboard-action-button, .public-action, button):hover:not(:disabled),

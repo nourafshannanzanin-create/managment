@@ -27,7 +27,7 @@ const { login, navigateTo, registerOrganization, state } = useWorkflowHub()
 
 async function handleLogin() {
   const ok = await login(form.email, form.password)
-  if (ok) navigateTo('/dashboard')
+  if (ok) navigateTo(state.currentUser.isHq ? '/hq' : '/dashboard')
 }
 
 async function handleSignup() {

@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { AppError, appErrorFromResponse, createValidationError, hasFieldError, normalizeError } from '../utils/errors'
 import { formatJalali, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
+import { notifyNewSupportTickets, playTicketAlertSound } from '../utils/ticketAlert'
 import { repairPayload } from '../utils/stitch'
 import { cleanDisplayText } from '../utils/text'
 
@@ -39,6 +40,8 @@ function createCurrentUser() {
     canApproveDocuments: false,
     isManager: false,
     isHq: false,
+    isHqAdmin: false,
+    platformRole: '',
     canUseHq: false,
     purchasedMenuAccess: [],
     menuAccess: {},
@@ -192,6 +195,8 @@ function createSupportState() {
     message: '',
     tickets: [],
     selectedTicket: null,
+    knownTicketIds: [],
+    activitySignature: '',
   }
 }
 
@@ -533,6 +538,7 @@ function createHqState() {
     loading: false,
     saving: false,
     activeTable: 'organizations',
+    activeTab: 'tickets',
     selectedOrganizationId: '',
     selectedOrganization: null,
     selectedType: '',
@@ -545,6 +551,7 @@ function createHqState() {
     payments: [],
     documents: [],
     tickets: [],
+    team: [],
     audits: [],
     segments: { roles: [], payments: [], requests: [], documents: [], tickets: [] },
     directories: {
@@ -1164,17 +1171,14 @@ async function loadWalletOptions(force = false) {
   }
 }
 
-async function loadSupportTickets(force = false) {
+async function loadSupportTickets(force = false, options = {}) {
   if (!state.authToken) return
   if (state.support.loaded && !force) return
   state.support.loading = true
   state.support.error = ''
   try {
-    if (state.currentUser.isHq && !state.hq.selectedOrganizationId) {
-      const response = await authorizedFetch('/hq')
-      const payload = repairPayload(await response.json())
-      hydrateHq(payload)
-      hydrateSupportTickets(payload.tickets || [])
+    if (state.currentUser.isHq) {
+      await loadHqTickets(force || true, options)
     } else {
       const response = await authorizedFetch(scopedApiPath('/support/tickets'))
       hydrateSupportTickets(repairPayload(await response.json()))
@@ -1187,8 +1191,120 @@ async function loadSupportTickets(force = false) {
   }
 }
 
+function ticketActivitySignature(tickets = []) {
+  return (tickets || [])
+    .map((item) => `${item.id}:${item.status}:${item.updatedAt || ''}:${item.lastMessageAt || ''}:${item.messagesCount || 0}`)
+    .sort()
+    .join('|')
+}
+
+async function loadHqTickets(force = true, options = {}) {
+  if (!state.authToken || !state.currentUser.isHq) return
+  const params = new URLSearchParams()
+  if (options.q) params.set('q', options.q)
+  if (options.status) params.set('status', options.status)
+  if (options.priority) params.set('priority', options.priority)
+  if (options.organizationId) params.set('organizationId', options.organizationId)
+  const query = params.toString() ? `?${params.toString()}` : ''
+  const response = await authorizedFetch(`/hq/tickets${query}`)
+  const tickets = repairPayload(await response.json())
+  const list = Array.isArray(tickets) ? tickets : []
+
+  if (options.notifyNew && state.support.knownTicketIds.length) {
+    const known = new Set(state.support.knownTicketIds.map(Number))
+    const fresh = list.filter((item) => !known.has(Number(item.id)))
+    if (fresh.length) {
+      notifyNewSupportTickets(fresh)
+    } else {
+      const nextSignature = ticketActivitySignature(list)
+      if (state.support.activitySignature && nextSignature !== state.support.activitySignature) {
+        playTicketAlertSound()
+      }
+      state.support.activitySignature = nextSignature
+    }
+  } else {
+    state.support.activitySignature = ticketActivitySignature(list)
+  }
+
+  state.support.knownTicketIds = list.map((item) => item.id)
+  hydrateSupportTickets(list)
+  replaceItems(state.hq.tickets, list)
+  state.support.loaded = true
+}
+
+async function loadHqTicketDetail(ticketId) {
+  if (!ticketId) return
+  state.support.detailLoading = true
+  state.support.error = ''
+  try {
+    const response = await authorizedFetch(`/hq/tickets/${ticketId}`)
+    hydrateSupportTicket(repairPayload(await response.json()))
+  } catch (error) {
+    state.support.error = error.message || 'HQ ticket detail failed.'
+    throw error
+  } finally {
+    state.support.detailLoading = false
+  }
+}
+
+async function submitHqTicketReply(ticketId, payload) {
+  state.support.submitting = true
+  state.support.error = ''
+  try {
+    const response = await authorizedFetch(`/hq/tickets/${ticketId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    hydrateSupportTicket(repairPayload(await response.json()))
+    await loadHqTickets(true)
+  } catch (error) {
+    state.support.error = error.message || 'HQ reply failed.'
+    throw error
+  } finally {
+    state.support.submitting = false
+  }
+}
+
+async function loadHqTeam(force = false) {
+  if (!state.authToken || !state.currentUser.isHq) return
+  if (state.hq.team.length && !force) return
+  const response = await authorizedFetch('/hq/team')
+  replaceItems(state.hq.team, repairPayload(await response.json()) || [])
+}
+
+async function createHqTeamMember(payload) {
+  const response = await authorizedFetch('/hq/team', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const member = repairPayload(await response.json())
+  await loadHqTeam(true)
+  return member
+}
+
+async function updateHqTeamMember(userId, payload) {
+  const response = await authorizedFetch(`/hq/team/${userId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const member = repairPayload(await response.json())
+  await loadHqTeam(true)
+  return member
+}
+
+async function deleteHqTeamMember(userId) {
+  await authorizedFetch(`/hq/team/${userId}`, { method: 'DELETE' })
+  await loadHqTeam(true)
+}
+
 async function loadSupportTicketDetail(ticketId) {
   if (!ticketId) return
+  if (state.currentUser.isHq) {
+    return loadHqTicketDetail(ticketId)
+  }
   state.support.detailLoading = true
   state.support.error = ''
   try {
@@ -1226,6 +1342,14 @@ async function createSupportTicket(payload) {
 }
 
 async function submitSupportReply(ticketId, payload) {
+  if (state.currentUser.isHq) {
+    return submitHqTicketReply(ticketId, {
+      body: payload.body,
+      status: payload.close ? 'closed' : payload.status,
+      isInternal: payload.isInternal,
+      assignToUserId: payload.assignToUserId,
+    })
+  }
   state.support.submitting = true
   state.support.error = ''
   try {
@@ -2171,6 +2295,13 @@ async function updateUser(userId, payload) {
     submitSupportFeedback,
     submitSupportWalletDeposit,
     submitSupportBankWithdrawComplete,
+    loadHqTickets,
+    loadHqTicketDetail,
+    submitHqTicketReply,
+    loadHqTeam,
+    createHqTeamMember,
+    updateHqTeamMember,
+    deleteHqTeamMember,
     supportUnreadCount,
     requestInboxCount,
     expenseInboxCount,

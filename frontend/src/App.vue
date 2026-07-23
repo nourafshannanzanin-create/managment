@@ -15,6 +15,8 @@ import RequestComposerModal from './components/RequestComposerModal.vue'
 import RequestDetailModal from './components/RequestDetailModal.vue'
 import SignatureComposerModal from './components/SignatureComposerModal.vue'
 import UserComposerModal from './components/UserComposerModal.vue'
+import ToastHost from './components/ToastHost.vue'
+import { unlockTicketAlerts } from './utils/ticketAlert'
 import { useWorkflowHub } from './stores/workflowHub'
 
 const route = useRoute()
@@ -202,7 +204,9 @@ async function refreshRouteData(path) {
   }
 
   if (path === '/hq') {
+    unlockTicketAlerts()
     await loadHqPanel(true)
+    await loadSupportTickets(true, { notifyNew: false })
     return
   }
 
@@ -234,10 +238,13 @@ watch(
 onMounted(async () => {
   await restoreSession()
   await refreshRouteData(route.path)
+  if (state.currentUser.isHq) {
+    unlockTicketAlerts()
+  }
   hqSupportRefreshTimer = window.setInterval(() => {
     if (!state.authToken || !state.currentUser.isHq || state.support.loading) return
-    void loadSupportTickets(true)
-  }, 30000)
+    void loadSupportTickets(true, { notifyNew: true })
+  }, 10000)
 })
 
 onUnmounted(() => {
@@ -278,6 +285,7 @@ onUnmounted(() => {
         </div>
         <AppTopNav />
         <main class="shell-content">
+          <ToastHost />
           <div v-if="showSmsBalanceWarning" class="global-sms-warning">
             <IconlyIcon name="sms_failed" decorative />
             <strong>{{ smsBalanceWarningText }}</strong>
