@@ -6,6 +6,7 @@ import CloudPage from '../pages/CloudPage.vue'
 import DashboardPage from '../pages/DashboardPage.vue'
 import ExpensesPage from '../pages/ExpensesPage.vue'
 import HqPanelPage from '../pages/HqPanelPage.vue'
+import LandingPage from '../pages/LandingPage.vue'
 import LoginPage from '../pages/LoginPage.vue'
 import ReportsPage from '../pages/ReportsPage.vue'
 import RequestsPage from '../pages/RequestsPage.vue'
@@ -15,8 +16,8 @@ import UsersPage from '../pages/UsersPage.vue'
 import WalletPage from '../pages/WalletPage.vue'
 
 const routes = [
-  { path: '/', redirect: '/dashboard' },
-  { path: '/login', name: 'login', component: LoginPage, meta: { public: true } },
+  { path: '/', name: 'landing', component: LandingPage, meta: { public: true, publicCanvas: true, landing: true } },
+  { path: '/login', name: 'login', component: LoginPage, meta: { public: true, publicCanvas: true } },
   { path: '/dashboard', name: 'dashboard', component: DashboardPage, meta: { fullCanvas: true } },
   { path: '/requests', name: 'requests', component: RequestsPage, meta: { fullCanvas: true } },
   { path: '/requests/new', redirect: '/requests' },
@@ -36,15 +37,20 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior() {
+  scrollBehavior(to) {
+    if (to.hash) {
+      return { el: to.hash, behavior: 'smooth', top: 96 }
+    }
     return { top: 0 }
   },
 })
 
 router.beforeEach((to) => {
   const token = localStorage.getItem('workflow-hub-token')
-  if (!to.meta.public && !token) return '/login'
-  if (to.path === '/login' && token) return '/dashboard'
+  if (!to.meta.public && !token) return '/'
+  if (token && (to.path === '/login' || to.name === 'landing')) {
+    return '/dashboard'
+  }
   return true
 })
 

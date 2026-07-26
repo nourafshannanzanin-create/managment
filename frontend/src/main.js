@@ -4,5 +4,6 @@ import router from './router'
 import './tailwind.css'
 import './styles.css'
 import './styles/jade-enterprise.css'
+import './styles/landing.css'
 
 createApp(App).use(router).mount('#app')

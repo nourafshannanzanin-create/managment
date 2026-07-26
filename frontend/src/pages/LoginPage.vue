@@ -1,9 +1,12 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 
 import BaseModal from '../components/BaseModal.vue'
 import ErrorNotice from '../components/ErrorNotice.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
+
+const route = useRoute()
 
 const form = reactive({
   email: '',
@@ -25,6 +28,12 @@ const signup = reactive({
 
 const { login, navigateTo, registerOrganization, state } = useWorkflowHub()
 
+function syncSignupQuery() {
+  if (route.query.signup === '1' || route.query.register === '1') {
+    signupOpen.value = true
+  }
+}
+
 async function handleLogin() {
   const ok = await login(form.email, form.password)
   if (ok) navigateTo(state.currentUser.isHq ? '/hq' : '/dashboard')
@@ -41,6 +50,10 @@ async function handleSignup() {
 function setRegistrationDocuments(event) {
   signup.documents = Array.from(event.target.files || [])
 }
+
+onMounted(syncSignupQuery)
+watch(() => route.query.signup, syncSignupQuery)
+watch(() => route.query.register, syncSignupQuery)
 </script>
 
 <template>
@@ -68,6 +81,7 @@ function setRegistrationDocuments(event) {
 
       <section class="stitch-form-panel">
         <div class="stitch-form-header">
+          <RouterLink class="stitch-back-home" to="/">بازگشت به صفحه اصلی</RouterLink>
           <span>دسترسی سامانه</span>
           <h2>حساب سازمانی</h2>
         </div>
@@ -97,7 +111,7 @@ function setRegistrationDocuments(event) {
           </button>
         </form>
 
-        <p class="stitch-footer-note">© 2026 تمامی حقوق متعلق به <span>کارنومند</span> است</p>
+        <p class="stitch-footer-note" dir="ltr">Designed By DHS Development Team</p>
       </section>
     </div>
   </section>
@@ -127,7 +141,7 @@ function setRegistrationDocuments(event) {
 <style scoped>
 :global(.app-shell.is-auth-route .shell-content) { max-width: none; padding: 0; }
 :global(.app-shell.is-auth-route .shell-main) { min-width: 0; }
-.stitch-login-page { position: relative; min-height: 100vh; padding: 24px; overflow: hidden; font-family: 'Vazirmatn', sans-serif; background: #18130f url('/images (21).jpg') center / cover no-repeat fixed; }
+.stitch-login-page { position: relative; min-height: 100vh; padding: 24px; overflow: hidden; font-family: 'Vazirmatn', sans-serif; background: #18130f url('/images (21).webp') center / cover no-repeat fixed; }
 .stitch-login-page::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10, 12, 16, 0.42), rgba(10, 12, 16, 0.18) 45%, rgba(255, 255, 255, 0.08)), radial-gradient(circle at 76% 20%, rgba(255, 255, 255, 0.3), transparent 34%); backdrop-filter: blur(3px) saturate(150%); -webkit-backdrop-filter: blur(3px) saturate(150%); }
 .stitch-login-page::after { content: ''; position: absolute; inset: 0; background-image: linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px); background-size: 42px 42px; opacity: .28; pointer-events: none; }
 .stitch-login-grid { position: relative; z-index: 1; width: 100%; max-width: 1280px; min-height: calc(100vh - 48px); margin: 0 auto; display: flex; flex-direction: row-reverse; gap: 28px; align-items: center; justify-content: center; }
@@ -147,6 +161,16 @@ function setRegistrationDocuments(event) {
 .stitch-brand-rings { position: absolute; inset: auto auto -24% -12%; width: 28rem; height: 28rem; opacity: .18; color: rgba(255,255,255,.6); }
 .stitch-brand-rings svg, .stitch-brand-rings circle { width: 100%; height: 100%; stroke: currentColor; }
 .stitch-form-header span { color: rgba(255,255,255,.82); font-size: 13px; font-weight: 800; }
+.stitch-back-home {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 10px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.stitch-back-home:hover { color: #fff; }
 .stitch-form-header h2 { margin: 6px 0 0; color: #fff; font-size: 32px; text-shadow: 0 10px 34px rgba(0,0,0,.26); }
 .stitch-form { display: grid; gap: 16px; margin-top: 28px; }
 .stitch-field-group { display: grid; gap: 8px; }
@@ -160,8 +184,7 @@ function setRegistrationDocuments(event) {
 .stitch-submit-btn { min-height: 56px; border: 0; border-radius: 18px; background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(243, 215, 189, .88)); color: #2d241f; display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-weight: 900; cursor: pointer; box-shadow: 0 18px 42px rgba(0,0,0,.22); }
 .stitch-submit-btn:disabled { opacity: .7; cursor: wait; }
 .stitch-submit-btn svg { width: 22px; height: 22px; }
-.stitch-footer-note { margin: 22px 0 0; color: rgba(255,255,255,.72); text-align: center; }
-.stitch-footer-note span { color: #fff; font-weight: 900; }
+.stitch-footer-note { margin: 22px 0 0; color: rgba(255,255,255,.78); text-align: center; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.01em; }
 .registration-documents small { color: #70809a; font-size: 12px; }
 .registration-success { margin: 0; padding: 12px 14px; border: 0; border-radius: 14px; background: rgba(32, 132, 94, .18); color: #e8fff4; font-size: 13px; font-weight: 800; line-height: 1.8; }
 @media (min-width: 980px) { .stitch-brand-panel { display: flex; } }
@@ -188,8 +211,8 @@ function setRegistrationDocuments(event) {
 
 :global(#app .app-shell.is-auth-route .stitch-login-page) {
   min-height: 100vh !important;
-  background: #101010 url('/images (1).jpg') center / cover no-repeat fixed !important;
-  background-image: url('/images (1).jpg') !important;
+  background: #101010 url('/images (1).webp') center / cover no-repeat fixed !important;
+  background-image: url('/images (1).webp') !important;
 }
 
 :global(#app .app-shell.is-auth-route .stitch-login-page::before) {
@@ -265,8 +288,8 @@ function setRegistrationDocuments(event) {
 
 @media (max-width: 720px) {
   :global(#app .app-shell.is-auth-route .stitch-login-page) {
-    background: #101010 url('/images (21).jpg') center / cover no-repeat fixed !important;
-    background-image: url('/images (21).jpg') !important;
+    background: #101010 url('/images (21).webp') center / cover no-repeat fixed !important;
+    background-image: url('/images (21).webp') !important;
   }
 }
 </style>

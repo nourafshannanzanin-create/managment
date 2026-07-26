@@ -79,7 +79,7 @@ const navItems = computed(() => {
   <aside :class="['shell-sidebar', mobileMenuOpen && 'is-open']">
     <div class="sidebar-brand">
       <div class="brand-mark">
-        <IconlyIcon name="corporate_fare" decorative />
+        <img src="/logo/green.webp" alt="کارنومند" width="36" height="36" decoding="async" style="width:36px;height:36px;object-fit:contain;border-radius:10px;" />
       </div>
       <div class="brand-copy">
         <strong>{{ organizationTitle }}</strong>

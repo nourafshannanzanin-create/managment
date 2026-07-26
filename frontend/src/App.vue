@@ -55,8 +55,10 @@ const {
   toggleSidebar,
 } = hub
 
-const isAuthRoute = computed(() => route.path === '/login' || route.meta.publicCanvas)
-const licenseSafeRoutes = new Set(['/dashboard', '/wallet', '/support', '/login'])
+const isAuthRoute = computed(() => Boolean(route.meta.publicCanvas) || route.path === '/login')
+const isLandingRoute = computed(() => Boolean(route.meta.landing) || route.name === 'landing')
+const licenseSafeRoutes = new Set(['/dashboard', '/wallet', '/support', '/login', '/'])
+
 const licenseStatus = computed(() => state.currentUser.licenseStatus || {})
 const isLicenseLocked = computed(() => Boolean(licenseStatus.value?.isLocked || licenseStatus.value?.is_locked))
 const showSmsBalanceWarning = computed(() =>
@@ -147,6 +149,9 @@ async function handleTrialExpiry() {
   }
 }
 const globalLoading = computed(() =>
+  isLandingRoute.value
+    ? false
+    : (
   routeLoading.value ||
   !state.sessionReady ||
   state.appLoading ||
@@ -164,7 +169,8 @@ const globalLoading = computed(() =>
   state.wallet.loading ||
   state.wallet.submitting ||
   state.hq.loading ||
-  signatureState.loading,
+  signatureState.loading
+    ),
 )
 let hqSupportRefreshTimer = null
 
@@ -184,7 +190,7 @@ watch(trialRemainingSeconds, (value, previous) => {
 })
 
 async function refreshRouteData(path) {
-  if (!state.authToken || path === '/login') return
+  if (!state.authToken || path === '/login' || path === '/') return
 
   await loadBootstrapData(true)
 
@@ -260,6 +266,7 @@ onUnmounted(() => {
     class="app-shell"
     :class="{
       'is-auth-route': isAuthRoute,
+      'is-landing-route': isLandingRoute,
       'has-trial-banner': showTrialBanner,
       'has-mobile-menu-open': !isAuthRoute && state.mobileMenuOpen,
     }"
@@ -302,8 +309,8 @@ onUnmounted(() => {
       </div>
     </template>
 
-    <main v-else class="shell-main auth-main">
-      <div class="shell-content">
+    <main v-else class="shell-main auth-main" :class="{ 'landing-main': isLandingRoute }">
+      <div class="shell-content" :class="{ 'landing-content': isLandingRoute }">
         <RouterView v-slot="{ Component }">
           <component :is="Component" :key="route.fullPath" />
         </RouterView>

@@ -1,16 +1,27 @@
 # OS / editor
 .DS_Store
 Thumbs.db
+Desktop.ini
 .idea/
 .vscode/
+*.swp
+*.swo
+*~
+Untitled
+Untitled*
 
-/templates/
+# Local dumps / extracts
+docs/_landing_extract/
+docs/**/*.zip
+*.zip
+
 # Logs
 *.log
 backend/uvicorn.out.log
 backend/uvicorn.err.log
 frontend/vite.log
 frontend/vite.err.log
+frontend/vite-dev.*.log
 
 # Environment files
 .env
@@ -25,10 +36,14 @@ node_modules/
 backend/node_modules/
 frontend/node_modules/
 frontend/.vite/
+.npm/
 
 # Frontend build output
 dist/
 frontend/dist/
+
+# Design / stitch mockups (not needed in runtime)
+frontend/public/stitch/
 
 # Python
 __pycache__/
@@ -42,7 +57,7 @@ __pycache__/
 venv/
 backend/.venv/
 
-# Local runtime / uploads
+# Local runtime / uploads / docker volumes
 backend/uploads/
 backend/staticfiles/
 docker-data/

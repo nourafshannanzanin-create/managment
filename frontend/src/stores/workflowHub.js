@@ -1706,7 +1706,7 @@ export function useWorkflowHub() {
   if (singleton) return singleton
 
   function ensureAuthenticatedRedirect() {
-    if (!state.authToken) router.push('/login')
+    if (!state.authToken) router.push('/')
   }
 
   async function logout() {
@@ -1718,7 +1718,7 @@ export function useWorkflowHub() {
       // Local session cleanup must still happen if the server cannot record logout.
     } finally {
       clearSessionState()
-      router.push('/login')
+      router.push('/')
     }
   }
 
