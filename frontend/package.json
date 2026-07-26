@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "lhci": "npm run build && lhci autorun",
+    "lhci:wizard": "lhci wizard",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -13,6 +15,7 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.15.1",
     "@tailwindcss/container-queries": "^0.1.1",
     "@tailwindcss/forms": "^0.5.11",
     "@vitejs/plugin-vue": "^5.2.4",

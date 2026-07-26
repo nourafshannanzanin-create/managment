@@ -1,0 +1,1 @@
+# Wallet template package marker.

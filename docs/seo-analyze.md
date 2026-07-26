@@ -1,0 +1,330 @@
+SEO Checker
+
+ShareShare Icon
+
+PDFDownload Icon
+Analyze any web page for technical errors and on-page SEO problems, and get tips on how to optimize it.
+
+Need more checks per day?
+(Unlock 50 daily queries with Seobility Premium!)
+Learn more
+
+
+
+
+Check page
+You have 2of 3 checks left today
+
+Page URL
+https://carnomand.ir/
+
+Checks
+
+Elements
+
+Miscellaneous
+On-page score
+Issues:
+5
+Critical
+47%
+On-page score
+Meta data
+80 %
+Page quality
+48 %
+Page structure
+58 %
+Links
+0 %
+Server
+0 %
+External factors
+3 %
+HTML page
+Himmelimherzen
+Meta title
+کارنومند | سامانه مدیریت گردش‌کار سازمانی
+
+Meta description
+URL
+https://carnomand.ir/
+Status code
+200
+Page status
+Follow
+Index
+Language
+-
+Response time
+0.52 sec
+File size
+0.70 kB
+Word count
+0
+To-Do List
+Tasks sorted by priority
+
+To-Do
+
+Importance
+
+Action
+Add a H1 heading to this page.
+Error
+
+More details
+Use good headings on the page.
+Error
+
+More details
+This page has only very few internal links. If it's a welcome page, consider removing it.
+Error
+
+More details
+Use 301 redirects to drive traffic to URLS with the same domain and sub domain (www and non-www subdomain).
+Error
+
+More details
+Add a meta description.
+Error
+
+More details
+Try to make the page title match the content more closely.
+Warning
+
+More details
+Improve the page response time.
+Tip
+
+Go to tip
+Run a full website audit to uncover SEO issues on other pages.
+Tip
+Learn more
+light bulb icon
+Not sure how to complete these tasks?
+Our SEO software Seobility helps you fix these issues with clear, easy-to-understand reports for your entire website. Each report explains what an issue means, why it matters for SEO, and how to fix it.
+
+Learn more
+Checks
+Meta data
+80%
+Title
+
+Learn more
+3/3
+Very important
+کارنومند | سامانه مدیریت گردش‌کار سازمانی
+The length of the page title is perfect. (268 pixels out of 580 max pixel length)
+There are no duplicate words in the title.
+light bulb icon
+Tip: Each page on your website should have a unique meta title
+This check only looks at the title of the checked URL, but if multiple pages on your website have the same title, it can still hurt your rankings. To find duplicate page titles on your website, you can use Seobility's Website Audit.
+
+Learn more
+Meta description
+
+Learn more
+Errors
+0/1
+Very important
+The meta description is missing
+Crawlability
+
+Learn more
+1/1
+Very important
+There are no problems in accessing the page.
+Canonical link
+
+Learn more
+1/1
+Important
+The language is not specified in the HTML markup
+Language
+
+Learn more
+3/3
+Low importance
+Language defined in HTML: fa
+Server location: Germany
+The following language is defined in the HTML code: fa
+Alternate/hreflang links
+
+Learn more
+1/1
+Low importance
+There are no alternate links specified on this page.
+Other meta tags
+
+Learn more
+2/2
+Low importance
+There is no rel=next meta tag on this page.
+There is no rel=prev meta tag on this page.
+Domain
+
+Learn more
+3/3
+Low importance
+The domain is not a subdomain.
+The domain length works well.
+The domain name does not contain any non-Latin characters.
+Page URL
+
+Learn more
+3/3
+Low importance
+No parameters were found in the URL.
+No session ID was found in the URL.
+The URL does not have too many subdirectories.
+Charset encoding
+
+Learn more
+Warning
+1/2
+Low importance
+The charset encoding information is missing in the HTTP header.
+The charset encoding (UTF-8) is set correctly.
+Doctype
+
+Learn more
+2/2
+Nice to have
+The doctype HTML 5 is set correctly.
+The doctype is placed first in the HTML code.
+Favicon
+
+Learn more
+1/1
+Nice to have
+The favicon is linked correctly.
+Page quality
+48%
+Content
+
+Learn more
+Errors
+1/4
+Very important
+There are only 0 words on this page. Use at least 250 words to provide useful information
+Some words from the page title are not used within the pages content
+No paragraphs were detected.
+No placeholder texts or images were found.
+Frames
+
+Learn more
+1/1
+Very important
+This page does not use a frameset.
+Mobile optimization
+
+Learn more
+Warning
+1/2
+Low importance
+No Apple touch icon is specified
+A viewport (width=device-width, initial-scale=1.0) is provided.
+Strong and bold tags
+
+Learn more
+1/1
+Low importance
+The usage of strong and bold tags is perfect. We recommend the use of up to 6 tags for this page.
+Image SEO
+
+Learn more
+1/1
+Low importance
+ALT text (alternative text) is correctly used on all found images.
+Social media
+
+Learn more
+Warning
+0/1
+Nice to have
+There are few social sharing options on the page. Sharing plugins can increase the page's reach on social media.
+Additional markup
+
+Learn more
+1/1
+Nice to have
+No additional page markup was found.
+HTTPS
+
+Learn more
+2/2
+Low importance
+This page uses HTTPS to protect the privacy and integrity of information exchanged.
+All included files are also transferred via HTTPS.
+Others
+58%
+H1 heading
+
+Learn more
+Errors
+0/1
+Very important
+There is no H1 heading specified.
+Headings
+
+Learn more
+Errors
+0/1
+Important
+There are no headings specified on the page. Headings are important for search engine optimization and help to structure your content.
+Link structure
+0%
+Internal links
+
+Learn more
+Errors
+0/1
+Important
+This page seems to be an entry page, because only very few links were found
+External links
+
+Learn more
+Warning
+0/1
+Nice to have
+There are no external links on this page.
+Server configuration
+0%
+HTTP redirects
+
+Learn more
+Errors
+1/2
+Very important
+The checked page does not redirect to another URL.
+This website uses both www and non-www URLs. This can result in duplicate content and impact your rankings. Redirect Checker
+HTTP header
+
+Learn more
+Warning
+2/3
+Important
+The web server version is sent within the HTTP header
+No X-Powered HTTP header is sent.
+This page uses compression for data transfer.
+Performance
+
+Learn more
+Warning
+1/2
+Low importance
+The page response time of 0,52 seconds is longer than the recommended limit of 0.4 seconds. A high response time unnecessarily slows down search engine crawling and results in bad user experience as well.
+The file size of the HTML document is fine. (1 kB)
+External factors
+3%
+Backlinks
+
+Learn more
+Warning
+0/4
+Very important
+This page has only a few links from other websites
+This page only has backlinks from 1 referring domains.
+This page only has 1 backlinks.
+This page only has backlinks from 1 different IP addresses

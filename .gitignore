@@ -41,6 +41,9 @@ frontend/.vite/
 # Frontend build output
 dist/
 frontend/dist/
+frontend/.lighthouseci/
+frontend/lhci_reports/
+.seo-cache/
 
 # Design / stitch mockups (not needed in runtime)
 frontend/public/stitch/
