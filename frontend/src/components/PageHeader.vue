@@ -1,5 +1,7 @@
 <script setup>
 import IconlyIcon from './base/IconlyIcon.vue'
+import TitleHint from './TitleHint.vue'
+
 defineProps({
   eyebrow: { type: String, default: '' },
   title: { type: String, required: true },
@@ -19,8 +21,10 @@ const emit = defineEmits(['update:searchValue', 'action', 'menu'])
   <header class="page-header" aria-labelledby="page-title">
     <div class="page-header-copy">
       <span v-if="eyebrow" class="page-eyebrow">{{ eyebrow }}</span>
-      <h1 id="page-title">{{ title }}</h1>
-      <p v-if="description" class="page-header-description">{{ description }}</p>
+      <div class="page-header-title-row">
+        <h1 id="page-title">{{ title }}</h1>
+        <TitleHint :text="description" label="درباره این صفحه" size="lg" />
+      </div>
     </div>
 
     <div v-if="showSearch || actionLabel" class="page-header-tools">
@@ -46,3 +50,17 @@ const emit = defineEmits(['update:searchValue', 'action', 'menu'])
     </div>
   </header>
 </template>
+
+<style scoped>
+.page-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.page-header-title-row h1 {
+  margin: 0;
+  min-width: 0;
+}
+</style>

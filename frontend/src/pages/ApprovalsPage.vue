@@ -2,6 +2,7 @@
 import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed } from 'vue'
 
+import SectionHeading from '../components/SectionHeading.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { joinDisplayParts } from '../utils/text'
 
@@ -83,10 +84,10 @@ async function handleDownload(item) {
 
     <section class="surface-block">
       <div class="section-label-row">
-        <div>
-          <h3>صف بررسی</h3>
-          <p>اسنادی که هنوز در جریان تایید هستند و نیاز به اقدام دارند.</p>
-        </div>
+        <SectionHeading
+          title="صف بررسی"
+          description="اسنادی که هنوز در جریان تایید هستند و نیاز به اقدام دارند."
+        />
         <button v-if="state.currentUser.canApproveDocuments" class="action-btn tone-soft" type="button" @click="openSignatureComposer">
           <IconlyIcon name="approval" decorative />
           <span>بارگذاری مهر</span>
@@ -119,10 +120,10 @@ async function handleDownload(item) {
 
     <section class="surface-block">
       <div class="section-label-row">
-        <div>
-          <h3>تاریخچه تاییدها</h3>
-          <p>نسخه‌های بررسی‌شده با تفکیک واضح بین تایید و رد.</p>
-        </div>
+        <SectionHeading
+          title="تاریخچه تاییدها"
+          description="نسخه‌های بررسی‌شده با تفکیک واضح بین تایید و رد."
+        />
       </div>
 
       <div class="table-shell">

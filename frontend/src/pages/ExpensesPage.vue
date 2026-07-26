@@ -2,6 +2,7 @@
 import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed } from 'vue'
 
+import SectionHeading from '../components/SectionHeading.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const { filteredExpenses, openExpenseDetail, openProtectedFile, state } = useWorkflowHub()
@@ -44,10 +45,10 @@ async function handleInvoiceOpen(item) {
 
     <section class="surface-block">
       <div class="section-label-row">
-        <div>
-          <h3>فهرست هزینه‌ها</h3>
-          <p>{{ filteredExpenses.length }} ردیف مطابق فیلترهای هدر موجود است.</p>
-        </div>
+        <SectionHeading
+          title="فهرست هزینه‌ها"
+          :description="`${filteredExpenses.length} ردیف مطابق فیلترهای هدر موجود است.`"
+        />
       </div>
 
       <div class="table-shell">

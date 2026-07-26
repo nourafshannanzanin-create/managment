@@ -2,6 +2,7 @@
 import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed } from 'vue'
 
+import SectionHeading from '../components/SectionHeading.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const { filteredRequests, openRequestDetail } = useWorkflowHub()
@@ -46,10 +47,10 @@ function priorityLabel(priority) {
 
     <section class="surface-block">
       <div class="section-label-row">
-        <div>
-          <h3>فهرست درخواست‌ها</h3>
-          <p>{{ filteredRequests.length }} ردیف مطابق فیلترهای هدر پیدا شد.</p>
-        </div>
+        <SectionHeading
+          title="فهرست درخواست‌ها"
+          :description="`${filteredRequests.length} ردیف مطابق فیلترهای هدر پیدا شد.`"
+        />
       </div>
 
       <div class="table-shell">

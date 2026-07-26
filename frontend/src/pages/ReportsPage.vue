@@ -4,6 +4,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
 import PageHeader from '../components/PageHeader.vue'
+import SectionHeading from '../components/SectionHeading.vue'
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
 import { jalaliToIso } from '../utils/jalali'
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -215,7 +216,11 @@ onMounted(() => loadReports(true))
 
 <template>
   <section v-if="state.currentUser.canViewReports" class="page-shell enterprise-page reports-page">
-    <PageHeader eyebrow="گزارشات" title="گزارش‌های مدیریتی و خروجی‌ها" description="" />
+    <PageHeader
+      eyebrow="گزارشات"
+      title="گزارش‌های مدیریتی و خروجی‌ها"
+      description="نمای تفکیکی گزارش در درخواست‌ها، هزینه‌ها و تاییدها با خروجی مستقیم."
+    />
 
     <section class="surface-block report-controls">
       <div class="report-tabs">
@@ -257,7 +262,10 @@ onMounted(() => loadReports(true))
 
     <section class="surface-block report-table-card">
       <div class="section-label-row">
-        <div><h3>{{ tabs.find((item) => item.key === activeTab)?.label }}</h3></div>
+        <SectionHeading
+          :title="tabs.find((item) => item.key === activeTab)?.label || 'گزارش'"
+          :description="`${activeRows.length} ردیف در این خروجی نمایش داده می‌شود.`"
+        />
         <span class="meta-pill">{{ activeRows.length }} ردیف</span>
       </div>
 
@@ -312,7 +320,10 @@ onMounted(() => loadReports(true))
 
         <section v-if="selectedReportType !== 'users'" class="report-detail-decisions">
           <div class="section-label-row">
-            <div><h3>تصمیمات و گردش تایید</h3></div>
+            <SectionHeading
+              title="تصمیمات و گردش تایید"
+              description="مسیر تایید، ارجاع و تصمیم‌های ثبت‌شده برای این ردیف گزارش."
+            />
             <span class="meta-pill">{{ (selectedReportRow.decisions || []).length }} مورد</span>
           </div>
           <div v-if="(selectedReportRow.decisions || []).length" class="decision-timeline">

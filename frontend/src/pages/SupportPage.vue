@@ -1,6 +1,7 @@
 <script setup>
 import IconlyIcon from '../components/base/IconlyIcon.vue'
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
+import TitleHint from '../components/TitleHint.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -436,8 +437,10 @@ onBeforeUnmount(() => {
           <IconlyIcon name="support_agent" decorative />
         </span>
         <div>
-          <h2>پشتیبانی</h2>
-          <p>مرکز تیکت، پیگیری گفتگوها و ارتباط با تیم پشتیبانی</p>
+          <div class="support-title-row">
+            <h2>پشتیبانی</h2>
+            <TitleHint text="مرکز تیکت، پیگیری گفتگوها و ارتباط با تیم پشتیبانی" label="درباره این صفحه" size="lg" />
+          </div>
         </div>
       </div>
       <div class="toolbar-actions">
@@ -485,7 +488,13 @@ onBeforeUnmount(() => {
         <header class="panel-head">
           <div>
             <p class="panel-kicker">Ticket Inbox</p>
-            <h3>لیست تیکت‌های من</h3>
+            <div class="support-title-row">
+              <h3>لیست تیکت‌های من</h3>
+              <TitleHint
+                text="تیکت‌های شما بر اساس وضعیت فیلتر می‌شوند تا گفتگوی جاری را سریع‌تر پیدا کنید."
+                label="درباره این بخش"
+              />
+            </div>
             <span>{{ toFa(filteredTickets.length) }} مورد در وضعیت {{ activeStatusLabel }}</span>
           </div>
           <button type="button" class="mini-btn" @click="toggleStatusFilter">بعدی</button>
@@ -908,6 +917,19 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+}
+
+.support-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.support-title-row h2,
+.support-title-row h3 {
+  margin: 0;
   min-width: 0;
 }
 

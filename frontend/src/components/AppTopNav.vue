@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
 import PageFilters from './PageFilters.vue'
+import TitleHint from './TitleHint.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const route = useRoute()
@@ -25,7 +26,6 @@ const {
   userPeople,
 } = useWorkflowHub()
 
-const displayName = computed(() => state.currentUser.name || 'کاربر')
 const hqOrganizations = computed(() => state.hq.directories.organizations || [])
 
 const pageConfig = computed(() => {
@@ -33,12 +33,12 @@ const pageConfig = computed(() => {
     '/dashboard': {
       eyebrow: 'مرکز کنترل',
       title: 'داشبورد اجرایی',
-      description: '',
+      description: 'نمای خلاصه وضعیت درخواست‌ها، هزینه‌ها و تاییدها برای تصمیم‌گیری سریع روز.',
     },
     '/requests': {
       eyebrow: 'درخواست‌ها',
       title: 'مدیریت درخواست‌های سازمانی',
-      description: '',
+      description: 'ثبت، پیگیری و مدیریت درخواست‌های سازمانی در یک فهرست فشرده و خوانا.',
       filterPage: 'requests',
       actions: [{ label: 'ثبت درخواست', icon: 'add_circle', handler: openRequestComposer, tone: 'primary' }],
     },
@@ -50,18 +50,28 @@ const pageConfig = computed(() => {
       actions: [{ label: 'ثبت هزینه', icon: 'receipt_long', handler: openExpenseComposer, tone: 'primary' }],
     },
     '/wallet': {
-      eyebrow: 'Wallet',
+      eyebrow: 'کیف پول',
       title: 'کیف پول',
-      description: '',
+      description: 'موجودی، شارژ، خرید امکانات و پیگیری تراکنش‌های مالی مجموعه.',
     },
     '/support': {
-      eyebrow: 'Support',
+      eyebrow: 'پشتیبانی',
       title: 'پشتیبانی',
-      description: '',
+      description: 'ثبت تیکت، پیگیری گفتگوها و ارتباط مستقیم با تیم پشتیبانی.',
+    },
+    '/attendance': {
+      eyebrow: 'ورود و خروج',
+      title: 'ورود و خروج پرسنل',
+      description: 'کنترل حضور، لینک اختصاصی هر کاربر و گزارش ساعات کاری نیروها.',
+    },
+    '/cloud': {
+      eyebrow: 'فضای ابری',
+      title: 'فضای ابری',
+      description: 'نگهداری و دسترسی به اسناد و فایل‌های عملیاتی مجموعه.',
     },
     '/approvals': {
       eyebrow: 'تاییدها',
-      title: 'گردش سند، ارجاع و امضا',
+      title: 'ثبت سند و ارجاع و امضا',
       description: 'ارسال سند، انتخاب گیرنده و دانلود نسخه نهایی با وضعیت‌های تفکیک‌پذیر.',
       filterPage: 'approvals',
       actions: [
@@ -93,14 +103,14 @@ const pageConfig = computed(() => {
     '/hq': {
       eyebrow: 'HQ',
       title: 'گزارشات HQ',
-      description: '',
+      description: 'نظارت مرکزی بر مجموعه‌ها، تیکت‌ها، کیف پول و وضعیت سرویس.',
     },
   }
 
   return configs[route.path] || {
     eyebrow: 'سامانه سازمانی',
     title: 'کارمند',
-    description: '',
+    description: 'مرکز عملیات سازمانی کارنومند برای مدیریت فرآیندهای روزانه.',
   }
 })
 
@@ -141,7 +151,10 @@ function handleHqOrganizationChange(event) {
 
         <div class="topbar-intro-copy">
           <span class="topbar-eyebrow">{{ pageConfig.eyebrow }}</span>
-          <strong>{{ pageConfig.title }}</strong>
+          <div class="topbar-title-row">
+            <strong>{{ pageConfig.title }}</strong>
+            <TitleHint :text="pageConfig.description" label="درباره این صفحه" />
+          </div>
         </div>
       </div>
 
@@ -187,3 +200,16 @@ function handleHqOrganizationChange(event) {
     />
   </header>
 </template>
+
+<style scoped>
+.topbar-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.topbar-title-row strong {
+  min-width: 0;
+}
+</style>

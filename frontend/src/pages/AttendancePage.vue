@@ -4,6 +4,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
+import SectionHeading from '../components/SectionHeading.vue'
+import TitleHint from '../components/TitleHint.vue'
 import { jalaliToIso } from '../utils/jalali'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
@@ -173,8 +175,14 @@ onMounted(() => {
     <section class="attendance-hero">
       <div>
         <span class="page-eyebrow">Attendance Control</span>
-        <h1>ورود و خروج پرسنل</h1>
-        <p>کنترل زنده وضعیت نیروها، لینک اختصاصی هر کاربر و ثبت سریع ورود یا خروج مدیر در یک صفحه متصل به دیتابیس.</p>
+        <div class="attendance-title-row">
+          <h1>ورود و خروج پرسنل</h1>
+          <TitleHint
+            text="کنترل زنده وضعیت نیروها، لینک اختصاصی هر کاربر و ثبت سریع ورود یا خروج مدیر در یک صفحه متصل به دیتابیس."
+            label="درباره این صفحه"
+            size="lg"
+          />
+        </div>
       </div>
       <div class="attendance-summary">
         <article>
@@ -263,7 +271,10 @@ onMounted(() => {
 
       <aside class="surface-block attendance-feed">
         <div class="section-label-row">
-          <h3>آخرین رویدادها</h3>
+          <SectionHeading
+            title="آخرین رویدادها"
+            description="ورود و خروج‌های اخیر پرسنل برای پایش سریع وضعیت حضور."
+          />
         </div>
         <article v-for="event in dashboard.recentEvents || []" :key="event.id" class="attendance-feed-row">
           <span :class="['feed-dot', event.eventType]"></span>
@@ -429,6 +440,13 @@ onMounted(() => {
   border: 1px solid var(--line);
   box-shadow: none;
 }
+.attendance-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.attendance-title-row h1,
 .attendance-hero h1 { margin: 8px 0; color: var(--primary); font-size: clamp(28px, 3vw, 44px); }
 .attendance-hero p { margin: 0; color: var(--muted); line-height: 1.9; }
 .attendance-summary, .attendance-mini-grid, .public-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }

@@ -3,6 +3,7 @@ import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed } from 'vue'
 
 import PageHeader from '../components/PageHeader.vue'
+import TitleHint from '../components/TitleHint.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatJalali, getTodayJalali } from '../utils/jalali'
 import { joinDisplayParts } from '../utils/text'
@@ -272,8 +273,10 @@ function statusClass(status) {
       <article class="dashboard-stage-panel">
         <div class="dashboard-stage-copy">
           <span class="dashboard-stage-badge">{{ isManagerDashboard ? 'نمای زنده عملیات' : 'نمای کار روزانه' }}</span>
-          <h2 :class="{ 'is-single-line': !isManagerDashboard }">{{ heroTitle }}</h2>
-          <p>{{ heroDescription }}</p>
+          <div class="dashboard-stage-title-row">
+            <h2 :class="{ 'is-single-line': !isManagerDashboard }">{{ heroTitle }}</h2>
+            <TitleHint :text="heroDescription" label="درباره این بخش" size="lg" />
+          </div>
         </div>
 
         <div class="dashboard-focus-ribbon">
@@ -304,7 +307,15 @@ function statusClass(status) {
         <div class="dashboard-section-head">
           <div>
             <span class="dashboard-section-kicker">مرور سریع</span>
-            <h3>{{ isManagerDashboard ? 'شاخص‌های کلیدی امروز' : 'مرور سریع حساب شما' }}</h3>
+            <div class="dashboard-section-title-row">
+              <h3>{{ isManagerDashboard ? 'شاخص‌های کلیدی امروز' : 'مرور سریع حساب شما' }}</h3>
+              <TitleHint
+                :text="isManagerDashboard
+                  ? 'شاخص‌های مهم عملیاتی امروز را در یک نگاه برای پایش بار کار و تصمیم‌گیری سریع ببینید.'
+                  : 'خلاصه وضعیت حساب، پرونده‌ها و اقدام‌های مرتبط با شما در همین لحظه.'"
+                label="درباره این بخش"
+              />
+            </div>
           </div>
         </div>
 
@@ -333,7 +344,15 @@ function statusClass(status) {
         <div class="dashboard-section-head dashboard-section-head-tight">
           <div>
             <span class="dashboard-section-kicker">اولویت جاری</span>
-            <h3>{{ isManagerDashboard ? 'صف اقدام سریع' : 'پرونده‌های قابل پیگیری' }}</h3>
+            <div class="dashboard-section-title-row">
+              <h3>{{ isManagerDashboard ? 'صف اقدام سریع' : 'پرونده‌های قابل پیگیری' }}</h3>
+              <TitleHint
+                :text="isManagerDashboard
+                  ? 'پرونده‌هایی که نیاز به اقدام فوری دارند تا صف کار سازمانی روان بماند.'
+                  : 'پرونده‌ها و درخواست‌هایی که هنوز نیاز به پیگیری از سمت شما دارند.'"
+                label="درباره این بخش"
+              />
+            </div>
           </div>
         </div>
 
@@ -411,6 +430,20 @@ function statusClass(status) {
   font-size: clamp(20px, 2vw, 28px);
   line-height: 1.1;
   color: var(--dashboard-navy);
+}
+
+.dashboard-stage-title-row,
+.dashboard-section-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dashboard-stage-title-row h2,
+.dashboard-section-title-row h3 {
+  margin: 0;
+  min-width: 0;
 }
 
 :deep(.page-header-description) {

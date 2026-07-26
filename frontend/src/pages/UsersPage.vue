@@ -4,6 +4,7 @@ import { computed, reactive, ref, watch } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
 import ErrorNotice from '../components/ErrorNotice.vue'
+import SectionHeading from '../components/SectionHeading.vue'
 import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -11,7 +12,6 @@ const { availableManagerDirectory, openUserComposer, state, updateUser } = useWo
 
 const searchQuery = ref('')
 const activeCategory = ref('all')
-const activeLetter = ref('همه')
 const selectedUserId = ref(null)
 const savingUser = ref(false)
 const applyingBonus = ref(false)
@@ -54,15 +54,6 @@ const categoryButtons = [
 
 const canManageUsers = computed(() => state.currentUser.canManageUsers)
 
-const availableLetters = computed(() => {
-  const letters = new Set(
-    state.users
-      .map((item) => String(item.name || '').trim().slice(0, 1))
-      .filter(Boolean),
-  )
-  return ['همه', ...[...letters].sort((a, b) => a.localeCompare(b, 'fa'))]
-})
-
 const filteredUsers = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
 
@@ -74,14 +65,11 @@ const filteredUsers = computed(() => {
       (activeCategory.value === 'employees' && item.accessRole === 'employee') ||
       (activeCategory.value === 'inactive' && status.includes('غیرفعال'))
 
-    const firstLetter = String(item.name || '').trim().slice(0, 1)
-    const matchesLetter = activeLetter.value === 'همه' || firstLetter === activeLetter.value
-
     const matchesQuery = !query ||
       ['name', 'role', 'jobTitle', 'department', 'username', 'manager', 'status']
         .some((field) => String(item[field] || '').toLowerCase().includes(query))
 
-    return matchesCategory && matchesLetter && matchesQuery
+    return matchesCategory && matchesQuery
   })
 })
 
@@ -223,10 +211,10 @@ function userManagerOptions(userId) {
     <section class="surface-block users-toolbar-panel">
       <div class="users-toolbar-stack">
         <div class="users-toolbar-head">
-          <div>
-            <h3>فهرست کاربران</h3>
-            <p>جستجو، فیلتر و مدیریت کاربران سازمان</p>
-          </div>
+          <SectionHeading
+            title="فهرست کاربران"
+            description="جستجو، فیلتر و مدیریت کاربران سازمان"
+          />
 
           <div class="users-header-actions">
             <span class="meta-pill">{{ filteredUsers.length }} نتیجه</span>
@@ -259,18 +247,6 @@ function userManagerOptions(userId) {
               {{ item.label }}
             </button>
           </div>
-        </div>
-
-        <div class="alphabet-strip users-toolbar-secondary">
-          <button
-            v-for="letter in availableLetters"
-            :key="letter"
-            :class="['alphabet-chip', activeLetter === letter && 'is-active']"
-            type="button"
-            @click="activeLetter = letter"
-          >
-            {{ letter }}
-          </button>
         </div>
       </div>
     </section>
@@ -375,9 +351,10 @@ function userManagerOptions(userId) {
 
       <section class="surface-inline user-form-panel">
         <div class="section-label-row">
-          <div>
-            <h3>ویرایش کاربر</h3>
-          </div>
+          <SectionHeading
+            title="ویرایش کاربر"
+            description="اطلاعات هویتی، دسترسی و وضعیت حساب کاربر انتخاب‌شده را از این بخش بروزرسانی کنید."
+          />
         </div>
 
         <div class="modal-grid two-col">
@@ -433,9 +410,10 @@ function userManagerOptions(userId) {
 
         <section class="surface-inline user-finance-panel">
           <div class="section-label-row">
-            <div>
-              <h3>پاداش و جریمه</h3>
-            </div>
+            <SectionHeading
+              title="پاداش و جریمه"
+              description="ثبت یا تعدیل پاداش و جریمه برای کاربر انتخاب‌شده."
+            />
           </div>
 
           <div class="modal-grid two-col">
@@ -607,18 +585,10 @@ function userManagerOptions(userId) {
   background: #e4f4f2 !important;
 }
 
-.users-chip-row,
-.users-toolbar-secondary {
+.users-chip-row {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-.users-toolbar-secondary {
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: #ffffff;
-  box-shadow: 0 2px 10px rgba(40, 110, 105, 0.08);
 }
 
 .user-directory-grid {

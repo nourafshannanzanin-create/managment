@@ -3,6 +3,7 @@ import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, onMounted, ref } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
+import SectionHeading from '../components/SectionHeading.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const saving = ref(false)
@@ -128,10 +129,10 @@ onMounted(async () => {
     <section class="dashboard-grid settings-modern-grid">
       <article class="surface-block">
         <div class="section-label-row">
-          <div>
-            <h3>پروفایل سازمان</h3>
-            <p>اطلاعات هویتی و کدنوم سازمان از همین بخش مدیریت می‌شود.</p>
-          </div>
+          <SectionHeading
+            title="پروفایل سازمان"
+            description="اطلاعات هویتی و کدنوم سازمان از همین بخش مدیریت می‌شود."
+          />
         </div>
 
         <div class="settings-stack">
@@ -154,10 +155,10 @@ onMounted(async () => {
 
       <article class="surface-block">
         <div class="section-label-row">
-          <div>
-            <h3>خلاصه دسترسی‌ها</h3>
-            <p>نمای فشرده‌ای از تعداد کاربران مجاز هر بخش.</p>
-          </div>
+          <SectionHeading
+            title="خلاصه دسترسی‌ها"
+            description="نمای فشرده‌ای از تعداد کاربران مجاز هر بخش."
+          />
         </div>
 
         <div class="progress-list">
@@ -174,10 +175,10 @@ onMounted(async () => {
 
     <section class="surface-block">
       <div class="section-label-row">
-        <div>
-          <h3>بخش‌های سازمان</h3>
-          <p>این فهرست در فرم‌های درخواست، هزینه، سند و کاربران نمایش داده می‌شود.</p>
-        </div>
+        <SectionHeading
+          title="بخش‌های سازمان"
+          description="این فهرست در فرم‌های درخواست، هزینه، سند و کاربران نمایش داده می‌شود."
+        />
       </div>
 
       <div class="settings-stack">
@@ -217,10 +218,10 @@ onMounted(async () => {
 
     <section class="surface-block">
       <div class="section-label-row">
-        <div>
-          <h3>دسترسی به بخش‌ها</h3>
-          <p>کاربران مجاز هر بخش را از این جدول جستجو و مدیریت کنید.</p>
-        </div>
+        <SectionHeading
+          title="دسترسی به بخش‌ها"
+          description="کاربران مجاز هر بخش را از این جدول جستجو و مدیریت کنید."
+        />
       </div>
 
       <label class="search-shell search-shell-wide settings-section-search">

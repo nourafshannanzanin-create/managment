@@ -21,7 +21,12 @@ const {
 
 <template>
   <section class="page-shell">
-    <PageHeader eyebrow="درخواست جدید" title="ثبت درخواست" description="" @menu="toggleSidebar" />
+    <PageHeader
+      eyebrow="درخواست جدید"
+      title="ثبت درخواست"
+      description="عنوان، شرح، اولویت و گیرندگان درخواست را تکمیل کنید تا گردش کار شروع شود."
+      @menu="toggleSidebar"
+    />
 
     <div class="request-create-grid">
       <section class="surface-block">
