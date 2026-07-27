@@ -475,7 +475,7 @@ class UserAndSettingsTests(TestCase):
         self.assertTrue(sent_text.endswith("از طرف کارنومند"))
 
     @override_settings()
-    @patch.dict("os.environ", {"SMS_PRICE_PER_100_CHARS": "185"}, clear=False)
+    @patch.dict("os.environ", {"SMS_PRICE_PER_100_CHARS": "185", "SMS_CHARS_PER_SEGMENT": "70"}, clear=False)
     def test_sms_char_blocks_and_send_cost(self):
         from decimal import Decimal
 
@@ -483,13 +483,13 @@ class UserAndSettingsTests(TestCase):
 
         self.assertEqual(sms_char_blocks(""), 0)
         self.assertEqual(sms_char_blocks("a" * 1), 1)
-        self.assertEqual(sms_char_blocks("a" * 100), 1)
-        self.assertEqual(sms_char_blocks("a" * 101), 2)
-        self.assertEqual(sms_char_blocks("a" * 200), 2)
-        self.assertEqual(sms_char_blocks("a" * 201), 3)
+        self.assertEqual(sms_char_blocks("a" * 70), 1)
+        self.assertEqual(sms_char_blocks("a" * 71), 2)
+        self.assertEqual(sms_char_blocks("a" * 140), 2)
+        self.assertEqual(sms_char_blocks("a" * 141), 3)
 
         one_block = "x" * 50
-        two_blocks = "x" * 150
+        two_blocks = "x" * 120
         self.assertEqual(sms_send_cost(one_block, ["09120000001"]), Decimal("185"))
         self.assertEqual(sms_send_cost(two_blocks, ["09120000001"]), Decimal("370"))
         self.assertEqual(sms_send_cost(one_block, ["09120000001", "09120000002"]), Decimal("370"))

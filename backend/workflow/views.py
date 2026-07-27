@@ -242,11 +242,20 @@ def normalize_sms_recipients(recipients) -> list[str]:
 
 
 def sms_char_blocks(text: str) -> int:
-    """Billable 100-character blocks for SMS pricing (1-100=1, 101-200=2, ...)."""
+    """Billable character blocks for SMS pricing (1-70=1, 71-140=2, ...)."""
     length = len(str(text or ""))
     if length <= 0:
         return 0
-    return (length + 99) // 100
+    raw_chars_per_block = str(
+        os.getenv("SMS_CHARS_PER_SEGMENT")
+        or os.getenv("SMS_CHARS_PER_100")
+        or "70"
+    ).strip()
+    try:
+        chars_per_block = max(1, int(raw_chars_per_block))
+    except ValueError:
+        chars_per_block = 70
+    return (length + (chars_per_block - 1)) // chars_per_block
 
 
 def sms_price_per_100_chars() -> Decimal:
