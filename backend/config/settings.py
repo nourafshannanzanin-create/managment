@@ -8,6 +8,30 @@ from dotenv import load_dotenv
 
 pymysql.install_as_MySQLdb()
 
+
+def _allow_local_mariadb_104() -> None:
+    """XAMPP/local stacks often ship MariaDB 10.4; Django 5+ requires 10.5+."""
+    try:
+        from django.db.backends.mysql.base import DatabaseWrapper
+    except Exception:
+        return
+
+    original = DatabaseWrapper.check_database_version_supported
+
+    def check_database_version_supported(self):  # type: ignore[no-untyped-def]
+        try:
+            original(self)
+        except Exception as exc:
+            message = str(exc)
+            if "MariaDB 10.5" in message and "10.4" in message:
+                return
+            raise
+
+    DatabaseWrapper.check_database_version_supported = check_database_version_supported
+
+
+_allow_local_mariadb_104()
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 

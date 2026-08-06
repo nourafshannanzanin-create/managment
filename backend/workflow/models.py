@@ -112,6 +112,7 @@ class TimeStampedModel(models.Model):
 class Organization(TimeStampedModel):
     code = models.CharField(max_length=80, unique=True, db_index=True)
     name = models.CharField(max_length=180, unique=True)
+    is_showcase = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         db_table = "organizations"
@@ -179,6 +180,8 @@ class OrganizationMembership(TimeStampedModel):
 class OrganizationPreference(models.Model):
     organization = models.OneToOneField(Organization, on_delete=models.CASCADE, related_name="preferences")
     two_factor_required = models.BooleanField(default=True)
+    sms_daily_limit = models.PositiveIntegerField(default=0)
+    sms_monthly_limit = models.PositiveIntegerField(default=0)
     updated_at = models.DateTimeField(default=timezone.now)
 
     class Meta:

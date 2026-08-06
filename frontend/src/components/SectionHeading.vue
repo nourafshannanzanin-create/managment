@@ -1,6 +1,4 @@
 <script setup>
-import TitleHint from './TitleHint.vue'
-
 defineProps({
   title: { type: String, required: true },
   description: { type: String, default: '' },
@@ -13,7 +11,6 @@ defineProps({
 <template>
   <div class="section-heading-inline">
     <component :is="as" class="section-heading-inline__title">{{ title }}</component>
-    <TitleHint :text="description" :label="hintLabel" :size="size" />
   </div>
 </template>
 

@@ -93,6 +93,7 @@ from workflow.services import (
     HQ_USERNAME,
     CORE_FEATURE_KEY,
     PURCHASABLE_FEATURES,
+    customer_organizations,
     license_status_payload,
     normalize_money,
     next_code,
@@ -295,6 +296,56 @@ def sms_wallet_can_send(tenant: Organization | None, cost: Decimal) -> bool:
     return Decimal(wallet.balance) >= cost and Decimal(wallet.balance) > 0
 
 
+def sms_usage_units_between(tenant: Organization, start_at, end_at) -> int:
+    total = 0
+    for note in WalletTransaction.objects.filter(
+        organization=tenant,
+        transaction_type="sms_send",
+        transacted_at__gte=start_at,
+        transacted_at__lt=end_at,
+    ).values_list("note", flat=True):
+        parts = str(note or "").split(":")
+        if len(parts) >= 3 and parts[0] == "sms":
+            try:
+                total += max(int(parts[1]), 0) * max(int(parts[2]), 0)
+                continue
+            except ValueError:
+                pass
+        total += 1
+    return total
+
+
+def sms_limit_blocks_send(tenant: Organization | None, text: str, recipients: list[str]) -> str | None:
+    """Return an error message if org daily/monthly SMS limits would be exceeded."""
+    if tenant is None or not recipients:
+        return None
+    prefs = getattr(tenant, "preferences", None)
+    if prefs is None:
+        prefs = OrganizationPreference.objects.filter(organization=tenant).first()
+    if prefs is None:
+        return None
+    daily_limit = int(prefs.sms_daily_limit or 0)
+    monthly_limit = int(prefs.sms_monthly_limit or 0)
+    if daily_limit <= 0 and monthly_limit <= 0:
+        return None
+    units = max(len(recipients), 0) * max(sms_char_blocks(text), 0)
+    if units <= 0:
+        return None
+    now_local = timezone.now()
+    day_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    next_day = day_start + timedelta(days=1)
+    month_start = day_start.replace(day=1)
+    if month_start.month == 12:
+        next_month = month_start.replace(year=month_start.year + 1, month=1)
+    else:
+        next_month = month_start.replace(month=month_start.month + 1)
+    if daily_limit > 0 and sms_usage_units_between(tenant, day_start, next_day) + units > daily_limit:
+        return f"سقف ارسال پیامک روزانه ({daily_limit}) برای این مجموعه تکمیل شده است."
+    if monthly_limit > 0 and sms_usage_units_between(tenant, month_start, next_month) + units > monthly_limit:
+        return f"سقف ارسال پیامک ماهانه ({monthly_limit}) برای این مجموعه تکمیل شده است."
+    return None
+
+
 def charge_sms_wallet(tenant: Organization | None, actor: User | None, text: str, recipients: list[str], provider_id: str = "") -> None:
     if tenant is None:
         return
@@ -446,6 +497,16 @@ def notify_sms(tenant: Organization | None, text: str, recipients, *, actor: Use
                 "raw_body": message,
                 "payload": {"text": text, "recipients": recipients},
             }
+        limit_message = sms_limit_blocks_send(tenant, text, recipients)
+        if limit_message:
+            return {
+                "ok": False,
+                "message": limit_message,
+                "provider_status": 0,
+                "provider_data": {"message": limit_message},
+                "raw_body": limit_message,
+                "payload": {"text": text, "recipients": recipients},
+            }
         result = send_provider_sms(tenant, text, recipients)
         if result.get("ok"):
             charge_sms_wallet(
@@ -581,7 +642,7 @@ def sync_user_section_access(actor: User, user: User, access_map: dict[str, bool
 def build_settings_profile_payload(user: User, organization_id: int | None = None) -> dict:
     organization = None
     if user.slug == HQ_USERNAME and organization_id:
-        organization = Organization.objects.exclude(code="hq-control").filter(pk=organization_id).first()
+        organization = customer_organizations().filter(pk=organization_id).first()
     if organization is None:
         organization = get_user_organization(user)
     preference, _ = OrganizationPreference.objects.get_or_create(organization=organization)
@@ -821,7 +882,7 @@ def resolve_wallet_organization(request: HttpRequest, payload: dict | None = Non
     if request.current_user.slug == HQ_USERNAME:
         if not raw_organization_id:
             return None
-        return Organization.objects.exclude(code="hq-control").filter(pk=raw_organization_id).first()
+        return customer_organizations().filter(pk=raw_organization_id).first()
     return get_user_organization(request.current_user)
 
 
@@ -1273,7 +1334,7 @@ def hq_selected_user_ids(request: HttpRequest) -> list[int] | None:
     organization_id = request.GET.get("organizationId")
     if not organization_id or not organization_id.isdigit():
         return []
-    organization = Organization.objects.exclude(code="hq-control").filter(pk=int(organization_id)).first()
+    organization = customer_organizations().filter(pk=int(organization_id)).first()
     if organization is None:
         return []
     return list(User.objects.filter(organization_membership__organization=organization).values_list("id", flat=True))
@@ -2668,7 +2729,7 @@ def hq_organization_update_view(request: HttpRequest, organization_id: int):
     denied = ensure_hq_admin(request.current_user)
     if denied:
         return denied
-    organization = Organization.objects.filter(pk=organization_id).first()
+    organization = customer_organizations().filter(pk=organization_id).first()
     if organization is None:
         return json_error("سازمان پیدا نشد.", status=404)
     payload = parse_json(request)
@@ -2735,7 +2796,7 @@ def hq_user_update_view(request: HttpRequest, user_id: int):
 
     organization_id = payload.get("organizationId")
     if organization_id:
-        organization = Organization.objects.filter(pk=organization_id).first()
+        organization = customer_organizations().filter(pk=organization_id).first()
         if organization:
             OrganizationMembership.objects.update_or_create(user=target, defaults={"organization": organization, "display_title": target.job_title})
 
@@ -3872,7 +3933,7 @@ def settings_profile_view(request: HttpRequest):
         payload_organization_id = payload.get("organizationId")
         organization_id = int(payload_organization_id) if payload_organization_id and str(payload_organization_id).isdigit() else None
     if request.current_user.slug == HQ_USERNAME and organization_id:
-        organization = Organization.objects.exclude(code="hq-control").filter(pk=organization_id).first()
+        organization = customer_organizations().filter(pk=organization_id).first()
         if organization is None:
             return json_error("مجموعه پیدا نشد.", status=404)
     else:

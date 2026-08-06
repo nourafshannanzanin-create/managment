@@ -1,7 +1,6 @@
 <script setup>
 import IconlyIcon from '../components/base/IconlyIcon.vue'
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
-import TitleHint from '../components/TitleHint.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -437,10 +436,7 @@ onBeforeUnmount(() => {
           <IconlyIcon name="support_agent" decorative />
         </span>
         <div>
-          <div class="support-title-row">
-            <h2>پشتیبانی</h2>
-            <TitleHint text="مرکز تیکت، پیگیری گفتگوها و ارتباط با تیم پشتیبانی" label="درباره این صفحه" size="lg" />
-          </div>
+          <h2>پشتیبانی</h2>
         </div>
       </div>
       <div class="toolbar-actions">
@@ -490,10 +486,6 @@ onBeforeUnmount(() => {
             <p class="panel-kicker">Ticket Inbox</p>
             <div class="support-title-row">
               <h3>لیست تیکت‌های من</h3>
-              <TitleHint
-                text="تیکت‌های شما بر اساس وضعیت فیلتر می‌شوند تا گفتگوی جاری را سریع‌تر پیدا کنید."
-                label="درباره این بخش"
-              />
             </div>
             <span>{{ toFa(filteredTickets.length) }} مورد در وضعیت {{ activeStatusLabel }}</span>
           </div>

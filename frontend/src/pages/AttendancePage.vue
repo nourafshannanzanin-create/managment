@@ -5,7 +5,6 @@ import { useRoute } from 'vue-router'
 
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
 import SectionHeading from '../components/SectionHeading.vue'
-import TitleHint from '../components/TitleHint.vue'
 import { jalaliToIso } from '../utils/jalali'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
@@ -175,14 +174,7 @@ onMounted(() => {
     <section class="attendance-hero">
       <div>
         <span class="page-eyebrow">Attendance Control</span>
-        <div class="attendance-title-row">
-          <h1>ورود و خروج پرسنل</h1>
-          <TitleHint
-            text="کنترل زنده وضعیت نیروها، لینک اختصاصی هر کاربر و ثبت سریع ورود یا خروج مدیر در یک صفحه متصل به دیتابیس."
-            label="درباره این صفحه"
-            size="lg"
-          />
-        </div>
+        <h1>ورود و خروج پرسنل</h1>
       </div>
       <div class="attendance-summary">
         <article>

@@ -53,6 +53,8 @@ PERSIAN_WEEK_DAYS = ["شنبه", "یکشنبه", "دوشنبه", "سه شنبه"
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
 PDF_EXTENSIONS = {".pdf"}
 HQ_USERNAME = "milad_dhs"
+HQ_ORG_CODE = "hq-control"
+SHOWCASE_ORG_CODE = "carnomand-sample"
 CORE_FEATURE_KEY = "core_software"
 CLOUD_STORAGE_FEATURE_KEY = "cloud_storage"
 DEFAULT_OPERATIONAL_RETENTION_DAYS = 90
@@ -113,6 +115,19 @@ PURCHASABLE_FEATURES = [
         "disabled_label": "غیرفعال",
     },
 ]
+
+
+def customer_organizations():
+    """Organizations visible to HQ: exclude HQ itself and showcase/demo sample orgs."""
+    return Organization.objects.exclude(code=HQ_ORG_CODE).filter(is_showcase=False)
+
+
+def showcase_organization_ids():
+    return Organization.objects.filter(is_showcase=True).values_list("id", flat=True)
+
+
+def showcase_user_ids():
+    return User.objects.filter(organization_membership__organization__is_showcase=True).values_list("id", flat=True)
 
 
 def now():
@@ -1202,27 +1217,42 @@ def serialize_hq_audit(item: AuditLog) -> dict:
 
 
 def build_hq_payload() -> dict:
-    organizations = list(Organization.objects.exclude(code="hq-control").order_by("-created_at"))
+    organizations = list(customer_organizations().order_by("-created_at"))
+    excluded_user_ids = list(showcase_user_ids())
+    excluded_org_ids = list(showcase_organization_ids())
     users = list(
-        User.objects.select_related("department", "manager", "organization_membership__organization").order_by("-created_at")
+        User.objects.exclude(id__in=excluded_user_ids)
+        .select_related("department", "manager", "organization_membership__organization")
+        .order_by("-created_at")
     )
     requests_qs = list(
-        Request.objects.select_related("requester", "manager", "department")
+        Request.objects.exclude(requester_id__in=excluded_user_ids)
+        .select_related("requester", "manager", "department")
         .prefetch_related("assigned_managers", "attachments")
         .order_by("-created_at")
     )
-    expenses_qs = list(Expense.objects.select_related("owner", "department").order_by("-created_at"))
+    expenses_qs = list(
+        Expense.objects.exclude(owner_id__in=excluded_user_ids)
+        .select_related("owner", "department")
+        .order_by("-created_at")
+    )
     documents_qs = list(
-        Document.objects.select_related("owner", "department")
+        Document.objects.exclude(owner_id__in=excluded_user_ids)
+        .select_related("owner", "department")
         .prefetch_related(Prefetch("approval_assignments", queryset=ApprovalAssignment.objects.select_related("approver")))
         .order_by("-uploaded_at")
     )
     tickets_qs = list(
-        SupportTicket.objects.select_related("organization", "requester", "responded_by")
+        SupportTicket.objects.exclude(organization_id__in=excluded_org_ids)
+        .select_related("organization", "requester", "responded_by")
         .prefetch_related("messages", "attachments")
         .order_by("-updated_at", "-id")
     )
-    audits = list(AuditLog.objects.select_related("actor").order_by("-created_at")[:80])
+    audits = list(
+        AuditLog.objects.exclude(actor_id__in=excluded_user_ids)
+        .select_related("actor")
+        .order_by("-created_at")[:80]
+    )
 
     total_payments = sum(Decimal(item.amount) for item in expenses_qs)
     pending_payments = sum(Decimal(item.amount) for item in expenses_qs if item.status in {ExpenseStatus.PENDING, ExpenseStatus.UNDER_REVIEW})
@@ -1314,7 +1344,7 @@ def update_document_status(document: Document) -> None:
 def build_bootstrap_payload(user: User, organization_id: int | None = None) -> dict:
     hq_selected_organization = None
     if user_is_hq_user(user) and organization_id:
-        hq_selected_organization = Organization.objects.exclude(code="hq-control").filter(pk=organization_id).first()
+        hq_selected_organization = customer_organizations().filter(pk=organization_id).first()
 
     if user_is_hq_user(user) and hq_selected_organization is None:
         requests_qs = []
@@ -1442,7 +1472,7 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
         ),
         "hqOrganizations": [
             {"id": item.id, "name": item.name, "code": item.code}
-            for item in Organization.objects.exclude(code="hq-control").order_by("name")
+            for item in customer_organizations().order_by("name")
         ]
         if user.slug == HQ_USERNAME
         else [],
@@ -1539,7 +1569,7 @@ def _report_user_ids(user: User, organization_id: int | None, filters: dict | No
     filters = filters or {}
     organization = None
     if user.slug == HQ_USERNAME and organization_id:
-        organization = Organization.objects.exclude(code="hq-control").filter(pk=organization_id).first()
+        organization = customer_organizations().filter(pk=organization_id).first()
     if organization is None:
         organization = get_user_organization(user)
     user_ids = list(User.objects.filter(organization_membership__organization=organization).values_list("id", flat=True))
@@ -1551,7 +1581,7 @@ def _report_user_ids(user: User, organization_id: int | None, filters: dict | No
 
 def _report_organization(user: User, organization_id: int | None) -> Organization:
     if user.slug == HQ_USERNAME and organization_id:
-        organization = Organization.objects.exclude(code="hq-control").filter(pk=organization_id).first()
+        organization = customer_organizations().filter(pk=organization_id).first()
         if organization is not None:
             return organization
     return get_user_organization(user)

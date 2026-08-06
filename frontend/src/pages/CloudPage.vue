@@ -2,7 +2,6 @@
 import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, onMounted } from 'vue'
 
-import TitleHint from '../components/TitleHint.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const { state, loadWalletOptions, openDocumentComposer, openProtectedFile, downloadProtectedFile } = useWorkflowHub()
@@ -59,10 +58,7 @@ onMounted(() => {
     <template v-else>
       <header class="cloud-head">
         <div>
-          <div class="cloud-title-row">
-            <h1>فضای ابری</h1>
-            <TitleHint :text="cloudRetentionText" label="درباره این صفحه" size="lg" />
-          </div>
+          <h1>فضای ابری</h1>
         </div>
         <button class="action-btn tone-primary" type="button" @click="openDocumentComposer">
           <IconlyIcon name="upload_file" decorative />

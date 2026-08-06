@@ -115,14 +115,8 @@ watch(hintText, close)
     >
       <span class="title-hint-orb" aria-hidden="true">
         <svg class="title-hint-svg" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" class="title-hint-svg-ring" />
-          <circle cx="12" cy="8" r="1.35" class="title-hint-svg-dot" />
-          <path
-            class="title-hint-svg-stem"
-            d="M12 11.25v5.1"
-            stroke-linecap="round"
-            stroke-width="2.2"
-          />
+          <circle cx="12" cy="12" r="8.25" class="title-hint-svg-outer" />
+          <circle cx="12" cy="12" r="3.35" class="title-hint-svg-inner" />
         </svg>
       </span>
       <span class="title-hint-pulse" aria-hidden="true" />
@@ -144,9 +138,8 @@ watch(hintText, close)
           <div class="title-hint-panel-head">
             <span class="title-hint-panel-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8" />
-                <circle cx="12" cy="8" r="1.35" fill="currentColor" />
-                <path d="M12 11.25v5.1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+                <circle cx="12" cy="12" r="8.25" stroke="currentColor" stroke-width="1.9" />
+                <circle cx="12" cy="12" r="3.35" fill="currentColor" />
               </svg>
             </span>
             <strong>{{ label }}</strong>
@@ -231,19 +224,14 @@ watch(hintText, close)
   display: block;
 }
 
-.title-hint-svg-ring {
+.title-hint-svg-outer {
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.85;
+  stroke-width: 1.9;
 }
 
-.title-hint-svg-dot {
+.title-hint-svg-inner {
   fill: currentColor;
-}
-
-.title-hint-svg-stem {
-  fill: none;
-  stroke: currentColor;
 }
 
 .title-hint-pulse {
