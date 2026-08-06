@@ -122,12 +122,21 @@ def customer_organizations():
     return Organization.objects.exclude(code=HQ_ORG_CODE).filter(is_showcase=False)
 
 
+def is_showcase_organization(organization: Organization | None) -> bool:
+    return bool(organization is not None and getattr(organization, "is_showcase", False))
+
+
 def showcase_organization_ids():
     return Organization.objects.filter(is_showcase=True).values_list("id", flat=True)
 
 
 def showcase_user_ids():
     return User.objects.filter(organization_membership__organization__is_showcase=True).values_list("id", flat=True)
+
+
+SHOWCASE_WALLET_READONLY_MESSAGE = (
+    "کیف پول این مجموعه صرفاً نمایشی است و واریز، برداشت یا خرید واقعی انجام نمی‌شود."
+)
 
 
 def now():
@@ -826,13 +835,19 @@ def serialize_wallet_transaction(transaction: WalletTransaction) -> dict:
 def wallet_dashboard_payload(organization: Organization) -> dict:
     ensure_organization_wallets(organization)
     wallets = list(organization.wallets.order_by("key"))
-    transactions = list(
-        WalletTransaction.objects.filter(organization=organization)
-        .select_related("wallet", "actor")
-        .order_by("-transacted_at", "-id")[:100]
-    )
-    deposits_total = sum((item.amount for item in transactions if item.direction == "in"), Decimal("0"))
-    withdrawals_total = sum((item.amount for item in transactions if item.direction == "out"), Decimal("0"))
+    schematic = is_showcase_organization(organization)
+    if schematic:
+        transactions = []
+        deposits_total = Decimal("0")
+        withdrawals_total = Decimal("0")
+    else:
+        transactions = list(
+            WalletTransaction.objects.filter(organization=organization)
+            .select_related("wallet", "actor")
+            .order_by("-transacted_at", "-id")[:100]
+        )
+        deposits_total = sum((item.amount for item in transactions if item.direction == "in"), Decimal("0"))
+        withdrawals_total = sum((item.amount for item in transactions if item.direction == "out"), Decimal("0"))
     total_balance = sum((wallet.balance for wallet in wallets), Decimal("0"))
     wallet_by_key = {wallet.key: wallet for wallet in wallets}
     main_balance = wallet_by_key.get("main").balance if wallet_by_key.get("main") else Decimal("0")
@@ -841,6 +856,8 @@ def wallet_dashboard_payload(organization: Organization) -> dict:
 
     return {
         "organization": {"id": organization.id, "name": organization.name, "code": organization.code},
+        "schematic": schematic,
+        "schematicNotice": SHOWCASE_WALLET_READONLY_MESSAGE if schematic else "",
         **wallet_options_payload(organization),
         "summary": {
             "totalBalance": format_money(total_balance),
@@ -851,7 +868,7 @@ def wallet_dashboard_payload(organization: Organization) -> dict:
             "smsBalanceRaw": float(sms_balance),
             "smsLowBalanceThreshold": format_money(sms_threshold),
             "smsLowBalanceThresholdRaw": float(sms_threshold),
-            "smsIsLow": sms_balance <= sms_threshold,
+            "smsIsLow": False if schematic else sms_balance <= sms_threshold,
             "depositsTotal": format_money(deposits_total),
             "depositsTotalRaw": float(deposits_total),
             "withdrawalsTotal": format_money(withdrawals_total),
@@ -961,6 +978,7 @@ def serialize_support_ticket(ticket: SupportTicket, include_detail: bool = False
         "requester": normalize_person_name(ticket.requester.full_name) if ticket.requester else "",
         "organization": ticket.organization.name,
         "organizationId": ticket.organization_id,
+        "organizationIsShowcase": is_showcase_organization(ticket.organization),
         "assignedTo": assigned.id if assigned else None,
         "assignedToName": normalize_person_name(assigned.full_name) if assigned else "",
         "responseText": getattr(ticket, "response_text", "") or "",
@@ -1219,7 +1237,6 @@ def serialize_hq_audit(item: AuditLog) -> dict:
 def build_hq_payload() -> dict:
     organizations = list(customer_organizations().order_by("-created_at"))
     excluded_user_ids = list(showcase_user_ids())
-    excluded_org_ids = list(showcase_organization_ids())
     users = list(
         User.objects.exclude(id__in=excluded_user_ids)
         .select_related("department", "manager", "organization_membership__organization")
@@ -1242,9 +1259,9 @@ def build_hq_payload() -> dict:
         .prefetch_related(Prefetch("approval_assignments", queryset=ApprovalAssignment.objects.select_related("approver")))
         .order_by("-uploaded_at")
     )
+    # Showcase orgs stay hidden from HQ directories, but their support tickets remain visible to HQ support.
     tickets_qs = list(
-        SupportTicket.objects.exclude(organization_id__in=excluded_org_ids)
-        .select_related("organization", "requester", "responded_by")
+        SupportTicket.objects.select_related("organization", "requester", "responded_by")
         .prefetch_related("messages", "attachments")
         .order_by("-updated_at", "-id")
     )
@@ -1455,8 +1472,10 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
     if wallet_organization is None and user.slug != HQ_USERNAME:
         wallet_organization = get_user_organization(user)
     sms_balance = Decimal("0")
+    schematic_wallet = False
     if wallet_organization is not None:
         ensure_organization_wallets(wallet_organization)
+        schematic_wallet = is_showcase_organization(wallet_organization)
         sms_wallet = wallet_organization.wallets.filter(key="sms", is_active=True).first()
         sms_balance = Decimal(sms_wallet.balance) if sms_wallet else Decimal("0")
         sms_threshold = Decimal(sms_wallet.low_balance_threshold) if sms_wallet else Decimal("0")
@@ -1508,12 +1527,14 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
             {"label": "امسال", "value": format_money(year_total)},
         ],
         "wallet": {
+            "schematic": schematic_wallet,
+            "schematicNotice": SHOWCASE_WALLET_READONLY_MESSAGE if schematic_wallet else "",
             "summary": {
                 "smsBalance": format_money(sms_balance),
                 "smsBalanceRaw": float(sms_balance),
                 "smsLowBalanceThreshold": format_money(sms_threshold),
                 "smsLowBalanceThresholdRaw": float(sms_threshold),
-                "smsIsLow": sms_balance <= sms_threshold,
+                "smsIsLow": False if schematic_wallet else sms_balance <= sms_threshold,
             },
         },
         "approvalMetrics": metrics,

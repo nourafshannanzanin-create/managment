@@ -145,6 +145,8 @@ function createWalletState() {
     submitting: false,
     error: '',
     message: '',
+    schematic: false,
+    schematicNotice: '',
     organization: null,
     summary: {
       totalBalance: '0.00',
@@ -968,6 +970,10 @@ function hydrateBootstrap(payload) {
   if (payload.wallet?.summary) {
     Object.assign(state.wallet.summary, payload.wallet.summary)
   }
+  if (payload.wallet) {
+    state.wallet.schematic = Boolean(payload.wallet.schematic)
+    state.wallet.schematicNotice = payload.wallet.schematicNotice || payload.wallet.schematic_notice || ''
+  }
 
   selectedState.requestId = state.requests[0]?.id || ''
   if (!expenseDetailState.item) selectedState.expenseId = state.expenses[0]?.id || ''
@@ -992,6 +998,8 @@ function hydrateHq(payload) {
 function hydrateWallet(payload) {
   if (!payload) return
   state.wallet.organization = payload.organization || null
+  state.wallet.schematic = Boolean(payload.schematic)
+  state.wallet.schematicNotice = payload.schematicNotice || payload.schematic_notice || ''
   Object.assign(state.wallet.summary, createWalletState().summary, payload.summary || {})
   Object.assign(state.wallet.licenseStatus, createWalletState().licenseStatus, payload.licenseStatus || payload.license_status || {})
   replaceItems(state.wallet.options, payload.options || [])

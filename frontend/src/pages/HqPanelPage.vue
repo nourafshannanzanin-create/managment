@@ -246,15 +246,19 @@ const conversationMessages = computed(() => {
 })
 
 const canDepositToWallet = computed(() =>
-  state.currentUser.canUseHq && paymentTicketRank(selectedTicket.value) === 0,
+  state.currentUser.canUseHq
+  && !selectedTicket.value?.organizationIsShowcase
+  && paymentTicketRank(selectedTicket.value) === 0,
 )
 const canCompleteWalletTransfer = computed(() =>
   state.currentUser.canUseHq
+  && !selectedTicket.value?.organizationIsShowcase
   && selectedTicket.value?.actionMeta?.actionType === 'wallet_withdrawal'
   && selectedTicket.value?.actionMeta?.destinationType === 'wallet',
 )
 const canCompleteBankWithdraw = computed(() =>
   state.currentUser.canUseHq
+  && !selectedTicket.value?.organizationIsShowcase
   && selectedTicket.value?.actionMeta?.actionType === 'wallet_withdrawal'
   && selectedTicket.value?.actionMeta?.destinationType === 'bank',
 )
