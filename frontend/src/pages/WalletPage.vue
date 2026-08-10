@@ -117,7 +117,7 @@ const paymentMethods = [
 const shortcuts = computed(() => {
   if (isSchematicWallet.value) return []
   return [
-    { label: 'شارژ', icon: 'add_card', direction: 'in', tone: 'deposit' },
+    { label: 'واریز', icon: 'add_card', direction: 'in', tone: 'deposit' },
     { label: 'برداشت', icon: 'payments', direction: 'out', tone: 'withdraw' },
   ]
 })
