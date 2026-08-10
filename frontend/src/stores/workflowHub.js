@@ -24,6 +24,7 @@ function createCurrentUser() {
     department: '',
     avatar: '',
     avatarUrl: '',
+    avatarFileName: '',
     email: '',
     organization: '',
     bonusAmount: '0',
@@ -148,6 +149,8 @@ function createWalletState() {
     submitting: false,
     error: '',
     message: '',
+    schematic: false,
+    schematicNotice: '',
     organization: null,
     summary: {
       totalBalance: '0',
@@ -409,6 +412,7 @@ function normalizeUser(item = {}) {
     status: cleanDisplayText(item?.status),
     avatar: cleanDisplayText(item?.avatar),
     avatarUrl: resolveAssetUrl(item?.avatarUrl || item?.avatar_url || ''),
+    avatarFileName: cleanDisplayText(item?.avatarFileName || item?.avatar_file_name),
     bonusAmount: item?.bonusAmount || '0',
     bonusAmountRaw: Number(item?.bonusAmountRaw || 0),
     penaltyAmount: item?.penaltyAmount || '0',
@@ -473,6 +477,9 @@ function syncUserAcrossState(userPayload, options = {}) {
       role: normalizedUser.role,
       department: normalizedUser.department,
       phone: normalizedUser.phone,
+      avatar: normalizedUser.avatar,
+      avatarUrl: normalizedUser.avatarUrl,
+      avatarFileName: normalizedUser.avatarFileName,
       bonusAmount: normalizedUser.bonusAmount,
       bonusAmountRaw: normalizedUser.bonusAmountRaw,
       penaltyAmount: normalizedUser.penaltyAmount,
@@ -953,6 +960,7 @@ function hydrateBootstrap(payload) {
 
   Object.assign(state.currentUser, createCurrentUser(), payload.currentUser || {})
   state.currentUser.avatarUrl = resolveAssetUrl(state.currentUser.avatarUrl || state.currentUser.avatar_url || '')
+  state.currentUser.avatarFileName = cleanDisplayText(state.currentUser.avatarFileName || state.currentUser.avatar_file_name)
   replaceItems(state.stats, payload.stats)
   replaceItems(state.chartData, payload.chartData)
   replaceItems(state.pipeline, payload.pipeline)
@@ -976,6 +984,10 @@ function hydrateBootstrap(payload) {
   state.directories.users = (payload.directories?.users || []).map(normalizeUser)
   if (payload.wallet?.summary) {
     Object.assign(state.wallet.summary, payload.wallet.summary)
+  }
+  if (payload.wallet) {
+    state.wallet.schematic = Boolean(payload.wallet.schematic)
+    state.wallet.schematicNotice = payload.wallet.schematicNotice || payload.wallet.schematic_notice || ''
   }
 
   selectedState.requestId = state.requests[0]?.id || ''
@@ -1001,6 +1013,8 @@ function hydrateHq(payload) {
 function hydrateWallet(payload) {
   if (!payload) return
   state.wallet.organization = payload.organization || null
+  state.wallet.schematic = Boolean(payload.schematic)
+  state.wallet.schematicNotice = payload.schematicNotice || payload.schematic_notice || ''
   Object.assign(state.wallet.summary, createWalletState().summary, payload.summary || {})
   Object.assign(state.wallet.licenseStatus, createWalletState().licenseStatus, payload.licenseStatus || payload.license_status || {})
   replaceItems(state.wallet.options, payload.options || [])
@@ -2046,14 +2060,10 @@ export function useWorkflowHub() {
     const payload = repairPayload(await response.json())
     Object.assign(state.currentUser, createCurrentUser(), payload || {})
     state.currentUser.avatarUrl = resolveAssetUrl(state.currentUser.avatarUrl || state.currentUser.avatar_url || '')
-    if (state.currentUser.id) {
-      syncUserAcrossState({
-        id: state.currentUser.id,
-        name: state.currentUser.name,
-        avatar: state.currentUser.avatar,
-        avatarUrl: state.currentUser.avatarUrl,
-      })
-    }
+    state.currentUser.avatarFileName = cleanDisplayText(state.currentUser.avatarFileName || state.currentUser.avatar_file_name)
+    patchUserAvatarInLists(state.currentUser.id, state.currentUser.avatar, state.currentUser.avatarUrl, {
+      avatarFileName: state.currentUser.avatarFileName,
+    })
     return state.currentUser
   }
 
@@ -2063,15 +2073,29 @@ export function useWorkflowHub() {
     const payload = repairPayload(await response.json())
     Object.assign(state.currentUser, createCurrentUser(), payload || {})
     state.currentUser.avatarUrl = resolveAssetUrl(state.currentUser.avatarUrl || state.currentUser.avatar_url || '')
-    if (state.currentUser.id) {
-      syncUserAcrossState({
-        id: state.currentUser.id,
-        name: state.currentUser.name,
-        avatar: state.currentUser.avatar,
-        avatarUrl: '',
-      })
-    }
+    state.currentUser.avatarFileName = ''
+    patchUserAvatarInLists(state.currentUser.id, state.currentUser.avatar, state.currentUser.avatarUrl, {
+      avatarFileName: '',
+    })
     return state.currentUser
+  }
+
+  function patchUserAvatarInLists(userId, avatar, avatarUrl, options = {}) {
+    const id = Number(userId)
+    if (!id) return
+    ;[state.users, state.settings.organizationUsers, state.directories.users, state.directories.managers]
+      .filter(Array.isArray)
+      .forEach((list) => {
+        const index = list.findIndex((entry) => Number(entry?.id) === id)
+        if (index >= 0) {
+          list[index] = {
+            ...list[index],
+            avatar: avatar || list[index].avatar,
+            avatarUrl: avatarUrl || '',
+            avatarFileName: options.avatarFileName ?? (avatarUrl ? list[index].avatarFileName : ''),
+          }
+        }
+      })
   }
 
   async function submitDocument() {
@@ -2247,16 +2271,48 @@ export function useWorkflowHub() {
 async function updateUser(userId, payload) {
   clearLastError()
   try {
-    const response = await authorizedFetch(`/users/${userId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...payload,
-        managerId: payload.managerId ? Number(payload.managerId) : null,
-      }),
-    })
+    const hasAvatarFile = payload?.avatarFile instanceof File
+    const clearAvatar = Boolean(payload?.clearAvatar)
+    let response
+    if (hasAvatarFile || clearAvatar) {
+      const formData = new FormData()
+      Object.entries(payload || {}).forEach(([key, value]) => {
+        if (key === 'avatarFile' || key === 'clearAvatar') return
+        if (value === undefined || value === null) return
+        if (key === 'sectionAccess') {
+          formData.append(key, JSON.stringify(value))
+          return
+        }
+        if (key === 'managerId') {
+          formData.append(key, value ? String(value) : '')
+          return
+        }
+        if (typeof value === 'boolean') {
+          formData.append(key, value ? '1' : '0')
+          return
+        }
+        formData.append(key, String(value))
+      })
+      if (hasAvatarFile) formData.append('avatar', payload.avatarFile)
+      if (clearAvatar) formData.append('clearAvatar', '1')
+      response = await authorizedFetch(`/users/${userId}`, { method: 'PATCH', body: formData })
+    } else {
+      response = await authorizedFetch(`/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...payload,
+          managerId: payload.managerId ? Number(payload.managerId) : null,
+        }),
+      })
+    }
     const updatedUser = normalizeUser(repairPayload(await response.json()))
     syncUserAcrossState(updatedUser)
+    if (Number(state.currentUser.id) === Number(updatedUser.id)) {
+      state.currentUser.avatar = updatedUser.avatar || state.currentUser.avatar
+      state.currentUser.avatarUrl = updatedUser.avatarUrl || ''
+      state.currentUser.avatarFileName = updatedUser.avatarFileName || ''
+    }
     if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
       try {
         await loadSettings(true)

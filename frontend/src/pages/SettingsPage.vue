@@ -3,10 +3,14 @@ import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, onMounted, ref } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
+import ProfileAvatarEditor from '../components/ProfileAvatarEditor.vue'
 import SectionHeading from '../components/SectionHeading.vue'
+import UserAvatar from '../components/UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const saving = ref(false)
+const avatarBusy = ref(false)
+const avatarMessage = ref('')
 const accessModalOpen = ref(false)
 const selectedSectionKey = ref('')
 const selectedUserIds = ref([])
@@ -15,9 +19,10 @@ const sectionSearch = ref('')
 const newDepartmentName = ref('')
 const activeLetter = ref('همه')
 
-const { loadSettings, saveSettings, state } = useWorkflowHub()
+const { clearOwnAvatar, loadSettings, saveSettings, setLastError, state, uploadOwnAvatar } = useWorkflowHub()
 
 const selectedSection = computed(() => state.settings.sections.find((item) => item.key === selectedSectionKey.value) || null)
+const hasOwnProfilePhoto = computed(() => Boolean(state.currentUser.avatarUrl))
 
 const filteredSettingsSections = computed(() => {
   const query = sectionSearch.value.trim().toLowerCase()
@@ -60,6 +65,36 @@ async function persistSettings() {
     })
   } finally {
     saving.value = false
+  }
+}
+
+async function onOwnAvatarSelected(file) {
+  if (!file || avatarBusy.value) return
+  avatarBusy.value = true
+  avatarMessage.value = ''
+  try {
+    await uploadOwnAvatar(file)
+    avatarMessage.value = 'عکس پروفایل با موفقیت ذخیره شد.'
+  } catch (error) {
+    setLastError(error, 'ذخیره عکس پروفایل ناموفق بود.')
+    avatarMessage.value = error?.message || 'ذخیره عکس پروفایل ناموفق بود.'
+  } finally {
+    avatarBusy.value = false
+  }
+}
+
+async function onOwnAvatarCleared() {
+  if (avatarBusy.value || !hasOwnProfilePhoto.value) return
+  avatarBusy.value = true
+  avatarMessage.value = ''
+  try {
+    await clearOwnAvatar()
+    avatarMessage.value = 'عکس پروفایل حذف شد.'
+  } catch (error) {
+    setLastError(error, 'حذف عکس پروفایل ناموفق بود.')
+    avatarMessage.value = error?.message || 'حذف عکس پروفایل ناموفق بود.'
+  } finally {
+    avatarBusy.value = false
   }
 }
 
@@ -126,6 +161,28 @@ onMounted(async () => {
 
 <template>
   <section class="page-shell enterprise-page">
+    <section class="surface-block settings-profile-panel">
+      <div class="section-label-row">
+        <SectionHeading
+          title="پروفایل من"
+          description="عکس پروفایل شما در کاربران، تنظیمات و صفحه ورود/خروج نمایش داده می‌شود."
+        />
+      </div>
+
+      <ProfileAvatarEditor
+        :name="state.currentUser.name"
+        :avatar="state.currentUser.avatar"
+        :avatar-url="state.currentUser.avatarUrl"
+        :avatar-file-name="state.currentUser.avatarFileName"
+        :busy="avatarBusy"
+        title="عکس پروفایل شخصی"
+        description="برای اسامی خانم‌ها آیکون زنانه و برای آقایان آیکون مردانه نمایش داده می‌شود تا قبل از آپلود عکس."
+        @select="onOwnAvatarSelected"
+        @clear="onOwnAvatarCleared"
+      />
+      <p v-if="avatarMessage" class="settings-avatar-note">{{ avatarMessage }}</p>
+    </section>
+
     <section class="dashboard-grid settings-modern-grid">
       <article class="surface-block">
         <div class="section-label-row">
@@ -300,7 +357,18 @@ onMounted(async () => {
             @click="toggleUser(user.id)"
           >
             <span class="access-selection-state">{{ isSelected(user.id) ? 'انتخاب شده' : 'انتخاب نشده' }}</span>
-            <strong>{{ user.name }}</strong>
+            <span class="access-selection-user">
+              <UserAvatar
+                :name="user.name"
+                :avatar="user.avatar"
+                :avatar-url="user.avatarUrl"
+                size="sm"
+              />
+              <span class="access-selection-user-copy">
+                <strong>{{ user.name }}</strong>
+                <small v-if="user.avatarFileName" dir="ltr">{{ user.avatarFileName }}</small>
+              </span>
+            </span>
             <span>{{ user.role || '-' }}</span>
             <span>{{ user.department || '-' }}</span>
           </button>
@@ -324,6 +392,42 @@ onMounted(async () => {
 <style scoped>
 .settings-stack {
   gap: 10px;
+}
+
+.settings-profile-panel {
+  margin-bottom: 16px;
+}
+
+.settings-avatar-note {
+  margin: 10px 0 0;
+  color: #1f5c59;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.access-selection-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.access-selection-user-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.access-selection-user-copy strong,
+.access-selection-user-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.access-selection-user-copy small {
+  color: #5f746f;
+  font-size: 0.72rem;
 }
 
 .settings-stack .field-shell input {

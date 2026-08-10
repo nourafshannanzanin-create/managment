@@ -233,7 +233,12 @@ onMounted(() => {
       <div class="attendance-users">
         <article v-for="user in filteredUsers" :key="user.id" class="attendance-user-card">
           <div class="attendance-user-head">
-            <div class="attendance-avatar">{{ user.avatar || user.name?.slice(0, 1) }}</div>
+            <UserAvatar
+              :name="user.name"
+              :avatar="user.avatar"
+              :avatar-url="user.avatarUrl || user.avatar_url"
+              size="md"
+            />
             <div>
               <strong>{{ user.name }}</strong>
               <small>{{ user.role }} · {{ user.department }}</small>
@@ -390,13 +395,21 @@ onMounted(() => {
 
       <template v-else>
         <div class="attendance-public-head">
-          <div>
-            <span class="page-eyebrow">ثبت ورود و خروج</span>
-            <h1>{{ publicUser.name || 'پرسنل' }}</h1>
-            <p>
-              {{ publicPayload.organization?.name || 'سازمان' }}
-              <template v-if="publicUser.department"> · {{ publicUser.department }}</template>
-            </p>
+          <div class="attendance-public-identity">
+            <UserAvatar
+              :name="publicUser.name"
+              :avatar="publicUser.avatar"
+              :avatar-url="publicUser.avatarUrl || publicUser.avatar_url"
+              size="lg"
+            />
+            <div>
+              <span class="page-eyebrow">ثبت ورود و خروج</span>
+              <h1>{{ publicUser.name || 'پرسنل' }}</h1>
+              <p>
+                {{ publicPayload.organization?.name || 'سازمان' }}
+                <template v-if="publicUser.department"> · {{ publicUser.department }}</template>
+              </p>
+            </div>
           </div>
           <span :class="['status-badge', eventTone(publicUser.status)]">{{ statusLabel(publicUser.status) }}</span>
         </div>
@@ -900,6 +913,17 @@ onMounted(() => {
   min-width: 0;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
+}
+
+.attendance-public-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.attendance-public-identity > div {
+  min-width: 0;
 }
 
 .attendance-public-head h1 {

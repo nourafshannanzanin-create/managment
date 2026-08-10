@@ -4,6 +4,7 @@ import { computed, reactive, ref, watch } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
 import ErrorNotice from '../components/ErrorNotice.vue'
+import ProfileAvatarEditor from '../components/ProfileAvatarEditor.vue'
 import SectionHeading from '../components/SectionHeading.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
@@ -17,6 +18,9 @@ const selectedUserId = ref(null)
 const savingUser = ref(false)
 const applyingBonus = ref(false)
 const applyingPenalty = ref(false)
+const avatarDraftFile = ref(null)
+const avatarDraftPreview = ref('')
+const clearAvatarOnSave = ref(false)
 
 const editableUser = reactive({
   fullName: '',
@@ -37,6 +41,31 @@ const editableUser = reactive({
     users: false,
     settings: false,
   },
+})
+
+function revokeAvatarDraftPreview() {
+  if (avatarDraftPreview.value && String(avatarDraftPreview.value).startsWith('blob:')) {
+    URL.revokeObjectURL(avatarDraftPreview.value)
+  }
+}
+
+function resetAvatarDraft() {
+  revokeAvatarDraftPreview()
+  avatarDraftFile.value = null
+  avatarDraftPreview.value = ''
+  clearAvatarOnSave.value = false
+}
+
+const modalAvatarUrl = computed(() => {
+  if (avatarDraftPreview.value) return avatarDraftPreview.value
+  if (clearAvatarOnSave.value) return ''
+  return selectedUser.value?.avatarUrl || ''
+})
+
+const modalAvatarFileName = computed(() => {
+  if (avatarDraftFile.value?.name) return avatarDraftFile.value.name
+  if (clearAvatarOnSave.value) return ''
+  return selectedUser.value?.avatarFileName || ''
 })
 
 const sectionAccessOptions = [
@@ -84,6 +113,7 @@ const userStats = computed(() => [
 const selectedUser = computed(() => state.users.find((item) => item.id === selectedUserId.value) || null)
 
 watch(selectedUser, (user) => {
+  resetAvatarDraft()
   Object.assign(editableUser, {
     fullName: user?.name || '',
     username: user?.username || '',
@@ -111,7 +141,24 @@ function openUserDetails(id) {
 }
 
 function closeUserDetails() {
+  resetAvatarDraft()
   selectedUserId.value = null
+}
+
+function onUserAvatarSelected(file) {
+  if (!canManageUsers.value || !file) return
+  revokeAvatarDraftPreview()
+  avatarDraftFile.value = file
+  avatarDraftPreview.value = URL.createObjectURL(file)
+  clearAvatarOnSave.value = false
+}
+
+function onUserAvatarCleared() {
+  if (!canManageUsers.value) return
+  revokeAvatarDraftPreview()
+  avatarDraftFile.value = null
+  avatarDraftPreview.value = ''
+  clearAvatarOnSave.value = Boolean(selectedUser.value?.avatarUrl)
 }
 
 function toneForStatus(status) {
@@ -140,6 +187,8 @@ async function saveUserChanges() {
       jobTitle: editableUser.jobTitle,
       isActive: editableUser.isActive,
       sectionAccess: editableUser.sectionAccess,
+      avatarFile: avatarDraftFile.value || undefined,
+      clearAvatar: clearAvatarOnSave.value,
     })
     editableUser.password = ''
     closeUserDetails()
@@ -307,7 +356,7 @@ function userManagerOptions(userId) {
             <UserAvatar
               :name="selectedUser.name"
               :avatar="selectedUser.avatar"
-              :avatar-url="selectedUser.avatarUrl"
+              :avatar-url="modalAvatarUrl"
               size="lg"
             />
             <div>
@@ -334,6 +383,21 @@ function userManagerOptions(userId) {
         </div>
       </section>
 
+      <ProfileAvatarEditor
+        :name="editableUser.fullName || selectedUser.name"
+        :avatar="selectedUser.avatar"
+        :avatar-url="modalAvatarUrl"
+        :avatar-file-name="modalAvatarFileName"
+        :preview-url="avatarDraftPreview"
+        size="lg"
+        :busy="savingUser"
+        :disabled="!canManageUsers"
+        title="افزودن پروفایل"
+        description="عکس انتخاب‌شده پس از ذخیره در فهرست کاربران، تنظیمات و ورود/خروج نمایش داده می‌شود."
+        @select="onUserAvatarSelected"
+        @clear="onUserAvatarCleared"
+      />
+
       <section class="user-meta-board">
         <article class="user-meta-card">
           <div class="user-meta-icon"><IconlyIcon name="badge" decorative /></div>
@@ -356,12 +420,8 @@ function userManagerOptions(userId) {
           <div class="user-meta-copy"><span>مدیر مستقیم</span><strong>{{ selectedUser.manager || 'ندارد' }}</strong></div>
         </article>
         <article class="user-meta-card">
-          <div class="user-meta-icon"><IconlyIcon name="award_star" decorative /></div>
-          <div class="user-meta-copy"><span>پاداش</span><strong>{{ selectedUser.bonusAmount || '0' }}</strong></div>
-        </article>
-        <article class="user-meta-card">
-          <div class="user-meta-icon"><IconlyIcon name="gavel" decorative /></div>
-          <div class="user-meta-copy"><span>جریمه</span><strong>{{ selectedUser.penaltyAmount || '0' }}</strong></div>
+          <div class="user-meta-icon"><IconlyIcon :name="selectedUser.isActive ? 'verified_user' : 'person_off'" decorative /></div>
+          <div class="user-meta-copy"><span>وضعیت حساب</span><strong>{{ selectedUser.status || '-' }}</strong></div>
         </article>
       </section>
 
@@ -417,12 +477,12 @@ function userManagerOptions(userId) {
               <option v-for="item in userManagerOptions(selectedUser.id)" :key="item.id" :value="item.id">{{ item.name }}</option>
             </select>
           </label>
-        </div>
 
-        <label class="field-shell">
-          <span>عنوان شغلی</span>
-          <input v-model="editableUser.jobTitle" type="text" :disabled="!canManageUsers" />
-        </label>
+          <label class="field-shell">
+            <span>عنوان شغلی</span>
+            <input v-model="editableUser.jobTitle" type="text" :disabled="!canManageUsers" />
+          </label>
+        </div>
 
         <section class="surface-inline user-finance-panel">
           <div class="section-label-row">
@@ -771,6 +831,21 @@ function userManagerOptions(userId) {
   min-width: 0;
 }
 
+.user-hero-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.user-hero-identity > div {
+  min-width: 0;
+}
+
+.user-hero-identity h2 {
+  margin: 0;
+}
+
 .user-hero-copy h2 {
   margin: 0;
   font-size: clamp(28px, 2.3vw, 38px);
@@ -917,8 +992,16 @@ function userManagerOptions(userId) {
 
 .user-access-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.user-modal-shell :deep(.modal-grid.two-col),
+.user-modal-shell .modal-grid.two-col,
+.user-modal-shell .user-meta-board,
+.user-modal-shell .user-access-grid,
+.user-modal-shell .user-finance-panel .modal-grid.two-col {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
 }
 
 .check-tile {
@@ -980,11 +1063,6 @@ function userManagerOptions(userId) {
   .user-hero {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  .user-meta-board,
-  .user-access-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 760px) {
@@ -1008,8 +1086,6 @@ function userManagerOptions(userId) {
   }
 
   .user-directory-grid,
-  .user-meta-board,
-  .user-access-grid,
   .user-card-details {
     grid-template-columns: 1fr;
   }
@@ -1041,10 +1117,16 @@ function userManagerOptions(userId) {
 }
 
 @media (max-width: 420px) {
-  .user-directory-grid,
-  .user-meta-board,
-  .user-access-grid {
+  .user-directory-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .user-modal-shell :deep(.modal-grid.two-col),
+  .user-modal-shell .modal-grid.two-col,
+  .user-modal-shell .user-meta-board,
+  .user-modal-shell .user-access-grid,
+  .user-modal-shell .user-finance-panel .modal-grid.two-col {
+    grid-template-columns: minmax(0, 1fr) !important;
   }
 }
 </style>

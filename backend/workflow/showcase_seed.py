@@ -52,8 +52,9 @@ from workflow.services import (
 
 
 SHOWCASE_ORG_NAME = "کارنومند نمونه"
-SHOWCASE_MANAGER_SLUG = "milad_dehestani"
-SHOWCASE_MANAGER_PASSWORD = "SampleDemo@1405"
+SHOWCASE_MANAGER_SLUG = "carnomand"
+SHOWCASE_MANAGER_PASSWORD = "carnomand@123"
+SHOWCASE_MANAGER_LEGACY_SLUGS = ("milad_dehestani",)
 SHOWCASE_SMS_DAILY_LIMIT = 150
 SHOWCASE_SMS_MONTHLY_LIMIT = 3000
 SHOWCASE_MAIN_BALANCE = Decimal("28500000.00")
@@ -64,7 +65,8 @@ SECTION_KEYS = ("users", "approvals", "expenses", "reports", "settings")
 
 def _utc_days_ago(days: int, hour: int = 10) -> datetime:
     base = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
-    return base - timedelta(days=days, hours=max(0, 10 - hour))
+    clamped_hour = max(0, min(23, hour))
+    return (base - timedelta(days=days)).replace(hour=clamped_hour)
 
 
 def _department(code: str, name: str) -> Department:
@@ -120,6 +122,8 @@ def _ensure_user(
 
 
 def _set_wallet_balance(organization: Organization, key: str, balance: Decimal, note: str, actor: User | None) -> Wallet:
+    """Set a display-only balance for showcase; never creates money-moving transactions."""
+    del note, actor  # schematic wallet: no ledger side-effects
     ensure_organization_wallets(organization)
     wallet = Wallet.objects.select_for_update().get(organization=organization, key=key)
     wallet.balance = balance
@@ -127,19 +131,26 @@ def _set_wallet_balance(organization: Organization, key: str, balance: Decimal, 
     wallet.is_active = True
     wallet.save(update_fields=["balance", "updated_at", "is_active"])
     WalletTransaction.objects.filter(organization=organization, wallet=wallet).delete()
-    WalletTransaction.objects.create(
-        organization=organization,
-        wallet=wallet,
-        actor=actor,
-        direction="in",
-        transaction_type="showcase_seed",
-        amount=balance,
-        balance_after=balance,
-        note=note,
-        reference_id="showcase-seed",
-        transacted_at=_utc_days_ago(20),
-    )
     return wallet
+
+
+def _migrate_legacy_manager_slug(organization: Organization) -> None:
+    if User.objects.filter(slug=SHOWCASE_MANAGER_SLUG).exists():
+        return
+    for legacy_slug in SHOWCASE_MANAGER_LEGACY_SLUGS:
+        legacy = (
+            User.objects.filter(slug=legacy_slug, organization_membership__organization=organization)
+            .select_related("organization_membership")
+            .first()
+        )
+        if legacy is None:
+            continue
+        legacy.slug = SHOWCASE_MANAGER_SLUG
+        legacy.email = "carnomand@carnomand-sample.local"
+        legacy.password_hash = get_password_hash(SHOWCASE_MANAGER_PASSWORD)
+        legacy.full_name = "کارنومند"
+        legacy.save(update_fields=["slug", "email", "password_hash", "full_name"])
+        return
 
 
 def _activate_feature(organization: Organization, feature_key: str) -> FeaturePurchase | None:
@@ -207,6 +218,8 @@ def ensure_showcase_organization(*, reset: bool = False) -> dict:
         update_fields=["two_factor_required", "sms_daily_limit", "sms_monthly_limit", "updated_at"]
     )
 
+    _migrate_legacy_manager_slug(organization)
+
     departments = {
         "ops": _department("sample-ops", "عملیات نمونه"),
         "it": _department("sample-it", "فناوری نمونه"),
@@ -217,12 +230,12 @@ def ensure_showcase_organization(*, reset: bool = False) -> dict:
 
     manager = _ensure_user(
         slug=SHOWCASE_MANAGER_SLUG,
-        full_name="میلاد دهیستانی",
-        email="milad.dehestani@carnomand-sample.local",
+        full_name="کارنومند",
+        email="carnomand@carnomand-sample.local",
         phone="09134279848",
         role=UserRole.ADMIN,
         job_title="مدیر مجموعه",
-        avatar="مد",
+        avatar="کا",
         department=departments["ops"],
         manager=None,
         password=SHOWCASE_MANAGER_PASSWORD,
@@ -234,6 +247,7 @@ def ensure_showcase_organization(*, reset: bool = False) -> dict:
         ("sample_reza", "رضا کاظمی", "reza.kazemi@carnomand-sample.local", "09121110002", UserRole.MANAGER, "مدیر مالی", "رک", "finance"),
         ("sample_neda", "ندا اکبری", "neda.akbari@carnomand-sample.local", "09121110003", UserRole.MANAGER, "مدیر منابع انسانی", "نا", "hr"),
         ("sample_omid", "امید شریفی", "omid.sharifi@carnomand-sample.local", "09121110004", UserRole.EXECUTIVE_MANAGER, "مدیر ارشد عملیات", "اع", "ops"),
+        ("sample_parsa_mgr", "کیان صالحی", "kian.salehi@carnomand-sample.local", "09121110010", UserRole.MANAGER, "مدیر فروش", "کس", "sales"),
         ("sample_ali", "علی مرادی", "ali.moradi@carnomand-sample.local", "09121110005", UserRole.EMPLOYEE, "کارشناس زیرساخت", "عم", "it"),
         ("sample_mina", "مینا حسینی", "mina.hosseini@carnomand-sample.local", "09121110006", UserRole.EMPLOYEE, "کارشناس مالی", "مه", "finance"),
         ("sample_parsa", "پارسا جلالی", "parsa.jalali@carnomand-sample.local", "09121110007", UserRole.EMPLOYEE, "کارشناس فروش", "پج", "sales"),
@@ -280,7 +294,14 @@ def ensure_showcase_organization(*, reset: bool = False) -> dict:
     _clear_operational_data(organization, user_ids)
 
     for section_key in SECTION_KEYS:
-        for slug in (SHOWCASE_MANAGER_SLUG, "sample_sara", "sample_reza", "sample_omid"):
+        for slug in (
+            SHOWCASE_MANAGER_SLUG,
+            "sample_sara",
+            "sample_reza",
+            "sample_neda",
+            "sample_omid",
+            "sample_parsa_mgr",
+        ):
             SectionAccessGrant.objects.get_or_create(
                 organization=organization,
                 section_key=section_key,
@@ -302,13 +323,14 @@ def ensure_showcase_organization(*, reset: bool = False) -> dict:
     parsa = users_by_slug["sample_parsa"]
     fateme = users_by_slug["sample_fateme"]
     hossein = users_by_slug["sample_hossein"]
+    sales_manager = users_by_slug["sample_parsa_mgr"]
 
     request_rows = [
-        ("REQ-SAMPLE-001", "تامین لپ‌تاپ برای تیم فروش", "نیاز به ۲ دستگاه لپ‌تاپ برای نیروهای جدید فروش.", RequestPriority.HIGH, RequestStatus.UNDER_REVIEW, "sales", parsa, omid, [omid], [parsa], 2),
+        ("REQ-SAMPLE-001", "تامین لپ‌تاپ برای تیم فروش", "نیاز به ۲ دستگاه لپ‌تاپ برای نیروهای جدید فروش.", RequestPriority.HIGH, RequestStatus.UNDER_REVIEW, "sales", parsa, sales_manager, [sales_manager], [parsa], 2),
         ("REQ-SAMPLE-002", "ارتقای سرور داخلی", "افزایش ظرفیت ذخیره‌سازی سرور عملیات.", RequestPriority.CRITICAL, RequestStatus.APPROVED, "it", ali, sara, [sara], [ali], 5),
         ("REQ-SAMPLE-003", "برگزاری دوره آموزشی ایمنی", "جلسه آموزشی ایمنی کار برای پرسنل عملیات.", RequestPriority.MEDIUM, RequestStatus.SUBMITTED, "hr", fateme, users_by_slug["sample_neda"], [users_by_slug["sample_neda"]], [fateme], 1),
         ("REQ-SAMPLE-004", "خرید ملزومات اداری", "سفارش کاغذ، کارتریج و لوازم میز کار.", RequestPriority.LOW, RequestStatus.APPROVED, "finance", mina, reza, [reza], [mina], 8),
-        ("REQ-SAMPLE-005", "هماهنگی ماموریت خارج استان", "هماهنگی سفر کاری تیم فروش به اصفهان.", RequestPriority.HIGH, RequestStatus.REJECTED, "sales", parsa, omid, [omid], [parsa], 4),
+        ("REQ-SAMPLE-005", "هماهنگی ماموریت خارج استان", "هماهنگی سفر کاری تیم فروش به اصفهان.", RequestPriority.HIGH, RequestStatus.REJECTED, "sales", parsa, sales_manager, [sales_manager], [parsa], 4),
         ("REQ-SAMPLE-006", "بازبینی دسترسی کاربران", "بازبینی سطح دسترسی سامانه برای نیروهای جدید.", RequestPriority.MEDIUM, RequestStatus.UNDER_REVIEW, "it", ali, sara, [sara, manager], [ali], 0),
     ]
     for code, title, description, priority, status, dept_key, requester, mgr, assigned_managers, assigned_employees, days_ago in request_rows:
@@ -387,7 +409,7 @@ def ensure_showcase_organization(*, reset: bool = False) -> dict:
         ("DOC-SAMPLE-001", "قرارداد همکاری تامین‌کننده", "قرارداد سالانه خدمات پشتیبانی", "قرارداد", DocumentStatus.APPROVED, DocumentRisk.MEDIUM, "finance", mina, reza, 7),
         ("DOC-SAMPLE-002", "دستورالعمل ایمنی کارگاه", "نسخه به‌روز دستورالعمل ایمنی", "دستورالعمل", DocumentStatus.PENDING, DocumentRisk.LOW, "ops", hossein, omid, 2),
         ("DOC-SAMPLE-003", "پیشنهاد ارتقای زیرساخت", "پیشنهاد فنی ارتقای سرور", "پیشنهاد", DocumentStatus.WAITING_SIGNATURE, DocumentRisk.HIGH, "it", ali, sara, 1),
-        ("DOC-SAMPLE-004", "گزارش ماهانه فروش", "خلاصه عملکرد فروش ماه جاری", "گزارش", DocumentStatus.REJECTED, DocumentRisk.LOW, "sales", parsa, omid, 5),
+        ("DOC-SAMPLE-004", "گزارش ماهانه فروش", "خلاصه عملکرد فروش ماه جاری", "گزارش", DocumentStatus.REJECTED, DocumentRisk.LOW, "sales", parsa, sales_manager, 5),
     ]
     for code, title, description, doc_type, status, risk, dept_key, owner, approver, days_ago in document_rows:
         item = Document.objects.create(
@@ -468,7 +490,7 @@ def ensure_showcase_organization(*, reset: bool = False) -> dict:
         body=ticket.response_text,
         created_at=_utc_days_ago(1),
     )
-    SupportTicket.objects.create(
+    open_ticket = SupportTicket.objects.create(
         organization=organization,
         requester=mina,
         subject="درخواست راهنمایی کیف پول",
@@ -478,6 +500,14 @@ def ensure_showcase_organization(*, reset: bool = False) -> dict:
         status=SupportTicketStatus.OPEN,
         last_message_at=_utc_days_ago(0, hour=12),
         updated_at=_utc_days_ago(0, hour=12),
+    )
+    SupportMessage.objects.create(
+        ticket=open_ticket,
+        sender=mina,
+        sender_name=mina.full_name,
+        sender_platform_role="",
+        body=open_ticket.message,
+        created_at=_utc_days_ago(0, hour=12),
     )
 
     AuditLog.objects.create(
@@ -504,6 +534,7 @@ def ensure_showcase_organization(*, reset: bool = False) -> dict:
         "sms_monthly_limit": SHOWCASE_SMS_MONTHLY_LIMIT,
         "main_balance": str(SHOWCASE_MAIN_BALANCE),
         "sms_balance": str(SHOWCASE_SMS_BALANCE),
+        "wallet_mode": "schematic",
         "active_features": ["core_software", "attendance"],
         "inactive_features": ["cloud_storage", "accounting"],
     }

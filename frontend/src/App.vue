@@ -36,7 +36,6 @@ const {
   selectedRequest,
   selectedExpense,
   selectedApproval,
-  selectedRequestTimeline,
   restoreSession,
   loadBootstrapData,
   loadReports,
@@ -65,6 +64,7 @@ const showSmsBalanceWarning = computed(() =>
   !isAuthRoute.value &&
   state.authToken &&
   state.bootstrapLoaded &&
+  !state.wallet.schematic &&
   (!state.currentUser.isHq || state.hq.selectedOrganizationId) &&
   (
     state.wallet.summary.smsIsLow === true ||
@@ -330,7 +330,6 @@ onUnmounted(() => {
     <RequestDetailModal
       :open="modalState.requestDetail"
       :request="selectedRequest"
-      :timeline="selectedRequestTimeline"
       :loading="requestDetailState.loading"
       @close="closeRequestDetail"
     />

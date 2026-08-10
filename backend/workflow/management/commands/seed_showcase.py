@@ -22,12 +22,12 @@ class Command(BaseCommand):
             f"  manager: {result['manager_username']} / {result['manager_password']}",
             f"  phone: {result['manager_phone']}",
             f"  users: {result['users']}",
-            f"  wallet main: {result['main_balance']}",
-            f"  wallet sms: {result['sms_balance']}",
+            f"  wallet main: {result['main_balance']} (schematic)",
+            f"  wallet sms: {result['sms_balance']} (schematic)",
             f"  sms limits: daily={result['sms_daily_limit']} monthly={result['sms_monthly_limit']}",
             f"  bought: {', '.join(result['active_features'])}",
             f"  not bought: {', '.join(result['inactive_features'])}",
-            "  HQ visibility: hidden (is_showcase=True)",
+            "  HQ visibility: org hidden; support tickets visible",
         ]
         for line in lines:
             try:

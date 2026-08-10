@@ -93,7 +93,9 @@ from workflow.services import (
     HQ_USERNAME,
     CORE_FEATURE_KEY,
     PURCHASABLE_FEATURES,
+    SHOWCASE_WALLET_READONLY_MESSAGE,
     customer_organizations,
+    is_showcase_organization,
     license_status_payload,
     normalize_money,
     next_code,
@@ -289,7 +291,12 @@ def sms_send_cost(text: str, recipients: list[str]) -> Decimal:
 
 
 def sms_wallet_can_send(tenant: Organization | None, cost: Decimal) -> bool:
-    if tenant is None or cost <= 0:
+    if tenant is None:
+        return False
+    # Showcase wallets are display-only; SMS is gated by daily/monthly limits instead.
+    if is_showcase_organization(tenant):
+        return True
+    if cost <= 0:
         return False
     ensure_organization_wallets(tenant)
     wallet = Wallet.objects.filter(organization=tenant, key="sms", is_active=True).first()
@@ -348,8 +355,36 @@ def sms_limit_blocks_send(tenant: Organization | None, text: str, recipients: li
     return None
 
 
+def record_sms_quota_usage(
+    tenant: Organization,
+    actor: User | None,
+    text: str,
+    recipients: list[str],
+    provider_id: str = "",
+) -> None:
+    """Count SMS units toward org limits without changing wallet balances."""
+    ensure_organization_wallets(tenant)
+    wallet = Wallet.objects.filter(organization=tenant, key="sms").first()
+    if wallet is None:
+        return
+    WalletTransaction.objects.create(
+        organization=tenant,
+        wallet=wallet,
+        actor=actor,
+        direction="out",
+        transaction_type="sms_send",
+        amount=Decimal("0"),
+        balance_after=wallet.balance,
+        note=f"sms:{len(recipients)}:{sms_char_blocks(text)}",
+        reference_id=(provider_id or "sms-quota")[:80],
+    )
+
+
 def charge_sms_wallet(tenant: Organization | None, actor: User | None, text: str, recipients: list[str], provider_id: str = "") -> None:
     if tenant is None:
+        return
+    if is_showcase_organization(tenant):
+        record_sms_quota_usage(tenant, actor, text, recipients, provider_id=provider_id)
         return
     amount = sms_send_cost(text, recipients)
     if amount <= 0:
@@ -732,6 +767,11 @@ def build_settings_profile_payload(user: User, organization_id: int | None = Non
                 "name": item.full_name,
                 "role": item.job_title,
                 "department": item.department.name if item.department else "بدون واحد",
+                "avatar": item.avatar,
+                "avatarUrl": media_url(getattr(item, "avatar_image", "") or ""),
+                "avatar_url": media_url(getattr(item, "avatar_image", "") or ""),
+                "avatarFileName": Path(getattr(item, "avatar_image", "") or "").name if getattr(item, "avatar_image", "") else "",
+                "avatar_file_name": Path(getattr(item, "avatar_image", "") or "").name if getattr(item, "avatar_image", "") else "",
             }
             for item in organization_users_qs
         ],
@@ -1754,6 +1794,8 @@ def wallet_purchase_view(request: HttpRequest):
     organization = resolve_wallet_organization(request, payload)
     if organization is None:
         return json_error("مجموعه پیدا نشد.", status=404)
+    if is_showcase_organization(organization):
+        return json_error(SHOWCASE_WALLET_READONLY_MESSAGE, status=409)
 
     key = str(payload.get("featureKey") or payload.get("feature_key") or "").strip()
     config = feature_config(key)
@@ -1845,6 +1887,8 @@ def wallet_transaction_view(request: HttpRequest):
     organization = resolve_wallet_organization(request, payload)
     if organization is None:
         return json_error("مجموعه پیدا نشد.", status=404)
+    if is_showcase_organization(organization):
+        return json_error(SHOWCASE_WALLET_READONLY_MESSAGE, status=409)
 
     direction = str(payload.get("direction") or payload.get("type") or "").strip()
     if direction in {"deposit", "charge", "in"}:
@@ -2266,6 +2310,8 @@ def support_ticket_wallet_deposit_view(request: HttpRequest, ticket_id: int):
     ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
     if ticket is None:
         return json_error("تیکت پیدا نشد.", status=404)
+    if is_showcase_organization(ticket.organization):
+        return json_error(SHOWCASE_WALLET_READONLY_MESSAGE, status=409)
     if ticket.category != SupportTicketCategory.FINANCIAL:
         return json_error("این تیکت برای عملیات کیف پول نیست.", status=409)
     payload = parse_json(request)
@@ -2332,6 +2378,8 @@ def support_ticket_bank_withdraw_complete_view(request: HttpRequest, ticket_id: 
     ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
     if ticket is None:
         return json_error("تیکت پیدا نشد.", status=404)
+    if is_showcase_organization(ticket.organization):
+        return json_error(SHOWCASE_WALLET_READONLY_MESSAGE, status=409)
     action_meta = serialize_support_ticket(ticket).get("actionMeta") or {}
     if action_meta.get("actionType") != "wallet_withdrawal" or action_meta.get("destinationType") != "bank":
         return json_error("این تیکت از نوع برداشت بانکی نیست.", status=409)
@@ -3600,7 +3648,15 @@ def user_detail_view(request: HttpRequest, user_id: int):
     if bonus_delta or penalty_delta:
         user.finance_updated_at = timezone.now()
     if "isActive" in payload:
-        user.is_active = bool(payload.get("isActive"))
+        raw_active = payload.get("isActive")
+        if isinstance(raw_active, bool):
+            user.is_active = raw_active
+        else:
+            text = str(raw_active or "").strip().lower()
+            if text in {"1", "true", "yes", "on"}:
+                user.is_active = True
+            elif text in {"0", "false", "no", "off"}:
+                user.is_active = False
     user.avatar = (user.full_name[:2] if user.full_name else user.avatar or "NA").upper()
     update_fields = ["full_name", "slug", "email", "phone", "role", "job_title", "department", "manager", "bonus_amount", "penalty_amount", "is_active", "avatar"]
     if bonus_delta or penalty_delta:

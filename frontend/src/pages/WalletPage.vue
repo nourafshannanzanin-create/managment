@@ -60,6 +60,7 @@ const purchaseForm = reactive({
 })
 
 const canUseWallet = computed(() => state.currentUser.isManager || state.currentUser.canUseHq)
+const isSchematicWallet = computed(() => Boolean(state.wallet.schematic))
 const needsOrganization = computed(() => state.currentUser.isHq && !state.hq.selectedOrganizationId)
 const wallets = computed(() => state.wallet.wallets || [])
 const mainWallets = computed(() => wallets.value.filter((item) => item.key === 'main'))
@@ -113,10 +114,20 @@ const paymentMethods = [
   { key: 'app', label: 'اپلیکیشن' },
 ]
 
+<<<<<<< HEAD
 const shortcuts = computed(() => [
   { label: 'واریز', icon: 'add_card', direction: 'in', tone: 'deposit' },
   { label: 'برداشت', icon: 'payments', direction: 'out', tone: 'withdraw' },
 ])
+=======
+const shortcuts = computed(() => {
+  if (isSchematicWallet.value) return []
+  return [
+    { label: 'شارژ', icon: 'add_card', direction: 'in', tone: 'deposit' },
+    { label: 'برداشت', icon: 'payments', direction: 'out', tone: 'withdraw' },
+  ]
+})
+>>>>>>> 7f6e5f7169e5ec59da238fd7e506ac4def300b67
 
 const summaryCards = computed(() => [
   { label: 'کل موجودی', value: state.wallet.summary.totalBalance, icon: 'account_balance_wallet', tone: 'primary' },
@@ -139,6 +150,11 @@ function nowParts() {
 }
 
 function openTransaction(direction) {
+  if (isSchematicWallet.value) {
+    state.wallet.error = ''
+    state.wallet.message = state.wallet.schematicNotice || 'کیف پول این مجموعه صرفاً نمایشی است.'
+    return
+  }
   state.wallet.error = ''
   state.wallet.message = ''
 
@@ -187,6 +203,11 @@ function closePaymentForm() {
 }
 
 function openPurchase(option, paymentPlan = 'cash') {
+  if (isSchematicWallet.value) {
+    state.wallet.error = ''
+    state.wallet.message = state.wallet.schematicNotice || 'کیف پول این مجموعه صرفاً نمایشی است.'
+    return
+  }
   state.wallet.error = ''
   state.wallet.message = ''
   purchaseForm.featureKey = option.featureKey || option.feature_key
@@ -339,7 +360,7 @@ watch(
           <small>{{ state.wallet.organization?.name || state.currentUser.organization }}</small>
         </div>
 
-        <div class="wallet-actions">
+        <div v-if="shortcuts.length" class="wallet-actions">
           <button
             v-for="item in shortcuts"
             :key="item.direction"
@@ -350,6 +371,14 @@ watch(
             <IconlyIcon :name="item.icon" decorative />
             <b>{{ item.label }}</b>
           </button>
+        </div>
+      </div>
+
+      <div v-if="isSchematicWallet" class="wallet-license-alert wallet-trial-alert">
+        <IconlyIcon name="info" decorative />
+        <div>
+          <strong>کیف پول نمایشی</strong>
+          <small>{{ state.wallet.schematicNotice || 'اعداد صرفاً برای نمایش هستند؛ واریز و برداشت واقعی انجام نمی‌شود.' }}</small>
         </div>
       </div>
 
@@ -409,12 +438,16 @@ watch(
               <span>اشتراک سالانه</span>
               <b>{{ option.annualSubscriptionAmount }} / {{ option.annualSubscriptionInstallmentAmount }} / {{ option.annualSubscriptionInstallmentMonths }} ماه</b>
             </div>
-            <div class="wallet-option-actions">
+            <div v-if="!isSchematicWallet" class="wallet-option-actions">
               <button class="action-btn tone-soft" type="button" :disabled="state.wallet.submitting || option.isActive || option.is_active" @click="openPurchase(option, 'installment')">قسطی</button>
               <button class="action-btn tone-primary" type="button" :disabled="state.wallet.submitting || option.isActive || option.is_active" @click="openPurchase(option, 'cash')">
                 <IconlyIcon name="shopping_cart_checkout" decorative />
                 <span>خرید نقدی</span>
               </button>
+            </div>
+            <div v-else class="wallet-option-disabled">
+              <IconlyIcon name="visibility" decorative />
+              <b>نمایشی — بدون خرید واقعی</b>
             </div>
           </template>
           <div v-else class="wallet-option-disabled">

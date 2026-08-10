@@ -3289,7 +3289,7 @@ body:has(.app-shell:not(.is-auth-route)),
   box-shadow: 0 8px 20px rgba(40, 110, 105, 0.14) !important;
 }
 
-#app .app-shell:not(.is-auth-route) .enterprise-page .user-avatar {
+#app .app-shell:not(.is-auth-route) .enterprise-page .user-avatar-face {
   background: #dcefec !important;
   color: #1f5c59 !important;
 }

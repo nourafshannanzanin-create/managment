@@ -2,6 +2,7 @@
 import IconlyIcon from './base/IconlyIcon.vue'
 import BaseModal from './BaseModal.vue'
 import ErrorNotice from './ErrorNotice.vue'
+import UserAvatar from './UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 defineProps({
@@ -62,13 +63,14 @@ function clearAvatar() {
       </div>
 
       <section class="user-avatar-uploader">
-        <div class="user-avatar-preview">
-          <img v-if="form.avatarPreview" :src="form.avatarPreview" alt="پیش‌نمایش پروفایل" />
-          <span v-else>{{ (form.fullName || '?').trim().slice(0, 1) || '?' }}</span>
-        </div>
+        <UserAvatar
+          :name="form.fullName"
+          :avatar-url="form.avatarPreview"
+          size="lg"
+        />
         <div class="user-avatar-actions">
           <strong>عکس پروفایل</strong>
-          <p>تصویر در فهرست کاربران، تنظیمات و صفحه ورود/خروج نمایش داده می‌شود.</p>
+          <p>تصویر در فهرست کاربران، تنظیمات و صفحه ورود/خروج نمایش داده می‌شود. بدون عکس، آیکون زنانه/مردانه بر اساس نام می‌آید.</p>
           <div class="user-avatar-buttons">
             <label class="action-btn tone-primary avatar-upload-btn">
               <IconlyIcon name="person_add" decorative />
@@ -189,26 +191,6 @@ function clearAvatar() {
   border-radius: 14px;
   border: 1px solid rgba(52, 144, 139, 0.16);
   background: rgba(220, 239, 236, 0.55);
-}
-
-.user-avatar-preview {
-  width: 72px;
-  height: 72px;
-  border-radius: 18px;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-  background: #34908B;
-  color: #fff;
-  font-size: 1.4rem;
-  font-weight: 800;
-}
-
-.user-avatar-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
 .user-avatar-actions {

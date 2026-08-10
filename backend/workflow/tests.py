@@ -304,6 +304,18 @@ class UserAndSettingsTests(TestCase):
         self.assertIn("رمز عبور: Secret123!", sms_text)
         self.assertIn("آدرس سامانه: https://carnomand.ir", sms_text)
 
+    def test_settings_profile_includes_user_avatar_fields(self):
+        self.manager.avatar_image = "avatars/manager-photo.png"
+        self.manager.save(update_fields=["avatar_image"])
+
+        profile_response = self.client.get("/api/v1/settings/profile")
+        self.assertEqual(profile_response.status_code, 200)
+        users = profile_response.json()["organizationUsers"]
+        manager_row = next(item for item in users if item["id"] == self.manager.id)
+        self.assertEqual(manager_row["avatar"], self.manager.avatar)
+        self.assertTrue(manager_row["avatarUrl"].endswith("avatars/manager-photo.png"))
+        self.assertEqual(manager_row["avatarFileName"], "manager-photo.png")
+
     def test_settings_profile_uses_and_updates_organization_code(self):
         profile_response = self.client.get("/api/v1/settings/profile")
 
@@ -540,3 +552,65 @@ class UserAndSettingsTests(TestCase):
         paid = license_status_payload(trial_org)
         self.assertFalse(paid["isLocked"])
         self.assertFalse(paid["trialActive"])
+
+
+class ShowcaseWalletSmsTests(TestCase):
+    def setUp(self):
+        self.organization = Organization.objects.create(
+            code="carnomand-sample-test",
+            name="کارنومند نمونه تست",
+            is_showcase=True,
+        )
+        from workflow.models import OrganizationPreference
+
+        OrganizationPreference.objects.create(
+            organization=self.organization,
+            two_factor_required=False,
+            sms_daily_limit=5,
+            sms_monthly_limit=100,
+        )
+        Wallet.objects.update_or_create(
+            organization=self.organization,
+            key="sms",
+            defaults={"name": "کیف پول پیامک", "balance": 0, "low_balance_threshold": 0, "is_active": True},
+        )
+        Wallet.objects.update_or_create(
+            organization=self.organization,
+            key="main",
+            defaults={"name": "کیف پول اصلی", "balance": 1000, "low_balance_threshold": 0, "is_active": True},
+        )
+
+    @patch("workflow.views.send_provider_sms")
+    def test_showcase_sms_ignores_wallet_but_counts_daily_limit(self, send_provider_sms_mock):
+        from decimal import Decimal
+
+        from workflow.models import WalletTransaction
+        from workflow.services import wallet_dashboard_payload
+
+        send_provider_sms_mock.return_value = {
+            "ok": True,
+            "provider_id": "provider-showcase",
+            "payload": {"recipients": ["09121110001"]},
+        }
+
+        result = notify_sms(self.organization, "متن تست", ["09121110001"], actor=None)
+        self.assertTrue(result["ok"])
+        send_provider_sms_mock.assert_called_once()
+
+        sms_wallet = Wallet.objects.get(organization=self.organization, key="sms")
+        self.assertEqual(Decimal(sms_wallet.balance), Decimal("0"))
+
+        usage = WalletTransaction.objects.filter(organization=self.organization, transaction_type="sms_send")
+        self.assertEqual(usage.count(), 1)
+        self.assertEqual(Decimal(usage.first().amount), Decimal("0"))
+
+        payload = wallet_dashboard_payload(self.organization)
+        self.assertTrue(payload["schematic"])
+        self.assertEqual(payload["transactions"], [])
+        self.assertEqual(payload["summary"]["smsBalanceRaw"], 0.0)
+
+    def test_showcase_wallet_mutations_are_blocked(self):
+        from workflow.services import SHOWCASE_WALLET_READONLY_MESSAGE, is_showcase_organization
+
+        self.assertTrue(is_showcase_organization(self.organization))
+        self.assertIn("نمایشی", SHOWCASE_WALLET_READONLY_MESSAGE)
