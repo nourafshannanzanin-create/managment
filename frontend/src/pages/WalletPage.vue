@@ -114,12 +114,6 @@ const paymentMethods = [
   { key: 'app', label: 'اپلیکیشن' },
 ]
 
-<<<<<<< HEAD
-const shortcuts = computed(() => [
-  { label: 'واریز', icon: 'add_card', direction: 'in', tone: 'deposit' },
-  { label: 'برداشت', icon: 'payments', direction: 'out', tone: 'withdraw' },
-])
-=======
 const shortcuts = computed(() => {
   if (isSchematicWallet.value) return []
   return [
@@ -127,7 +121,6 @@ const shortcuts = computed(() => {
     { label: 'برداشت', icon: 'payments', direction: 'out', tone: 'withdraw' },
   ]
 })
->>>>>>> 7f6e5f7169e5ec59da238fd7e506ac4def300b67
 
 const summaryCards = computed(() => [
   { label: 'کل موجودی', value: state.wallet.summary.totalBalance, icon: 'account_balance_wallet', tone: 'primary' },
