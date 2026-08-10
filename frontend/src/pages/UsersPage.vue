@@ -5,6 +5,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import BaseModal from '../components/BaseModal.vue'
 import ErrorNotice from '../components/ErrorNotice.vue'
 import SectionHeading from '../components/SectionHeading.vue'
+import UserAvatar from '../components/UserAvatar.vue'
 import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -230,10 +231,10 @@ function userManagerOptions(userId) {
           </div>
         </div>
 
-        <div class="filter-toolbar users-toolbar-primary">
-          <label class="search-shell search-shell-wide users-search-shell">
-            <IconlyIcon name="search" decorative />
-            <input v-model="searchQuery" type="text" placeholder="جستجو در کاربران..." />
+        <div class="users-toolbar-primary">
+          <label class="users-search-shell">
+            <IconlyIcon name="search" size="sm" decorative />
+            <input v-model="searchQuery" type="search" placeholder="جستجوی نام، سمت یا بخش..." autocomplete="off" />
           </label>
 
           <div class="chip-row users-chip-row">
@@ -262,7 +263,12 @@ function userManagerOptions(userId) {
         >
           <div class="user-card-head">
             <div class="user-directory-main">
-              <div class="user-avatar">{{ (item.name || '?').slice(0, 1) }}</div>
+              <UserAvatar
+                :name="item.name"
+                :avatar="item.avatar"
+                :avatar-url="item.avatarUrl"
+                size="md"
+              />
               <div class="user-card-copy">
                 <strong>{{ item.name }}</strong>
                 <small>{{ item.jobTitle || item.role }}</small>
@@ -297,8 +303,18 @@ function userManagerOptions(userId) {
     <div v-if="selectedUser" class="user-modal-shell" :class="selectedUser.isActive ? 'is-approved' : 'is-rejected'">
       <section class="user-hero">
         <div class="user-hero-copy">
-          <p class="page-eyebrow">جزئیات کاربر</p>
-          <h2>{{ selectedUser.name }}</h2>
+          <div class="user-hero-identity">
+            <UserAvatar
+              :name="selectedUser.name"
+              :avatar="selectedUser.avatar"
+              :avatar-url="selectedUser.avatarUrl"
+              size="lg"
+            />
+            <div>
+              <p class="page-eyebrow">جزئیات کاربر</p>
+              <h2>{{ selectedUser.name }}</h2>
+            </div>
+          </div>
           <div class="user-hero-meta">
             <span class="user-role-pill">{{ selectedUser.jobTitle || selectedUser.role || '-' }}</span>
             <span class="user-meta-divider"></span>
@@ -341,11 +357,11 @@ function userManagerOptions(userId) {
         </article>
         <article class="user-meta-card">
           <div class="user-meta-icon"><IconlyIcon name="award_star" decorative /></div>
-          <div class="user-meta-copy"><span>پاداش</span><strong>{{ selectedUser.bonusAmount || '0.00' }}</strong></div>
+          <div class="user-meta-copy"><span>پاداش</span><strong>{{ selectedUser.bonusAmount || '0' }}</strong></div>
         </article>
         <article class="user-meta-card">
           <div class="user-meta-icon"><IconlyIcon name="gavel" decorative /></div>
-          <div class="user-meta-copy"><span>جریمه</span><strong>{{ selectedUser.penaltyAmount || '0.00' }}</strong></div>
+          <div class="user-meta-copy"><span>جریمه</span><strong>{{ selectedUser.penaltyAmount || '0' }}</strong></div>
         </article>
       </section>
 
@@ -419,12 +435,12 @@ function userManagerOptions(userId) {
           <div class="modal-grid two-col">
             <div class="field-shell finance-field-shell">
               <span>پاداش</span>
-              <strong class="finance-current-value">{{ selectedUser.bonusAmount || '0.00' }}</strong>
+              <strong class="finance-current-value">{{ selectedUser.bonusAmount || '0' }}</strong>
               <div class="finance-input-row">
                 <input
                   :value="editableUser.bonusDelta"
                   type="text"
-                  inputmode="decimal"
+                  inputmode="numeric"
                   placeholder="مبلغ جدید"
                   :disabled="!canManageUsers || applyingBonus"
                   @input="handleMoneyInput('bonusDelta', $event.target.value)"
@@ -442,12 +458,12 @@ function userManagerOptions(userId) {
 
             <div class="field-shell finance-field-shell">
               <span>جریمه</span>
-              <strong class="finance-current-value">{{ selectedUser.penaltyAmount || '0.00' }}</strong>
+              <strong class="finance-current-value">{{ selectedUser.penaltyAmount || '0' }}</strong>
               <div class="finance-input-row">
                 <input
                   :value="editableUser.penaltyDelta"
                   type="text"
-                  inputmode="decimal"
+                  inputmode="numeric"
                   placeholder="مبلغ جدید"
                   :disabled="!canManageUsers || applyingPenalty"
                   @input="handleMoneyInput('penaltyDelta', $event.target.value)"
@@ -531,11 +547,10 @@ function userManagerOptions(userId) {
 }
 
 .users-toolbar-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
   padding-bottom: 10px;
   border-bottom: 1px solid rgba(52, 144, 139, 0.14);
 }
@@ -557,38 +572,73 @@ function userManagerOptions(userId) {
 }
 
 .users-header-actions {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: stretch;
   gap: 10px;
-  flex-wrap: wrap;
+  width: 100%;
+  min-width: min(280px, 100%);
+}
+
+.users-header-actions .meta-pill {
+  justify-self: start;
 }
 
 .users-add-btn {
-  min-height: 34px !important;
+  width: 100%;
+  min-height: 42px !important;
+  justify-content: center;
   white-space: nowrap;
 }
 
 .users-toolbar-primary {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 12px;
-  border-radius: 14px;
-  background: #ffffff;
-  box-shadow: 0 2px 10px rgba(40, 110, 105, 0.08);
+  gap: 10px 14px;
 }
 
 .users-search-shell {
-  min-width: min(100%, 220px);
-  flex: 0 1 240px;
-  background: #e4f4f2 !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  max-width: 280px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: #eef6f4;
+  border: 1px solid rgba(52, 144, 139, 0.18);
+  box-shadow: none;
+}
+
+.users-search-shell:focus-within {
+  background: #fff;
+  border-color: #34908B;
+  box-shadow: 0 0 0 3px rgba(52, 144, 139, 0.14);
+}
+
+.users-search-shell input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #152523;
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.users-search-shell input::placeholder {
+  color: #6d8a85;
 }
 
 .users-chip-row {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .user-directory-grid {
@@ -653,7 +703,17 @@ function userManagerOptions(userId) {
 .user-card-details span,
 .user-meta-copy strong {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.user-card-details span,
+.user-meta-copy strong {
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .user-card-copy strong {
@@ -905,7 +965,8 @@ function userManagerOptions(userId) {
 .check-tile small {
   margin-top: 4px;
   color: var(--muted);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .user-modal-actions {
@@ -930,13 +991,27 @@ function userManagerOptions(userId) {
   .users-toolbar-head,
   .user-card-head {
     align-items: stretch;
+    grid-template-columns: 1fr;
     flex-direction: column;
+  }
+
+  .users-header-actions {
+    min-width: 0;
+  }
+
+  .users-toolbar-primary {
+    grid-template-columns: 1fr;
+  }
+
+  .users-search-shell {
+    max-width: none;
   }
 
   .user-directory-grid,
   .user-meta-board,
-  .user-access-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .user-access-grid,
+  .user-card-details {
+    grid-template-columns: 1fr;
   }
 
   .user-modal-shell {
@@ -945,7 +1020,7 @@ function userManagerOptions(userId) {
   }
 
   .user-hero {
-    padding: 18px;
+    padding: 16px;
     border-radius: 12px;
   }
 
@@ -958,16 +1033,18 @@ function userManagerOptions(userId) {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .user-modal-actions .action-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 420px) {
-  .user-directory-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
+  .user-directory-grid,
   .user-meta-board,
   .user-access-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

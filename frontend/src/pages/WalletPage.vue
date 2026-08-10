@@ -9,7 +9,7 @@ import { useWorkflowHub } from '../stores/workflowHub'
 
 const CARD_NUMBER = '6274121774209571'
 const CARD_HOLDER = 'کارنومند'
-const PAYMENT_SUBJECT = 'درخواست شارژ کیف پول'
+const PAYMENT_SUBJECT = 'درخواست واریز کیف پول'
 
 const { state, loadWalletDashboard, loadWalletOptions, submitWalletTransaction, submitFeaturePurchase, createSupportTicket } = useWorkflowHub()
 
@@ -114,7 +114,7 @@ const paymentMethods = [
 ]
 
 const shortcuts = computed(() => [
-  { label: 'شارژ', icon: 'add_card', direction: 'in', tone: 'deposit' },
+  { label: 'واریز', icon: 'add_card', direction: 'in', tone: 'deposit' },
   { label: 'برداشت', icon: 'payments', direction: 'out', tone: 'withdraw' },
 ])
 
@@ -289,7 +289,7 @@ async function submitPaymentTicket() {
     attachments: paymentForm.receipt ? [paymentForm.receipt] : [],
   })
 
-  state.wallet.message = 'درخواست شارژ برای HQ ارسال شد.'
+  state.wallet.message = 'درخواست واریز برای HQ ارسال شد.'
   state.wallet.error = ''
   closePaymentForm()
 }
@@ -483,7 +483,7 @@ watch(
         <div class="modal-handle"></div>
         <div class="modal-title">
           <IconlyIcon :name="transactionForm.direction === 'in' ? 'add_card' : 'payments'" decorative />
-          <strong>{{ transactionForm.direction === 'in' ? 'شارژ کیف پول' : 'برداشت از کیف پول' }}</strong>
+          <strong>{{ transactionForm.direction === 'in' ? 'واریز به کیف پول' : 'برداشت از کیف پول' }}</strong>
         </div>
 
         <label>
@@ -495,7 +495,7 @@ watch(
 
         <label>
           <span>مبلغ (تومان)</span>
-          <input v-model="transactionForm.amount" inputmode="decimal" required placeholder="0" @input="transactionForm.amount = formatAmountInput($event.target.value)" />
+          <input v-model="transactionForm.amount" inputmode="numeric" required placeholder="0" @input="transactionForm.amount = formatAmountInput($event.target.value)" />
         </label>
 
         <label>
@@ -554,13 +554,13 @@ watch(
           </label>
           <label>
             <span>مبلغ (تومان)</span>
-            <input v-model.trim="paymentSetup.amount" inputmode="decimal" required placeholder="0" @input="paymentSetup.amount = formatAmountInput($event.target.value)" />
+            <input v-model.trim="paymentSetup.amount" inputmode="numeric" required placeholder="0" @input="paymentSetup.amount = formatAmountInput($event.target.value)" />
           </label>
         </div>
 
         <label>
           <span>بابت</span>
-          <input v-model.trim="paymentSetup.purpose" required placeholder="مثلا شارژ پیامک یا تمدید سرویس" />
+          <input v-model.trim="paymentSetup.purpose" required placeholder="مثلا واریز پیامک یا تمدید سرویس" />
         </label>
 
         <label>
@@ -637,7 +637,7 @@ watch(
           <IconlyIcon name="account_balance_wallet" decorative />
           <div>
             <small>موجودی قابل استفاده</small>
-            <strong>{{ purchaseWallet?.balance || '0.00' }}</strong>
+            <strong>{{ purchaseWallet?.balance || '0' }}</strong>
           </div>
         </div>
 
@@ -711,7 +711,7 @@ watch(
           </label>
           <label>
             <span>مبلغ (تومان)</span>
-            <input v-model.trim="paymentForm.amount" inputmode="decimal" required placeholder="0" @input="paymentForm.amount = formatAmountInput($event.target.value)" />
+            <input v-model.trim="paymentForm.amount" inputmode="numeric" required placeholder="0" @input="paymentForm.amount = formatAmountInput($event.target.value)" />
           </label>
           <label>
             <span>کد پیگیری</span>
@@ -749,6 +749,7 @@ watch(
   display: grid;
   gap: 18px;
   font-size: 13px;
+  min-width: 0;
 }
 
 .wallet-hero {
@@ -1480,6 +1481,12 @@ watch(
     grid-template-columns: 1fr;
   }
 
+  .wallet-actions {
+    min-width: 0;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .wallet-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1492,14 +1499,28 @@ watch(
 @media (max-width: 640px) {
   .wallet-hero {
     padding: 16px;
-    border-radius: 20px;
+    border-radius: 16px;
+    min-height: 0;
+  }
+
+  .wallet-hero-balance strong {
+    font-size: clamp(1.4rem, 8vw, 2.2rem);
+    overflow-wrap: anywhere;
+  }
+
+  .wallet-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .wallet-action {
+    width: 100%;
   }
 
   .wallet-summary-grid,
   .wallet-options-grid,
   .purchase-details-grid,
   .payment-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .ledger-row,
@@ -1507,10 +1528,16 @@ watch(
     flex-wrap: wrap;
   }
 
+  .modal-actions .action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
   .wallet-modal {
     gap: 12px;
     padding: 16px 12px;
     border-radius: 20px 20px 0 0;
+    max-width: 100%;
   }
 
   .wallet-modal input,
@@ -1519,19 +1546,17 @@ watch(
     border-radius: 14px;
     padding: 10px 12px;
     font-size: 12px;
+    box-sizing: border-box;
   }
 }
 
 @media (max-width: 420px) {
   .wallet-options-grid,
   .purchase-plan-toggle,
-  .purchase-details-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
+  .purchase-details-grid,
   .payment-grid,
   .wallet-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 

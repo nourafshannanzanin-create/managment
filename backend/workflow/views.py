@@ -99,6 +99,8 @@ from workflow.services import (
     next_code,
     render_report_export,
     save_uploaded_file,
+    media_url,
+    IMAGE_EXTENSIONS,
     serialize_approval,
     serialize_current_user,
     serialize_expense,
@@ -620,7 +622,45 @@ USER_SECTION_KEYS = ("users", "approvals", "expenses", "reports", "settings")
 
 def section_access_payload(payload: dict) -> dict[str, bool]:
     access = payload.get("sectionAccess") or {}
+    if isinstance(access, str):
+        try:
+            access = json.loads(access or "{}")
+        except json.JSONDecodeError:
+            access = {}
     return {key: bool(access.get(key)) for key in USER_SECTION_KEYS}
+
+
+def parse_user_write_payload(request: HttpRequest) -> tuple[dict, object | None]:
+    content_type = (request.content_type or "").lower()
+    avatar_file = None
+    if "multipart/form-data" in content_type:
+        payload = {key: request.POST.get(key) for key in request.POST.keys()}
+        raw_access = payload.get("sectionAccess")
+        if isinstance(raw_access, str):
+            try:
+                payload["sectionAccess"] = json.loads(raw_access or "{}")
+            except json.JSONDecodeError:
+                payload["sectionAccess"] = {}
+        manager_id = payload.get("managerId")
+        if manager_id in ("", None):
+            payload["managerId"] = None
+        elif manager_id is not None:
+            try:
+                payload["managerId"] = int(manager_id)
+            except (TypeError, ValueError):
+                payload["managerId"] = None
+        avatar_file = request.FILES.get("avatar") or request.FILES.get("avatarImage") or request.FILES.get("avatar_image")
+        return payload, avatar_file
+    return parse_json(request), None
+
+
+def store_user_avatar_file(file_obj) -> str:
+    extension = Path(getattr(file_obj, "name", "") or "").suffix.lower()
+    if extension not in IMAGE_EXTENSIONS:
+        raise ValueError("فقط فایل تصویری (JPG، PNG، WEBP و ...) برای پروفایل مجاز است.")
+    if getattr(file_obj, "size", 0) and file_obj.size > 5 * 1024 * 1024:
+        raise ValueError("حجم تصویر پروفایل نباید بیشتر از ۵ مگابایت باشد.")
+    return save_uploaded_file(file_obj)
 
 
 def sync_user_section_access(actor: User, user: User, access_map: dict[str, bool]) -> None:
@@ -772,6 +812,8 @@ def serialize_attendance_user(user: User, organization: Organization) -> dict:
         "department": user.department.name if user.department else "بدون واحد",
         "phone": user.phone or "",
         "avatar": user.avatar,
+        "avatarUrl": media_url(getattr(user, "avatar_image", "") or ""),
+        "avatar_url": media_url(getattr(user, "avatar_image", "") or ""),
         "status": status,
         "todayEventsCount": len(events),
         "today_events_count": len(events),
@@ -888,7 +930,7 @@ def resolve_wallet_organization(request: HttpRequest, payload: dict | None = Non
 
 def parse_wallet_amount(value) -> Decimal | None:
     try:
-        amount = Decimal(str(value).replace(",", "")).quantize(Decimal("0.01"))
+        amount = normalize_money(str(value).replace(",", ""))
     except (InvalidOperation, TypeError, ValueError):
         return None
     return amount if amount > 0 else None
@@ -919,7 +961,7 @@ def user_license_locked(user: User) -> bool:
 
 def parse_user_amount(value, label: str) -> Decimal:
     try:
-        amount = Decimal(str(value or 0).replace(",", "")).quantize(Decimal("0.01"))
+        amount = normalize_money(str(value or 0).replace(",", ""))
     except (InvalidOperation, TypeError, ValueError):
         raise ValueError(f"مقدار {label} معتبر نیست.")
     if amount < 0:
@@ -1307,6 +1349,37 @@ def me_view(request: HttpRequest):
 
 
 @require_auth
+@csrf_exempt
+@methods("POST", "DELETE")
+def me_avatar_view(request: HttpRequest):
+    user = request.current_user
+    if request.method == "DELETE":
+        user.avatar_image = ""
+        user.save(update_fields=["avatar_image"])
+        return json_response(serialize_current_user(user))
+
+    avatar_file = request.FILES.get("avatar") or request.FILES.get("avatarImage") or request.FILES.get("avatar_image")
+    if avatar_file is None:
+        return json_error("فایل تصویر پروفایل الزامی است.", status=422)
+    try:
+        user.avatar_image = store_user_avatar_file(avatar_file)
+    except ValueError as exc:
+        return json_error(str(exc), status=422)
+    user.avatar = (user.full_name[:2] if user.full_name else user.avatar or "NA").upper()
+    user.save(update_fields=["avatar_image", "avatar"])
+    AuditLog.objects.create(
+        actor=user,
+        actor_name=user.full_name,
+        action="profile_avatar_updated",
+        entity_type="user",
+        entity_code=str(user.id),
+        detail="به‌روزرسانی عکس پروفایل",
+        icon="person",
+    )
+    return json_response(serialize_current_user(user))
+
+
+@require_auth
 @methods("GET")
 def bootstrap_view(request: HttpRequest):
     startup_ready()
@@ -1592,10 +1665,10 @@ def hq_panel_view(request: HttpRequest):
                 "users": 0,
                 "activeUsers": 0,
                 "payments": 0,
-                "paymentTotal": "0.00",
+                "paymentTotal": "0",
                 "paymentTotalRaw": 0,
-                "pendingPaymentTotal": "0.00",
-                "approvedPaymentTotal": "0.00",
+                "pendingPaymentTotal": "0",
+                "approvedPaymentTotal": "0",
                 "openRequests": 0,
                 "pendingDocuments": 0,
                 "tickets": len(tickets),
@@ -1637,15 +1710,15 @@ def wallet_view(request: HttpRequest):
             {
                 "organization": None,
                 "summary": {
-                    "totalBalance": "0.00",
+                    "totalBalance": "0",
                     "totalBalanceRaw": 0,
-                    "mainBalance": "0.00",
+                    "mainBalance": "0",
                     "mainBalanceRaw": 0,
-                    "smsBalance": "0.00",
+                    "smsBalance": "0",
                     "smsBalanceRaw": 0,
-                    "depositsTotal": "0.00",
+                    "depositsTotal": "0",
                     "depositsTotalRaw": 0,
-                    "withdrawalsTotal": "0.00",
+                    "withdrawalsTotal": "0",
                     "withdrawalsTotalRaw": 0,
                     "transactions": 0,
                 },
@@ -3389,7 +3462,7 @@ def users_view(request: HttpRequest):
     if not can_manage_users(request.current_user):
         return json_error("دسترسی کافی ندارید.", status=403)
 
-    payload = parse_json(request)
+    payload, avatar_file = parse_user_write_payload(request)
     username = normalize_slug(payload.get("username") or payload.get("slug") or "")
     conflict = user_identity_conflict(username, (payload.get("email") or "").strip().lower() or build_internal_user_email(username)) if username else None
     if not username:
@@ -3418,6 +3491,13 @@ def users_view(request: HttpRequest):
     if manager and manager.role == UserRole.EMPLOYEE:
         return json_error("مدیر مستقیم باید از سطح مدیریتی انتخاب شود.", status=422)
 
+    avatar_image_name = ""
+    if avatar_file is not None:
+        try:
+            avatar_image_name = store_user_avatar_file(avatar_file)
+        except ValueError as exc:
+            return json_error(str(exc), status=422)
+
     user = User.objects.create(
         slug=username,
         full_name=full_name,
@@ -3427,6 +3507,7 @@ def users_view(request: HttpRequest):
         role=role,
         job_title=(payload.get("jobTitle") or ("مدیر" if role != UserRole.EMPLOYEE else "کارمند")).strip(),
         avatar=(full_name[:2] if full_name else "NA").upper(),
+        avatar_image=avatar_image_name,
         bio="",
         is_active=True,
         department=department,
@@ -3475,7 +3556,7 @@ def user_detail_view(request: HttpRequest, user_id: int):
     if not user:
         return json_error("کاربر مورد نظر یافت نشد.", status=404)
 
-    payload = parse_json(request)
+    payload, avatar_file = parse_user_write_payload(request)
     username = normalize_slug(payload.get("username") or payload.get("slug") or user.slug)
     conflict = user_identity_conflict(username, (payload.get("email") or user.email).strip().lower() or user.email, exclude_id=user.pk) if username else None
     if not username:
@@ -3524,6 +3605,15 @@ def user_detail_view(request: HttpRequest, user_id: int):
     update_fields = ["full_name", "slug", "email", "phone", "role", "job_title", "department", "manager", "bonus_amount", "penalty_amount", "is_active", "avatar"]
     if bonus_delta or penalty_delta:
         update_fields.append("finance_updated_at")
+    if avatar_file is not None:
+        try:
+            user.avatar_image = store_user_avatar_file(avatar_file)
+        except ValueError as exc:
+            return json_error(str(exc), status=422)
+        update_fields.append("avatar_image")
+    elif payload.get("clearAvatar") in (True, "true", "1", 1):
+        user.avatar_image = ""
+        update_fields.append("avatar_image")
 
     password = (payload.get("password") or "").strip()
     if password:

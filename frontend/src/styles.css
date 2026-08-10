@@ -185,6 +185,9 @@ a {
   display: flex;
   flex-direction: row-reverse;
   direction: ltr;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .shell-backdrop {
@@ -244,10 +247,21 @@ a {
 }
 
 .sidebar-brand {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 12px;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  position: relative;
+}
+
+.sidebar-brand .brand-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.sidebar-brand .brand-mark {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
 }
 
 .brand-mark,
@@ -450,20 +464,31 @@ a {
 .shell-main {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 100vh;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
   display: grid;
   direction: rtl;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
 }
 
 .auth-main {
   grid-template-rows: minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100dvh;
+  height: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 .shell-content {
   min-height: 0;
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 26px;
 }
 
@@ -1713,6 +1738,16 @@ a {
 @media (max-width: 1220px) {
   .app-shell:not(.is-auth-route) {
     display: block;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .shell-main {
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .shell-backdrop {
@@ -3083,8 +3118,15 @@ body {
   }
 
   .sidebar-brand {
-    grid-template-columns: 34px minmax(0, 1fr) 34px;
     gap: 8px;
+    padding-inline-start: 44px;
+  }
+
+  .sidebar-brand .mobile-toggle {
+    position: absolute;
+    inset-inline-start: 0;
+    top: 50%;
+    transform: translateY(-50%);
   }
 
   .brand-mark,
@@ -6053,7 +6095,30 @@ body,
   min-width: 0 !important;
   color: var(--text) !important;
   line-height: 1.55 !important;
-  overflow-wrap: anywhere !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+}
+
+.modal-shell .recipient-card,
+.modal-shell .recipient-card-main,
+.modal-shell .recipient-card-meta {
+  min-width: 0 !important;
+}
+
+.modal-shell .recipient-card-meta {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+}
+
+.modal-shell .recipient-card-meta > span {
+  max-width: 12ch !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
 }
 
 .modal-shell .long-text {
@@ -6222,13 +6287,22 @@ body,
   background: rgba(72, 103, 183, 0.04) !important;
 }
 
-.modal-shell .chip-row,
-.modal-shell .tab-strip,
-.modal-shell .signature-mode-toggle,
-.modal-shell .segmented-row {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 8px !important;
+.modal-shell .segmented-row.priority-strip,
+.modal-shell .priority-strip {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  width: 100% !important;
+  flex-wrap: nowrap !important;
+}
+
+.modal-shell .priority-field {
+  grid-column: 1 / -1 !important;
+}
+
+.modal-shell .priority-strip .priority-chip {
+  width: 100% !important;
+  min-width: 0 !important;
+  justify-content: center !important;
 }
 
 .modal-shell :where(.filter-chip, .priority-chip, .signature-mode-chip, .meta-pill, .approval-type-pill) {
@@ -6272,12 +6346,26 @@ body,
   border-radius: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 .modal-shell .recipient-card-main {
   min-width: 0 !important;
   display: grid !important;
   gap: 4px !important;
+}
+
+.modal-shell .recipient-card-main strong,
+.modal-shell .recipient-card-main small {
+  display: block !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  overflow-wrap: normal !important;
+  word-break: keep-all !important;
 }
 
 .modal-shell .recipient-card small,
@@ -6506,7 +6594,7 @@ body,
   .modal-shell .recipient-grid,
   .modal-shell .detail-summary-grid,
   .modal-shell .approval-meta-board {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: 1fr !important;
   }
 
   .modal-shell .filter-toolbar,
@@ -6542,7 +6630,7 @@ body,
   .modal-shell .request-composer-grid,
   .modal-shell .recipient-grid,
   .modal-shell .approval-meta-board {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: 1fr !important;
   }
 
   .modal-shell .detail-summary-grid {
@@ -6965,4 +7053,86 @@ body:has(.app-shell.is-landing-route),
   background: #f5f8f6 !important;
   background-image: none !important;
   color: #10231f !important;
+}
+
+/* Public self-service attendance (/attendance/:token) */
+#app .public-canvas-main,
+#app .public-canvas-content {
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: auto !important;
+  background: rgb(230, 242, 239) !important;
+}
+
+#app .public-canvas-content {
+  padding: 0 !important;
+}
+
+#app .attendance-public {
+  --primary: #34908B !important;
+  --primary-strong: #2b7874 !important;
+  --primary-container: #dcefec !important;
+  --surface: #f3f9f7 !important;
+  --surface-strong: #f7fbfa !important;
+  --text: #152523 !important;
+  --muted: #45605c !important;
+  --line: #b7cbc7 !important;
+  --button-primary-bg: #34908B !important;
+  --button-danger-bg: #c45a4a !important;
+  background:
+    radial-gradient(circle at 14% 16%, rgba(52, 144, 139, 0.22), transparent 40%),
+    radial-gradient(circle at 86% 10%, rgba(31, 92, 89, 0.12), transparent 34%),
+    linear-gradient(180deg, #e6f2ef 0%, #f3f9f7 48%, #dcefec 100%) !important;
+  color: #152523 !important;
+}
+
+#app .attendance-public-card {
+  background: #f7fbfa !important;
+  border-color: #b7cbc7 !important;
+  box-shadow: 0 18px 40px rgba(31, 92, 89, 0.12) !important;
+}
+
+#app .attendance-public .attendance-punch-btn {
+  min-height: 132px !important;
+  border-radius: 16px !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+#app .attendance-public .attendance-punch-btn.is-in {
+  background: #34908B !important;
+  border-color: #2b7874 !important;
+  color: #ffffff !important;
+}
+
+#app .attendance-public .attendance-punch-btn.is-out {
+  background: #c45a4a !important;
+  border-color: #a8483c !important;
+  color: #ffffff !important;
+}
+
+#app .attendance-public .attendance-punch-btn:hover:not(:disabled),
+#app .attendance-public .attendance-punch-btn:active:not(:disabled) {
+  transform: none !important;
+  opacity: 0.94 !important;
+  box-shadow: none !important;
+}
+
+#app .attendance-public .attendance-punch-btn strong,
+#app .attendance-public .attendance-punch-btn small {
+  color: inherit !important;
+}
+
+#app .attendance-public .public-stats article,
+#app .attendance-public .public-timeline article {
+  background: #dcefec !important;
+  border-color: #b7cbc7 !important;
+}
+
+#app .attendance-public .public-timeline article {
+  background: #f3f9f7 !important;
 }

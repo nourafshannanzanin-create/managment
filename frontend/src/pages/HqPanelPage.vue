@@ -6,7 +6,7 @@ import { formatAmountInput } from '../utils/amount'
 import { unlockTicketAlerts } from '../utils/ticketAlert'
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const PAYMENT_TICKET_SUBJECT = 'درخواست شارژ کیف پول'
+const PAYMENT_TICKET_SUBJECT = 'درخواست واریز کیف پول'
 
 const {
   state,
@@ -763,7 +763,7 @@ onUnmounted(() => {
 
               <section v-if="canDepositToWallet || canCompleteWalletTransfer" class="ticket-action-card wallet">
                 <div>
-                  <strong>{{ canCompleteWalletTransfer ? 'تکمیل انتقال کیف' : 'شارژ کیف پول' }}</strong>
+                  <strong>{{ canCompleteWalletTransfer ? 'تکمیل انتقال کیف' : 'واریز کیف پول' }}</strong>
                   <p>مبلغ تاییدشده را وارد کنید تا به کیف پول مقصد اعمال شود.</p>
                 </div>
                 <button
@@ -772,7 +772,7 @@ onUnmounted(() => {
                   :disabled="state.support.submitting"
                   @click="openWalletDepositModal"
                 >
-                  {{ canCompleteWalletTransfer ? 'تکمیل انتقال' : 'شارژ کیف پول' }}
+                  {{ canCompleteWalletTransfer ? 'تکمیل انتقال' : 'واریز کیف پول' }}
                 </button>
               </section>
 
@@ -1096,12 +1096,12 @@ onUnmounted(() => {
 
     <div v-if="walletDepositModalOpen" class="hq-modal-backdrop" @click.self="walletDepositModalOpen = false">
       <form class="hq-modal" @submit.prevent="submitWalletDeposit">
-        <h3>{{ canCompleteWalletTransfer ? 'تکمیل انتقال کیف' : 'شارژ کیف پول' }}</h3>
+        <h3>{{ canCompleteWalletTransfer ? 'تکمیل انتقال کیف' : 'واریز کیف پول' }}</h3>
         <label>
           <span>مبلغ (تومان)</span>
           <input
             v-model.trim="walletDepositForm.amount"
-            inputmode="decimal"
+            inputmode="numeric"
             required
             placeholder="0"
             @input="walletDepositForm.amount = formatAmountInput($event.target.value)"
@@ -1125,7 +1125,7 @@ onUnmounted(() => {
           <span>مبلغ (تومان)</span>
           <input
             v-model.trim="bankWithdrawForm.amount"
-            inputmode="decimal"
+            inputmode="numeric"
             required
             placeholder="0"
             @input="bankWithdrawForm.amount = formatAmountInput($event.target.value)"

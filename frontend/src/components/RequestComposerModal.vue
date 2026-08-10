@@ -113,19 +113,14 @@ function openReferral() {
           <ShamsiDatePicker v-model="form.deadline" model-type="jalali" placeholder="1405/04/01" />
         </label>
 
-        <label class="field-shell">
+        <label class="field-shell priority-field">
           <span>اولویت</span>
-          <div class="segmented-row">
+          <div class="segmented-row priority-strip">
             <button :class="['priority-chip', form.priority === 'low' && 'is-active']" type="button" @click="form.priority = 'low'">پایین</button>
             <button :class="['priority-chip', form.priority === 'medium' && 'is-active']" type="button" @click="form.priority = 'medium'">متوسط</button>
             <button :class="['priority-chip', form.priority === 'high' && 'is-active']" type="button" @click="form.priority = 'high'">بالا</button>
             <button :class="['priority-chip', form.priority === 'critical' && 'is-active']" type="button" @click="form.priority = 'critical'">بحرانی</button>
           </div>
-        </label>
-
-        <label class="field-shell">
-          <span>توضیحات</span>
-          <textarea v-model="form.description" rows="5"></textarea>
         </label>
 
         <label class="upload-pad compact-upload">
@@ -134,18 +129,23 @@ function openReferral() {
           <strong>افزودن پیوست</strong>
           <small>اختیاری</small>
         </label>
-      </div>
 
-      <div v-if="form.attachments.length" class="file-list">
-        <article v-for="(file, index) in form.attachments" :key="`${file.name}-${index}`" class="file-row">
-          <div>
-            <strong>{{ file.name }}</strong>
-            <small>{{ Math.round(file.size / 1024) }} KB</small>
-          </div>
-          <button class="icon-btn" type="button" @click="removeAttachment(index)">
-            <IconlyIcon name="delete" decorative />
-          </button>
-        </article>
+        <div v-if="form.attachments.length" class="file-list">
+          <article v-for="(file, index) in form.attachments" :key="`${file.name}-${index}`" class="file-row">
+            <div>
+              <strong>{{ file.name }}</strong>
+              <small>{{ Math.round(file.size / 1024) }} KB</small>
+            </div>
+            <button class="icon-btn" type="button" @click="removeAttachment(index)">
+              <IconlyIcon name="delete" decorative />
+            </button>
+          </article>
+        </div>
+
+        <label class="field-shell">
+          <span>توضیحات</span>
+          <textarea v-model="form.description" rows="5"></textarea>
+        </label>
       </div>
 
       <ErrorNotice :error="state.lastErrorDetails" compact />
@@ -229,8 +229,29 @@ function openReferral() {
   font-size: 0.92rem;
 }
 
+.priority-field {
+  grid-column: 1 / -1;
+}
+
+.priority-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.priority-strip .priority-chip {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+}
+
 @media (max-width: 760px) {
   .modal-grid.two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .priority-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

@@ -31,7 +31,7 @@ const modules = [
   ['۰۶', 'گزارش‌ها', 'گزارش تفکیکی درخواست، هزینه، تأییدیه و کاربران با خروجی CSV.'],
   ['۰۷', 'پاداش و جریمه', 'ثبت مبلغ پاداش یا جریمه روی کاربر، در پرونده پرسنلی همان مجموعه.'],
   ['۰۸', 'کاربران و ساختار', 'ایجاد کاربر، مدیر مستقیم، بخش، سمت و فعال یا غیرفعال‌سازی.'],
-  ['۰۹', 'کیف پول', 'مانده، شارژ، برداشت و پیگیری تراکنش‌های عملیاتی مجموعه.'],
+  ['۰۹', 'کیف پول', 'مانده، واریز، برداشت و پیگیری تراکنش‌های عملیاتی مجموعه.'],
   ['۱۰', 'پشتیبانی', 'تیکت، مکالمه، پیوست و پیگیری درخواست‌های فنی یا مالی.'],
 ]
 
@@ -42,7 +42,7 @@ const features = [
   ['۰۴', 'Expenses', 'کنترل هزینه', 'فاکتور، مبلغ، ارجاع مدیریتی و خلاصه دوره‌ای هزینه‌ها.'],
   ['۰۵', 'Reports', 'گزارش مدیریتی', 'فیلتر داده درخواست، هزینه، تأییدیه و کاربران و دریافت خروجی CSV.'],
   ['۰۶', 'Access', 'کنترل دسترسی', 'نقش سازمانی به‌همراه مجوز بخشی برای ماژول‌های حساس.'],
-  ['۰۷', 'Wallet', 'کیف پول', 'مانده، شارژ، برداشت و دفتر تراکنش با مسیر پشتیبانی.'],
+  ['۰۷', 'Wallet', 'کیف پول', 'مانده، واریز، برداشت و دفتر تراکنش با مسیر پشتیبانی.'],
   ['۰۸', 'Support', 'پشتیبانی', 'تیکت، گفتگو، پیوست و امتیاز پس از بسته‌شدن.'],
   ['۰۹', 'Attendance', 'حضور و غیاب', 'ثبت ورود و خروج با لینک اختصاصی و گزارش بازه‌ای.'],
   ['۱۰', 'Cloud', 'فضای اسناد', 'بارگذاری، پیش‌نمایش و دانلود اسناد متصل به مسیر تأیید.'],
@@ -102,8 +102,7 @@ onUnmounted(() => {
         <div class="hero-grid" />
 
         <header class="site-header">
-          <a class="brand" href="#top" aria-label="کارنومند، صفحه اصلی" @click="closeMobileNav">
-            <img class="brand-logo" :src="logoSrc" alt="کارنومند" width="44" height="44" decoding="async" />
+          <a class="brand brand-title" href="#top" aria-label="کارنومند، صفحه اصلی" @click="closeMobileNav">
             <span class="brand-copy"><strong>کارنومند</strong><small>گردش‌کار سازمانی</small></span>
           </a>
 
@@ -129,6 +128,9 @@ onUnmounted(() => {
             >
               <span /><span /><span />
             </button>
+            <a class="brand-logo-link" href="#top" aria-label="کارنومند" @click="closeMobileNav">
+              <img class="brand-logo" :src="logoSrc" alt="کارنومند" width="44" height="44" decoding="async" />
+            </a>
           </div>
         </header>
 
@@ -587,6 +589,12 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.brand-logo-link {
+  display: grid;
+  place-items: center;
+  line-height: 0;
 }
 
 .mobile-nav-toggle {

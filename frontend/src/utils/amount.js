@@ -25,23 +25,23 @@ function normalizeDigits(value) {
   return String(value ?? '').replace(/[۰-۹٠-٩]/g, (digit) => DIGIT_MAP[digit] || digit)
 }
 
+/** Keep whole-number toman amounts only (no decimals). */
 export function normalizeAmountValue(value) {
   const normalized = normalizeDigits(value)
     .replace(/[٬،,\s]/g, '')
-    .replace(/[٫]/g, '.')
-    .replace(/[^\d.]/g, '')
-  const [integerPart = '', ...decimalParts] = normalized.split('.')
-  const decimals = decimalParts.join('').slice(0, 2)
-  return decimals ? `${integerPart || '0'}.${decimals}` : integerPart
+    .replace(/[٫.]/g, '')
+    .replace(/[^\d]/g, '')
+  return normalized.replace(/^0+(?=\d)/, '') || (normalized ? '0' : '')
 }
 
 export function formatAmountInput(value) {
-  const normalized = normalizeDigits(value)
-  const hasTrailingDecimal = /[.٫]$/.test(normalized)
-  const raw = normalizeAmountValue(normalized)
+  const raw = normalizeAmountValue(value)
   if (!raw) return ''
-  const [integerPart, decimalPart] = raw.split('.')
-  const grouped = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Number(integerPart || 0))
-  if (hasTrailingDecimal && decimalPart === undefined) return `${grouped}.`
-  return decimalPart !== undefined ? `${grouped}.${decimalPart}` : grouped
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Number(raw))
+}
+
+export function formatMoneyDisplay(value) {
+  const raw = normalizeAmountValue(value)
+  if (!raw) return '0'
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Number(raw))
 }

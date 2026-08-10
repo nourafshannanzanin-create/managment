@@ -263,11 +263,11 @@ const openWalletPaymentTicketModal = () => {
   ticketModal.mode = 'wallet-card-payment'
   ticketModal.category = 'financial'
   ticketModal.priority = 'high'
-  ticketModal.subject = 'درخواست بررسی پرداخت کارت به کارت و شارژ کیف پول'
+  ticketModal.subject = 'درخواست بررسی پرداخت کارت به کارت و واریز کیف پول'
   ticketModal.description = [
     'نوع درخواست: wallet-card-payment',
-    'اینجانب مدیر سازمان، مبلغ شارژ کیف پول را به صورت کارت به کارت پرداخت کرده‌ام.',
-    'درخواست دارم پرداخت بررسی شود و در صورت تایید، کیف پول سازمان شارژ شود.',
+    'اینجانب مدیر سازمان، مبلغ واریز کیف پول را به صورت کارت به کارت پرداخت کرده‌ام.',
+    'درخواست دارم پرداخت بررسی شود و در صورت تایید، به کیف پول سازمان واریز شود.',
     walletId ? `شناسه کیف پول مقصد: ${walletId}` : '',
     'شماره یا کد تراکنش و مشخصات رسید واریز را در این تیکت تکمیل می‌کنم.',
   ].filter(Boolean).join('\n')
@@ -738,7 +738,7 @@ onBeforeUnmount(() => {
         <div class="modal-layout">
           <form class="modal-form" @submit.prevent="submitTicket">
             <div v-if="isWalletCardPaymentDraft" class="wallet-ticket-notice full">
-              <strong>ثبت آماده برای شارژ کیف پول</strong>
+              <strong>ثبت آماده برای واریز کیف پول</strong>
               <p>{{ walletCardPaymentNotice }}</p>
             </div>
 
@@ -753,7 +753,7 @@ onBeforeUnmount(() => {
               </select>
             </label>
 
-            <label>
+            <label class="full">
               <span>اولویت</span>
               <select v-model="ticketModal.priority" :disabled="isWalletCardPaymentDraft">
                 <option v-for="item in priorities" :key="item.key" :value="item.key">{{ item.label }}</option>

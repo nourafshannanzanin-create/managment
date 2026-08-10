@@ -51,7 +51,7 @@ function selectedNames() {
       <div class="modal-headline"><p class="page-eyebrow">هزینه جدید</p><h2>ثبت و ارجاع هزینه</h2></div>
 
       <div class="modal-grid two-col">
-        <label :class="['field-shell', fieldHasError('amount') && 'has-error']"><span>مبلغ (تومان)</span><input v-model="form.amount" inputmode="decimal" placeholder="0" @input="form.amount = formatAmountInput($event.target.value)" /></label>
+        <label :class="['field-shell', fieldHasError('amount') && 'has-error']"><span>مبلغ (تومان)</span><input v-model="form.amount" inputmode="numeric" placeholder="0" @input="form.amount = formatAmountInput($event.target.value)" /></label>
         <label class="field-shell"><span>تاریخ</span><ShamsiDatePicker v-model="form.expenseDate" model-type="jalali" /></label>
         <label class="field-shell"><span>بخش</span><select v-model="form.department"><option value="">انتخاب بخش</option><option v-for="item in state.directories.departments" :key="item.code" :value="item.code">{{ item.name }}</option></select></label>
         <label class="field-shell"><span>ارجاع گیرنده</span><button class="action-btn tone-soft inline-open-btn" type="button" @click="referralOpen = true"><IconlyIcon name="group_add" decorative /><span>{{ selectedNames() }}</span></button></label>

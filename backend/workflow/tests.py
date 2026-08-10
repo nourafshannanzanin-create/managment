@@ -438,8 +438,8 @@ class UserAndSettingsTests(TestCase):
         content = response.content.decode("utf-8")
         self.assertIn("bonus_amount", content)
         self.assertIn("report-user", content)
-        self.assertIn("2,000,000.00", content)
-        self.assertIn("500,000.00", content)
+        self.assertIn("2,000,000", content)
+        self.assertIn("500,000", content)
 
     @patch("workflow.views.send_provider_sms")
     def test_notify_sms_does_not_send_when_sms_wallet_is_empty(self, send_provider_sms_mock):

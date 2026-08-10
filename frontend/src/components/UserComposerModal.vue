@@ -20,6 +20,37 @@ const sectionAccessOptions = [
   { key: 'reports', title: 'گزارشات' },
   { key: 'settings', title: 'تنظیمات' },
 ]
+
+function onAvatarSelected(event) {
+  const file = event.target.files?.[0] || null
+  if (formPreviewNeedsRevoke()) {
+    URL.revokeObjectURL(propsFormPreview())
+  }
+  if (!file) {
+    clearAvatar()
+    return
+  }
+  if (!String(file.type || '').startsWith('image/')) {
+    event.target.value = ''
+    return
+  }
+  state.userForm.avatarFile = file
+  state.userForm.avatarPreview = URL.createObjectURL(file)
+}
+
+function propsFormPreview() {
+  return state.userForm.avatarPreview || ''
+}
+
+function formPreviewNeedsRevoke() {
+  return String(state.userForm.avatarPreview || '').startsWith('blob:')
+}
+
+function clearAvatar() {
+  if (formPreviewNeedsRevoke()) URL.revokeObjectURL(state.userForm.avatarPreview)
+  state.userForm.avatarFile = null
+  state.userForm.avatarPreview = ''
+}
 </script>
 
 <template>
@@ -29,6 +60,34 @@ const sectionAccessOptions = [
         <p class="page-eyebrow">کاربر جدید</p>
         <h2>افزودن کارمند</h2>
       </div>
+
+      <section class="user-avatar-uploader">
+        <div class="user-avatar-preview">
+          <img v-if="form.avatarPreview" :src="form.avatarPreview" alt="پیش‌نمایش پروفایل" />
+          <span v-else>{{ (form.fullName || '?').trim().slice(0, 1) || '?' }}</span>
+        </div>
+        <div class="user-avatar-actions">
+          <strong>عکس پروفایل</strong>
+          <p>تصویر در فهرست کاربران، تنظیمات و صفحه ورود/خروج نمایش داده می‌شود.</p>
+          <div class="user-avatar-buttons">
+            <label class="action-btn tone-primary avatar-upload-btn">
+              <IconlyIcon name="person_add" decorative />
+              <span>{{ form.avatarFile ? 'تغییر عکس' : 'افزودن پروفایل' }}</span>
+              <input type="file" accept="image/*" @change="onAvatarSelected" />
+            </label>
+            <button
+              v-if="form.avatarFile"
+              class="action-btn tone-soft"
+              type="button"
+              @click="clearAvatar"
+            >
+              <IconlyIcon name="delete" decorative />
+              <span>حذف عکس</span>
+            </button>
+          </div>
+          <small v-if="form.avatarFile?.name" class="avatar-file-name">{{ form.avatarFile.name }}</small>
+        </div>
+      </section>
 
       <div class="modal-grid two-col">
         <label :class="['field-shell', fieldHasError('fullName') && 'has-error']">
@@ -121,6 +180,82 @@ const sectionAccessOptions = [
 </template>
 
 <style scoped>
+.user-avatar-uploader {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(52, 144, 139, 0.16);
+  background: rgba(220, 239, 236, 0.55);
+}
+
+.user-avatar-preview {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: #34908B;
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.user-avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.user-avatar-actions {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.user-avatar-actions strong {
+  color: #152523;
+}
+
+.user-avatar-actions p {
+  margin: 0;
+  color: #45605c;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.user-avatar-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.avatar-upload-btn {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.avatar-upload-btn input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.avatar-file-name {
+  color: #45605c;
+  direction: ltr;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .user-access-panel {
   display: grid;
   gap: 14px;
@@ -175,13 +310,12 @@ const sectionAccessOptions = [
   display: block;
 }
 
-.inline-error {
-  margin: 0;
-  color: #b42318;
-  font-size: 0.92rem;
-}
-
 @media (max-width: 760px) {
+  .user-avatar-uploader {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
   .access-check-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

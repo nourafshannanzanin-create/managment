@@ -78,16 +78,13 @@ const navItems = computed(() => {
 <template>
   <aside :class="['shell-sidebar', mobileMenuOpen && 'is-open']">
     <div class="sidebar-brand">
-      <div class="brand-mark">
-        <img src="/logo/green.webp" alt="کارنومند" width="36" height="36" decoding="async" style="width:36px;height:36px;object-fit:contain;border-radius:10px;" />
-      </div>
       <div class="brand-copy">
         <strong>{{ organizationTitle }}</strong>
         <small class="brand-subtitle">مرکز مدیریت</small>
       </div>
-      <button class="icon-btn mobile-toggle" type="button" aria-label="بستن منو" @click="toggleSidebar">
-        <IconlyIcon name="close" decorative />
-      </button>
+      <div class="brand-mark">
+        <img src="/logo/green.webp" alt="کارنومند" width="36" height="36" decoding="async" style="width:36px;height:36px;object-fit:contain;border-radius:10px;" />
+      </div>
     </div>
 
     <div class="sidebar-section-label">منوی اصلی</div>

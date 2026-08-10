@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
 import SectionHeading from '../components/SectionHeading.vue'
+import UserAvatar from '../components/UserAvatar.vue'
 import { jalaliToIso } from '../utils/jalali'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
@@ -115,10 +116,12 @@ function resetReportFilters() {
 async function loadPublic() {
   loading.value = true
   errorMessage.value = ''
+  successMessage.value = ''
   try {
     publicPayload.value = await apiFetch(`/attendance/public/${route.params.token}`)
   } catch (error) {
     errorMessage.value = error.message
+    publicPayload.value = { user: {}, events: [], organization: {} }
   } finally {
     loading.value = false
   }
@@ -235,7 +238,15 @@ onMounted(() => {
               <strong>{{ user.name }}</strong>
               <small>{{ user.role }} · {{ user.department }}</small>
             </div>
-            <span :class="['status-badge', eventTone(user.status)]">{{ statusLabel(user.status) }}</span>
+            <div class="attendance-user-tools">
+              <span :class="['status-badge', eventTone(user.status)]">{{ statusLabel(user.status) }}</span>
+              <button class="icon-btn" type="button" title="کپی لینک" @click="copyLink(user)">
+                <IconlyIcon name="content_copy" decorative />
+              </button>
+              <a class="icon-btn" title="باز کردن لینک" :href="attendanceLink(user)" target="_blank" rel="noreferrer">
+                <IconlyIcon name="open_in_new" decorative />
+              </a>
+            </div>
           </div>
           <div class="attendance-mini-grid">
             <span>ثبت امروز <b>{{ fa(user.todayEventsCount) }}</b></span>
@@ -251,12 +262,6 @@ onMounted(() => {
               <IconlyIcon name="logout" decorative />
               <span>ثبت خروج</span>
             </button>
-            <button class="icon-btn" type="button" title="کپی لینک" @click="copyLink(user)">
-              <IconlyIcon name="content_copy" decorative />
-            </button>
-            <a class="icon-btn" title="باز کردن لینک" :href="attendanceLink(user)" target="_blank" rel="noreferrer">
-              <IconlyIcon name="open_in_new" decorative />
-            </a>
           </div>
         </article>
       </div>
@@ -374,262 +379,675 @@ onMounted(() => {
 
   <main v-else class="attendance-public" dir="rtl">
     <section class="attendance-public-card">
-      <div class="attendance-public-head">
-        <div>
-          <span class="page-eyebrow">ورود و خروج</span>
-          <h1>{{ publicUser.name || 'پرسنل' }}</h1>
-          <p>{{ publicPayload.organization?.name || 'سازمان' }} · {{ statusLabel(publicUser.status) }}</p>
-        </div>
-        <span :class="['status-badge', eventTone(publicUser.status)]">{{ statusLabel(publicUser.status) }}</span>
+      <div v-if="loading && !publicUser.id" class="attendance-public-loading">
+        در حال بارگذاری لینک ورود و خروج…
       </div>
 
-      <div v-if="errorMessage" class="attendance-alert is-danger">{{ errorMessage }}</div>
-      <div v-if="successMessage" class="attendance-alert is-success">{{ successMessage }}</div>
+      <template v-else-if="errorMessage && !publicUser.id">
+        <div class="attendance-alert is-danger">{{ errorMessage }}</div>
+        <p class="attendance-public-hint">اگر لینک را از مدیر دریافت کرده‌اید، دوباره امتحان کنید یا لینک تازه بخواهید.</p>
+      </template>
 
-      <div class="public-action-grid">
-        <button class="public-action is-in" type="button" :disabled="submitting || publicUser.status === 'in'" @click="submitPublicEvent('in')">
-          <IconlyIcon name="login" decorative />
-          <strong>ثبت ورود</strong>
-        </button>
-        <button class="public-action is-out" type="button" :disabled="submitting || publicUser.status !== 'in'" @click="submitPublicEvent('out')">
-          <IconlyIcon name="logout" decorative />
-          <strong>ثبت خروج</strong>
-        </button>
-      </div>
-
-      <label class="public-note">
-        <span>یادداشت</span>
-        <textarea v-model="note" rows="3" placeholder="مثلا شروع شیفت عصر یا خروج برای ماموریت کوتاه"></textarea>
-      </label>
-
-      <div class="public-stats">
-        <article><span>ثبت امروز</span><strong>{{ fa(publicUser.todayEventsCount) }}</strong></article>
-        <article><span>ساعت امروز</span><strong>{{ fa(publicUser.todayWorkedHours) }}</strong></article>
-      </div>
-
-      <div class="public-timeline">
-        <article v-for="event in publicEvents" :key="event.id">
-          <span :class="['feed-dot', event.eventType]"></span>
+      <template v-else>
+        <div class="attendance-public-head">
           <div>
-            <strong>{{ eventLabel(event.eventType) }}</strong>
-            <small>{{ dateTime(event.eventAt) }}</small>
+            <span class="page-eyebrow">ثبت ورود و خروج</span>
+            <h1>{{ publicUser.name || 'پرسنل' }}</h1>
+            <p>
+              {{ publicPayload.organization?.name || 'سازمان' }}
+              <template v-if="publicUser.department"> · {{ publicUser.department }}</template>
+            </p>
           </div>
-        </article>
-      </div>
+          <span :class="['status-badge', eventTone(publicUser.status)]">{{ statusLabel(publicUser.status) }}</span>
+        </div>
+
+        <div v-if="errorMessage" class="attendance-alert is-danger">{{ errorMessage }}</div>
+        <div v-if="successMessage" class="attendance-alert is-success">{{ successMessage }}</div>
+
+        <div class="attendance-punch-grid">
+          <button
+            class="attendance-punch-btn is-in"
+            type="button"
+            :disabled="submitting || publicUser.status === 'in'"
+            @click="submitPublicEvent('in')"
+          >
+            <IconlyIcon name="login" size="xl" decorative />
+            <strong>ثبت ورود</strong>
+            <small>{{ publicUser.status === 'in' ? 'الان حاضر هستید' : 'شروع شیفت' }}</small>
+          </button>
+          <button
+            class="attendance-punch-btn is-out"
+            type="button"
+            :disabled="submitting || publicUser.status !== 'in'"
+            @click="submitPublicEvent('out')"
+          >
+            <IconlyIcon name="logout" size="xl" decorative />
+            <strong>ثبت خروج</strong>
+            <small>{{ publicUser.status === 'in' ? 'پایان شیفت' : 'ابتدا ورود ثبت کنید' }}</small>
+          </button>
+        </div>
+
+        <label class="public-note">
+          <span>یادداشت (اختیاری)</span>
+          <textarea v-model="note" rows="3" placeholder="مثلا شروع شیفت عصر یا خروج برای ماموریت کوتاه"></textarea>
+        </label>
+
+        <div class="public-stats">
+          <article><span>ثبت امروز</span><strong>{{ fa(publicUser.todayEventsCount) }}</strong></article>
+          <article><span>ساعت امروز</span><strong>{{ fa(publicUser.todayWorkedHours) }}</strong></article>
+        </div>
+
+        <div class="public-timeline">
+          <h2 class="public-timeline-title">رویدادهای امروز</h2>
+          <p v-if="!publicEvents.length" class="attendance-public-hint">هنوز رویدادی برای امروز ثبت نشده است.</p>
+          <article v-for="event in publicEvents" :key="event.id">
+            <span :class="['feed-dot', event.eventType || event.event_type]"></span>
+            <div>
+              <strong>{{ eventLabel(event.eventType || event.event_type) }}</strong>
+              <small>{{ dateTime(event.eventAt || event.event_at) }}</small>
+              <small v-if="event.note" class="public-event-note">{{ event.note }}</small>
+            </div>
+          </article>
+        </div>
+      </template>
     </section>
   </main>
 </template>
 
 <style scoped>
-.attendance-page { gap: 18px; }
+.attendance-page {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
 .attendance-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
   gap: 18px;
-  padding: 28px;
+  padding: 24px;
   border-radius: 12px;
   background: var(--surface, #fff);
   border: 1px solid var(--line);
-  box-shadow: none;
+  min-width: 0;
 }
-.attendance-title-row {
-  display: flex;
-  align-items: center;
+
+.attendance-hero > div { min-width: 0; }
+
+.attendance-hero h1 {
+  margin: 8px 0 0;
+  color: var(--primary);
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  line-height: 1.35;
+  overflow-wrap: break-word;
+}
+
+.attendance-summary,
+.attendance-mini-grid,
+.public-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   min-width: 0;
 }
-.attendance-title-row h1,
-.attendance-hero h1 { margin: 8px 0; color: var(--primary); font-size: clamp(28px, 3vw, 44px); }
-.attendance-hero p { margin: 0; color: var(--muted); line-height: 1.9; }
-.attendance-summary, .attendance-mini-grid, .public-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.attendance-summary article, .attendance-mini-grid span, .public-stats article {
-  padding: 16px;
-  border-radius: 18px;
-  background: rgba(255,255,255,.76);
+
+.attendance-summary article,
+.attendance-mini-grid span,
+.public-stats article {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.76);
   border: 1px solid var(--line);
 }
-.attendance-summary span, .public-stats span { display: block; color: var(--muted); font-size: 12px; }
-.attendance-summary strong, .public-stats strong { display: block; margin-top: 8px; color: var(--primary); font-size: 26px; }
+
+.attendance-summary span,
+.public-stats span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attendance-summary strong,
+.public-stats strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--primary);
+  font-size: clamp(1.1rem, 3vw, 1.5rem);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
 .attendance-tabs { display: flex; flex-wrap: wrap; gap: 10px; }
+
 .attendance-tab {
-  min-height: 46px;
-  padding: 0 16px;
-  border-radius: 16px;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 14px;
+  border-radius: 14px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   color: var(--primary);
-  background: rgba(255,255,255,.74);
+  background: rgba(255, 255, 255, 0.74);
   border: 1px solid var(--line);
-  box-shadow: none;
   cursor: pointer;
 }
+
+.attendance-tab span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .attendance-tab.is-active {
   color: #fff;
-  background: var(--surface, #fff);
+  background: var(--button-primary-bg, #34908B);
+  border-color: transparent;
 }
-.attendance-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) 220px auto; gap: 12px; align-items: stretch; }
-.attendance-report-panel { display: grid; gap: 14px; }
+
+.attendance-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 200px) auto;
+  gap: 12px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.attendance-toolbar > * { min-width: 0; }
+.attendance-report-panel { display: grid; gap: 14px; min-width: 0; }
+
 .report-filter-grid {
   display: grid;
-  grid-template-columns: minmax(260px, 1.4fr) repeat(2, minmax(132px, .72fr)) minmax(170px, .9fr) minmax(132px, .7fr) minmax(128px, auto) minmax(118px, auto);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
   align-items: stretch;
 }
-.report-filter-grid > * {
-  min-width: 0;
-}
-.report-filter-grid .search-shell-wide {
-  min-width: 0;
-}
+
+.report-filter-grid > * { min-width: 0; }
+.report-filter-grid .search-shell-wide { grid-column: 1 / -1; }
+
 .report-filter-grid .field-shell,
 .report-filter-grid .search-shell {
-  min-height: 54px;
+  min-height: 52px;
   padding: 9px 12px;
-  border-radius: 15px;
+  border-radius: 14px;
 }
-.report-filter-grid .field-shell {
-  gap: 5px;
-}
+
 .report-filter-grid .field-shell span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.2;
 }
+
 .report-filter-grid input,
 .report-filter-grid select {
   width: 100%;
   min-width: 0;
 }
+
 .report-filter-grid .action-btn {
-  min-height: 54px;
-  padding: 0 12px;
-  white-space: nowrap;
+  min-height: 52px;
+  width: 100%;
+  justify-content: center;
 }
+
 .report-summary-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }
+
 .report-summary-grid article {
-  padding: 16px;
-  border-radius: 18px;
-  background: rgba(255,255,255,.82);
+  min-width: 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
   border: 1px solid var(--line);
-  box-shadow: none;
 }
-.report-summary-grid span { display: block; color: var(--muted); font-size: 12px; }
-.report-summary-grid strong { display: block; margin-top: 8px; color: var(--primary); font-size: 24px; }
-.report-table-card { display: grid; gap: 14px; }
+
+.report-summary-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.report-summary-grid strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--primary);
+  font-size: clamp(1.05rem, 2.5vw, 1.4rem);
+  overflow-wrap: anywhere;
+}
+
+.report-table-card { display: grid; gap: 14px; min-width: 0; }
 .report-table-head { align-items: center; }
+
 .table-count {
   min-height: 32px;
   padding: 0 12px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
-  background: rgba(36,59,107,.08);
+  background: rgba(36, 59, 107, 0.08);
   color: var(--primary);
   font-weight: 800;
   font-size: 12px;
 }
+
 .attendance-table-wrap {
   overflow: auto;
-  border-radius: 18px;
+  border-radius: 14px;
   border: 1px solid var(--line);
-  background: rgba(255,255,255,.56);
+  background: rgba(255, 255, 255, 0.56);
+  -webkit-overflow-scrolling: touch;
 }
+
 .attendance-report-table {
   width: 100%;
-  min-width: 980px;
+  min-width: 720px;
   border-collapse: collapse;
 }
+
 .attendance-report-table th,
 .attendance-report-table td {
-  padding: 13px 14px;
-  border-bottom: 1px solid rgba(36,59,107,.08);
+  padding: 12px;
+  border-bottom: 1px solid rgba(36, 59, 107, 0.08);
   text-align: right;
   vertical-align: middle;
-  white-space: nowrap;
 }
+
 .attendance-report-table th {
   color: var(--muted);
   font-size: 12px;
-  background: rgba(216,175,140,.16);
+  background: rgba(216, 175, 140, 0.16);
+  white-space: nowrap;
 }
-.attendance-report-table tbody tr:hover { background: rgba(40,122,110,.06); }
-.attendance-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
-.attendance-users { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+
+.attendance-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: 16px;
+  align-items: start;
+  min-width: 0;
+}
+
+.attendance-users {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  min-width: 0;
+}
+
 .attendance-user-card {
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
   border-radius: 12px;
-  background: rgba(255,255,255,.88);
+  background: rgba(255, 255, 255, 0.92);
   border: 1px solid var(--line);
-  box-shadow: none;
 }
-.attendance-user-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; }
-.attendance-avatar { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 16px; background: var(--surface, #fff); color: #fff; font-weight: 900; }
-.attendance-user-head strong, .attendance-user-head small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.attendance-user-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.attendance-avatar {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: #dcefec;
+  color: #1f5c59;
+  font-weight: 800;
+}
+
+.attendance-user-head > div { min-width: 0; }
+
+.attendance-user-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.attendance-user-tools .icon-btn {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+}
+
+.attendance-user-head strong,
+.attendance-user-head small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .attendance-user-head small { color: var(--muted); }
+
+.status-badge {
+  max-width: 100%;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
 .attendance-mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.attendance-mini-grid b { display: block; margin-top: 6px; color: var(--primary); }
-.attendance-link { padding: 10px 12px; border-radius: 14px; background: rgba(36,59,107,.05); color: var(--primary); direction: ltr; overflow-wrap: anywhere; }
-.attendance-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.attendance-actions .action-btn:disabled, .public-action:disabled { opacity: .5; cursor: not-allowed; }
-.attendance-feed { display: grid; gap: 10px; }
-.attendance-feed-row, .public-timeline article { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: center; padding: 12px; border-radius: 16px; background: rgba(255,255,255,.72); border: 1px solid var(--line); }
-.attendance-feed-row small, .public-timeline small { display: block; color: var(--muted); }
-.feed-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--warning); box-shadow: none; }
-.feed-dot.in { background: var(--success); box-shadow: none; }
-.attendance-alert { padding: 12px 14px; border-radius: 16px; border: 1px solid var(--line); }
+.attendance-mini-grid span { overflow: hidden; }
+.attendance-mini-grid b {
+  display: block;
+  margin-top: 6px;
+  color: var(--primary);
+  overflow-wrap: anywhere;
+}
+
+.attendance-link {
+  display: block;
+  max-width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(36, 59, 107, 0.05);
+  color: var(--primary);
+  direction: ltr;
+  text-align: left;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.attendance-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.attendance-actions .action-btn {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+}
+
+.attendance-actions .action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.attendance-feed { display: grid; gap: 10px; min-width: 0; }
+
+.attendance-feed-row,
+.public-timeline article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line);
+}
+
+.attendance-feed-row strong,
+.attendance-feed-row small,
+.public-timeline strong,
+.public-timeline small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attendance-feed-row small,
+.public-timeline small { color: var(--muted); }
+
+.feed-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--warning);
+}
+
+.feed-dot.in { background: var(--success); }
+
+.attendance-alert {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  overflow-wrap: break-word;
+}
+
 .attendance-alert.is-danger { background: var(--danger-soft); color: var(--danger); }
 .attendance-alert.is-success { background: var(--success-soft); color: var(--success); }
 .status-badge.is-success { background: var(--success-soft); color: var(--success); }
 .status-badge.is-warning { background: var(--warning-soft); color: var(--warning); }
-.attendance-public { min-height: 100vh; display: grid; place-items: center; padding: 18px; background: var(--surface, #fff); color: var(--text); }
-.attendance-public-card { width: min(760px, 100%); display: grid; gap: 16px; padding: 24px; border-radius: 12px; background: rgba(255,255,255,.9); border: 1px solid var(--line); box-shadow: none; }
-.attendance-public-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
-.attendance-public-head h1 { margin: 8px 0 4px; color: var(--primary); font-size: clamp(26px, 5vw, 42px); }
+
+.attendance-public {
+  --bg: rgb(230, 242, 239);
+  --primary: #34908B;
+  --primary-strong: #2b7874;
+  --primary-container: #dcefec;
+  --on-primary: #ffffff;
+  --on-primary-container: #1f5c59;
+  --surface: #f3f9f7;
+  --surface-strong: #f7fbfa;
+  --surface-soft: #dcefec;
+  --surface-muted: #d5ebe8;
+  --surface-container-low: #e4f4f2;
+  --surface-container-high: #d5ebe8;
+  --text: #152523;
+  --muted: #45605c;
+  --line: #b7cbc7;
+  --line-strong: #5f7a76;
+  --danger: #c45a4a;
+  --danger-soft: rgba(196, 90, 74, 0.12);
+  --success: #1f7a72;
+  --success-soft: rgba(31, 122, 114, 0.12);
+  --warning: #b07a12;
+  --warning-soft: rgba(176, 122, 18, 0.14);
+  --button-primary-bg: #34908B;
+  --button-primary-hover: #2b7874;
+  --button-danger-bg: #c45a4a;
+  min-height: 100%;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(circle at 14% 16%, rgba(52, 144, 139, 0.22), transparent 40%),
+    radial-gradient(circle at 86% 10%, rgba(31, 92, 89, 0.12), transparent 34%),
+    linear-gradient(180deg, #e6f2ef 0%, #f3f9f7 48%, #dcefec 100%);
+  color: var(--text);
+}
+
+.attendance-public-card {
+  width: min(760px, 100%);
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border-radius: 18px;
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 40px rgba(31, 92, 89, 0.12);
+  min-width: 0;
+}
+
+.attendance-public-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.attendance-public-head h1 {
+  margin: 8px 0 4px;
+  color: var(--primary);
+  font-size: clamp(1.35rem, 4vw, 2rem);
+  overflow-wrap: break-word;
+}
+
 .attendance-public-head p { margin: 0; color: var(--muted); }
-.public-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.public-action { min-height: 132px; display: grid; place-items: center; gap: 8px; border-radius: 12px; color: #fff; box-shadow: none; }
-.public-action .iconly-shell { font-size: 34px; }
-.public-action.is-in { background: var(--surface, #fff); }
-.public-action.is-out { background: var(--surface, #fff); }
-.public-note { display: grid; gap: 8px; }
+
+.attendance-public-loading,
+.attendance-public-hint {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.attendance-punch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.attendance-punch-btn {
+  min-height: 132px;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 18px 14px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  text-align: center;
+}
+
+.attendance-punch-btn strong {
+  font-size: 1.05rem;
+}
+
+.attendance-punch-btn small {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.82rem;
+}
+
+.attendance-punch-btn.is-in {
+  background: var(--button-primary-bg);
+  border-color: var(--primary-strong);
+}
+
+.attendance-punch-btn.is-out {
+  background: var(--button-danger-bg);
+  border-color: #a8483c;
+}
+
+.attendance-punch-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.attendance-punch-btn :deep(.iconly-shell) {
+  --iconly-filter: brightness(0) saturate(100%) invert(100%);
+  font-size: 28px;
+}
+
+.public-note { display: grid; gap: 8px; min-width: 0; }
 .public-note span { color: var(--muted); font-weight: 800; }
-.public-note textarea { min-height: 92px; padding: 14px; border-radius: 18px; background: rgba(36,59,107,.05); border: 1px solid var(--line); resize: vertical; }
+
+.public-note textarea {
+  width: 100%;
+  min-height: 92px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--surface-container-low);
+  border: 1px solid var(--line);
+  resize: vertical;
+  box-sizing: border-box;
+  color: var(--text);
+  font: inherit;
+}
+
+.public-note textarea:focus {
+  outline: 2px solid rgba(52, 144, 139, 0.28);
+  border-color: var(--primary);
+}
+
 .public-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.attendance-public .public-stats article {
+  background: var(--primary-container);
+  border-color: var(--line);
+}
+
+.attendance-public .public-stats strong {
+  color: var(--on-primary-container);
+}
+
 .public-timeline { display: grid; gap: 10px; }
+.public-timeline-title {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--primary);
+}
+
+.attendance-public .public-timeline article {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+.public-event-note {
+  margin-top: 4px;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  color: var(--muted);
+}
+
 @media (max-width: 1100px) {
-  .attendance-hero, .attendance-layout { grid-template-columns: 1fr; }
-  .attendance-users { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .report-filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .report-filter-grid .search-shell { grid-column: span 3; }
+  .attendance-hero,
+  .attendance-layout { grid-template-columns: 1fr; }
   .report-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-@media (max-width: 720px) {
-  .attendance-hero, .attendance-public-card { padding: 16px; border-radius: 12px; }
-  .attendance-toolbar, .attendance-summary, .public-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .attendance-toolbar .search-shell { grid-column: 1 / -1; }
-  .attendance-user-head, .attendance-public-head { grid-template-columns: 1fr; display: grid; }
-  .attendance-tab { flex: 1 1 0; justify-content: center; }
-  .report-filter-grid, .report-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .report-filter-grid .search-shell { grid-column: 1 / -1; }
-  .report-filter-grid .action-btn { min-width: 0; }
+
+@media (max-width: 760px) {
+  .attendance-hero { padding: 16px; }
+  .attendance-toolbar { grid-template-columns: 1fr; }
+  .attendance-users,
+  .report-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .attendance-tab { flex: 1 1 calc(50% - 5px); }
+  .attendance-actions { grid-template-columns: 1fr 1fr; }
+  .attendance-public-head { flex-direction: column; }
+  .attendance-punch-grid { grid-template-columns: 1fr; }
 }
-@media (max-width: 460px) {
-  .report-filter-grid {
-    grid-template-columns: 1fr;
+
+@media (max-width: 560px) {
+  .attendance-summary,
+  .attendance-users,
+  .report-summary-grid { grid-template-columns: 1fr; }
+
+  .attendance-user-head { grid-template-columns: auto minmax(0, 1fr); }
+  .attendance-user-tools {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
   }
-  .report-filter-grid .search-shell {
-    grid-column: auto;
-  }
-  .report-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+
+  .attendance-actions { grid-template-columns: 1fr 1fr; }
+  .attendance-tab { flex: 1 1 100%; }
 }
 </style>

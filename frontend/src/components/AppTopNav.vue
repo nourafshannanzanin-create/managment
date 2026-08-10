@@ -15,7 +15,6 @@ const {
   openExpenseComposer,
   openRequestComposer,
   openSignatureComposer,
-  openUserComposer,
   reportPeople,
   requestPeople,
   resetPageFilters,
@@ -30,46 +29,46 @@ const hqOrganizations = computed(() => state.hq.directories.organizations || [])
 
 const pageConfig = computed(() => {
   const configs = {
-    '/dashboard': {
+    dashboard: {
       eyebrow: 'مرکز کنترل',
       title: 'داشبورد اجرایی',
       description: 'نمای خلاصه وضعیت درخواست‌ها، هزینه‌ها و تاییدها برای تصمیم‌گیری سریع روز.',
     },
-    '/requests': {
+    requests: {
       eyebrow: 'درخواست‌ها',
       title: 'مدیریت درخواست‌های سازمانی',
       description: 'ثبت، پیگیری و مدیریت درخواست‌های سازمانی در یک فهرست فشرده و خوانا.',
       filterPage: 'requests',
       actions: [{ label: 'ثبت درخواست', icon: 'add_circle', handler: openRequestComposer, tone: 'primary' }],
     },
-    '/expenses': {
+    expenses: {
       eyebrow: 'هزینه‌ها',
       title: 'کنترل هزینه و اسناد مالی',
       description: 'ثبت هزینه، مرور فاکتورها و پایش وضعیت‌ها در یک نمای فشرده و خوانا.',
       filterPage: 'expenses',
       actions: [{ label: 'ثبت هزینه', icon: 'receipt_long', handler: openExpenseComposer, tone: 'primary' }],
     },
-    '/wallet': {
+    wallet: {
       eyebrow: 'کیف پول',
       title: 'کیف پول',
-      description: 'موجودی، شارژ، خرید امکانات و پیگیری تراکنش‌های مالی مجموعه.',
+      description: 'موجودی، واریز، خرید امکانات و پیگیری تراکنش‌های مالی مجموعه.',
     },
-    '/support': {
+    support: {
       eyebrow: 'پشتیبانی',
       title: 'پشتیبانی',
       description: 'ثبت تیکت، پیگیری گفتگوها و ارتباط مستقیم با تیم پشتیبانی.',
     },
-    '/attendance': {
+    attendance: {
       eyebrow: 'ورود و خروج',
       title: 'ورود و خروج پرسنل',
       description: 'کنترل حضور، لینک اختصاصی هر کاربر و گزارش ساعات کاری نیروها.',
     },
-    '/cloud': {
+    cloud: {
       eyebrow: 'فضای ابری',
       title: 'فضای ابری',
       description: 'نگهداری و دسترسی به اسناد و فایل‌های عملیاتی مجموعه.',
     },
-    '/approvals': {
+    approvals: {
       eyebrow: 'تاییدها',
       title: 'ثبت سند و ارجاع و امضا',
       description: 'ارسال سند، انتخاب گیرنده و دانلود نسخه نهایی با وضعیت‌های تفکیک‌پذیر.',
@@ -81,35 +80,36 @@ const pageConfig = computed(() => {
           : []),
       ],
     },
-    '/reports': {
+    reports: {
       eyebrow: 'گزارشات',
       title: 'گزارش‌های مدیریتی و خروجی‌ها',
       description: 'نمای تفکیکی گزارش در درخواست‌ها، هزینه‌ها و تاییدها با خروجی مستقیم.',
       filterPage: 'reports',
     },
-    '/users': {
+    users: {
       eyebrow: 'کاربران',
       title: 'فهرست فشرده کاربران و نقش‌ها',
       description: 'کارت‌ها و جدول‌های سبک‌تر برای پیدا کردن سریع‌تر افراد و مدیریت بهتر.',
-      actions: state.currentUser.canManageUsers
-        ? [{ label: 'افزودن کاربر', icon: 'person_add', handler: openUserComposer, tone: 'primary' }]
-        : [],
     },
-    '/settings': {
+    settings: {
       eyebrow: 'تنظیمات',
       title: 'پیکربندی سازمان و سطح دسترسی',
       description: 'تنظیمات اصلی سازمان و دسترسی بخش‌ها در قالبی جدولی و مقیاس‌پذیر.',
     },
-    '/hq': {
+    hq: {
       eyebrow: 'HQ',
       title: 'گزارشات HQ',
       description: 'نظارت مرکزی بر مجموعه‌ها، تیکت‌ها، کیف پول و وضعیت سرویس.',
     },
   }
 
-  return configs[route.path] || {
+  const byName = configs[String(route.name || '')]
+  if (byName) return byName
+
+  const byPath = configs[String(route.path || '').replace(/^\//, '')]
+  return byPath || {
     eyebrow: 'سامانه سازمانی',
-    title: 'کارمند',
+    title: 'کارنومند',
     description: 'مرکز عملیات سازمانی کارنومند برای مدیریت فرآیندهای روزانه.',
   }
 })
@@ -142,7 +142,7 @@ function handleHqOrganizationChange(event) {
 </script>
 
 <template>
-  <header class="topbar-shell">
+  <header class="topbar-shell" :data-route="route.name || route.path">
     <div class="topbar-main-row">
       <div class="topbar-intro">
         <button class="icon-btn mobile-menu-trigger" type="button" aria-label="باز کردن منو" @click="toggleSidebar">
@@ -202,14 +202,56 @@ function handleHqOrganizationChange(event) {
 </template>
 
 <style scoped>
+.topbar-shell {
+  direction: rtl;
+}
+
+.topbar-main-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.topbar-intro {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: right;
+}
+
+.topbar-intro-copy {
+  min-width: 0;
+  text-align: right;
+}
+
 .topbar-title-row {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
   min-width: 0;
 }
 
 .topbar-title-row strong {
   min-width: 0;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex: 0 1 auto;
+  margin-inline-start: auto;
+}
+
+.mobile-menu-trigger {
+  flex: 0 0 auto;
+  order: 0;
 }
 </style>

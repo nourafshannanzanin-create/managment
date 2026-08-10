@@ -309,8 +309,18 @@ onUnmounted(() => {
       </div>
     </template>
 
-    <main v-else class="shell-main auth-main" :class="{ 'landing-main': isLandingRoute }">
-      <div class="shell-content" :class="{ 'landing-content': isLandingRoute }">
+    <main
+      v-else
+      class="shell-main auth-main"
+      :class="{ 'landing-main': isLandingRoute, 'public-canvas-main': Boolean(route.meta.publicCanvas) && !isLandingRoute }"
+    >
+      <div
+        class="shell-content"
+        :class="{
+          'landing-content': isLandingRoute,
+          'public-canvas-content': Boolean(route.meta.publicCanvas) && !isLandingRoute,
+        }"
+      >
         <RouterView v-slot="{ Component }">
           <component :is="Component" :key="route.fullPath" />
         </RouterView>

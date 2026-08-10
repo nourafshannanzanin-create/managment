@@ -234,6 +234,16 @@ svg {
   align-items: center;
 }
 
+.brand-title {
+  min-width: 0;
+}
+
+.brand-logo-link {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
 .brand-mark {
   display: grid;
   position: relative;

@@ -136,6 +136,7 @@ class User(TimeStampedModel):
     platform_role = models.CharField(max_length=32, choices=PlatformRole.choices, blank=True, default="")
     job_title = models.CharField(max_length=120)
     avatar = models.CharField(max_length=8)
+    avatar_image = models.CharField(max_length=255, blank=True, default="")
     bio = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     bonus_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)

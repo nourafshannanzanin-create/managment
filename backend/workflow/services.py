@@ -135,12 +135,12 @@ def now():
 
 
 def format_money(value: Decimal | int | float | str) -> str:
-    amount = Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    return f"{amount:,.2f}"
+    amount = Decimal(str(value or 0)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return f"{int(amount):,}"
 
 
 def normalize_money(value) -> Decimal:
-    return Decimal(str(value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return Decimal(str(value or 0)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
 
 def format_date(value):
@@ -281,6 +281,10 @@ def media_url(file_name: str | None) -> str:
     return f"{settings.MEDIA_URL}{file_name}"
 
 
+def user_avatar_url(user: User) -> str:
+    return media_url(getattr(user, "avatar_image", "") or "")
+
+
 def preview_kind_for_file(file_name: str | None) -> str:
     if not file_name:
         return "none"
@@ -397,8 +401,8 @@ def license_status_payload(organization: Organization | None) -> dict:
                 "notice": "استفاده رایگان فعال است. پس از پایان مهلت، برای ادامه باید خرید نرم‌افزار ثبت شود.",
                 "graceDays": 0,
                 "grace_days": 0,
-                "amountDue": "0.00",
-                "amount_due": "0.00",
+                "amountDue": "0",
+                "amount_due": "0",
                 **trial,
             }
         return {
@@ -408,8 +412,8 @@ def license_status_payload(organization: Organization | None) -> dict:
             "notice": "مهلت استفاده رایگان به پایان رسیده است. برای ادامه باید خرید اصلی ثبت و تایید شود.",
             "graceDays": 0,
             "grace_days": 0,
-            "amountDue": "0.00" if core_purchase is None else format_money(core_purchase.remaining_amount),
-            "amount_due": "0.00" if core_purchase is None else format_money(core_purchase.remaining_amount),
+            "amountDue": "0" if core_purchase is None else format_money(core_purchase.remaining_amount),
+            "amount_due": "0" if core_purchase is None else format_money(core_purchase.remaining_amount),
             **trial,
         }
     if Decimal(core_purchase.remaining_amount or 0) <= 0 and core_purchase.renewal_due_at:
@@ -547,7 +551,7 @@ def serialize_current_user(user: User) -> dict:
     is_hq_admin_flag = user_is_hq_admin(user)
     organization = membership.organization if membership else None
     menu_access = menu_access_payload(user)
-    license_status = {"isLocked": False, "is_locked": False, "reason": "", "notice": "", "graceDays": 0, "grace_days": 0, "amountDue": "0.00", "amount_due": "0.00"} if is_hq else license_status_payload(organization)
+    license_status = {"isLocked": False, "is_locked": False, "reason": "", "notice": "", "graceDays": 0, "grace_days": 0, "amountDue": "0", "amount_due": "0"} if is_hq else license_status_payload(organization)
     bonus_amount = Decimal(user.bonus_amount or 0)
     penalty_amount = Decimal(user.penalty_amount or 0)
     net_adjustment = bonus_amount - penalty_amount
@@ -561,6 +565,8 @@ def serialize_current_user(user: User) -> dict:
         "platformRole": getattr(user, "platform_role", "") or "",
         "department": user.department.name if user.department else "",
         "avatar": user.avatar,
+        "avatarUrl": user_avatar_url(user),
+        "avatar_url": user_avatar_url(user),
         "email": user.email,
         "phone": user.phone or "",
         "organization": membership.organization.name if membership else "",
@@ -606,6 +612,8 @@ def serialize_user(user: User) -> dict:
         "kpi": user.job_title,
         "managerId": user.manager_id,
         "avatar": user.avatar,
+        "avatarUrl": user_avatar_url(user),
+        "avatar_url": user_avatar_url(user),
         "organization": membership.organization.name if membership else "",
         "organizationId": membership.organization_id if membership else None,
         "joinedAt": format_date(user.created_at.date()),

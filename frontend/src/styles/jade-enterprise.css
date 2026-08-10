@@ -13,6 +13,9 @@ html:has(.app-shell:not(.is-auth-route)),
 body:has(.app-shell:not(.is-auth-route)),
 #app:has(.app-shell:not(.is-auth-route)) {
   background: rgb(230, 242, 239) !important;
+  height: 100% !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
 }
 
 #app .app-shell:not(.is-auth-route) {
@@ -60,7 +63,11 @@ body:has(.app-shell:not(.is-auth-route)),
   --button-text: #191c1d;
   display:flex !important;
   flex-direction:row-reverse !important;
-  min-height:100vh !important;
+  height:100vh !important;
+  height:100dvh !important;
+  min-height:0 !important;
+  max-height:100dvh !important;
+  overflow:hidden !important;
   direction:ltr !important;
   color:var(--on-surface) !important;
   background: rgb(230, 242, 239) !important;
@@ -79,7 +86,10 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .shell-main {
   flex:1 1 auto !important;
   width:calc(100% - var(--sidebar-width)) !important;
-  min-height:100vh !important;
+  min-height:0 !important;
+  height:100% !important;
+  max-height:100% !important;
+  overflow:hidden !important;
   direction:rtl !important;
 }
 
@@ -87,6 +97,13 @@ body:has(.app-shell:not(.is-auth-route)),
   width:min(100%, var(--container-width)) !important;
   margin:0 auto !important;
   padding:32px !important;
+  min-height:0 !important;
+  height:100% !important;
+  max-height:100% !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  -webkit-overflow-scrolling:touch !important;
+  overscroll-behavior:contain !important;
 }
 
 #app .app-shell:not(.is-auth-route) .page-shell {
@@ -130,14 +147,25 @@ body:has(.app-shell:not(.is-auth-route)),
 }
 
 #app .app-shell:not(.is-auth-route) .sidebar-brand {
-  display:grid !important;
-  grid-template-columns:auto 1fr auto !important;
+  display:flex !important;
   align-items:center !important;
+  justify-content:space-between !important;
   gap:12px !important;
   padding:8px 8px 18px !important;
   border:0 !important;
   background:transparent !important;
   box-shadow:none !important;
+  position:relative !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-brand .brand-copy {
+  min-width:0 !important;
+  flex:1 1 auto !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-brand .brand-mark {
+  flex:0 0 auto !important;
+  margin-inline-start:auto !important;
 }
 
 #app .app-shell:not(.is-auth-route) .brand-mark {
@@ -291,8 +319,31 @@ body:has(.app-shell:not(.is-auth-route)),
   gap:12px !important;
 }
 
+#app .app-shell:not(.is-auth-route) .topbar-shell,
+#app .app-shell:not(.is-auth-route) .topbar-main-row,
+#app .app-shell:not(.is-auth-route) .topbar-intro,
+#app .app-shell:not(.is-auth-route) .topbar-intro-copy,
+#app .app-shell:not(.is-auth-route) .topbar-title-row {
+  direction:rtl !important;
+  text-align:right !important;
+}
+
 #app .app-shell:not(.is-auth-route) .topbar-main-row {
   justify-content:space-between !important;
+  width:100% !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-intro {
+  justify-content:flex-start !important;
+  flex:1 1 auto !important;
+  min-width:0 !important;
+  margin-inline-end:auto !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-actions {
+  justify-content:flex-start !important;
+  flex:0 0 auto !important;
+  margin-inline-start:0 !important;
 }
 
 #app .app-shell:not(.is-auth-route) .topbar-intro-copy strong {
@@ -952,10 +1003,17 @@ body:has(.app-shell:not(.is-auth-route)),
   #app .app-shell:not(.is-auth-route) {
     display:block !important;
     direction:rtl !important;
+    height:100dvh !important;
+    max-height:100dvh !important;
+    overflow:hidden !important;
   }
 
   #app .app-shell:not(.is-auth-route) .shell-main {
     width:100% !important;
+    height:100% !important;
+    max-height:100% !important;
+    min-height:0 !important;
+    overflow:hidden !important;
   }
 
   #app .app-shell:not(.is-auth-route) .shell-sidebar {
@@ -1000,6 +1058,9 @@ body:has(.app-shell:not(.is-auth-route)),
   #app .app-shell:not(.is-auth-route) .topbar-main-row,
   #app .app-shell:not(.is-auth-route) .page-header {
     align-items:stretch !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .page-header {
     flex-direction:column !important;
   }
 
@@ -2891,24 +2952,41 @@ body:has(.app-shell:not(.is-auth-route)),
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-main-row {
-    display: grid !important;
-    grid-template-columns: auto minmax(0, 1fr) !important;
-    align-items: center !important;
-    gap: 6px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
     min-height: 36px !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-intro {
     display: flex !important;
+    flex-direction: row !important;
     align-items: center !important;
-    gap: 6px !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
     min-width: 0 !important;
+    width: 100% !important;
+    direction: rtl !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-menu-trigger {
+    display: inline-grid !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    place-items: center !important;
+    margin: 0 !important;
+    flex: 0 0 auto !important;
+    order: 0 !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-intro-copy {
     min-width: 0 !important;
     display: grid !important;
     gap: 1px !important;
+    flex: 1 1 auto !important;
+    text-align: right !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-intro-copy strong {
@@ -2918,6 +2996,7 @@ body:has(.app-shell:not(.is-auth-route)),
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    text-align: right !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-eyebrow {
@@ -2933,40 +3012,55 @@ body:has(.app-shell:not(.is-auth-route)),
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-actions {
-    grid-column: 1 / -1 !important;
     width: 100% !important;
     display: flex !important;
     flex-wrap: wrap !important;
+    justify-content: flex-start !important;
     gap: 6px !important;
+    direction: rtl !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-action-row {
     width: 100% !important;
     display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: 1fr !important;
     gap: 6px !important;
+    direction: rtl !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .topbar-action-row:has(> :nth-child(2)) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-action-row .action-btn {
     width: 100% !important;
-    min-height: 32px !important;
-    height: 32px !important;
+    min-height: 40px !important;
+    height: 40px !important;
     padding: 0 10px !important;
     font-size: 0.78rem !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .page-header {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .page-header-tools {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .page-header .action-btn {
+    width: 100% !important;
+    min-height: 44px !important;
+    justify-content: center !important;
   }
 
   #app .app-shell:not(.is-auth-route) .hq-organization-select {
     width: 100% !important;
     min-height: 32px !important;
     height: 32px !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .mobile-menu-trigger {
-    display: inline-grid !important;
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-    place-items: center !important;
   }
 
   #app .app-shell:not(.is-auth-route) .mobile-bottom-nav {
@@ -3208,18 +3302,49 @@ body:has(.app-shell:not(.is-auth-route)),
 }
 
 #app .app-shell:not(.is-auth-route) .enterprise-page .users-search-shell,
-#app .app-shell:not(.is-auth-route) .enterprise-page .users-toolbar-primary .search-shell {
-  background: #e4f4f2 !important;
+#app .app-shell:not(.is-auth-route) .enterprise-page .users-toolbar-primary .users-search-shell {
+  min-height: 38px !important;
+  max-width: 280px !important;
+  padding: 0 12px !important;
+  border-radius: 10px !important;
+  background: #eef6f4 !important;
+  border: 1px solid rgba(52, 144, 139, 0.18) !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .users-search-shell:focus-within {
+  background: #ffffff !important;
+  border-color: #34908B !important;
+  box-shadow: 0 0 0 3px rgba(52, 144, 139, 0.14) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .enterprise-page .users-search-shell input {
+  min-height: 0 !important;
+  height: 36px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  font-size: 0.86rem !important;
+}
+
+@media (max-width: 760px) {
+  #app .app-shell:not(.is-auth-route) .enterprise-page .users-search-shell,
+  #app .app-shell:not(.is-auth-route) .enterprise-page .users-toolbar-primary .users-search-shell {
+    max-width: none !important;
+  }
 }
 
 #app .app-shell:not(.is-auth-route) .enterprise-page .users-add-btn,
 #app .app-shell:not(.is-auth-route) .enterprise-page .users-header-actions .tone-primary {
+  width: 100% !important;
   background: #34908B !important;
   color: #fff !important;
-  min-height: 34px !important;
+  min-height: 42px !important;
   padding: 0 14px !important;
   border-radius: 10px !important;
   box-shadow: 0 6px 16px rgba(52, 144, 139, 0.22) !important;
+  justify-content: center !important;
 }
 
 #app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card {
@@ -3335,7 +3460,7 @@ body:has(.app-shell:not(.is-auth-route)),
   #app .app-shell:not(.is-auth-route) .enterprise-page .users-header-actions {
     width: 100% !important;
     display: grid !important;
-    grid-template-columns: auto 1fr !important;
+    grid-template-columns: 1fr !important;
     gap: 8px !important;
   }
 
@@ -3385,3 +3510,4 @@ body:has(.app-shell:not(.is-auth-route)),
   background: #34908B !important;
   color: #fff !important;
 }
+

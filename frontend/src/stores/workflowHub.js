@@ -23,13 +23,14 @@ function createCurrentUser() {
     accessRole: '',
     department: '',
     avatar: '',
+    avatarUrl: '',
     email: '',
     organization: '',
-    bonusAmount: '0.00',
+    bonusAmount: '0',
     bonusAmountRaw: 0,
-    penaltyAmount: '0.00',
+    penaltyAmount: '0',
     penaltyAmountRaw: 0,
-    netAdjustment: '0.00',
+    netAdjustment: '0',
     netAdjustmentRaw: 0,
     canManageUsers: false,
     canAccessUsers: false,
@@ -50,8 +51,8 @@ function createCurrentUser() {
       is_locked: false,
       reason: '',
       notice: '',
-      amountDue: '0.00',
-      amount_due: '0.00',
+      amountDue: '0',
+      amount_due: '0',
       trialActive: false,
       trial_active: false,
       trialEndsAt: '',
@@ -81,7 +82,7 @@ function createRequestForm() {
 function createExpenseForm() {
   return {
     description: '',
-    amount: '0.00',
+    amount: '0',
     expenseDate: formatJalali(getTodayJalali()),
     department: '',
     managerAssigneeIds: [],
@@ -100,6 +101,8 @@ function createUserForm() {
     department: '',
     managerId: '',
     jobTitle: '',
+    avatarFile: null,
+    avatarPreview: '',
     sectionAccess: {
       approvals: false,
       expenses: false,
@@ -147,18 +150,18 @@ function createWalletState() {
     message: '',
     organization: null,
     summary: {
-      totalBalance: '0.00',
+      totalBalance: '0',
       totalBalanceRaw: 0,
-      mainBalance: '0.00',
+      mainBalance: '0',
       mainBalanceRaw: 0,
-      smsBalance: '0.00',
+      smsBalance: '0',
       smsBalanceRaw: 0,
-      smsLowBalanceThreshold: '0.00',
+      smsLowBalanceThreshold: '0',
       smsLowBalanceThresholdRaw: 0,
       smsIsLow: false,
-      depositsTotal: '0.00',
+      depositsTotal: '0',
       depositsTotalRaw: 0,
-      withdrawalsTotal: '0.00',
+      withdrawalsTotal: '0',
       withdrawalsTotalRaw: 0,
       transactions: 0,
     },
@@ -168,8 +171,8 @@ function createWalletState() {
       is_locked: false,
       reason: '',
       notice: '',
-      amountDue: '0.00',
-      amount_due: '0.00',
+      amountDue: '0',
+      amount_due: '0',
       trialActive: false,
       trial_active: false,
       trialEndsAt: '',
@@ -323,6 +326,9 @@ function resetExpenseForm() {
 }
 
 function resetUserForm() {
+  if (state.userForm?.avatarPreview && String(state.userForm.avatarPreview).startsWith('blob:')) {
+    URL.revokeObjectURL(state.userForm.avatarPreview)
+  }
   Object.assign(state.userForm, createUserForm())
 }
 
@@ -377,7 +383,7 @@ function formatNumber(value) {
   const normalized = normalizeAmountValue(value)
   const number = Number(normalized)
   if (!Number.isFinite(number)) return String(value || '')
-  return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(number)
+  return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 0 }).format(number)
 }
 
 function formatMoneyInputValue(value) {
@@ -401,11 +407,13 @@ function normalizeUser(item = {}) {
     jobTitle: cleanDisplayText(item?.jobTitle),
     phone: cleanDisplayText(item?.phone),
     status: cleanDisplayText(item?.status),
-    bonusAmount: item?.bonusAmount || '0.00',
+    avatar: cleanDisplayText(item?.avatar),
+    avatarUrl: resolveAssetUrl(item?.avatarUrl || item?.avatar_url || ''),
+    bonusAmount: item?.bonusAmount || '0',
     bonusAmountRaw: Number(item?.bonusAmountRaw || 0),
-    penaltyAmount: item?.penaltyAmount || '0.00',
+    penaltyAmount: item?.penaltyAmount || '0',
     penaltyAmountRaw: Number(item?.penaltyAmountRaw || 0),
-    netAdjustment: item?.netAdjustment || '0.00',
+    netAdjustment: item?.netAdjustment || '0',
     netAdjustmentRaw: Number(item?.netAdjustmentRaw || 0),
     financeUpdatedAt: item?.financeUpdatedAt || '',
     financeUpdatedAtIso: item?.financeUpdatedAtIso || '',
@@ -944,6 +952,7 @@ function hydrateBootstrap(payload) {
   if (!payload) return
 
   Object.assign(state.currentUser, createCurrentUser(), payload.currentUser || {})
+  state.currentUser.avatarUrl = resolveAssetUrl(state.currentUser.avatarUrl || state.currentUser.avatar_url || '')
   replaceItems(state.stats, payload.stats)
   replaceItems(state.chartData, payload.chartData)
   replaceItems(state.pipeline, payload.pipeline)
@@ -1423,7 +1432,7 @@ async function submitWalletTransaction(payload) {
     hydrateWallet(repairPayload(await response.json()))
     state.wallet.message = payload.direction === 'out' || payload.type === 'withdraw'
       ? 'برداشت ثبت شد.'
-      : 'شارژ ثبت شد.'
+      : 'واریز ثبت شد.'
   } catch (error) {
     const normalized = setLastError(error, 'ثبت تراکنش کیف پول ناموفق بود.')
     state.wallet.error = normalized.message
@@ -1996,15 +2005,20 @@ export function useWorkflowHub() {
       if (state.userForm.password && String(state.userForm.password).length < 6) {
         throw createValidationError('رمز عبور باید حداقل 6 کاراکتر باشد.', [{ field: 'password', message: 'رمز عبور کوتاه است.' }])
       }
-      await authorizedFetch('/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...state.userForm,
-          username: state.userForm.username,
-          managerId: state.userForm.managerId ? Number(state.userForm.managerId) : null,
-        }),
-      })
+
+      const formData = new FormData()
+      formData.append('fullName', String(state.userForm.fullName || '').trim())
+      formData.append('username', String(state.userForm.username || '').trim())
+      formData.append('password', String(state.userForm.password || ''))
+      formData.append('phone', String(state.userForm.phone || '').trim())
+      formData.append('accessRole', state.userForm.accessRole || 'employee')
+      formData.append('department', state.userForm.department || '')
+      formData.append('managerId', state.userForm.managerId ? String(state.userForm.managerId) : '')
+      formData.append('jobTitle', String(state.userForm.jobTitle || '').trim())
+      formData.append('sectionAccess', JSON.stringify(state.userForm.sectionAccess || {}))
+      if (state.userForm.avatarFile) formData.append('avatar', state.userForm.avatarFile)
+
+      await authorizedFetch('/users', { method: 'POST', body: formData })
       await loadBootstrapData(true)
       if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
         await loadSettings(true)
@@ -2016,6 +2030,48 @@ export function useWorkflowHub() {
     } finally {
       state.userSubmitting = false
     }
+  }
+
+  async function uploadOwnAvatar(file) {
+    clearLastError()
+    if (!file) {
+      throw createValidationError('فایل تصویر پروفایل الزامی است.', [{ field: 'avatar', message: 'یک تصویر انتخاب کنید.' }])
+    }
+    if (!String(file.type || '').startsWith('image/')) {
+      throw createValidationError('فقط فایل تصویری مجاز است.', [{ field: 'avatar', message: 'فرمت تصویر معتبر نیست.' }])
+    }
+    const formData = new FormData()
+    formData.append('avatar', file)
+    const response = await authorizedFetch('/me/avatar', { method: 'POST', body: formData })
+    const payload = repairPayload(await response.json())
+    Object.assign(state.currentUser, createCurrentUser(), payload || {})
+    state.currentUser.avatarUrl = resolveAssetUrl(state.currentUser.avatarUrl || state.currentUser.avatar_url || '')
+    if (state.currentUser.id) {
+      syncUserAcrossState({
+        id: state.currentUser.id,
+        name: state.currentUser.name,
+        avatar: state.currentUser.avatar,
+        avatarUrl: state.currentUser.avatarUrl,
+      })
+    }
+    return state.currentUser
+  }
+
+  async function clearOwnAvatar() {
+    clearLastError()
+    const response = await authorizedFetch('/me/avatar', { method: 'DELETE' })
+    const payload = repairPayload(await response.json())
+    Object.assign(state.currentUser, createCurrentUser(), payload || {})
+    state.currentUser.avatarUrl = resolveAssetUrl(state.currentUser.avatarUrl || state.currentUser.avatar_url || '')
+    if (state.currentUser.id) {
+      syncUserAcrossState({
+        id: state.currentUser.id,
+        name: state.currentUser.name,
+        avatar: state.currentUser.avatar,
+        avatarUrl: '',
+      })
+    }
+    return state.currentUser
   }
 
   async function submitDocument() {
@@ -2340,6 +2396,8 @@ async function updateUser(userId, payload) {
     submitRequest,
     submitExpense,
     submitUser,
+    uploadOwnAvatar,
+    clearOwnAvatar,
     submitDocument,
     saveSignature,
     approveSelectedRequest,

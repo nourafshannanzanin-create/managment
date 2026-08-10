@@ -10,6 +10,7 @@ import filter from '../assets/iconly/filter.svg'
 import plus from '../assets/iconly/plus.svg'
 import editSquare from '../assets/iconly/edit-square.svg'
 import trash from '../assets/iconly/delete.svg'
+import close from '../assets/iconly/close.svg'
 import logout from '../assets/iconly/logout.svg'
 import profile from '../assets/iconly/profile.svg'
 import graph from '../assets/iconly/graph.svg'
@@ -32,6 +33,7 @@ export const iconlyIcons = {
   plus,
   editSquare,
   trash,
+  close,
   logout,
   profile,
   graph,
@@ -62,14 +64,14 @@ export const materialToIconly = {
   bolt: 'graph',
   business: 'category',
   calendar_month: 'calendar',
-  cancel: 'trash',
+  cancel: 'close',
   category: 'category',
   chat: 'chat',
   check: 'plus',
   check_circle: 'plus',
   chevron_left: 'category',
   chevron_right: 'category',
-  close: 'trash',
+  close: 'close',
   cloud: 'document',
   cloud_upload: 'paperPlus',
   content_copy: 'document',

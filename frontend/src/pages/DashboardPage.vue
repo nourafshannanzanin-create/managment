@@ -1,8 +1,9 @@
 <script setup>
 import IconlyIcon from '../components/base/IconlyIcon.vue'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 import PageHeader from '../components/PageHeader.vue'
+import UserAvatar from '../components/UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatJalali, getTodayJalali } from '../utils/jalali'
 import { joinDisplayParts } from '../utils/text'
@@ -13,7 +14,14 @@ const {
   openExpenseDetail,
   openRequestComposer,
   openRequestDetail,
+  uploadOwnAvatar,
+  clearOwnAvatar,
+  setLastError,
 } = useWorkflowHub()
+
+const avatarBusy = ref(false)
+const avatarInput = ref(null)
+const avatarMessage = ref('')
 
 const todayLabel = computed(() => formatJalali(getTodayJalali()))
 const currentRole = computed(() => String(state.currentUser.accessRole || ''))
@@ -21,6 +29,39 @@ const isManagerDashboard = computed(() => ['admin', 'executive_manager', 'manage
 const currentUserName = computed(() => String(state.currentUser.name || '').trim())
 const currentUserBonus = computed(() => state.currentUser.bonusAmount || '0.00')
 const currentUserPenalty = computed(() => state.currentUser.penaltyAmount || '0.00')
+const hasProfilePhoto = computed(() => Boolean(state.currentUser.avatarUrl))
+
+async function onOwnAvatarSelected(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file || avatarBusy.value) return
+  avatarBusy.value = true
+  avatarMessage.value = ''
+  try {
+    await uploadOwnAvatar(file)
+    avatarMessage.value = 'عکس پروفایل با موفقیت ذخیره شد.'
+  } catch (error) {
+    setLastError(error, 'ذخیره عکس پروفایل ناموفق بود.')
+    avatarMessage.value = error?.message || 'ذخیره عکس پروفایل ناموفق بود.'
+  } finally {
+    avatarBusy.value = false
+  }
+}
+
+async function removeOwnAvatar() {
+  if (avatarBusy.value || !hasProfilePhoto.value) return
+  avatarBusy.value = true
+  avatarMessage.value = ''
+  try {
+    await clearOwnAvatar()
+    avatarMessage.value = 'عکس پروفایل حذف شد.'
+  } catch (error) {
+    setLastError(error, 'حذف عکس پروفایل ناموفق بود.')
+    avatarMessage.value = error?.message || 'حذف عکس پروفایل ناموفق بود.'
+  } finally {
+    avatarBusy.value = false
+  }
+}
 
 const ownRequests = computed(() =>
   (state.requests || []).filter((item) => String(item.owner || '').trim() === currentUserName.value),
@@ -267,6 +308,49 @@ function statusClass(status) {
       action-icon="add_circle"
       @action="openRequestComposer"
     />
+
+    <section class="profile-studio">
+      <div class="profile-studio-glow" aria-hidden="true"></div>
+      <div class="profile-studio-main">
+        <UserAvatar
+          :name="state.currentUser.name"
+          :avatar="state.currentUser.avatar"
+          :avatar-url="state.currentUser.avatarUrl"
+          size="xl"
+        />
+        <div class="profile-studio-copy">
+          <span class="profile-studio-kicker">{{ isManagerDashboard ? 'پروفایل سازمانی' : 'پروفایل من' }}</span>
+          <h2>{{ state.currentUser.name || 'کاربر' }}</h2>
+          <p>
+            {{ joinDisplayParts([state.currentUser.role, state.currentUser.department]) || 'حساب کاربری سازمانی' }}
+          </p>
+          <small>
+            {{ hasProfilePhoto
+              ? 'عکس پروفایل شما در فهرست کاربران و ورود/خروج نمایش داده می‌شود.'
+              : 'تا قبل از آپلود عکس، آیکون متناسب با نام شما (آقا/خانم) نمایش داده می‌شود.' }}
+          </small>
+        </div>
+      </div>
+
+      <div class="profile-studio-actions">
+        <input ref="avatarInput" class="sr-only" type="file" accept="image/*" @change="onOwnAvatarSelected" />
+        <button class="action-btn tone-primary" type="button" :disabled="avatarBusy" @click="avatarInput?.click()">
+          <IconlyIcon name="person_add" decorative />
+          <span>{{ avatarBusy ? 'در حال ذخیره...' : (hasProfilePhoto ? 'تغییر عکس پروفایل' : 'افزودن عکس پروفایل') }}</span>
+        </button>
+        <button
+          v-if="hasProfilePhoto"
+          class="action-btn tone-soft"
+          type="button"
+          :disabled="avatarBusy"
+          @click="removeOwnAvatar"
+        >
+          <IconlyIcon name="delete" decorative />
+          <span>حذف عکس</span>
+        </button>
+        <p v-if="avatarMessage" class="profile-studio-note">{{ avatarMessage }}</p>
+      </div>
+    </section>
 
     <section class="dashboard-stage-grid">
       <article class="dashboard-stage-panel">
@@ -1032,5 +1116,98 @@ function statusClass(status) {
   background: transparent;
   border: 0;
   color: #5f6b82;
+}
+
+.profile-studio {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(220px, 0.8fr);
+  gap: 18px;
+  align-items: center;
+  padding: 20px 22px;
+  border-radius: 20px;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(247, 251, 250, 0.96), rgba(220, 239, 236, 0.92));
+  border: 1px solid rgba(52, 144, 139, 0.16);
+  box-shadow: 0 14px 34px rgba(31, 92, 89, 0.1);
+}
+
+.profile-studio-glow {
+  position: absolute;
+  inset: auto -40px -60px auto;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(52, 144, 139, 0.22), transparent 68%);
+  pointer-events: none;
+}
+
+.profile-studio-main {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.profile-studio-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.profile-studio-kicker {
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(52, 144, 139, 0.12);
+  color: #1f5c59;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.profile-studio-copy h2 {
+  margin: 0;
+  color: #152523;
+  font-size: clamp(1.15rem, 2.4vw, 1.55rem);
+}
+
+.profile-studio-copy p,
+.profile-studio-copy small {
+  margin: 0;
+  color: #45605c;
+  line-height: 1.6;
+}
+
+.profile-studio-actions {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  justify-items: stretch;
+}
+
+.profile-studio-note {
+  margin: 0;
+  color: #1f5c59;
+  font-size: 0.8rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 900px) {
+  .profile-studio {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

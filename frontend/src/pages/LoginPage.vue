@@ -6,6 +6,8 @@ import BaseModal from '../components/BaseModal.vue'
 import ErrorNotice from '../components/ErrorNotice.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
+const REMEMBER_KEY = 'workflow-hub-remember-login'
+
 const route = useRoute()
 
 const form = reactive({
@@ -28,6 +30,34 @@ const signup = reactive({
 
 const { login, navigateTo, registerOrganization, state } = useWorkflowHub()
 
+function loadRememberedLogin() {
+  try {
+    const raw = localStorage.getItem(REMEMBER_KEY)
+    if (!raw) return
+    const saved = JSON.parse(raw)
+    if (!saved || typeof saved !== 'object') return
+    form.email = String(saved.email || saved.username || '')
+    form.password = String(saved.password || '')
+    form.remember = Boolean(saved.email || saved.username)
+  } catch {
+    localStorage.removeItem(REMEMBER_KEY)
+  }
+}
+
+function persistRememberedLogin() {
+  if (form.remember) {
+    localStorage.setItem(
+      REMEMBER_KEY,
+      JSON.stringify({
+        email: form.email.trim(),
+        password: form.password,
+      }),
+    )
+    return
+  }
+  localStorage.removeItem(REMEMBER_KEY)
+}
+
 function syncSignupQuery() {
   if (route.query.signup === '1' || route.query.register === '1') {
     signupOpen.value = true
@@ -36,7 +66,9 @@ function syncSignupQuery() {
 
 async function handleLogin() {
   const ok = await login(form.email, form.password)
-  if (ok) navigateTo(state.currentUser.isHq ? '/hq' : '/dashboard')
+  if (!ok) return
+  persistRememberedLogin()
+  navigateTo(state.currentUser.isHq ? '/hq' : '/dashboard')
 }
 
 async function handleSignup() {
@@ -51,7 +83,10 @@ function setRegistrationDocuments(event) {
   signup.documents = Array.from(event.target.files || [])
 }
 
-onMounted(syncSignupQuery)
+onMounted(() => {
+  loadRememberedLogin()
+  syncSignupQuery()
+})
 watch(() => route.query.signup, syncSignupQuery)
 watch(() => route.query.register, syncSignupQuery)
 </script>
@@ -102,7 +137,16 @@ watch(() => route.query.register, syncSignupQuery)
 
           <div class="stitch-form-meta">
             <button class="link-btn" type="button" @click="signupOpen = true">ثبت نام مجموعه</button>
-            <label class="stitch-checkbox-row"><span>مرا به خاطر بسپار</span><input v-model="form.remember" type="checkbox" /></label>
+            <label class="remember-switch" :class="{ 'is-on': form.remember }">
+              <input v-model="form.remember" type="checkbox" class="remember-switch-input" />
+              <span class="remember-switch-track" aria-hidden="true">
+                <span class="remember-switch-thumb" />
+              </span>
+              <span class="remember-switch-copy">
+                <strong>به‌خاطر سپردن رمز</strong>
+                <small>ورود سریع در دفعات بعد</small>
+              </span>
+            </label>
           </div>
 
           <button class="stitch-submit-btn" :disabled="state.loginPending" type="submit">
@@ -179,7 +223,75 @@ watch(() => route.query.register, syncSignupQuery)
 .stitch-field-group input::placeholder { color: rgba(255,255,255,.66); }
 .stitch-field-group input:focus { background: rgba(255,255,255,.28); outline: 2px solid rgba(255,255,255,.22); outline-offset: 2px; }
 .stitch-form-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.stitch-checkbox-row { display: inline-flex; align-items: center; gap: 10px; color: rgba(255,255,255,.8); }
+.remember-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  padding: 8px 10px 8px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  user-select: none;
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.remember-switch.is-on {
+  background: rgba(243, 215, 189, 0.22);
+  border-color: rgba(243, 215, 189, 0.42);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+}
+.remember-switch-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.remember-switch-track {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  transition: background 180ms ease;
+}
+.remember-switch.is-on .remember-switch-track {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(243, 215, 189, 0.92));
+}
+.remember-switch-thumb {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1), background 180ms ease;
+}
+.remember-switch.is-on .remember-switch-thumb {
+  transform: translateX(-18px);
+  background: #2d241f;
+}
+.remember-switch-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  text-align: right;
+}
+.remember-switch-copy strong {
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.remember-switch-copy small {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
 .link-btn { border: 0; background: transparent; color: #fff; font-weight: 900; cursor: pointer; text-shadow: 0 8px 24px rgba(0,0,0,.24); }
 .stitch-submit-btn { min-height: 56px; border: 0; border-radius: 18px; background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(243, 215, 189, .88)); color: #2d241f; display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-weight: 900; cursor: pointer; box-shadow: 0 18px 42px rgba(0,0,0,.22); }
 .stitch-submit-btn:disabled { opacity: .7; cursor: wait; }
@@ -188,7 +300,13 @@ watch(() => route.query.register, syncSignupQuery)
 .registration-documents small { color: #70809a; font-size: 12px; }
 .registration-success { margin: 0; padding: 12px 14px; border: 0; border-radius: 14px; background: rgba(32, 132, 94, .18); color: #e8fff4; font-size: 13px; font-weight: 800; line-height: 1.8; }
 @media (min-width: 980px) { .stitch-brand-panel { display: flex; } }
-@media (max-width: 720px) { .stitch-login-page { padding: 16px; background-position: center; } .stitch-login-grid { min-height: calc(100vh - 32px); } .stitch-form-panel { padding: 1.25rem; border-radius: 22px; } }
+@media (max-width: 720px) {
+  .stitch-login-page { padding: 16px; background-position: center; }
+  .stitch-login-grid { min-height: calc(100vh - 32px); }
+  .stitch-form-panel { padding: 1.25rem; border-radius: 22px; }
+  .stitch-form-meta { flex-direction: column-reverse; align-items: stretch; }
+  .remember-switch { width: 100%; justify-content: flex-start; }
+}
 
 :global(#app .app-shell.is-auth-route),
 :global(#app .app-shell.is-auth-route .shell-main),
@@ -253,12 +371,17 @@ watch(() => route.query.register, syncSignupQuery)
 :global(#app .app-shell.is-auth-route .stitch-field-group input),
 :global(#app .app-shell.is-auth-route .stitch-chip),
 :global(#app .app-shell.is-auth-route .stitch-stat-row article),
-:global(#app .app-shell.is-auth-route .registration-success) {
+:global(#app .app-shell.is-auth-route .registration-success),
+:global(#app .app-shell.is-auth-route .remember-switch) {
   border: 0 !important;
   background: rgba(255, 255, 255, .18) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .24), 0 14px 34px rgba(0, 0, 0, .08) !important;
   backdrop-filter: blur(20px) saturate(165%) !important;
   -webkit-backdrop-filter: blur(20px) saturate(165%) !important;
+}
+
+:global(#app .app-shell.is-auth-route .remember-switch.is-on) {
+  background: rgba(243, 215, 189, 0.28) !important;
 }
 
 :global(#app .app-shell.is-auth-route .stitch-form-header span),
@@ -267,12 +390,16 @@ watch(() => route.query.register, syncSignupQuery)
 :global(#app .app-shell.is-auth-route .stitch-brand-copy h1 span),
 :global(#app .app-shell.is-auth-route .stitch-brand-copy p),
 :global(#app .app-shell.is-auth-route .stitch-field-group span),
-:global(#app .app-shell.is-auth-route .stitch-checkbox-row),
+:global(#app .app-shell.is-auth-route .remember-switch-copy strong),
 :global(#app .app-shell.is-auth-route .link-btn),
 :global(#app .app-shell.is-auth-route .stitch-footer-note),
 :global(#app .app-shell.is-auth-route .stitch-footer-note span) {
   color: #fff !important;
   text-shadow: 0 10px 30px rgba(0, 0, 0, .28) !important;
+}
+
+:global(#app .app-shell.is-auth-route .remember-switch-copy small) {
+  color: rgba(255, 255, 255, 0.72) !important;
 }
 
 :global(#app .app-shell.is-auth-route .stitch-field-group input) {
