@@ -4,6 +4,7 @@ import json
 import math
 import mimetypes
 import os
+from collections import defaultdict
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 from datetime import date, timedelta
@@ -90,6 +91,8 @@ from workflow.services import (
     approval_metrics,
     build_bootstrap_payload,
     build_hq_payload,
+    build_hq_reports_payload,
+    build_hq_services_payload,
     format_money,
     HQ_USERNAME,
     CORE_FEATURE_KEY,
@@ -1035,13 +1038,166 @@ def parse_iso_date_param(value: str | None) -> date | None:
         return None
 
 
+def compute_attendance_worked_seconds(events: list[AttendanceEvent], *, include_open: bool = False, until=None) -> float:
+    by_user: dict[int, list[AttendanceEvent]] = defaultdict(list)
+    for event in events:
+        by_user[event.user_id].append(event)
+    total = 0.0
+    until = until or timezone.now()
+    for user_events in by_user.values():
+        user_events.sort(key=lambda item: (item.event_at, item.id))
+        open_checkin = None
+        for event in user_events:
+            if event.event_type == AttendanceEvent.EVENT_IN:
+                open_checkin = event.event_at
+            elif event.event_type == AttendanceEvent.EVENT_OUT and open_checkin:
+                total += max((event.event_at - open_checkin).total_seconds(), 0)
+                open_checkin = None
+        if include_open and open_checkin:
+            total += max((until - open_checkin).total_seconds(), 0)
+    return total
+
+
+def count_attendance_open_shifts(events: list[AttendanceEvent]) -> int:
+    by_user: dict[int, list[AttendanceEvent]] = defaultdict(list)
+    for event in events:
+        by_user[event.user_id].append(event)
+    open_shifts = 0
+    for user_events in by_user.values():
+        user_events.sort(key=lambda item: (item.event_at, item.id))
+        open_checkin = None
+        for event in user_events:
+            if event.event_type == AttendanceEvent.EVENT_IN:
+                open_checkin = event.event_at
+            elif event.event_type == AttendanceEvent.EVENT_OUT and open_checkin:
+                open_checkin = None
+        if open_checkin:
+            open_shifts += 1
+    return open_shifts
+
+
+def find_previous_checkin_event(event: AttendanceEvent, events_by_user: dict[int, list[AttendanceEvent]]) -> AttendanceEvent | None:
+    user_events = sorted(events_by_user.get(event.user_id, []), key=lambda item: (item.event_at, item.id))
+    previous = None
+    for item in user_events:
+        if item.event_at > event.event_at or (item.event_at == event.event_at and item.id >= event.id):
+            break
+        if item.event_type == AttendanceEvent.EVENT_IN:
+            previous = item
+        elif item.event_type == AttendanceEvent.EVENT_OUT:
+            previous = None
+    return previous
+
+
+def serialize_attendance_report_row(
+    event: AttendanceEvent,
+    index: int,
+    *,
+    radius_meters: float,
+    events_by_user: dict[int, list[AttendanceEvent]],
+) -> dict:
+    local_dt = timezone.localtime(event.event_at)
+    distance = event.distance_meters
+    within_radius = None
+    if distance is not None:
+        within_radius = distance <= radius_meters
+    has_gps = event.latitude is not None and event.longitude is not None
+    shift_minutes = None
+    if event.event_type == AttendanceEvent.EVENT_OUT:
+        previous_in = find_previous_checkin_event(event, events_by_user)
+        if previous_in:
+            shift_minutes = round(max((event.event_at - previous_in.event_at).total_seconds(), 0) / 60, 1)
+    return {
+        **serialize_attendance_event(event),
+        "row": index + 1,
+        "userRole": event.user.job_title or "",
+        "userDepartment": event.user.department.name if event.user.department else "بدون واحد",
+        "userPhone": event.user.phone or "",
+        "eventDate": local_dt.date().isoformat(),
+        "eventTime": local_dt.strftime("%H:%M"),
+        "createdAt": event.created_at.isoformat(),
+        "hasGps": has_gps,
+        "coordinatesLabel": (
+            f"{round(float(event.latitude), 5)}, {round(float(event.longitude), 5)}"
+            if has_gps
+            else ""
+        ),
+        "withinRadius": within_radius,
+        "within_radius": within_radius,
+        "shiftMinutes": shift_minutes,
+        "shift_minutes": shift_minutes,
+        "shiftHours": round(shift_minutes / 60, 2) if shift_minutes is not None else None,
+        "shift_hours": round(shift_minutes / 60, 2) if shift_minutes is not None else None,
+    }
+
+
+def build_attendance_personnel_stats(events: list[AttendanceEvent], *, include_open: bool = False) -> list[dict]:
+    by_user: dict[int, list[AttendanceEvent]] = defaultdict(list)
+    for event in events:
+        by_user[event.user_id].append(event)
+    stats: list[dict] = []
+    for user_id, user_events in by_user.items():
+        user_events.sort(key=lambda item: (item.event_at, item.id))
+        sample = user_events[-1]
+        user = sample.user
+        worked_seconds = compute_attendance_worked_seconds(user_events, include_open=include_open)
+        stats.append({
+            "userId": user_id,
+            "userName": user.full_name,
+            "userRole": user.job_title or "",
+            "userDepartment": user.department.name if user.department else "بدون واحد",
+            "userPhone": user.phone or "",
+            "totalEvents": len(user_events),
+            "checkins": sum(1 for item in user_events if item.event_type == AttendanceEvent.EVENT_IN),
+            "checkouts": sum(1 for item in user_events if item.event_type == AttendanceEvent.EVENT_OUT),
+            "linkEvents": sum(1 for item in user_events if item.source == AttendanceEvent.SOURCE_LINK),
+            "managerEvents": sum(1 for item in user_events if item.source == AttendanceEvent.SOURCE_MANAGER),
+            "withGps": sum(1 for item in user_events if item.latitude is not None and item.longitude is not None),
+            "workedHours": round(worked_seconds / 3600, 2),
+            "worked_hours": round(worked_seconds / 3600, 2),
+            "lastEventAt": sample.event_at.isoformat(),
+            "lastEventType": sample.event_type,
+            "lastEventSource": sample.source,
+            "currentStatus": sample.event_type,
+        })
+    stats.sort(key=lambda item: (-item["totalEvents"], item["userName"]))
+    return stats
+
+
+def build_attendance_daily_stats(events: list[AttendanceEvent], *, include_open: bool = False) -> list[dict]:
+    by_date: dict[date, list[AttendanceEvent]] = defaultdict(list)
+    for event in events:
+        by_date[timezone.localtime(event.event_at).date()].append(event)
+    stats: list[dict] = []
+    for day, day_events in sorted(by_date.items(), reverse=True):
+        unique_users = {item.user_id for item in day_events}
+        worked_seconds = compute_attendance_worked_seconds(day_events, include_open=include_open)
+        stats.append({
+            "date": day.isoformat(),
+            "totalEvents": len(day_events),
+            "checkins": sum(1 for item in day_events if item.event_type == AttendanceEvent.EVENT_IN),
+            "checkouts": sum(1 for item in day_events if item.event_type == AttendanceEvent.EVENT_OUT),
+            "uniqueUsers": len(unique_users),
+            "unique_users": len(unique_users),
+            "linkEvents": sum(1 for item in day_events if item.source == AttendanceEvent.SOURCE_LINK),
+            "managerEvents": sum(1 for item in day_events if item.source == AttendanceEvent.SOURCE_MANAGER),
+            "workedHours": round(worked_seconds / 3600, 2),
+            "worked_hours": round(worked_seconds / 3600, 2),
+        })
+    return stats
+
+
 def build_attendance_report_payload(user: User, params) -> dict:
     organization = attendance_organization_for_user(user)
-    events = AttendanceEvent.objects.filter(organization=organization).select_related("user", "user__department").order_by("-event_at", "-id")
+    preference, _ = OrganizationPreference.objects.get_or_create(organization=organization)
+    radius_meters = float(preference.attendance_radius_meters or DEFAULT_ATTENDANCE_RADIUS_METERS)
+    events = AttendanceEvent.objects.filter(organization=organization).select_related("user", "user__department")
     start_date = parse_iso_date_param(params.get("start"))
     end_date = parse_iso_date_param(params.get("end"))
     event_type = (params.get("eventType") or params.get("event_type") or "").strip()
+    source = (params.get("source") or "").strip()
     user_id = (params.get("userId") or params.get("user_id") or "").strip()
+    department = (params.get("department") or params.get("departmentName") or params.get("department_name") or "").strip()
     query = (params.get("q") or "").strip()
 
     if start_date:
@@ -1050,40 +1206,113 @@ def build_attendance_report_payload(user: User, params) -> dict:
         events = events.filter(event_at__date__lte=end_date)
     if event_type in {AttendanceEvent.EVENT_IN, AttendanceEvent.EVENT_OUT}:
         events = events.filter(event_type=event_type)
+    if source in {AttendanceEvent.SOURCE_MANAGER, AttendanceEvent.SOURCE_LINK}:
+        events = events.filter(source=source)
     if user_id.isdigit():
         events = events.filter(user_id=int(user_id))
+    if department:
+        events = events.filter(user__department__name__icontains=department)
     if query:
         events = events.filter(
             Q(user__full_name__icontains=query)
             | Q(user__job_title__icontains=query)
             | Q(user__department__name__icontains=query)
+            | Q(user__phone__icontains=query)
             | Q(note__icontains=query)
         )
 
-    rows = list(events[:500])
-    checkins = sum(1 for item in rows if item.event_type == AttendanceEvent.EVENT_IN)
-    checkouts = sum(1 for item in rows if item.event_type == AttendanceEvent.EVENT_OUT)
+    total_matching = events.count()
+    stats_events = list(events.order_by("user_id", "event_at", "id")[:5000])
+    rows = list(events.order_by("-event_at", "-id")[:500])
+    events_by_user: dict[int, list[AttendanceEvent]] = defaultdict(list)
+    for item in stats_events:
+        events_by_user[item.user_id].append(item)
+
+    unique_users = len({item.user_id for item in stats_events})
+    with_gps = sum(1 for item in stats_events if item.latitude is not None and item.longitude is not None)
+    without_gps = len(stats_events) - with_gps
+    within_radius = sum(
+        1 for item in stats_events
+        if item.distance_meters is not None and item.distance_meters <= radius_meters
+    )
+    outside_radius = sum(
+        1 for item in stats_events
+        if item.distance_meters is not None and item.distance_meters > radius_meters
+    )
+    no_location_data = sum(1 for item in stats_events if item.distance_meters is None)
+    total_worked_seconds = compute_attendance_worked_seconds(stats_events, include_open=True)
+    personnel_stats = build_attendance_personnel_stats(stats_events, include_open=True)
+    daily_stats = build_attendance_daily_stats(stats_events, include_open=True)
+
     return {
         "summary": {
-            "total": len(rows),
-            "checkins": checkins,
-            "checkouts": checkouts,
-            "managerEvents": sum(1 for item in rows if item.source == AttendanceEvent.SOURCE_MANAGER),
-            "linkEvents": sum(1 for item in rows if item.source == AttendanceEvent.SOURCE_LINK),
+            "total": total_matching,
+            "displayedRows": len(rows),
+            "displayed_rows": len(rows),
+            "totalMatching": total_matching,
+            "total_matching": total_matching,
+            "statsSampleSize": len(stats_events),
+            "stats_sample_size": len(stats_events),
+            "truncated": total_matching > len(rows),
+            "statsTruncated": total_matching > len(stats_events),
+            "stats_truncated": total_matching > len(stats_events),
+            "checkins": events.filter(event_type=AttendanceEvent.EVENT_IN).count(),
+            "checkouts": events.filter(event_type=AttendanceEvent.EVENT_OUT).count(),
+            "managerEvents": events.filter(source=AttendanceEvent.SOURCE_MANAGER).count(),
+            "manager_events": events.filter(source=AttendanceEvent.SOURCE_MANAGER).count(),
+            "linkEvents": events.filter(source=AttendanceEvent.SOURCE_LINK).count(),
+            "link_events": events.filter(source=AttendanceEvent.SOURCE_LINK).count(),
+            "uniqueUsers": unique_users,
+            "unique_users": unique_users,
+            "withGps": with_gps,
+            "with_gps": with_gps,
+            "withoutGps": without_gps,
+            "without_gps": without_gps,
+            "withinRadius": within_radius,
+            "within_radius": within_radius,
+            "outsideRadius": outside_radius,
+            "outside_radius": outside_radius,
+            "noLocationData": no_location_data,
+            "no_location_data": no_location_data,
+            "totalWorkedHours": round(total_worked_seconds / 3600, 2),
+            "total_worked_hours": round(total_worked_seconds / 3600, 2),
+            "avgWorkedHoursPerUser": round((total_worked_seconds / 3600) / unique_users, 2) if unique_users else 0,
+            "avg_worked_hours_per_user": round((total_worked_seconds / 3600) / unique_users, 2) if unique_users else 0,
+            "openShifts": count_attendance_open_shifts(stats_events),
+            "open_shifts": count_attendance_open_shifts(stats_events),
+            "allowedRadiusMeters": int(radius_meters),
+            "allowed_radius_meters": int(radius_meters),
+            "filterStart": start_date.isoformat() if start_date else "",
+            "filter_start": start_date.isoformat() if start_date else "",
+            "filterEnd": end_date.isoformat() if end_date else "",
+            "filter_end": end_date.isoformat() if end_date else "",
         },
         "rows": [
-            {
-                **serialize_attendance_event(item),
-                "row": index + 1,
-                "userRole": item.user.job_title,
-                "userDepartment": item.user.department.name if item.user.department else "بدون واحد",
-            }
+            serialize_attendance_report_row(
+                item,
+                index,
+                radius_meters=radius_meters,
+                events_by_user=events_by_user,
+            )
             for index, item in enumerate(rows)
         ],
+        "personnelStats": personnel_stats,
+        "personnel_stats": personnel_stats,
+        "dailyStats": daily_stats,
+        "daily_stats": daily_stats,
         "users": [
-            {"id": item.id, "name": item.full_name}
+            {
+                "id": item.id,
+                "name": item.full_name,
+                "department": item.department.name if item.department else "بدون واحد",
+                "phone": item.phone or "",
+            }
             for item in attendance_user_queryset(organization)
         ],
+        "departments": sorted({
+            item.user.department.name if item.user.department else "بدون واحد"
+            for item in stats_events
+        }),
     }
 
 
@@ -1877,6 +2106,28 @@ def hq_panel_view(request: HttpRequest):
             },
         })
     return json_response(build_hq_payload())
+
+
+@require_auth
+@methods("GET")
+def hq_services_view(request: HttpRequest):
+    denied = ensure_hq_staff(request.current_user)
+    if denied:
+        return denied
+    if not user_is_hq_admin(request.current_user):
+        return json_error("فقط مدیر HQ به سرویس‌ها و اشتراک‌ها دسترسی دارد.", status=403)
+    return json_response(build_hq_services_payload(request.GET))
+
+
+@require_auth
+@methods("GET")
+def hq_reports_view(request: HttpRequest):
+    denied = ensure_hq_staff(request.current_user)
+    if denied:
+        return denied
+    if not user_is_hq_admin(request.current_user):
+        return json_error("فقط مدیر HQ به گزارشات مرکزی دسترسی دارد.", status=403)
+    return json_response(build_hq_reports_payload(request.GET))
 
 
 @require_auth

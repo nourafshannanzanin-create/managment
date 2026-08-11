@@ -7095,12 +7095,18 @@ body:has(.app-shell.is-landing-route),
 }
 
 #app .attendance-public .attendance-punch-btn {
-  min-height: 132px !important;
+  min-height: 96px !important;
   border-radius: 16px !important;
   border: 1px solid transparent !important;
   box-shadow: none !important;
   color: #ffffff !important;
   font-weight: 700 !important;
+}
+
+@media (max-width: 760px) {
+  #app .attendance-public .attendance-punch-btn {
+    min-height: 88px !important;
+  }
 }
 
 #app .attendance-public .attendance-punch-btn.is-in {
@@ -7135,4 +7141,36 @@ body:has(.app-shell.is-landing-route),
 
 #app .attendance-public .public-timeline article {
   background: #f3f9f7 !important;
+}
+
+/* Public attendance mobile scroll + safe area */
+html:has(.app-shell.is-public-attendance),
+body:has(.app-shell.is-public-attendance),
+#app:has(.app-shell.is-public-attendance) {
+  height: auto !important;
+  min-height: 100dvh !important;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: auto;
+}
+
+#app .app-shell.is-public-attendance {
+  min-height: 100dvh !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+#app .app-shell.is-public-attendance .public-canvas-main,
+#app .app-shell.is-public-attendance .public-canvas-content {
+  min-height: 100dvh !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+#app .app-shell.is-public-attendance .attendance-public {
+  overflow: visible !important;
 }

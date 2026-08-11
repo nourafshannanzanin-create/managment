@@ -55,6 +55,7 @@ const {
 } = hub
 
 const isAuthRoute = computed(() => Boolean(route.meta.publicCanvas) || route.path === '/login')
+const isPublicAttendanceRoute = computed(() => route.name === 'public-attendance')
 const isLandingRoute = computed(() => Boolean(route.meta.landing) || route.name === 'landing')
 const licenseSafeRoutes = new Set(['/dashboard', '/wallet', '/support', '/login', '/'])
 
@@ -266,6 +267,7 @@ onUnmounted(() => {
     class="app-shell"
     :class="{
       'is-auth-route': isAuthRoute,
+      'is-public-attendance': isPublicAttendanceRoute,
       'is-landing-route': isLandingRoute,
       'has-trial-banner': showTrialBanner,
       'has-mobile-menu-open': !isAuthRoute && state.mobileMenuOpen,

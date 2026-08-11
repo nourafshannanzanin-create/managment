@@ -22,7 +22,7 @@ export async function getLeafletLibrary() {
   return leafletLibraryPromise
 }
 
-export function createBaseMap(L, container, center) {
+export function createBaseMap(L, container, center, options = {}) {
   const map = L.map(container, {
     zoomControl: false,
     attributionControl: false,
@@ -32,11 +32,23 @@ export function createBaseMap(L, container, center) {
     fadeAnimation: false,
     zoomAnimation: true,
     markerZoomAnimation: true,
+    ...options,
   }).setView(
     [center.latitude, center.longitude],
     clamp(center.zoom || 12, MAP_MIN_ZOOM, MAP_MAX_ZOOM),
   )
   return map
+}
+
+export function configureMapViewerMode(map) {
+  if (!map) return
+  map.dragging.disable()
+  map.touchZoom.disable()
+  map.doubleClickZoom.disable()
+  map.scrollWheelZoom.disable()
+  map.boxZoom.disable()
+  map.keyboard.disable()
+  if (map.tap) map.tap.disable()
 }
 
 export function attachReliableTileLayer(L, map) {

@@ -12,6 +12,7 @@ import {
 import { readDeviceLocation } from '../lib/geolocation'
 import {
   attachReliableTileLayer,
+  configureMapViewerMode,
   createBaseMap,
   createDivMarkerIcon,
   createMapSizeKeeper,
@@ -268,7 +269,11 @@ async function initializeMap() {
   try {
     LeafletLib = await getLeafletLibrary()
     map = createBaseMap(LeafletLib, mapContainer.value, center)
-    LeafletLib.control.zoom({ position: 'bottomright' }).addTo(map)
+    if (!editable.value) {
+      configureMapViewerMode(map)
+    } else {
+      LeafletLib.control.zoom({ position: 'bottomright' }).addTo(map)
+    }
     tileController = attachReliableTileLayer(LeafletLib, map)
     sizeKeeper = createMapSizeKeeper(map, mapContainer.value)
     sizeKeeper.start()
@@ -423,7 +428,7 @@ defineExpose({
       </button>
     </div>
 
-    <div class="location-map-stage" :style="{ minHeight: height }">
+    <div :class="['location-map-stage', !editable && 'is-viewer-mode']" :style="{ minHeight: height }">
       <div ref="mapContainer" class="location-map-canvas"></div>
       <div class="location-map-hint">
         <strong v-if="editable">روی نقشه کلیک کنید یا پین را بکشید</strong>
@@ -472,6 +477,14 @@ defineExpose({
     radial-gradient(circle at 18% 20%, rgba(52, 144, 139, 0.16), transparent 42%),
     linear-gradient(180deg, #eef7f5 0%, #f7fbfa 100%);
   min-width: 0;
+}
+
+.location-map-stage.is-viewer-mode {
+  touch-action: pan-y;
+}
+
+.location-map-stage.is-viewer-mode :deep(.leaflet-container) {
+  touch-action: pan-y;
 }
 
 .location-map-canvas {

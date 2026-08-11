@@ -11,6 +11,8 @@ urlpatterns = [
     path("me/avatar", views.me_avatar_view),
     path("bootstrap", views.bootstrap_view),
     path("hq", views.hq_panel_view),
+    path("hq/services", views.hq_services_view),
+    path("hq/reports", views.hq_reports_view),
     path("hq/organizations", views.hq_organization_create_view),
     path("hq/organizations/<int:organization_id>", views.hq_organization_update_view),
     path("hq/users/<int:user_id>", views.hq_user_update_view),

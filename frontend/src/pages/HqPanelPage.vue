@@ -1,5 +1,7 @@
 <script setup>
 import IconlyIcon from '../components/base/IconlyIcon.vue'
+import HqReportsPanel from '../components/hq/HqReportsPanel.vue'
+import HqServicesPanel from '../components/hq/HqServicesPanel.vue'
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 
 import { formatAmountInput } from '../utils/amount'
@@ -98,6 +100,8 @@ const visibleTabs = computed(() => {
   if (isHqAdmin.value) {
     return [
       { key: 'tickets', label: 'تیکت‌ها', icon: 'support_agent' },
+      { key: 'services', label: 'سرویس‌ها', icon: 'payments' },
+      { key: 'reports', label: 'گزارشات HQ', icon: 'table_chart' },
       { key: 'team', label: 'تیم', icon: 'groups' },
       { key: 'overview', label: 'مجموعه‌ها', icon: 'domain' },
     ]
@@ -507,7 +511,7 @@ function toFa(value) {
 
 watch(isHqAdmin, (admin) => {
   ticketScope.value = admin ? 'all' : 'active'
-  if (!admin && (activeTab.value === 'team' || activeTab.value === 'overview')) {
+  if (!admin && ['team', 'overview', 'services', 'reports'].includes(activeTab.value)) {
     activeTab.value = 'tickets'
   }
 }, { immediate: true })
@@ -962,6 +966,10 @@ onUnmounted(() => {
           </div>
         </article>
       </section>
+
+      <HqServicesPanel v-else-if="activeTab === 'services' && isHqAdmin" />
+
+      <HqReportsPanel v-else-if="activeTab === 'reports' && isHqAdmin" />
 
       <!-- OVERVIEW / ORGANIZATIONS -->
       <template v-else-if="activeTab === 'overview' && isHqAdmin">

@@ -1801,3 +1801,556 @@ def serialize_user(user: User) -> dict:
         },
     }
 
+
+def feature_key_label(feature_key: str) -> str:
+    config = next((item for item in PURCHASABLE_FEATURES if item["feature_key"] == feature_key), None)
+    return config["title"] if config else feature_key
+
+
+def parse_report_date_param(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def hq_feature_catalog_payload() -> list[dict]:
+    return [
+        {
+            "featureKey": config["feature_key"],
+            "feature_key": config["feature_key"],
+            "title": config["title"],
+            "subtitle": config.get("subtitle", ""),
+            "disabled": bool(config.get("disabled")),
+            "basePrice": format_money(config.get("base_price", 0)),
+            "basePriceRaw": float(normalize_money(config.get("base_price", 0))),
+        }
+        for config in PURCHASABLE_FEATURES
+    ]
+
+
+def derive_hq_subscription_status(purchase: FeaturePurchase, organization: Organization) -> str:
+    today = timezone.localdate()
+    if not purchase.is_active:
+        return "inactive"
+    license_status = license_status_payload(organization)
+    if license_status.get("isLocked") or license_status.get("is_locked"):
+        return "locked"
+    if purchase.remaining_amount > 0 and purchase.next_installment_due_at and purchase.next_installment_due_at < today:
+        return "overdue"
+    if purchase.renewal_due_at and purchase.renewal_due_at <= today + timedelta(days=30):
+        return "near_expiry"
+    if purchase.remaining_amount > 0:
+        return "pending_payment"
+    return "active"
+
+
+def serialize_hq_service_row(purchase: FeaturePurchase) -> dict:
+    organization = purchase.organization
+    status = derive_hq_subscription_status(purchase, organization)
+    return {
+        "id": purchase.id,
+        "organizationId": organization.id,
+        "organization_id": organization.id,
+        "organizationName": organization.name,
+        "organization_name": organization.name,
+        "organizationCode": organization.code,
+        "organization_code": organization.code,
+        "featureKey": purchase.feature_key,
+        "feature_key": purchase.feature_key,
+        "featureTitle": purchase.title or feature_key_label(purchase.feature_key),
+        "feature_title": purchase.title or feature_key_label(purchase.feature_key),
+        "status": status,
+        "paymentPlan": purchase.payment_plan,
+        "payment_plan": purchase.payment_plan,
+        "totalAmount": format_money(purchase.total_amount),
+        "total_amount": format_money(purchase.total_amount),
+        "totalAmountRaw": float(purchase.total_amount),
+        "total_amount_raw": float(purchase.total_amount),
+        "paidAmount": format_money(purchase.paid_amount),
+        "paid_amount": format_money(purchase.paid_amount),
+        "paidAmountRaw": float(purchase.paid_amount),
+        "paid_amount_raw": float(purchase.paid_amount),
+        "remainingAmount": format_money(purchase.remaining_amount),
+        "remaining_amount": format_money(purchase.remaining_amount),
+        "remainingAmountRaw": float(purchase.remaining_amount),
+        "remaining_amount_raw": float(purchase.remaining_amount),
+        "annualSubscriptionAmount": format_money(purchase.annual_subscription_amount),
+        "annual_subscription_amount": format_money(purchase.annual_subscription_amount),
+        "annualSubscriptionAmountRaw": float(purchase.annual_subscription_amount),
+        "isActive": purchase.is_active,
+        "is_active": purchase.is_active,
+        "nextInstallmentDueAt": format_date(purchase.next_installment_due_at),
+        "next_installment_due_at": format_date(purchase.next_installment_due_at),
+        "renewalDueAt": format_date(purchase.renewal_due_at),
+        "renewal_due_at": format_date(purchase.renewal_due_at),
+        "purchasedAt": format_date(purchase.created_at.date()),
+        "purchased_at": format_date(purchase.created_at.date()),
+        "updatedAt": purchase.updated_at.isoformat(),
+        "updated_at": purchase.updated_at.isoformat(),
+    }
+
+
+def build_hq_services_payload(params) -> dict:
+    organizations = list(customer_organizations().order_by("name"))
+    organization_ids = [item.id for item in organizations]
+    purchases_qs = (
+        FeaturePurchase.objects.filter(organization_id__in=organization_ids)
+        .select_related("organization")
+        .order_by("-updated_at", "-id")
+    )
+
+    feature_key = (params.get("featureKey") or params.get("feature_key") or "").strip()
+    organization_id = (params.get("organizationId") or params.get("organization_id") or "").strip()
+    status_filter = (params.get("status") or "").strip()
+    payment_plan = (params.get("paymentPlan") or params.get("payment_plan") or "").strip()
+    search = (params.get("q") or "").strip()
+    has_debt = (params.get("hasDebt") or params.get("has_debt") or "").strip().lower()
+    near_expiry = (params.get("nearExpiry") or params.get("near_expiry") or "").strip().lower()
+    is_active = (params.get("isActive") or params.get("is_active") or "").strip().lower()
+
+    if feature_key:
+        purchases_qs = purchases_qs.filter(feature_key=feature_key)
+    if organization_id.isdigit():
+        purchases_qs = purchases_qs.filter(organization_id=int(organization_id))
+    if payment_plan:
+        purchases_qs = purchases_qs.filter(payment_plan=payment_plan)
+    if is_active in {"1", "true", "yes"}:
+        purchases_qs = purchases_qs.filter(is_active=True)
+    elif is_active in {"0", "false", "no"}:
+        purchases_qs = purchases_qs.filter(is_active=False)
+    if search:
+        purchases_qs = purchases_qs.filter(
+            Q(organization__name__icontains=search)
+            | Q(organization__code__icontains=search)
+            | Q(title__icontains=search)
+            | Q(feature_key__icontains=search)
+        )
+
+    all_purchases = list(purchases_qs)
+    serialized_rows = [serialize_hq_service_row(item) for item in all_purchases]
+    if status_filter:
+        serialized_rows = [item for item in serialized_rows if item["status"] == status_filter]
+    if has_debt in {"1", "true", "yes"}:
+        serialized_rows = [item for item in serialized_rows if item["remainingAmountRaw"] > 0]
+    if near_expiry in {"1", "true", "yes"}:
+        serialized_rows = [item for item in serialized_rows if item["status"] == "near_expiry"]
+
+    page = max(int(params.get("page") or 1), 1)
+    page_size = min(max(int(params.get("pageSize") or params.get("page_size") or 25), 1), 100)
+    total_rows = len(serialized_rows)
+    start = (page - 1) * page_size
+    page_rows = serialized_rows[start:start + page_size]
+
+    active_clients = {item.organization_id for item in all_purchases if item.is_active}
+    wallet_balance_total = sum(
+        (wallet.balance for wallet in Wallet.objects.filter(organization_id__in=organization_ids)),
+        Decimal("0"),
+    )
+    sales_total = sum((item.total_amount for item in all_purchases), Decimal("0"))
+    paid_total = sum((item.paid_amount for item in all_purchases), Decimal("0"))
+    receivables = sum((item.remaining_amount for item in all_purchases), Decimal("0"))
+    today = timezone.localdate()
+
+    by_product: dict[str, dict] = defaultdict(lambda: {
+        "featureKey": "",
+        "featureTitle": "",
+        "subscriptionsCount": 0,
+        "activeCount": 0,
+        "sales": Decimal("0"),
+        "paid": Decimal("0"),
+        "remaining": Decimal("0"),
+    })
+    for item in all_purchases:
+        bucket = by_product[item.feature_key]
+        bucket["featureKey"] = item.feature_key
+        bucket["featureTitle"] = item.title or feature_key_label(item.feature_key)
+        bucket["subscriptionsCount"] += 1
+        bucket["activeCount"] += int(item.is_active)
+        bucket["sales"] += item.total_amount
+        bucket["paid"] += item.paid_amount
+        bucket["remaining"] += item.remaining_amount
+
+    revenue_by_product = [
+        {
+            "featureKey": key,
+            "featureTitle": value["featureTitle"],
+            "subscriptionsCount": value["subscriptionsCount"],
+            "activeCount": value["activeCount"],
+            "sales": format_money(value["sales"]),
+            "salesRaw": float(value["sales"]),
+            "paid": format_money(value["paid"]),
+            "paidRaw": float(value["paid"]),
+            "remaining": format_money(value["remaining"]),
+            "remainingRaw": float(value["remaining"]),
+        }
+        for key, value in sorted(by_product.items(), key=lambda entry: (-float(entry[1]["sales"]), entry[0]))
+    ]
+
+    by_organization: dict[int, dict] = defaultdict(lambda: {
+        "organizationId": 0,
+        "organizationName": "",
+        "organizationCode": "",
+        "subscriptionsCount": 0,
+        "activeCount": 0,
+        "sales": Decimal("0"),
+        "paid": Decimal("0"),
+        "remaining": Decimal("0"),
+    })
+    for item in all_purchases:
+        bucket = by_organization[item.organization_id]
+        bucket["organizationId"] = item.organization_id
+        bucket["organizationName"] = item.organization.name
+        bucket["organizationCode"] = item.organization.code
+        bucket["subscriptionsCount"] += 1
+        bucket["activeCount"] += int(item.is_active)
+        bucket["sales"] += item.total_amount
+        bucket["paid"] += item.paid_amount
+        bucket["remaining"] += item.remaining_amount
+
+    revenue_by_organization = [
+        {
+            **{k: v for k, v in value.items() if k not in {"sales", "paid", "remaining"}},
+            "sales": format_money(value["sales"]),
+            "salesRaw": float(value["sales"]),
+            "paid": format_money(value["paid"]),
+            "paidRaw": float(value["paid"]),
+            "remaining": format_money(value["remaining"]),
+            "remainingRaw": float(value["remaining"]),
+        }
+        for value in sorted(by_organization.values(), key=lambda entry: (-float(entry["sales"]), entry["organizationName"]))
+    ]
+
+    alerts: list[dict] = []
+    for item in all_purchases:
+        status = derive_hq_subscription_status(item, item.organization)
+        if status == "overdue":
+            alerts.append({
+                "severity": "critical",
+                "type": "overdue_installment",
+                "message": f"{item.organization.name} · {item.title} · قسط معوق",
+                "organizationId": item.organization_id,
+                "featureKey": item.feature_key,
+                "purchaseId": item.id,
+            })
+        elif status == "near_expiry":
+            alerts.append({
+                "severity": "warning",
+                "type": "near_expiry",
+                "message": f"{item.organization.name} · {item.title} · نزدیک به تمدید",
+                "organizationId": item.organization_id,
+                "featureKey": item.feature_key,
+                "purchaseId": item.id,
+            })
+        elif status == "locked":
+            alerts.append({
+                "severity": "warning",
+                "type": "license_locked",
+                "message": f"{item.organization.name} · {item.title} · لایسنس قفل",
+                "organizationId": item.organization_id,
+                "featureKey": item.feature_key,
+                "purchaseId": item.id,
+            })
+
+    unpurchased_slots = 0
+    config_keys = [item["feature_key"] for item in PURCHASABLE_FEATURES if not item.get("disabled")]
+    purchase_map = {(item.organization_id, item.feature_key) for item in all_purchases}
+    for organization in organizations:
+        for key in config_keys:
+            if (organization.id, key) not in purchase_map:
+                unpurchased_slots += 1
+
+    return {
+        "summary": {
+            "organizationsCount": len(organizations),
+            "organizations_count": len(organizations),
+            "activeClientsCount": len(active_clients),
+            "active_clients_count": len(active_clients),
+            "subscriptionsCount": len(all_purchases),
+            "subscriptions_count": len(all_purchases),
+            "activeSubscriptions": sum(1 for item in all_purchases if item.is_active),
+            "active_subscriptions": sum(1 for item in all_purchases if item.is_active),
+            "inactiveSubscriptions": sum(1 for item in all_purchases if not item.is_active),
+            "inactive_subscriptions": sum(1 for item in all_purchases if not item.is_active),
+            "nearExpiryCount": sum(1 for item in serialized_rows if item["status"] == "near_expiry"),
+            "near_expiry_count": sum(1 for item in serialized_rows if item["status"] == "near_expiry"),
+            "overdueCount": sum(1 for item in serialized_rows if item["status"] == "overdue"),
+            "overdue_count": sum(1 for item in serialized_rows if item["status"] == "overdue"),
+            "pendingPaymentCount": sum(1 for item in all_purchases if item.remaining_amount > 0),
+            "pending_payment_count": sum(1 for item in all_purchases if item.remaining_amount > 0),
+            "lockedCount": sum(1 for item in serialized_rows if item["status"] == "locked"),
+            "locked_count": sum(1 for item in serialized_rows if item["status"] == "locked"),
+            "salesTotal": format_money(sales_total),
+            "sales_total": format_money(sales_total),
+            "salesTotalRaw": float(sales_total),
+            "paidTotal": format_money(paid_total),
+            "paid_total": format_money(paid_total),
+            "paidTotalRaw": float(paid_total),
+            "receivables": format_money(receivables),
+            "receivablesRaw": float(receivables),
+            "walletBalanceTotal": format_money(wallet_balance_total),
+            "wallet_balance_total": format_money(wallet_balance_total),
+            "walletBalanceTotalRaw": float(wallet_balance_total),
+            "unpurchasedSlots": unpurchased_slots,
+            "unpurchased_slots": unpurchased_slots,
+            "alertsCount": len(alerts),
+            "alerts_count": len(alerts),
+        },
+        "catalog": {
+            "products": hq_feature_catalog_payload(),
+        },
+        "rows": page_rows,
+        "pagination": {
+            "total": total_rows,
+            "page": page,
+            "pageSize": page_size,
+            "pages": max(1, (total_rows + page_size - 1) // page_size),
+        },
+        "revenueByProduct": revenue_by_product,
+        "revenue_by_product": revenue_by_product,
+        "revenueByOrganization": revenue_by_organization[:100],
+        "revenue_by_organization": revenue_by_organization[:100],
+        "alerts": alerts[:120],
+        "organizations": [{"id": item.id, "name": item.name, "code": item.code} for item in organizations],
+    }
+
+
+def build_hq_reports_payload(params) -> dict:
+    organizations = list(customer_organizations().order_by("name"))
+    organization_ids = [item.id for item in organizations]
+    start_date = parse_report_date_param(params.get("start"))
+    end_date = parse_report_date_param(params.get("end"))
+    search = (params.get("q") or "").strip()
+    organization_id = (params.get("organizationId") or params.get("organization_id") or "").strip()
+
+    purchases_qs = FeaturePurchase.objects.filter(organization_id__in=organization_ids).select_related("organization")
+    transactions_qs = WalletTransaction.objects.filter(organization_id__in=organization_ids).select_related("organization", "wallet", "actor")
+    if start_date:
+        purchases_qs = purchases_qs.filter(created_at__date__gte=start_date)
+        transactions_qs = transactions_qs.filter(transacted_at__date__gte=start_date)
+    if end_date:
+        purchases_qs = purchases_qs.filter(created_at__date__lte=end_date)
+        transactions_qs = transactions_qs.filter(transacted_at__date__lte=end_date)
+    if organization_id.isdigit():
+        purchases_qs = purchases_qs.filter(organization_id=int(organization_id))
+        transactions_qs = transactions_qs.filter(organization_id=int(organization_id))
+
+    purchases = list(purchases_qs.order_by("-updated_at", "-id"))
+    transactions = list(transactions_qs.order_by("-transacted_at", "-id")[:500])
+
+    sales_total = sum((item.total_amount for item in purchases), Decimal("0"))
+    paid_total = sum((item.paid_amount for item in purchases), Decimal("0"))
+    receivables = sum((item.remaining_amount for item in purchases), Decimal("0"))
+    deposits_total = sum((item.amount for item in transactions if item.direction == "in"), Decimal("0"))
+    withdrawals_total = sum((item.amount for item in transactions if item.direction == "out"), Decimal("0"))
+    feature_purchases_total = sum(
+        (item.amount for item in transactions if item.transaction_type == "feature_purchase" and item.direction == "out"),
+        Decimal("0"),
+    )
+    wallet_balance_total = sum(
+        (wallet.balance for wallet in Wallet.objects.filter(organization_id__in=organization_ids)),
+        Decimal("0"),
+    )
+    collection_rate = round(float(paid_total / sales_total * 100), 1) if sales_total else 0.0
+
+    feature_summary_map: dict[str, dict] = defaultdict(lambda: {
+        "featureKey": "",
+        "featureTitle": "",
+        "activeCount": 0,
+        "sales": Decimal("0"),
+        "paid": Decimal("0"),
+        "remaining": Decimal("0"),
+        "purchaseCount": 0,
+    })
+    for item in purchases:
+        bucket = feature_summary_map[item.feature_key]
+        bucket["featureKey"] = item.feature_key
+        bucket["featureTitle"] = item.title or feature_key_label(item.feature_key)
+        bucket["activeCount"] += int(item.is_active)
+        bucket["sales"] += item.total_amount
+        bucket["paid"] += item.paid_amount
+        bucket["remaining"] += item.remaining_amount
+        bucket["purchaseCount"] += 1
+
+    feature_summary = [
+        {
+            "featureKey": value["featureKey"],
+            "featureTitle": value["featureTitle"],
+            "activeCount": value["activeCount"],
+            "purchaseCount": value["purchaseCount"],
+            "sales": format_money(value["sales"]),
+            "salesRaw": float(value["sales"]),
+            "paid": format_money(value["paid"]),
+            "paidRaw": float(value["paid"]),
+            "remaining": format_money(value["remaining"]),
+            "remainingRaw": float(value["remaining"]),
+        }
+        for value in sorted(feature_summary_map.values(), key=lambda entry: (-float(entry["sales"]), entry["featureTitle"]))
+    ]
+
+    org_rows = []
+    for organization in organizations:
+        if organization_id.isdigit() and organization.id != int(organization_id):
+            continue
+        if search and search.lower() not in organization.name.lower() and search.lower() not in organization.code.lower():
+            continue
+        org_purchases = [item for item in purchases if item.organization_id == organization.id]
+        org_transactions = [item for item in transactions if item.organization_id == organization.id]
+        org_sales = sum((item.total_amount for item in org_purchases), Decimal("0"))
+        org_paid = sum((item.paid_amount for item in org_purchases), Decimal("0"))
+        org_remaining = sum((item.remaining_amount for item in org_purchases), Decimal("0"))
+        org_deposits = sum((item.amount for item in org_transactions if item.direction == "in"), Decimal("0"))
+        org_withdrawals = sum((item.amount for item in org_transactions if item.direction == "out"), Decimal("0"))
+        org_wallet_balance = sum((wallet.balance for wallet in organization.wallets.all()), Decimal("0"))
+        active_features = [item.feature_key for item in org_purchases if item.is_active]
+        health = "healthy"
+        if any(derive_hq_subscription_status(item, organization) == "overdue" for item in org_purchases):
+            health = "critical"
+        elif any(derive_hq_subscription_status(item, organization) in {"near_expiry", "locked", "pending_payment"} for item in org_purchases):
+            health = "watch"
+        org_rows.append({
+            "organizationId": organization.id,
+            "organizationName": organization.name,
+            "organizationCode": organization.code,
+            "salesTotal": format_money(org_sales),
+            "salesTotalRaw": float(org_sales),
+            "paidTotal": format_money(org_paid),
+            "paidTotalRaw": float(org_paid),
+            "receivables": format_money(org_remaining),
+            "receivablesRaw": float(org_remaining),
+            "walletBalance": format_money(org_wallet_balance),
+            "walletBalanceRaw": float(org_wallet_balance),
+            "depositsTotal": format_money(org_deposits),
+            "depositsTotalRaw": float(org_deposits),
+            "withdrawalsTotal": format_money(org_withdrawals),
+            "withdrawalsTotalRaw": float(org_withdrawals),
+            "netFlow": format_money(org_deposits - org_withdrawals),
+            "netFlowRaw": float(org_deposits - org_withdrawals),
+            "activeFeaturesCount": len(active_features),
+            "activeFeatures": active_features,
+            "subscriptionsCount": len(org_purchases),
+            "health": health,
+            "createdAt": format_date(organization.created_at.date()),
+        })
+
+    org_rows.sort(key=lambda item: (-item["salesTotalRaw"], item["organizationName"]))
+
+    daily_map: dict[date, dict] = defaultdict(lambda: {
+        "date": "",
+        "deposits": Decimal("0"),
+        "withdrawals": Decimal("0"),
+        "featurePurchases": Decimal("0"),
+        "sales": Decimal("0"),
+        "paid": Decimal("0"),
+    })
+    for item in transactions:
+        day = timezone.localtime(item.transacted_at).date()
+        bucket = daily_map[day]
+        bucket["date"] = day.isoformat()
+        if item.direction == "in":
+            bucket["deposits"] += item.amount
+        else:
+            bucket["withdrawals"] += item.amount
+            if item.transaction_type == "feature_purchase":
+                bucket["featurePurchases"] += item.amount
+    for item in purchases:
+        day = timezone.localtime(item.created_at).date()
+        bucket = daily_map[day]
+        bucket["date"] = day.isoformat()
+        bucket["sales"] += item.total_amount
+        bucket["paid"] += item.paid_amount
+
+    daily_trends = [
+        {
+            "date": value["date"],
+            "deposits": format_money(value["deposits"]),
+            "depositsRaw": float(value["deposits"]),
+            "withdrawals": format_money(value["withdrawals"]),
+            "withdrawalsRaw": float(value["withdrawals"]),
+            "featurePurchases": format_money(value["featurePurchases"]),
+            "featurePurchasesRaw": float(value["featurePurchases"]),
+            "sales": format_money(value["sales"]),
+            "salesRaw": float(value["sales"]),
+            "paid": format_money(value["paid"]),
+            "paidRaw": float(value["paid"]),
+            "netFlowRaw": float(value["deposits"] - value["withdrawals"]),
+        }
+        for value in sorted(daily_map.values(), key=lambda entry: entry["date"], reverse=True)
+    ][:60]
+
+    transaction_rows = [
+        {
+            "id": item.id,
+            "organizationId": item.organization_id,
+            "organizationName": item.organization.name,
+            "walletKey": item.wallet.key,
+            "direction": item.direction,
+            "transactionType": item.transaction_type,
+            "amount": format_money(item.amount),
+            "amountRaw": float(item.amount),
+            "balanceAfter": format_money(item.balance_after),
+            "note": item.note or "",
+            "referenceId": item.reference_id or "",
+            "actorName": normalize_person_name(item.actor.full_name) if item.actor else "سیستم",
+            "transactedAt": item.transacted_at.isoformat(),
+        }
+        for item in transactions[:250]
+    ]
+
+    top_revenue = org_rows[0] if org_rows else None
+    top_receivables = max(org_rows, key=lambda item: item["receivablesRaw"], default=None)
+    renewals_due = [
+        serialize_hq_service_row(item)
+        for item in FeaturePurchase.objects.filter(organization_id__in=organization_ids, renewal_due_at__isnull=False)
+        .select_related("organization")
+        .order_by("renewal_due_at")[:20]
+    ]
+
+    return {
+        "summary": {
+            "organizationsCount": len(organizations),
+            "activeOrganizations": len({item.organization_id for item in purchases if item.is_active}),
+            "subscriptionsCount": len(purchases),
+            "salesTotal": format_money(sales_total),
+            "salesTotalRaw": float(sales_total),
+            "paidTotal": format_money(paid_total),
+            "paidTotalRaw": float(paid_total),
+            "receivables": format_money(receivables),
+            "receivablesRaw": float(receivables),
+            "walletBalanceTotal": format_money(wallet_balance_total),
+            "walletBalanceTotalRaw": float(wallet_balance_total),
+            "depositsTotal": format_money(deposits_total),
+            "depositsTotalRaw": float(deposits_total),
+            "withdrawalsTotal": format_money(withdrawals_total),
+            "withdrawalsTotalRaw": float(withdrawals_total),
+            "featurePurchasesTotal": format_money(feature_purchases_total),
+            "featurePurchasesTotalRaw": float(feature_purchases_total),
+            "netWalletFlow": format_money(deposits_total - withdrawals_total),
+            "netWalletFlowRaw": float(deposits_total - withdrawals_total),
+            "collectionRate": collection_rate,
+            "transactionsCount": len(transactions),
+        },
+        "filter": {
+            "start": start_date.isoformat() if start_date else "",
+            "end": end_date.isoformat() if end_date else "",
+            "organizationId": organization_id,
+            "q": search,
+        },
+        "featureSummary": feature_summary,
+        "feature_summary": feature_summary,
+        "organizationRows": org_rows,
+        "organization_rows": org_rows,
+        "transactionRows": transaction_rows,
+        "transaction_rows": transaction_rows,
+        "dailyTrends": daily_trends,
+        "daily_trends": daily_trends,
+        "highlights": {
+            "topRevenue": top_revenue,
+            "topReceivables": top_receivables,
+            "renewalsDue": renewals_due,
+        },
+        "organizations": [{"id": item.id, "name": item.name, "code": item.code} for item in organizations],
+    }
+
