@@ -436,11 +436,11 @@ onBeforeUnmount(() => {
 .chat-sidebar,
 .chat-thread {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-height: 0;
 }
 
 .chat-sidebar {
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   border-left: 1px solid rgba(52, 144, 139, 0.12);
   background: rgba(255, 255, 255, 0.72);
 }
@@ -475,6 +475,8 @@ onBeforeUnmount(() => {
 }
 
 .chat-list {
+  grid-row: 4;
+  min-height: 0;
   overflow: auto;
   padding: 0 10px 16px;
   display: grid;
@@ -560,6 +562,7 @@ onBeforeUnmount(() => {
 }
 
 .chat-thread {
+  grid-template-rows: auto minmax(0, 1fr) auto;
   background: transparent;
 }
 
@@ -582,6 +585,7 @@ onBeforeUnmount(() => {
 }
 
 .chat-messages {
+  min-height: 0;
   overflow: auto;
   padding: 18px;
   display: flex;
