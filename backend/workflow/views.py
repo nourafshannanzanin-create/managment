@@ -5086,6 +5086,17 @@ def serialize_direct_conversation(
     if last_read_at is not None:
         unread_qs = unread_qs.filter(created_at__gt=last_read_at)
     unread_count = unread_qs.count()
+    last_preview = "گفتگو را شروع کنید"
+    if last_message is not None:
+        last_preview = (
+            (last_message.body or "").strip()
+            or (
+                "پیوست"
+                if include_attachment and getattr(last_message, "attachment_stored_name", "")
+                else ""
+            )
+            or "گفتگو را شروع کنید"
+        )
     return {
         "id": conversation.id,
         "updatedAt": conversation.updated_at.isoformat() if conversation.updated_at else "",
@@ -5101,11 +5112,7 @@ def serialize_direct_conversation(
             else None
         ),
         "unreadCount": unread_count,
-        "lastPreview": (
-            (last_message.body or "").strip()
-            or ("پیوست" if last_message and include_attachment and getattr(last_message, "attachment_stored_name", "") else "")
-            or "گفتگو را شروع کنید"
-        ),
+        "lastPreview": last_preview,
     }
 
 
