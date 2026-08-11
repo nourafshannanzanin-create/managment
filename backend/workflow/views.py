@@ -4991,6 +4991,28 @@ def direct_conversation_pair_key(user_a_id: int, user_b_id: int) -> str:
     return f"{lo}:{hi}"
 
 
+def direct_chat_schema_state() -> tuple[bool, bool]:
+    required_tables = {"direct_conversations", "direct_conversation_members", "direct_messages"}
+    attachment_columns = {
+        "attachment_original_name",
+        "attachment_stored_name",
+        "attachment_mime_type",
+        "attachment_size_bytes",
+    }
+    try:
+        tables = set(connection.introspection.table_names())
+        if not required_tables.issubset(tables):
+            return False, False
+        with connection.cursor() as cursor:
+            message_columns = {
+                item.name
+                for item in connection.introspection.get_table_description(cursor, "direct_messages")
+            }
+    except (OperationalError, ProgrammingError):
+        return False, False
+    return True, attachment_columns.issubset(message_columns)
+
+
 def serialize_chat_user(user: User) -> dict:
     return {
         "id": user.id,
@@ -5004,16 +5026,23 @@ def serialize_chat_user(user: User) -> dict:
     }
 
 
-def serialize_direct_message(message: DirectMessage, current_user_id: int, peer_last_read_at=None) -> dict:
+def serialize_direct_message(
+    message: DirectMessage,
+    current_user_id: int,
+    peer_last_read_at=None,
+    *,
+    include_attachment: bool = True,
+) -> dict:
     mine = int(message.sender_id or 0) == int(current_user_id)
     read = False
     if mine and peer_last_read_at is not None and message.created_at is not None:
         read = peer_last_read_at >= message.created_at
     attachment = None
-    if message.attachment_stored_name:
+    attachment_stored_name = getattr(message, "attachment_stored_name", "") if include_attachment else ""
+    if attachment_stored_name:
         attachment = {
-            "originalName": message.attachment_original_name or Path(message.attachment_stored_name).name,
-            "fileUrl": media_url(message.attachment_stored_name),
+            "originalName": message.attachment_original_name or Path(attachment_stored_name).name,
+            "fileUrl": media_url(attachment_stored_name),
             "mimeType": message.attachment_mime_type or "",
             "sizeBytes": int(message.attachment_size_bytes or 0),
             "isImage": str(message.attachment_mime_type or "").startswith("image/"),
@@ -5038,13 +5067,21 @@ def conversation_peer(conversation: DirectConversation, current_user: User) -> U
     return None
 
 
-def serialize_direct_conversation(conversation: DirectConversation, current_user: User) -> dict:
+def serialize_direct_conversation(
+    conversation: DirectConversation,
+    current_user: User,
+    *,
+    include_attachment: bool = True,
+) -> dict:
     peer = conversation_peer(conversation, current_user)
     membership = next((item for item in conversation.memberships.all() if item.user_id == current_user.id), None)
     peer_membership = next((item for item in conversation.memberships.all() if item.user_id != current_user.id), None)
     last_read_at = membership.last_read_at if membership else None
     peer_last_read_at = peer_membership.last_read_at if peer_membership else None
-    last_message = conversation.messages.select_related("sender").order_by("-created_at", "-id").first()
+    messages_qs = conversation.messages.select_related("sender")
+    if not include_attachment:
+        messages_qs = messages_qs.only("id", "conversation_id", "sender_id", "sender__full_name", "body", "created_at")
+    last_message = messages_qs.order_by("-created_at", "-id").first()
     unread_qs = conversation.messages.exclude(sender_id=current_user.id)
     if last_read_at is not None:
         unread_qs = unread_qs.filter(created_at__gt=last_read_at)
@@ -5053,11 +5090,20 @@ def serialize_direct_conversation(conversation: DirectConversation, current_user
         "id": conversation.id,
         "updatedAt": conversation.updated_at.isoformat() if conversation.updated_at else "",
         "peer": serialize_chat_user(peer) if peer else None,
-        "lastMessage": serialize_direct_message(last_message, current_user.id, peer_last_read_at) if last_message else None,
+        "lastMessage": (
+            serialize_direct_message(
+                last_message,
+                current_user.id,
+                peer_last_read_at,
+                include_attachment=include_attachment,
+            )
+            if last_message
+            else None
+        ),
         "unreadCount": unread_count,
         "lastPreview": (
             (last_message.body or "").strip()
-            or ("پیوست" if last_message and last_message.attachment_stored_name else "")
+            or ("پیوست" if last_message and include_attachment and getattr(last_message, "attachment_stored_name", "") else "")
             or "گفتگو را شروع کنید"
         ),
     }
@@ -5100,6 +5146,12 @@ def chat_users_view(request: HttpRequest):
 @methods("GET", "POST")
 def chat_conversations_view(request: HttpRequest):
     organization = get_user_organization(request.current_user)
+    schema_ready, attachments_ready = direct_chat_schema_state()
+    if not schema_ready:
+        if request.method == "GET":
+            return json_response([], safe=False)
+        return json_error("زیرساخت گفتگوی سازمانی هنوز آماده نیست. لطفا migrationهای سرور را اجرا کنید.", status=503)
+
     if request.method == "GET":
         conversations = (
             DirectConversation.objects.filter(organization=organization, memberships__user=request.current_user)
@@ -5113,7 +5165,10 @@ def chat_conversations_view(request: HttpRequest):
             .order_by("-updated_at", "-id")
         )
         return json_response(
-            [serialize_direct_conversation(item, request.current_user) for item in conversations],
+            [
+                serialize_direct_conversation(item, request.current_user, include_attachment=attachments_ready)
+                for item in conversations
+            ],
             safe=False,
         )
 
@@ -5165,13 +5220,22 @@ def chat_conversations_view(request: HttpRequest):
             .first()
         )
 
-    return json_response(serialize_direct_conversation(conversation, request.current_user), status=201)
+    return json_response(
+        serialize_direct_conversation(conversation, request.current_user, include_attachment=attachments_ready),
+        status=201,
+    )
 
 
 @require_auth
 @csrf_exempt
 @methods("GET", "POST")
 def chat_conversation_messages_view(request: HttpRequest, conversation_id: int):
+    schema_ready, attachments_ready = direct_chat_schema_state()
+    if not schema_ready:
+        if request.method == "GET":
+            return json_response([], safe=False)
+        return json_error("زیرساخت گفتگوی سازمانی هنوز آماده نیست. لطفا migrationهای سرور را اجرا کنید.", status=503)
+
     conversation = get_user_direct_conversation(request, conversation_id)
     if conversation is None:
         return json_error("گفتگو پیدا نشد.", status=404)
@@ -5182,10 +5246,18 @@ def chat_conversation_messages_view(request: HttpRequest, conversation_id: int):
             None,
         )
         peer_last_read_at = peer_membership.last_read_at if peer_membership else None
-        messages = conversation.messages.select_related("sender").order_by("created_at", "id")
+        messages = conversation.messages.select_related("sender")
+        if not attachments_ready:
+            messages = messages.only("id", "conversation_id", "sender_id", "sender__full_name", "body", "created_at")
+        messages = messages.order_by("created_at", "id")
         return json_response(
             [
-                serialize_direct_message(item, request.current_user.id, peer_last_read_at)
+                serialize_direct_message(
+                    item,
+                    request.current_user.id,
+                    peer_last_read_at,
+                    include_attachment=attachments_ready,
+                )
                 for item in messages
             ],
             safe=False,
@@ -5205,6 +5277,8 @@ def chat_conversation_messages_view(request: HttpRequest, conversation_id: int):
         return json_error("متن پیام یا پیوست الزامی است.", status=422)
     if len(body) > 4000:
         return json_error("متن پیام بیش از حد طولانی است.", status=422)
+    if not attachments_ready:
+        return json_error("زیرساخت گفتگوی سازمانی هنوز کامل آماده نیست. لطفا migrationهای سرور را اجرا کنید.", status=503)
 
     attachment_fields = {}
     if uploaded is not None:
@@ -5245,6 +5319,10 @@ def chat_conversation_messages_view(request: HttpRequest, conversation_id: int):
 @csrf_exempt
 @methods("POST")
 def chat_conversation_read_view(request: HttpRequest, conversation_id: int):
+    schema_ready, attachments_ready = direct_chat_schema_state()
+    if not schema_ready:
+        return json_error("زیرساخت گفتگوی سازمانی هنوز آماده نیست. لطفا migrationهای سرور را اجرا کنید.", status=503)
+
     conversation = get_user_direct_conversation(request, conversation_id)
     if conversation is None:
         return json_error("گفتگو پیدا نشد.", status=404)
@@ -5252,5 +5330,7 @@ def chat_conversation_read_view(request: HttpRequest, conversation_id: int):
         last_read_at=timezone.now()
     )
     conversation = get_user_direct_conversation(request, conversation_id)
-    return json_response(serialize_direct_conversation(conversation, request.current_user))
+    return json_response(
+        serialize_direct_conversation(conversation, request.current_user, include_attachment=attachments_ready)
+    )
 

@@ -53,7 +53,13 @@ else:
 PY
 
 echo "Running prepareworkflow..."
-python manage.py prepareworkflow
+if [ "${WORKFLOW_RUN_MIGRATIONS:-true}" = "true" ]; then
+  echo "Running Django migrations..."
+  python manage.py migrate --noinput
+  python manage.py prepareworkflow --skip-migrate
+else
+  python manage.py prepareworkflow
+fi
 echo "Starting application: $*"
 
 exec "$@"

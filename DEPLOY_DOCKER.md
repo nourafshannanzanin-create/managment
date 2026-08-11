@@ -59,6 +59,12 @@ cd /mnt/newvolume/PRG/carnomand
 DOCKER_BUILDKIT=1 docker compose --env-file .env.production up -d --build
 ```
 
+کانتینر `backend` در شروع کار، قبل از Gunicorn، این کارها را انجام می‌دهد:
+
+- منتظر آماده شدن MySQL می‌ماند.
+- `python manage.py migrate --noinput` را اجرا می‌کند.
+- سپس `prepareworkflow --skip-migrate` را برای آماده‌سازی/seed اختیاری اجرا می‌کند.
+
 وضعیت:
 
 ```bash
@@ -98,6 +104,13 @@ docker compose --env-file .env.production ps
 ```bash
 DOCKER_BUILDKIT=1 docker compose --env-file .env.production up -d --build backend
 docker compose --env-file .env.production up -d
+```
+
+اجرای دستی migration در صورت نیاز:
+
+```bash
+docker compose --env-file .env.production exec backend python manage.py migrate --noinput
+docker compose --env-file .env.production restart backend
 ```
 
 

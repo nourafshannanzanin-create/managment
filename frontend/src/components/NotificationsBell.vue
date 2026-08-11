@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import IconlyIcon from './base/IconlyIcon.vue'
@@ -19,6 +19,8 @@ const {
 
 const open = ref(false)
 const rootEl = ref(null)
+const panelEl = ref(null)
+const panelStyle = ref({})
 
 const liveItems = computed(() => {
   const rows = []
@@ -191,14 +193,38 @@ function formatWhen(value) {
   }
 }
 
-function togglePanel() {
+async function updatePanelPosition() {
+  await nextTick()
+  const trigger = rootEl.value?.querySelector('.notifications-bell-btn')
+  if (!trigger) return
+  const rect = trigger.getBoundingClientRect()
+  const panelWidth = Math.min(380, window.innerWidth - 24)
+  const left = Math.max(12, Math.min(window.innerWidth - panelWidth - 12, rect.right - panelWidth))
+  panelStyle.value = {
+    top: `${Math.min(window.innerHeight - 120, rect.bottom + 12)}px`,
+    left: `${left}px`,
+    width: `${panelWidth}px`,
+  }
+}
+
+async function togglePanel() {
   open.value = !open.value
-  if (open.value) markCenterRead()
+  if (open.value) {
+    markCenterRead()
+    await updatePanelPosition()
+  }
 }
 
 function onDocumentPointer(event) {
   if (!open.value) return
-  if (rootEl.value && !rootEl.value.contains(event.target)) open.value = false
+  if (
+    rootEl.value &&
+    !rootEl.value.contains(event.target) &&
+    panelEl.value &&
+    !panelEl.value.contains(event.target)
+  ) {
+    open.value = false
+  }
 }
 
 function onKeydown(event) {
@@ -208,11 +234,15 @@ function onKeydown(event) {
 onMounted(() => {
   document.addEventListener('pointerdown', onDocumentPointer)
   document.addEventListener('keydown', onKeydown)
+  window.addEventListener('resize', updatePanelPosition)
+  window.addEventListener('scroll', updatePanelPosition, true)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocumentPointer)
   document.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('resize', updatePanelPosition)
+  window.removeEventListener('scroll', updatePanelPosition, true)
 })
 </script>
 
@@ -230,36 +260,46 @@ onBeforeUnmount(() => {
       <span v-if="badgeLabel" class="notifications-bell-badge">{{ badgeLabel }}</span>
     </button>
 
-    <div v-if="open" class="notifications-panel" role="dialog" aria-label="فهرست اعلان‌ها">
-      <header class="notifications-panel-head">
-        <div>
-          <strong>اعلان‌ها</strong>
-          <span>{{ unreadCount ? `${badgeLabel || unreadCount.toLocaleString('fa-IR')} مورد` : 'مورد جدیدی نیست' }}</span>
+    <Teleport to="body">
+      <div
+        v-if="open"
+        ref="panelEl"
+        class="notifications-panel"
+        :style="panelStyle"
+        dir="rtl"
+        role="dialog"
+        aria-label="فهرست اعلان‌ها"
+      >
+        <header class="notifications-panel-head">
+          <div>
+            <strong>اعلان‌ها</strong>
+            <span>{{ unreadCount ? `${badgeLabel || unreadCount.toLocaleString('fa-IR')} مورد` : 'مورد جدیدی نیست' }}</span>
+          </div>
+        </header>
+
+        <div v-if="items.length" class="notifications-list">
+          <button
+            v-for="item in items"
+            :key="item.id"
+            class="notifications-item"
+            :class="[`is-${item.type}`, item.read && 'is-read']"
+            type="button"
+            @click="item.onOpen"
+          >
+            <span class="notifications-item-icon" aria-hidden="true">
+              <IconlyIcon :name="item.icon" decorative />
+            </span>
+            <span class="notifications-item-copy">
+              <strong>{{ item.title }}</strong>
+              <span>{{ item.message }}</span>
+              <small v-if="item.meta">{{ item.meta }}</small>
+            </span>
+          </button>
         </div>
-      </header>
 
-      <div v-if="items.length" class="notifications-list">
-        <button
-          v-for="item in items"
-          :key="item.id"
-          class="notifications-item"
-          :class="[`is-${item.type}`, item.read && 'is-read']"
-          type="button"
-          @click="item.onOpen"
-        >
-          <span class="notifications-item-icon" aria-hidden="true">
-            <IconlyIcon :name="item.icon" decorative />
-          </span>
-          <span class="notifications-item-copy">
-            <strong>{{ item.title }}</strong>
-            <span>{{ item.message }}</span>
-            <small v-if="item.meta">{{ item.meta }}</small>
-          </span>
-        </button>
+        <p v-else class="notifications-empty">اعلانی برای نمایش وجود ندارد.</p>
       </div>
-
-      <p v-else class="notifications-empty">اعلانی برای نمایش وجود ندارد.</p>
-    </div>
+    </Teleport>
   </div>
 </template>
 
@@ -299,12 +339,9 @@ onBeforeUnmount(() => {
 }
 
 .notifications-panel {
-  position: absolute;
-  top: calc(100% + 10px);
-  inset-inline-end: 0;
-  z-index: 80;
-  width: min(360px, calc(100vw - 28px));
-  max-height: min(70vh, 480px);
+  position: fixed;
+  z-index: 10050;
+  max-height: min(70dvh, 520px);
   overflow: auto;
   display: grid;
   gap: 0;
@@ -416,5 +453,26 @@ onBeforeUnmount(() => {
   text-align: center;
   color: #6a768f;
   font-size: 0.88rem;
+}
+
+@media (max-width: 640px) {
+  .notifications-panel {
+    inset-inline: 12px !important;
+    top: 84px !important;
+    width: auto !important;
+    max-height: calc(100dvh - 108px);
+    border-radius: 18px;
+  }
+
+  .notifications-item {
+    grid-template-columns: 30px minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .notifications-item-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+  }
 }
 </style>
