@@ -58,6 +58,10 @@ def env_list(name: str, default: str) -> list[str]:
 SECRET_KEY = os.getenv("WORKFLOW_SECRET_KEY", "change-this-secret-key")
 DEBUG = env_bool("WORKFLOW_DEBUG", True)
 ALLOWED_HOSTS = env_list("WORKFLOW_ALLOWED_HOSTS", "127.0.0.1,localhost")
+# Always keep local/container hosts so Docker healthchecks never hit DisallowedHost.
+for _host in ("127.0.0.1", "localhost", "backend"):
+    if _host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_host)
 APPEND_SLASH = False
 
 WORKFLOW_ACCESS_TOKEN_EXPIRE_MINUTES = env_int("WORKFLOW_ACCESS_TOKEN_EXPIRE_MINUTES", 1440)
@@ -126,7 +130,9 @@ NESHAN_SERVICE_KEY = os.getenv("WORKFLOW_NESHAN_SERVICE_KEY", "service.679d0dde3
 NESHAN_REVERSE_URL = os.getenv("WORKFLOW_NESHAN_REVERSE_URL", "https://api.neshan.org/v5/reverse")
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = env_bool("WORKFLOW_USE_X_FORWARDED_HOST", True)
-SECURE_SSL_REDIRECT = env_bool("WORKFLOW_SECURE_SSL_REDIRECT", not DEBUG)
+# TLS terminates at the host/gateway nginx. Keep the app container on plain HTTP
+# so Docker healthchecks to 127.0.0.1:8000 do not get redirected.
+SECURE_SSL_REDIRECT = env_bool("WORKFLOW_SECURE_SSL_REDIRECT", False)
 SESSION_COOKIE_SECURE = env_bool("WORKFLOW_SESSION_COOKIE_SECURE", not DEBUG)
 CSRF_COOKIE_SECURE = env_bool("WORKFLOW_CSRF_COOKIE_SECURE", not DEBUG)
 SECURE_HSTS_SECONDS = env_int("WORKFLOW_SECURE_HSTS_SECONDS", 31536000 if not DEBUG else 0)

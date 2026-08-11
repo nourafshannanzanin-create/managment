@@ -39,9 +39,9 @@ services:
       WORKFLOW_MYSQL_USER: ${WORKFLOW_MYSQL_USER}
       WORKFLOW_MYSQL_PASSWORD: ${WORKFLOW_MYSQL_PASSWORD}
       WORKFLOW_MYSQL_DATABASE: ${WORKFLOW_MYSQL_DATABASE}
-      WORKFLOW_ALLOWED_HOSTS: ${WORKFLOW_ALLOWED_HOSTS}
-      WORKFLOW_FRONTEND_ORIGINS: ${WORKFLOW_FRONTEND_ORIGINS}
-      WORKFLOW_CSRF_TRUSTED_ORIGINS: ${WORKFLOW_CSRF_TRUSTED_ORIGINS}
+      WORKFLOW_ALLOWED_HOSTS: ${WORKFLOW_ALLOWED_HOSTS:-carnomand.ir,www.carnomand.ir,127.0.0.1,localhost,backend,gateway-nginx}
+      WORKFLOW_FRONTEND_ORIGINS: ${WORKFLOW_FRONTEND_ORIGINS:-https://carnomand.ir,https://www.carnomand.ir}
+      WORKFLOW_CSRF_TRUSTED_ORIGINS: ${WORKFLOW_CSRF_TRUSTED_ORIGINS:-https://carnomand.ir,https://www.carnomand.ir}
       WORKFLOW_CORS_ALLOW_ALL_ORIGINS: ${WORKFLOW_CORS_ALLOW_ALL_ORIGINS:-false}
       WORKFLOW_SECURE_SSL_REDIRECT: ${WORKFLOW_SECURE_SSL_REDIRECT:-false}
       WORKFLOW_SESSION_COOKIE_SECURE: ${WORKFLOW_SESSION_COOKIE_SECURE:-true}
@@ -75,10 +75,15 @@ services:
     expose:
       - "8000"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/v1/health >/dev/null || exit 1"]
-      interval: 15s
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS -H 'Host: 127.0.0.1' http://127.0.0.1:8000/api/v1/health >/dev/null || exit 1",
+        ]
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 18
+      start_period: 120s
 
   frontend:
     build:

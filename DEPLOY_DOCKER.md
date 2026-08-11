@@ -79,7 +79,27 @@ curl http://127.0.0.1:18090/api/v1/health
 - `HTTP/1.1 200`
 - بدون `Location: /login`
 
-## 3. اتصال دامنه در nginx اصلی سرور
+## 2.1 اگر backend unhealthy شد
+
+لاگ را ببینید:
+
+```bash
+docker compose --env-file .env.production logs --tail=200 backend
+docker compose --env-file .env.production ps
+```
+
+موارد رایج:
+- migrate طول می‌کشد → healthcheck با `start_period` صبر می‌کند؛ دوباره `--build` بزنید.
+- `ALLOWED_HOSTS` بدون `127.0.0.1` → در `.env.production` این‌ها را داشته باشید: `carnomand.ir,www.carnomand.ir,127.0.0.1,localhost,backend,gateway-nginx`
+- `WORKFLOW_SECURE_SSL_REDIRECT` باید `false` باشد (TLS روی nginx خارجی است).
+
+بازیابی سریع:
+
+```bash
+DOCKER_BUILDKIT=1 docker compose --env-file .env.production up -d --build backend
+docker compose --env-file .env.production up -d
+```
+
 
 ```bash
 sudo mkdir -p /var/www/certbot

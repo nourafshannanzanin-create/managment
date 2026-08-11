@@ -5,7 +5,6 @@ DB_HOST="${WORKFLOW_MYSQL_HOST:-db}"
 DB_PORT="${WORKFLOW_MYSQL_PORT:-3306}"
 DB_NAME="${WORKFLOW_MYSQL_DATABASE:-workflow_hub}"
 DB_USER="${WORKFLOW_MYSQL_USER:-workflow_user}"
-DB_PASSWORD="${WORKFLOW_MYSQL_PASSWORD:-workflow_password}"
 WAIT_TIMEOUT="${WORKFLOW_DB_WAIT_TIMEOUT:-60}"
 
 echo "Waiting for MySQL at ${DB_HOST}:${DB_PORT}/${DB_NAME} as ${DB_USER}..."
@@ -53,6 +52,8 @@ else:
     )
 PY
 
+echo "Running prepareworkflow..."
 python manage.py prepareworkflow
+echo "Starting application: $*"
 
 exec "$@"
