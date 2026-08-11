@@ -94,9 +94,10 @@ body:has(.app-shell:not(.is-auth-route)),
 }
 
 #app .app-shell:not(.is-auth-route) .shell-content {
-  width:min(100%, var(--container-width)) !important;
-  margin:0 auto !important;
-  padding:32px !important;
+  width:100% !important;
+  max-width:none !important;
+  margin:0 !important;
+  padding:0 !important;
   min-height:0 !important;
   height:100% !important;
   max-height:100% !important;
@@ -104,11 +105,30 @@ body:has(.app-shell:not(.is-auth-route)),
   overflow-x:hidden !important;
   -webkit-overflow-scrolling:touch !important;
   overscroll-behavior:contain !important;
+  display:flex !important;
+  flex-direction:column !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-shell {
+  width:100% !important;
+  max-width:none !important;
+  align-self:stretch !important;
+  box-sizing:border-box !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shell-content-body {
+  width:100% !important;
+  max-width:none !important;
+  margin:0 !important;
+  flex:1 1 auto !important;
+  min-width:0 !important;
+  padding:24px 28px !important;
+  box-sizing:border-box !important;
 }
 
 #app .app-shell:not(.is-auth-route) .page-shell {
   width:100% !important;
-  max-width:var(--container-width) !important;
+  max-width:none !important;
   gap:24px !important;
 }
 
@@ -301,13 +321,18 @@ body:has(.app-shell:not(.is-auth-route)),
   position:sticky !important;
   top:0 !important;
   z-index:40 !important;
+  flex:0 0 auto !important;
+  width:100% !important;
+  max-width:none !important;
   padding:16px 32px !important;
   display:grid !important;
   gap:14px !important;
   background:#f3f9f7 !important;
   backdrop-filter:blur(14px) !important;
   border:0 !important;
+  border-radius:0 !important;
   box-shadow:none !important;
+  box-sizing:border-box !important;
 }
 
 #app .app-shell:not(.is-auth-route) .topbar-main-row,
@@ -705,7 +730,7 @@ body:has(.app-shell:not(.is-auth-route)),
 
 #app .app-shell:not(.is-auth-route) :where(.data-table th, .attendance-report-table th) {
   color:var(--on-surface-variant) !important;
-  background:var(--surface-container-low) !important;
+  background:transparent !important;
   font-size:0.76rem !important;
   font-weight:850 !important;
 }
@@ -885,6 +910,21 @@ body:has(.app-shell:not(.is-auth-route)),
   color:var(--on-surface) !important;
 }
 
+.modal-shell .attendance-punch-btn,
+.modal-shell .attendance-punch-btn strong,
+.modal-shell .attendance-punch-btn small,
+.modal-shell .attendance-punch-btn span,
+.modal-shell .attendance-punch-btn .iconly-shell {
+  color:#fff !important;
+}
+
+.modal-shell .attendance-punch-btn .iconly-shell,
+.modal-shell .attendance-punch-btn .iconly-shell .iconly-img {
+  --iconly-filter: brightness(0) invert(1) !important;
+  filter: brightness(0) invert(1) !important;
+  color:#fff !important;
+}
+
 .modal-shell :where(.page-eyebrow, .approval-surface-kicker) {
   display:inline-flex !important;
   width:fit-content !important;
@@ -985,8 +1025,21 @@ body:has(.app-shell:not(.is-auth-route)),
   --iconly-filter: brightness(0) saturate(100%) invert(36%) sepia(17%) saturate(697%) hue-rotate(104deg) brightness(91%) contrast(88%);
 }
 
+.modal-shell .attendance-punch-btn,
+.modal-shell .attendance-punch-btn *,
+.modal-shell .attendance-punch-btn strong,
+.modal-shell .attendance-punch-btn small {
+  color: #ffffff !important;
+}
+
+.modal-shell .attendance-punch-btn .iconly-shell,
+.modal-shell .attendance-punch-btn .iconly-img {
+  --iconly-filter: brightness(0) invert(1) !important;
+  filter: brightness(0) invert(1) !important;
+}
+
 @media (max-width: 1220px) {
-  #app .app-shell:not(.is-auth-route) .shell-content {
+  #app .app-shell:not(.is-auth-route) .shell-content-body {
     padding:24px !important;
   }
 
@@ -1122,7 +1175,7 @@ body:has(.app-shell:not(.is-auth-route)),
     flex-basis:min(280px, 88vw) !important;
   }
 
-  #app .app-shell:not(.is-auth-route) .shell-content {
+  #app .app-shell:not(.is-auth-route) .shell-content-body {
     padding-inline:12px !important;
   }
 }
@@ -1699,7 +1752,7 @@ body:has(.app-shell:not(.is-auth-route)),
 }
 
 #app .app-shell:not(.is-auth-route) .data-table th {
-  background: #dcefec !important;
+  background: transparent !important;
   color: #1f5c59 !important;
 }
 
@@ -1856,6 +1909,10 @@ body:has(.app-shell:not(.is-auth-route)),
   box-shadow: none !important;
   border-radius: 0 !important;
   padding: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto !important;
 }
 
 #app .app-shell:not(.is-auth-route) .icon-btn {
@@ -1978,7 +2035,7 @@ body:has(.app-shell:not(.is-auth-route)),
   line-height: 1.45 !important;
 }
 
-#app .app-shell:not(.is-auth-route) .shell-content {
+#app .app-shell:not(.is-auth-route) .shell-content-body {
   padding: 16px 20px 24px !important;
 }
 
@@ -2327,10 +2384,28 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .approval-metric-icon,
 #app .app-shell:not(.is-auth-route) .user-avatar,
 #app .app-shell:not(.is-auth-route) .attendance-avatar {
-  width: 36px !important;
-  height: 36px !important;
-  border-radius: 10px !important;
-  font-size: 16px !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-icon,
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-summary-icon,
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-focus-chip .iconly-shell {
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+  border-radius: 7px !important;
+  font-size: 12px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-icon .iconly-img,
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-summary-icon .iconly-img,
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-focus-chip .iconly-img {
+  width: 14px !important;
+  height: 14px !important;
 }
 
 #app .app-shell:not(.is-auth-route) .dashboard-action-card,
@@ -2412,7 +2487,7 @@ body:has(.app-shell:not(.is-auth-route)),
 }
 
 @media (max-width: 760px) {
-  #app .app-shell:not(.is-auth-route) .shell-content {
+  #app .app-shell:not(.is-auth-route) .shell-content-body {
     padding: 12px !important;
   }
 
@@ -2568,7 +2643,7 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .modern-page-filters .filter-field,
 #app .app-shell:not(.is-auth-route) .page-filters .filter-field {
   display: grid !important;
-  grid-template-rows: 18px 36px !important;
+  grid-template-rows: 16px 40px !important;
   gap: 6px !important;
   padding: 0 !important;
   margin: 0 !important;
@@ -2580,9 +2655,9 @@ body:has(.app-shell:not(.is-auth-route)),
 
 #app .app-shell:not(.is-auth-route) .modern-page-filters .filter-field-control,
 #app .app-shell:not(.is-auth-route) .modern-page-filters .filter-select-wrap {
-  height: 36px !important;
-  min-height: 36px !important;
-  max-height: 36px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
 }
 
 #app .app-shell:not(.is-auth-route) .modern-page-filters .filter-input,
@@ -2591,13 +2666,13 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .modern-page-filters .modern-filter-reset,
 #app .app-shell:not(.is-auth-route) .modern-page-filters .filter-reset-btn {
   box-sizing: border-box !important;
-  height: 36px !important;
-  min-height: 36px !important;
-  max-height: 36px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
   margin: 0 !important;
-  line-height: 36px !important;
+  line-height: 40px !important;
   background: #e4f4f2 !important;
   background-image: none !important;
   border: 0 !important;
@@ -2617,7 +2692,7 @@ body:has(.app-shell:not(.is-auth-route)),
 }
 
 #app .app-shell:not(.is-auth-route) .modern-page-filters .shamsi-picker {
-  height: 36px !important;
+  height: 40px !important;
 }
 
 #app .app-shell:not(.is-auth-route) .modern-page-filters .shamsi-picker-input-wrap {
@@ -2631,7 +2706,7 @@ body:has(.app-shell:not(.is-auth-route)),
   min-height: 0 !important;
   max-height: 100% !important;
   padding: 0 !important;
-  line-height: 36px !important;
+  line-height: 40px !important;
   background: transparent !important;
 }
 
@@ -2938,17 +3013,22 @@ body:has(.app-shell:not(.is-auth-route)),
 /* ========== Mobile responsive system ========== */
 @media (max-width: 920px) {
   #app .app-shell:not(.is-auth-route) .shell-content {
+    padding: 0 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .shell-content-body {
     padding: 12px 12px calc(76px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-shell {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 40 !important;
+    position: static !important;
+    top: auto !important;
+    z-index: 1 !important;
     padding: 6px 10px !important;
     gap: 6px !important;
     background: #f7fbfa !important;
-    box-shadow: 0 4px 14px rgba(40, 110, 105, 0.08) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-main-row {
@@ -3509,5 +3589,345 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .reports-page .report-tab.is-active {
   background: #34908B !important;
   color: #fff !important;
+}
+
+/* Full-row status colors (must win over generic hover) */
+#app .app-shell:not(.is-auth-route) :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-success {
+  background: rgba(46, 160, 110, 0.2) !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-warning {
+  background: rgba(230, 180, 40, 0.26) !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-danger {
+  background: rgba(210, 80, 70, 0.2) !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-success:hover,
+#app .app-shell:not(.is-auth-route) :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-success:focus-visible {
+  background: rgba(46, 160, 110, 0.3) !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-warning:hover,
+#app .app-shell:not(.is-auth-route) :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-warning:focus-visible {
+  background: rgba(230, 180, 40, 0.36) !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-danger:hover,
+#app .app-shell:not(.is-auth-route) :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-danger:focus-visible {
+  background: rgba(210, 80, 70, 0.3) !important;
+}
+
+/* Topbar must span full shell-main width; filters stretch */
+#app .app-shell:not(.is-auth-route) .shell-content > .topbar-shell,
+#app .app-shell:not(.is-auth-route) header.topbar-shell {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  align-self: stretch !important;
+  box-sizing: border-box !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-shell > *,
+#app .app-shell:not(.is-auth-route) .topbar-main-row,
+#app .app-shell:not(.is-auth-route) .topbar-filters,
+#app .app-shell:not(.is-auth-route) .page-filters,
+#app .app-shell:not(.is-auth-route) .modern-page-filters {
+  width: 100% !important;
+  max-width: none !important;
+  box-sizing: border-box !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters,
+#app .app-shell:not(.is-auth-route) .page-filters.modern-page-filters {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto !important;
+  width: 100% !important;
+  max-width: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-composer {
+  min-height: 34px !important;
+  max-height: 34px !important;
+  padding: 2px 6px !important;
+  gap: 4px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-composer:has(.chat-pending-file) {
+  max-height: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-composer input {
+  min-height: 26px !important;
+  height: 26px !important;
+  max-height: 26px !important;
+  padding: 0 8px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-send-btn.action-btn,
+#app .app-shell:not(.is-auth-route) .chat-send-btn {
+  min-height: 26px !important;
+  height: 26px !important;
+  padding: 0 10px !important;
+  border-radius: 8px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-attach-btn.icon-btn,
+#app .app-shell:not(.is-auth-route) .chat-attach-btn {
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  min-height: 26px !important;
+}
+
+/* Solid green surfaces => white label/icon */
+#app .app-shell:not(.is-auth-route) :where(
+  .action-btn.tone-primary,
+  .tone-primary,
+  .chat-bubble.is-mine,
+  .chat-send-btn,
+  .nav-link-badge,
+  .attendance-punch-btn.is-in,
+  .report-tab.is-active
+),
+#app .app-shell:not(.is-auth-route) :where(
+  .action-btn.tone-primary,
+  .tone-primary,
+  .chat-bubble.is-mine,
+  .chat-send-btn,
+  .nav-link-badge,
+  .attendance-punch-btn.is-in,
+  .report-tab.is-active
+) :where(span, strong, small, p, label) {
+  color: #ffffff !important;
+}
+
+#app .app-shell:not(.is-auth-route) :where(
+  .action-btn.tone-primary,
+  .tone-primary,
+  .chat-bubble.is-mine,
+  .chat-send-btn,
+  .nav-link-badge,
+  .attendance-punch-btn.is-in,
+  .report-tab.is-active
+) .iconly-shell,
+#app .app-shell:not(.is-auth-route) :where(
+  .action-btn.tone-primary,
+  .tone-primary,
+  .chat-send-btn,
+  .attendance-punch-btn.is-in
+) .iconly-img {
+  --iconly-filter: brightness(0) invert(1) !important;
+  filter: brightness(0) invert(1) !important;
+  color: #ffffff !important;
+}
+
+/* Readable sidebar nav + logout sizing */
+#app .app-shell:not(.is-auth-route) .nav-link {
+  min-height: 44px !important;
+  height: auto !important;
+  padding: 0 14px !important;
+  gap: 10px !important;
+  font-size: 0.92rem !important;
+  line-height: 1.3 !important;
+  overflow: visible !important;
+}
+
+#app .app-shell:not(.is-auth-route) .nav-link-label {
+  display: inline-block !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-logout {
+  min-height: 44px !important;
+  height: auto !important;
+  padding: 0 14px !important;
+  font-size: 0.9rem !important;
+  gap: 10px !important;
+}
+
+/* Attendance cards: stable layout and full-width action buttons */
+#app .app-shell:not(.is-auth-route) .attendance-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px) !important;
+  gap: 16px !important;
+  align-items: start !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-users {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-user-card {
+  display: grid !important;
+  gap: 12px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 16px !important;
+  overflow: visible !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-user-head {
+  grid-template-columns: auto minmax(0, 1fr) !important;
+  grid-template-areas:
+    "avatar copy"
+    "tools tools" !important;
+  gap: 10px !important;
+  align-items: start !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-user-head > :first-child {
+  grid-area: avatar !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-user-head > div:not(.attendance-user-tools) {
+  grid-area: copy !important;
+  min-width: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-user-tools {
+  grid-area: tools !important;
+  width: 100% !important;
+  justify-content: flex-start !important;
+  flex-wrap: wrap !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-actions {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-actions .action-btn {
+  width: 100% !important;
+  min-height: 42px !important;
+  justify-content: center !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-link {
+  max-width: 100% !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-hero,
+#app .app-shell:not(.is-auth-route) .attendance-feed,
+#app .app-shell:not(.is-auth-route) .attendance-report-panel {
+  min-width: 0 !important;
+  overflow: visible !important;
+}
+
+@media (max-width: 1100px) {
+  #app .app-shell:not(.is-auth-route) .attendance-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .attendance-users {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Full-bleed topbar filters */
+#app .app-shell:not(.is-auth-route) header.topbar-shell,
+#app .app-shell:not(.is-auth-route) .topbar-shell {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  align-self: stretch !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-shell > .topbar-main-row,
+#app .app-shell:not(.is-auth-route) .topbar-shell > .topbar-filters,
+#app .app-shell:not(.is-auth-route) .topbar-shell > .modern-page-filters,
+#app .app-shell:not(.is-auth-route) .page-filters.modern-page-filters.topbar-filters {
+  width: 100% !important;
+  max-width: none !important;
+  box-sizing: border-box !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-field,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-field-control,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-select-wrap,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-input,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-select,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .shamsi-picker,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .shamsi-picker-input-wrap {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  box-sizing: border-box !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-icon-action.is-icon-only.tone-primary,
+#app .app-shell:not(.is-auth-route) .topbar-icon-action.is-icon-only.tone-primary .iconly-shell {
+  color: #fff !important;
+  --iconly-filter: brightness(0) invert(1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-icon-action.is-icon-only.tone-primary .iconly-img {
+  filter: brightness(0) invert(1) !important;
+}
+
+/* Attendance punch: must beat global .icon-btn size/bg rules */
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-punch-action,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.attendance-punch-topbar-btn,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-icon-only[aria-label="ورود و خروج"],
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-punch-action:hover,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.attendance-punch-topbar-btn:hover,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-icon-only[aria-label="ورود و خروج"]:hover,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-punch-action:focus-visible,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.attendance-punch-topbar-btn:focus-visible,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-icon-only[aria-label="ورود و خروج"]:focus-visible {
+  width: 64px !important;
+  height: 64px !important;
+  min-width: 64px !important;
+  min-height: 64px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 20px !important;
+  background: #1f8a70 !important;
+  color: #fff !important;
+  box-shadow: 0 12px 28px rgba(31, 138, 112, 0.32) !important;
+  transform: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-punch-action:hover,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.attendance-punch-topbar-btn:hover,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-icon-only[aria-label="ورود و خروج"]:hover {
+  background: #187a63 !important;
+  color: #fff !important;
+  box-shadow: 0 14px 30px rgba(31, 138, 112, 0.4) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-punch-action .iconly-shell,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.attendance-punch-topbar-btn .iconly-shell,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-icon-only[aria-label="ورود و خروج"] .iconly-shell,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-punch-action:hover .iconly-shell,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.attendance-punch-topbar-btn:hover .iconly-shell,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-icon-only[aria-label="ورود و خروج"]:hover .iconly-shell {
+  font-size: 34px !important;
+  color: #fff !important;
+  --iconly-filter: brightness(0) invert(1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-punch-action .iconly-img,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.attendance-punch-topbar-btn .iconly-img,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-icon-only[aria-label="ورود و خروج"] .iconly-img,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-punch-action:hover .iconly-img,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.attendance-punch-topbar-btn:hover .iconly-img,
+#app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-icon-only[aria-label="ورود و خروج"]:hover .iconly-img {
+  filter: brightness(0) invert(1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-bubble.is-mine,
+#app .app-shell:not(.is-auth-route) .chat-bubble.is-mine *,
+#app .app-shell:not(.is-auth-route) .chat-bubble.is-mine small,
+#app .app-shell:not(.is-auth-route) .chat-bubble.is-mine .chat-ticks {
+  color: #ffffff !important;
 }
 

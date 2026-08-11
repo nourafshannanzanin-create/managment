@@ -533,13 +533,14 @@ onMounted(async () => {
   if (!isHqAdmin.value) activeTab.value = 'tickets'
 
   await Promise.all([
-    loadHqPanel(true).catch(() => {}),
-    loadSupportTickets(true).catch(() => loadHqTickets(true)),
+    loadHqPanel(true, { soft: false }).catch(() => {}),
+    loadSupportTickets(true, { soft: false }).catch(() => loadHqTickets(true)),
     isHqAdmin.value ? loadHqTeam(true).catch(() => {}) : Promise.resolve(),
   ])
 
   pollTimer.value = window.setInterval(() => {
-    void loadSupportTickets(true, { notifyNew: true })
+    void loadSupportTickets(true, { soft: true, notifyNew: true })
+    void loadHqPanel(true, { soft: true })
   }, 10000)
 })
 

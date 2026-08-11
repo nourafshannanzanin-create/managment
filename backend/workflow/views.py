@@ -7,7 +7,7 @@ import os
 from collections import defaultdict
 from urllib import error as urllib_error
 from urllib import request as urllib_request
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from functools import wraps
 from pathlib import Path
@@ -15,10 +15,11 @@ from pathlib import Path
 from django.conf import settings
 from django.core.management import call_command
 from django.db import IntegrityError, connection, transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.db.utils import OperationalError, ProgrammingError
 from django.http import FileResponse, HttpRequest, HttpResponse, HttpResponseNotAllowed, JsonResponse
 from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_datetime
 from django.views.decorators.csrf import csrf_exempt
 
 from ai.stamp_processing import normalize_signature_data_url, normalize_stamp_data_url
@@ -34,9 +35,11 @@ from workflow.access import (
     ensure_user_memberships,
     get_user_organization,
     is_manager,
+    organization_users,
     require_roles,
     visible_users,
 )
+from workflow.attendance_report import build_monthly_attendance_report, gregorian_to_jalali
 from workflow.document_signing import build_approval_mark, sign_document_file
 from workflow.models import (
     ApprovalAssignment,
@@ -45,6 +48,9 @@ from workflow.models import (
     AuditLog,
     ConfidentialityLevel,
     Department,
+    DirectConversation,
+    DirectConversationMember,
+    DirectMessage,
     Document,
     DocumentRisk,
     DocumentStatus,
@@ -53,6 +59,7 @@ from workflow.models import (
     ExpenseCategory,
     ExpenseStatus,
     FeaturePurchase,
+    LeaveRequest,
     OrganizationMembership,
     OrganizationPreference,
     PlatformRole,
@@ -62,6 +69,7 @@ from workflow.models import (
     RequestPriority,
     RequestStatus,
     RequestTimeline,
+    RequestType,
     RegistrationRequest,
     SectionAccessGrant,
     SupportAttachment,
@@ -766,6 +774,11 @@ def build_settings_profile_payload(user: User, organization_id: int | None = Non
         },
         "attendanceLocation": serialize_attendance_location(preference, organization),
         "attendance_location": serialize_attendance_location(preference, organization),
+        "workSchedule": {
+            "workDayStart": preference.work_day_start_time.strftime("%H:%M") if preference.work_day_start_time else "09:00",
+            "workDayEnd": preference.work_day_end_time.strftime("%H:%M") if preference.work_day_end_time else "17:00",
+            "monthlyLeaveHours": int(preference.monthly_leave_hours or 20),
+        },
         "organizationGeo": serialize_organization_geo(organization),
         "organization_geo": serialize_organization_geo(organization),
         "sections": section_payload,
@@ -2028,6 +2041,94 @@ def update_request_status_from_assignments(request_obj: Request) -> None:
         request_obj.status = RequestStatus.UNDER_REVIEW
     request_obj.updated_at = timezone.now()
     request_obj.save(update_fields=["status", "updated_at"])
+    sync_leave_request_status(request_obj)
+
+
+def sync_leave_request_status(request_obj: Request) -> None:
+    try:
+        leave = request_obj.leave_request
+    except LeaveRequest.DoesNotExist:
+        return
+    if leave.status == request_obj.status:
+        return
+    leave.status = request_obj.status
+    leave.save(update_fields=["status"])
+
+
+def parse_time_hhmm(value: str | None, fallback: time) -> time | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return fallback
+    try:
+        hour_s, minute_s = raw.split(":", 1)
+        return time(int(hour_s), int(minute_s))
+    except (TypeError, ValueError):
+        return None
+
+
+def create_leave_for_request(request_obj: Request, payload: dict, preference: OrganizationPreference) -> LeaveRequest | JsonResponse:
+    request_type = request_obj.request_type
+    if request_type == RequestType.LEAVE_HOURLY:
+        mode = LeaveRequest.MODE_HOURLY
+    elif request_type == RequestType.LEAVE_DAILY:
+        mode = LeaveRequest.MODE_DAILY
+    else:
+        return json_error("نوع مرخصی معتبر نیست.", status=422)
+
+    starts_raw = payload.get("leaveStartsAt") or payload.get("leave_starts_at") or ""
+    ends_raw = payload.get("leaveEndsAt") or payload.get("leave_ends_at") or ""
+    starts_at = parse_datetime(str(starts_raw).strip()) if starts_raw else None
+    ends_at = parse_datetime(str(ends_raw).strip()) if ends_raw else None
+
+    if mode == LeaveRequest.MODE_DAILY:
+        start_date = parse_date(str(payload.get("leaveStartDate") or payload.get("leave_start_date") or "").strip() or "")
+        end_date = parse_date(str(payload.get("leaveEndDate") or payload.get("leave_end_date") or "").strip() or "")
+        if start_date is None and starts_at is not None:
+            start_date = timezone.localtime(starts_at).date() if timezone.is_aware(starts_at) else starts_at.date()
+        if end_date is None and ends_at is not None:
+            end_date = timezone.localtime(ends_at).date() if timezone.is_aware(ends_at) else ends_at.date()
+        if start_date is None or end_date is None:
+            return json_error("بازه تاریخ مرخصی روزانه الزامی است.", status=422)
+        if end_date < start_date:
+            return json_error("تاریخ پایان مرخصی نمی‌تواند قبل از شروع باشد.", status=422)
+        work_start = preference.work_day_start_time or time(9, 0)
+        work_end = preference.work_day_end_time or time(17, 0)
+        starts_at = timezone.make_aware(datetime.combine(start_date, work_start))
+        ends_at = timezone.make_aware(datetime.combine(end_date, work_end))
+        day_count = (end_date - start_date).days + 1
+        scheduled = max(0.0, (datetime.combine(date.today(), work_end) - datetime.combine(date.today(), work_start)).total_seconds() / 3600.0)
+        if scheduled <= 0:
+            scheduled = 8.0
+        hours = Decimal(str(round(day_count * scheduled, 2)))
+    else:
+        if starts_at is None or ends_at is None:
+            return json_error("زمان شروع و پایان مرخصی ساعتی الزامی است.", status=422)
+        if timezone.is_naive(starts_at):
+            starts_at = timezone.make_aware(starts_at)
+        if timezone.is_naive(ends_at):
+            ends_at = timezone.make_aware(ends_at)
+        if ends_at <= starts_at:
+            return json_error("زمان پایان مرخصی باید بعد از شروع باشد.", status=422)
+        hours_raw = payload.get("leaveHours") or payload.get("leave_hours")
+        if hours_raw not in (None, ""):
+            try:
+                hours = Decimal(str(hours_raw))
+            except (InvalidOperation, TypeError, ValueError):
+                return json_error("ساعات مرخصی معتبر نیست.", status=422)
+        else:
+            hours = Decimal(str(round((ends_at - starts_at).total_seconds() / 3600.0, 2)))
+
+    if hours <= 0:
+        return json_error("ساعات مرخصی باید بیشتر از صفر باشد.", status=422)
+
+    return LeaveRequest.objects.create(
+        request=request_obj,
+        mode=mode,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        hours=hours,
+        status=request_obj.status,
+    )
 
 
 def update_expense_status_from_assignments(expense: Expense) -> None:
@@ -2386,6 +2487,96 @@ def attendance_reports_view(request: HttpRequest):
     if not user_can_access_attendance(request.current_user):
         return json_error("برای استفاده از گزارشات ورود و خروج باید این گزینه از کیف پول خریداری و فعال شود.", status=402)
     return json_response(build_attendance_report_payload(request.current_user, request.GET))
+
+
+def organization_has_attendance(organization) -> bool:
+    return FeaturePurchase.objects.filter(organization=organization, feature_key="attendance", is_active=True).exists()
+
+
+def render_attendance_report_csv(report: dict) -> HttpResponse:
+    lines = [
+        "jalaliDate,weekday,workedHours,leaveHours,scheduledHours,overtimeHours,shortageHours,punches",
+    ]
+    for day in report.get("days") or []:
+        punches = ";".join(f"{item.get('type','')}:{item.get('time','')}" for item in (day.get("punches") or []))
+        lines.append(
+            ",".join(
+                [
+                    str(day.get("jalaliDate") or day.get("date") or ""),
+                    str(day.get("weekday") or ""),
+                    str(day.get("workedHours") or 0),
+                    str(day.get("leaveHours") or 0),
+                    str(day.get("scheduledHours") or 0),
+                    str(day.get("overtimeHours") or 0),
+                    str(day.get("shortageHours") or 0),
+                    f'"{punches}"',
+                ]
+            )
+        )
+    summary = report.get("summary") or {}
+    lines.append("")
+    lines.append(
+        f"summary,worked,{summary.get('workedHours', 0)},overtime,{summary.get('overtimeHours', 0)},leave,{summary.get('leaveHours', 0)},remaining,{summary.get('leaveRemaining', 0)},unpaid,{summary.get('unpaidLeaveHours', 0)}"
+    )
+    content = "\n".join(lines)
+    response = HttpResponse(content, content_type="text/csv; charset=utf-8-sig")
+    response["Content-Disposition"] = (
+        f'attachment; filename="attendance-{report.get("jalaliYear") or report.get("year")}-{report.get("jalaliMonth") or report.get("month")}-{report.get("userId")}.csv"'
+    )
+    return response
+
+
+@require_auth
+@methods("GET")
+def attendance_my_report_view(request: HttpRequest):
+    organization = get_user_organization(request.current_user)
+    if request.current_user.slug != HQ_USERNAME and not organization_has_attendance(organization):
+        return json_error("ماژول ورود و خروج برای این سازمان فعال نیست.", status=402)
+
+    now = timezone.localdate()
+    jalali_year_raw = request.GET.get("jalaliYear") or request.GET.get("jalali_year")
+    jalali_month_raw = request.GET.get("jalaliMonth") or request.GET.get("jalali_month")
+    jalali_year = None
+    jalali_month = None
+    year = None
+    month = None
+    try:
+        if jalali_year_raw is not None or jalali_month_raw is not None:
+            today_j = gregorian_to_jalali(now.year, now.month, now.day)
+            jalali_year = int(jalali_year_raw if jalali_year_raw is not None else today_j[0])
+            jalali_month = int(jalali_month_raw if jalali_month_raw is not None else today_j[1])
+        else:
+            year = int(request.GET.get("year") or now.year)
+            month = int(request.GET.get("month") or now.month)
+    except (TypeError, ValueError):
+        return json_error("سال یا ماه معتبر نیست.", status=422)
+
+    if jalali_year is not None:
+        if jalali_month < 1 or jalali_month > 12 or jalali_year < 1300 or jalali_year > 1500:
+            return json_error("بازه گزارش معتبر نیست.", status=422)
+    elif month < 1 or month > 12 or year < 2000 or year > 2100:
+        return json_error("بازه گزارش معتبر نیست.", status=422)
+
+    user_id_raw = request.GET.get("userId") or request.GET.get("user_id")
+    target_user = request.current_user
+    if user_id_raw:
+        if not (is_manager(request.current_user) or request.current_user.slug == HQ_USERNAME or can_manage_users(request.current_user)):
+            return json_error("دسترسی مشاهده گزارش سایر کاربران را ندارید.", status=403)
+        target_user = attendance_user_queryset(organization).filter(pk=user_id_raw).first()
+        if target_user is None:
+            return json_error("کاربر پیدا نشد.", status=404)
+
+    report = build_monthly_attendance_report(
+        organization=organization,
+        user=target_user,
+        year=year,
+        month=month,
+        jalali_year=jalali_year,
+        jalali_month=jalali_month,
+    )
+    if str(request.GET.get("format") or "").lower() == "csv":
+        return render_attendance_report_csv(report)
+    return json_response(report)
 
 
 @methods("GET", "POST")
@@ -3446,6 +3637,9 @@ def requests_view(request: HttpRequest):
     manager_assignee_ids = [int(item) for item in request.POST.get("managerAssigneeIds", "").split(",") if item.strip()]
     employee_assignee_ids = [int(item) for item in request.POST.get("employeeAssigneeIds", "").split(",") if item.strip()]
     priority = request.POST.get("priority", RequestPriority.MEDIUM)
+    request_type = (request.POST.get("requestType") or request.POST.get("request_type") or RequestType.GENERAL).strip()
+    if request_type not in {choice.value for choice in RequestType}:
+        return json_error("نوع درخواست معتبر نیست.", status=422)
     request_action = request.POST.get("action", "refer").strip().lower()
     deadline_raw = request.POST.get("deadline", "").strip()
     deadline = date.fromisoformat(deadline_raw) if deadline_raw else None
@@ -3488,6 +3682,7 @@ def requests_view(request: HttpRequest):
         code=next_code("REQ"),
         title=title or "درخواست جدید",
         description=description or "",
+        request_type=request_type,
         priority=priority,
         status=status_by_action[request_action],
         department=department,
@@ -3496,6 +3691,13 @@ def requests_view(request: HttpRequest):
         deadline=deadline,
         updated_at=timezone.now(),
     )
+    if request_type in {RequestType.LEAVE_HOURLY, RequestType.LEAVE_DAILY}:
+        organization = get_user_organization(request.current_user)
+        preference, _ = OrganizationPreference.objects.get_or_create(organization=organization)
+        leave_result = create_leave_for_request(request_obj, request.POST, preference)
+        if isinstance(leave_result, JsonResponse):
+            request_obj.delete()
+            return leave_result
     if assigned_managers:
         request_obj.assigned_managers.set(assigned_managers)
     if assigned_employees:
@@ -3534,7 +3736,7 @@ def requests_view(request: HttpRequest):
             size_bytes=file_obj.size,
         )
 
-    request_obj = Request.objects.select_related("requester", "manager", "department").prefetch_related("assigned_managers", "assigned_employees", "attachments", "approval_assignments__approver").get(pk=request_obj.pk)
+    request_obj = Request.objects.select_related("requester", "manager", "department", "leave_request").prefetch_related("assigned_managers", "assigned_employees", "attachments", "approval_assignments__approver").get(pk=request_obj.pk)
     request_obj._current_user = request.current_user
     AuditLog.objects.create(actor=request.current_user, actor_name=request.current_user.full_name, action="request_created", entity_type="request", entity_code=request_obj.code, detail=request_obj.title, icon="assignment")
     org = get_user_organization(request.current_user)
@@ -4609,6 +4811,36 @@ def settings_profile_view(request: HttpRequest):
             geo_fields = apply_organization_geo_fields(organization, location_payload)
             if geo_fields:
                 organization.save(update_fields=geo_fields)
+    elif "workSchedule" in payload or "work_schedule" in payload or "workDayStart" in payload or "monthlyLeaveHours" in payload:
+        schedule_payload = payload.get("workSchedule") or payload.get("work_schedule") or payload
+        start_time = parse_time_hhmm(
+            schedule_payload.get("workDayStart") or schedule_payload.get("work_day_start"),
+            preference.work_day_start_time or time(9, 0),
+        )
+        end_time = parse_time_hhmm(
+            schedule_payload.get("workDayEnd") or schedule_payload.get("work_day_end"),
+            preference.work_day_end_time or time(17, 0),
+        )
+        if start_time is None or end_time is None:
+            return json_error("ساعات کاری معتبر نیست.", status=422)
+        leave_hours_raw = schedule_payload.get("monthlyLeaveHours")
+        if leave_hours_raw is None:
+            leave_hours_raw = schedule_payload.get("monthly_leave_hours")
+        if leave_hours_raw is None:
+            leave_hours_raw = preference.monthly_leave_hours or 20
+        try:
+            leave_hours_value = int(leave_hours_raw)
+        except (TypeError, ValueError):
+            return json_error("سهمیه مرخصی ماهانه معتبر نیست.", status=422)
+        if leave_hours_value < 0 or leave_hours_value > 320:
+            return json_error("سهمیه مرخصی ماهانه باید بین ۰ تا ۳۲۰ ساعت باشد.", status=422)
+        preference.work_day_start_time = start_time
+        preference.work_day_end_time = end_time
+        preference.monthly_leave_hours = leave_hours_value
+        preference.updated_at = timezone.now()
+        preference.save(
+            update_fields=["work_day_start_time", "work_day_end_time", "monthly_leave_hours", "updated_at"]
+        )
     else:
         organization_name = (payload.get("organizationName") or "").strip()
         system_id = normalize_slug(payload.get("systemId") or organization.code)
@@ -4752,3 +4984,273 @@ def settings_view(request: HttpRequest):
         ],
         safe=False,
     )
+
+
+def direct_conversation_pair_key(user_a_id: int, user_b_id: int) -> str:
+    lo, hi = sorted((int(user_a_id), int(user_b_id)))
+    return f"{lo}:{hi}"
+
+
+def serialize_chat_user(user: User) -> dict:
+    return {
+        "id": user.id,
+        "name": user.full_name,
+        "fullName": user.full_name,
+        "role": user.job_title or "",
+        "jobTitle": user.job_title or "",
+        "avatar": user.avatar or "",
+        "avatarImage": user.avatar_image or "",
+        "department": user.department.name if user.department_id else "",
+    }
+
+
+def serialize_direct_message(message: DirectMessage, current_user_id: int, peer_last_read_at=None) -> dict:
+    mine = int(message.sender_id or 0) == int(current_user_id)
+    read = False
+    if mine and peer_last_read_at is not None and message.created_at is not None:
+        read = peer_last_read_at >= message.created_at
+    attachment = None
+    if message.attachment_stored_name:
+        attachment = {
+            "originalName": message.attachment_original_name or Path(message.attachment_stored_name).name,
+            "fileUrl": media_url(message.attachment_stored_name),
+            "mimeType": message.attachment_mime_type or "",
+            "sizeBytes": int(message.attachment_size_bytes or 0),
+            "isImage": str(message.attachment_mime_type or "").startswith("image/"),
+        }
+    return {
+        "id": message.id,
+        "body": message.body or "",
+        "createdAt": message.created_at.isoformat() if message.created_at else "",
+        "senderId": message.sender_id,
+        "senderName": message.sender.full_name if message.sender_id else "",
+        "mine": mine,
+        "read": read,
+        "delivered": True,
+        "attachment": attachment,
+    }
+
+
+def conversation_peer(conversation: DirectConversation, current_user: User) -> User | None:
+    for member in conversation.memberships.all():
+        if member.user_id != current_user.id:
+            return member.user
+    return None
+
+
+def serialize_direct_conversation(conversation: DirectConversation, current_user: User) -> dict:
+    peer = conversation_peer(conversation, current_user)
+    membership = next((item for item in conversation.memberships.all() if item.user_id == current_user.id), None)
+    peer_membership = next((item for item in conversation.memberships.all() if item.user_id != current_user.id), None)
+    last_read_at = membership.last_read_at if membership else None
+    peer_last_read_at = peer_membership.last_read_at if peer_membership else None
+    last_message = conversation.messages.select_related("sender").order_by("-created_at", "-id").first()
+    unread_qs = conversation.messages.exclude(sender_id=current_user.id)
+    if last_read_at is not None:
+        unread_qs = unread_qs.filter(created_at__gt=last_read_at)
+    unread_count = unread_qs.count()
+    return {
+        "id": conversation.id,
+        "updatedAt": conversation.updated_at.isoformat() if conversation.updated_at else "",
+        "peer": serialize_chat_user(peer) if peer else None,
+        "lastMessage": serialize_direct_message(last_message, current_user.id, peer_last_read_at) if last_message else None,
+        "unreadCount": unread_count,
+        "lastPreview": (
+            (last_message.body or "").strip()
+            or ("پیوست" if last_message and last_message.attachment_stored_name else "")
+            or "گفتگو را شروع کنید"
+        ),
+    }
+
+
+def get_user_direct_conversation(request: HttpRequest, conversation_id: int) -> DirectConversation | None:
+    organization = get_user_organization(request.current_user)
+    return (
+        DirectConversation.objects.filter(
+            pk=conversation_id,
+            organization=organization,
+            memberships__user=request.current_user,
+        )
+        .prefetch_related(
+            Prefetch(
+                "memberships",
+                queryset=DirectConversationMember.objects.select_related("user", "user__department"),
+            )
+        )
+        .distinct()
+        .first()
+    )
+
+
+@require_auth
+@methods("GET")
+def chat_users_view(request: HttpRequest):
+    users_qs = (
+        organization_users(request.current_user)
+        .filter(is_active=True, is_deleted=False)
+        .exclude(pk=request.current_user.id)
+        .select_related("department")
+        .order_by("full_name")
+    )
+    return json_response([serialize_chat_user(user) for user in users_qs], safe=False)
+
+
+@require_auth
+@csrf_exempt
+@methods("GET", "POST")
+def chat_conversations_view(request: HttpRequest):
+    organization = get_user_organization(request.current_user)
+    if request.method == "GET":
+        conversations = (
+            DirectConversation.objects.filter(organization=organization, memberships__user=request.current_user)
+            .prefetch_related(
+                Prefetch(
+                    "memberships",
+                    queryset=DirectConversationMember.objects.select_related("user", "user__department"),
+                )
+            )
+            .distinct()
+            .order_by("-updated_at", "-id")
+        )
+        return json_response(
+            [serialize_direct_conversation(item, request.current_user) for item in conversations],
+            safe=False,
+        )
+
+    payload = parse_json(request)
+    try:
+        peer_id = int(payload.get("userId") or payload.get("user_id") or 0)
+    except (TypeError, ValueError):
+        peer_id = 0
+    if not peer_id or peer_id == request.current_user.id:
+        return json_error("کاربر مقصد معتبر نیست.", status=422)
+
+    peer = (
+        organization_users(request.current_user)
+        .filter(pk=peer_id, is_active=True, is_deleted=False)
+        .select_related("department")
+        .first()
+    )
+    if peer is None:
+        return json_error("کاربر در این مجموعه پیدا نشد.", status=404)
+
+    pair_key = direct_conversation_pair_key(request.current_user.id, peer.id)
+    conversation = (
+        DirectConversation.objects.filter(organization=organization, pair_key=pair_key)
+        .prefetch_related(
+            Prefetch(
+                "memberships",
+                queryset=DirectConversationMember.objects.select_related("user", "user__department"),
+            )
+        )
+        .first()
+    )
+    if conversation is None:
+        with transaction.atomic():
+            conversation = DirectConversation.objects.create(
+                organization=organization,
+                pair_key=pair_key,
+                updated_at=timezone.now(),
+            )
+            DirectConversationMember.objects.create(conversation=conversation, user=request.current_user)
+            DirectConversationMember.objects.create(conversation=conversation, user=peer)
+        conversation = (
+            DirectConversation.objects.filter(pk=conversation.pk)
+            .prefetch_related(
+                Prefetch(
+                    "memberships",
+                    queryset=DirectConversationMember.objects.select_related("user", "user__department"),
+                )
+            )
+            .first()
+        )
+
+    return json_response(serialize_direct_conversation(conversation, request.current_user), status=201)
+
+
+@require_auth
+@csrf_exempt
+@methods("GET", "POST")
+def chat_conversation_messages_view(request: HttpRequest, conversation_id: int):
+    conversation = get_user_direct_conversation(request, conversation_id)
+    if conversation is None:
+        return json_error("گفتگو پیدا نشد.", status=404)
+
+    if request.method == "GET":
+        peer_membership = next(
+            (item for item in conversation.memberships.all() if item.user_id != request.current_user.id),
+            None,
+        )
+        peer_last_read_at = peer_membership.last_read_at if peer_membership else None
+        messages = conversation.messages.select_related("sender").order_by("created_at", "id")
+        return json_response(
+            [
+                serialize_direct_message(item, request.current_user.id, peer_last_read_at)
+                for item in messages
+            ],
+            safe=False,
+        )
+
+    content_type = (request.META.get("CONTENT_TYPE") or "").lower()
+    uploaded = None
+    if "multipart/form-data" in content_type:
+        body = (request.POST.get("body") or "").strip()
+        uploaded = request.FILES.get("attachment") or request.FILES.get("file")
+    else:
+        payload = parse_json(request)
+        body = (payload.get("body") or "").strip()
+        uploaded = None
+
+    if not body and uploaded is None:
+        return json_error("متن پیام یا پیوست الزامی است.", status=422)
+    if len(body) > 4000:
+        return json_error("متن پیام بیش از حد طولانی است.", status=422)
+
+    attachment_fields = {}
+    if uploaded is not None:
+        if getattr(uploaded, "size", 0) and uploaded.size > 15 * 1024 * 1024:
+            return json_error("حجم پیوست نباید بیشتر از ۱۵ مگابایت باشد.", status=422)
+        stored_name = save_uploaded_file(uploaded)
+        attachment_fields = {
+            "attachment_original_name": (uploaded.name or "file")[:255],
+            "attachment_stored_name": stored_name,
+            "attachment_mime_type": (getattr(uploaded, "content_type", "") or "")[:120],
+            "attachment_size_bytes": int(getattr(uploaded, "size", 0) or 0),
+        }
+
+    now_value = timezone.now()
+    with transaction.atomic():
+        message = DirectMessage.objects.create(
+            conversation=conversation,
+            sender=request.current_user,
+            body=body,
+            **attachment_fields,
+        )
+        DirectConversation.objects.filter(pk=conversation.pk).update(updated_at=now_value)
+        DirectConversationMember.objects.filter(conversation=conversation, user=request.current_user).update(
+            last_read_at=now_value
+        )
+    message = DirectMessage.objects.select_related("sender").get(pk=message.pk)
+    peer_membership = DirectConversationMember.objects.filter(conversation=conversation).exclude(
+        user=request.current_user
+    ).first()
+    peer_last_read_at = peer_membership.last_read_at if peer_membership else None
+    return json_response(
+        serialize_direct_message(message, request.current_user.id, peer_last_read_at),
+        status=201,
+    )
+
+
+@require_auth
+@csrf_exempt
+@methods("POST")
+def chat_conversation_read_view(request: HttpRequest, conversation_id: int):
+    conversation = get_user_direct_conversation(request, conversation_id)
+    if conversation is None:
+        return json_error("گفتگو پیدا نشد.", status=404)
+    DirectConversationMember.objects.filter(conversation=conversation, user=request.current_user).update(
+        last_read_at=timezone.now()
+    )
+    conversation = get_user_direct_conversation(request, conversation_id)
+    return json_response(serialize_direct_conversation(conversation, request.current_user))
+

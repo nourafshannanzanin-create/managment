@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 
 import BaseModal from '../components/BaseModal.vue'
 import ErrorNotice from '../components/ErrorNotice.vue'
@@ -148,7 +148,6 @@ watch(() => route.query.register, syncSignupQuery)
 
       <section class="stitch-form-panel">
         <div class="stitch-form-header">
-          <RouterLink class="stitch-back-home" to="/">بازگشت به صفحه اصلی</RouterLink>
           <span>دسترسی سامانه</span>
           <h2>حساب سازمانی</h2>
         </div>

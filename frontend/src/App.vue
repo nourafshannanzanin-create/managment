@@ -25,6 +25,7 @@ const routeLoading = ref(false)
 const nowTick = ref(Date.now())
 let trialCountdownTimer = null
 let trialExpiryHandled = false
+let liveSyncTimer = null
 
 const {
   state,
@@ -38,6 +39,7 @@ const {
   selectedApproval,
   restoreSession,
   loadBootstrapData,
+  softLiveSync,
   loadReports,
   loadSettings,
   loadWalletDashboard,
@@ -56,7 +58,6 @@ const {
 
 const isAuthRoute = computed(() => Boolean(route.meta.publicCanvas) || route.path === '/login')
 const isPublicAttendanceRoute = computed(() => route.name === 'public-attendance')
-const isLandingRoute = computed(() => Boolean(route.meta.landing) || route.name === 'landing')
 const licenseSafeRoutes = new Set(['/dashboard', '/wallet', '/support', '/login', '/'])
 
 const licenseStatus = computed(() => state.currentUser.licenseStatus || {})
@@ -150,12 +151,8 @@ async function handleTrialExpiry() {
   }
 }
 const globalLoading = computed(() =>
-  isLandingRoute.value
-    ? false
-    : (
-  routeLoading.value ||
-  !state.sessionReady ||
-  state.appLoading ||
+  (!state.sessionReady && !state.bootstrapLoaded) ||
+  (state.appLoading && !state.bootstrapLoaded) ||
   state.loginPending ||
   requestDetailState.loading ||
   expenseDetailState.loading ||
@@ -164,16 +161,11 @@ const globalLoading = computed(() =>
   state.expenseSubmitting ||
   state.userSubmitting ||
   state.documentSubmitting ||
-  state.support.loading ||
   state.support.detailLoading ||
   state.support.submitting ||
-  state.wallet.loading ||
   state.wallet.submitting ||
-  state.hq.loading ||
   signatureState.loading
-    ),
 )
-let hqSupportRefreshTimer = null
 
 watch(showTrialBanner, (active) => {
   if (active) {
@@ -190,10 +182,10 @@ watch(trialRemainingSeconds, (value, previous) => {
   }
 })
 
-async function refreshRouteData(path) {
+async function refreshRouteData(path, { soft = false } = {}) {
   if (!state.authToken || path === '/login' || path === '/') return
 
-  await loadBootstrapData(true)
+  await loadBootstrapData(true, { soft: soft || state.bootstrapLoaded })
 
   if (isLicenseLocked.value && !licenseSafeRoutes.has(path)) {
     await hub.navigateTo('/wallet')
@@ -201,7 +193,7 @@ async function refreshRouteData(path) {
   }
 
   if (path === '/support') {
-    await loadSupportTickets(true)
+    await loadSupportTickets(true, { soft: true })
     return
   }
 
@@ -212,8 +204,8 @@ async function refreshRouteData(path) {
 
   if (path === '/hq') {
     unlockTicketAlerts()
-    await loadHqPanel(true)
-    await loadSupportTickets(true, { notifyNew: false })
+    await loadHqPanel(true, { soft: true })
+    await loadSupportTickets(true, { soft: true, notifyNew: false })
     return
   }
 
@@ -233,9 +225,10 @@ watch(
     state.mobileMenuOpen = false
 
     if (!state.sessionReady) return
-    routeLoading.value = true
+    const soft = Boolean(state.bootstrapLoaded)
+    if (!soft) routeLoading.value = true
     try {
-      await refreshRouteData(route.path)
+      await refreshRouteData(route.path, { soft })
     } finally {
       routeLoading.value = false
     }
@@ -243,22 +236,29 @@ watch(
 )
 
 onMounted(async () => {
+  window.addEventListener('pointerdown', unlockTicketAlerts, { once: true })
+  window.addEventListener('keydown', unlockTicketAlerts, { once: true })
+
   await restoreSession()
-  await refreshRouteData(route.path)
+  await refreshRouteData(route.path, { soft: false })
   if (state.currentUser.isHq) {
     unlockTicketAlerts()
   }
-  hqSupportRefreshTimer = window.setInterval(() => {
-    if (!state.authToken || !state.currentUser.isHq || state.support.loading) return
-    void loadSupportTickets(true, { notifyNew: true })
-  }, 10000)
+  await softLiveSync({ includeSupport: true })
+
+  liveSyncTimer = window.setInterval(() => {
+    if (!state.authToken || state.liveSync.inFlight) return
+    void softLiveSync({ includeSupport: true })
+  }, 8000)
 })
 
 onUnmounted(() => {
-  if (hqSupportRefreshTimer) {
-    window.clearInterval(hqSupportRefreshTimer)
+  if (liveSyncTimer) {
+    window.clearInterval(liveSyncTimer)
   }
   stopTrialCountdown()
+  window.removeEventListener('pointerdown', unlockTicketAlerts)
+  window.removeEventListener('keydown', unlockTicketAlerts)
 })
 </script>
 
@@ -268,7 +268,6 @@ onUnmounted(() => {
     :class="{
       'is-auth-route': isAuthRoute,
       'is-public-attendance': isPublicAttendanceRoute,
-      'is-landing-route': isLandingRoute,
       'has-trial-banner': showTrialBanner,
       'has-mobile-menu-open': !isAuthRoute && state.mobileMenuOpen,
     }"
@@ -292,20 +291,22 @@ onUnmounted(() => {
             <span class="global-trial-banner__fill" :style="{ width: `${trialProgressPercent}%` }"></span>
           </div>
         </div>
-        <AppTopNav />
         <main class="shell-content">
-          <ToastHost />
-          <div v-if="showSmsBalanceWarning" class="global-sms-warning">
-            <IconlyIcon name="sms_failed" decorative />
-            <strong>{{ smsBalanceWarningText }}</strong>
+          <AppTopNav />
+          <div class="shell-content-body">
+            <ToastHost />
+            <div v-if="showSmsBalanceWarning" class="global-sms-warning">
+              <IconlyIcon name="sms_failed" decorative />
+              <strong>{{ smsBalanceWarningText }}</strong>
+            </div>
+            <ErrorNotice
+              v-if="state.lastErrorDetails && !modalState.requestComposer && !modalState.expenseComposer && !modalState.userComposer && !modalState.documentComposer"
+              :error="state.lastErrorDetails"
+            />
+            <RouterView v-slot="{ Component }">
+              <component :is="Component" :key="route.fullPath" />
+            </RouterView>
           </div>
-          <ErrorNotice
-            v-if="state.lastErrorDetails && !modalState.requestComposer && !modalState.expenseComposer && !modalState.userComposer && !modalState.documentComposer"
-            :error="state.lastErrorDetails"
-          />
-          <RouterView v-slot="{ Component }">
-            <component :is="Component" :key="route.fullPath" />
-          </RouterView>
         </main>
         <MobileBottomNav />
       </div>
@@ -314,15 +315,9 @@ onUnmounted(() => {
     <main
       v-else
       class="shell-main auth-main"
-      :class="{ 'landing-main': isLandingRoute, 'public-canvas-main': Boolean(route.meta.publicCanvas) && !isLandingRoute }"
+      :class="{ 'public-canvas-main': Boolean(route.meta.publicCanvas) }"
     >
-      <div
-        class="shell-content"
-        :class="{
-          'landing-content': isLandingRoute,
-          'public-canvas-content': Boolean(route.meta.publicCanvas) && !isLandingRoute,
-        }"
-      >
+      <div class="shell-content public-canvas-content">
         <RouterView v-slot="{ Component }">
           <component :is="Component" :key="route.fullPath" />
         </RouterView>

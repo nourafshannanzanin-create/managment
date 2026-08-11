@@ -19,6 +19,7 @@ import message from '../assets/iconly/message.svg'
 import show from '../assets/iconly/show.svg'
 import buy from '../assets/iconly/buy.svg'
 import paperPlus from '../assets/iconly/paper-plus.svg'
+import fingerprint from '../assets/iconly/fingerprint.svg'
 
 export const iconlyIcons = {
   home,
@@ -42,6 +43,7 @@ export const iconlyIcons = {
   show,
   buy,
   paperPlus,
+  fingerprint,
 }
 
 export const materialToIconly = {
@@ -92,6 +94,7 @@ export const materialToIconly = {
   event_upcoming: 'calendar',
   expand_more: 'category',
   fact_check: 'paperPlus',
+  fingerprint: 'fingerprint',
   filter_alt_off: 'filter',
   flag: 'category',
   folder_copy: 'document',
@@ -120,6 +123,9 @@ export const materialToIconly = {
   mark_chat_read: 'chat',
   menu: 'category',
   monitoring: 'graph',
+  notifications: 'message',
+  notifications_active: 'message',
+  notifications_none: 'message',
   north_east: 'wallet',
   open_in_new: 'show',
   paper_plus: 'paperPlus',

@@ -1,6 +1,6 @@
 <script setup>
 import IconlyIcon from './base/IconlyIcon.vue'
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -11,9 +11,29 @@ defineProps({
 })
 
 const route = useRoute()
-const { state, logout, supportUnreadCount, requestInboxCount, expenseInboxCount, approvalInboxCount } = useWorkflowHub()
+const {
+  state,
+  logout,
+  supportUnreadCount,
+  chatUnreadCount,
+  requestInboxCount,
+  expenseInboxCount,
+  approvalInboxCount,
+  loadChatUnreadConversations,
+} = useWorkflowHub()
 const organizationTitle = computed(() => state.hq.selectedOrganization?.name || state.currentUser.organization || 'مجموعه')
 const isLicenseLocked = computed(() => Boolean(state.currentUser.licenseStatus?.isLocked || state.currentUser.licenseStatus?.is_locked))
+
+let chatPollTimer = null
+onMounted(() => {
+  void loadChatUnreadConversations()
+  chatPollTimer = window.setInterval(() => {
+    void loadChatUnreadConversations()
+  }, 8000)
+})
+onBeforeUnmount(() => {
+  if (chatPollTimer) window.clearInterval(chatPollTimer)
+})
 
 const navItems = computed(() => {
   const items = []
@@ -21,6 +41,7 @@ const navItems = computed(() => {
   // HQ supporters: ticket-focused navigation
   if (state.currentUser.isHq && !state.currentUser.isHqAdmin) {
     items.push({ to: '/hq', label: 'میز پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
+    items.push({ to: '/chat', label: 'گفتگو', icon: 'forum', badge: chatUnreadCount.value || undefined })
     return items
   }
 
@@ -32,6 +53,7 @@ const navItems = computed(() => {
     return items
   }
 
+  items.push({ to: '/chat', label: 'گفتگو', icon: 'forum', badge: chatUnreadCount.value || undefined })
   items.push({ to: '/requests', label: 'درخواست‌ها', icon: 'assignment', badge: requestInboxCount.value })
   items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check', badge: approvalInboxCount.value })
 
@@ -39,7 +61,7 @@ const navItems = computed(() => {
     items.push({ to: '/expenses', label: 'هزینه‌ها', icon: 'payments', badge: expenseInboxCount.value })
   }
 
-  if (state.currentUser.isHq || state.currentUser.menuAccess?.attendance === true) {
+  if (state.currentUser.isHq || (state.currentUser.isManager && state.currentUser.menuAccess?.attendance === true)) {
     items.push({ to: '/attendance', label: 'ورود و خروج', icon: 'badge' })
   }
 

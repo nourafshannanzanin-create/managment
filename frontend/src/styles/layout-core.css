@@ -1,0 +1,370 @@
+/*
+  Layout core — single source of truth for shell / topbar / filters / chat.
+  Loaded last. Prefer changing this file over stacking more jade overrides.
+*/
+
+#app .app-shell:not(.is-auth-route) {
+  --layout-inline: 28px;
+  --layout-block: 20px;
+  --topbar-pad-y: 10px;
+  --filter-control-h: 40px;
+  --chat-composer-h: 40px;
+  --chat-control-h: 32px;
+}
+
+/* —— Shell content frame —— */
+#app .app-shell:not(.is-auth-route) .shell-content {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shell-content-body,
+#app .app-shell:not(.is-auth-route) .page-shell {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shell-content-body {
+  padding: var(--layout-block) var(--layout-inline) !important;
+}
+
+/* —— Topbar: full bleed of main column —— */
+#app .app-shell:not(.is-auth-route) header.topbar-shell,
+#app .app-shell:not(.is-auth-route) .topbar-shell {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 12px !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: var(--topbar-pad-y) var(--layout-inline) !important;
+  box-sizing: border-box !important;
+  align-self: stretch !important;
+  flex: 0 0 auto !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-main-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-intro {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .topbar-actions {
+  flex: 0 0 auto !important;
+}
+
+/* —— Filters: equal columns, full topbar width —— */
+#app .app-shell:not(.is-auth-route) .topbar-shell > .page-filters,
+#app .app-shell:not(.is-auth-route) .topbar-shell > .modern-page-filters,
+#app .app-shell:not(.is-auth-route) .page-filters.modern-page-filters.topbar-filters,
+#app .app-shell:not(.is-auth-route) .modern-page-filters.topbar-filters {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto !important;
+  align-items: end !important;
+  gap: 12px !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-sizing: border-box !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-field {
+  display: grid !important;
+  grid-template-rows: 16px var(--filter-control-h) !important;
+  gap: 6px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-field-label {
+  height: 16px !important;
+  line-height: 16px !important;
+  font-size: 0.7rem !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-field-control,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-select-wrap,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .shamsi-picker,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .shamsi-picker-input-wrap {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: var(--filter-control-h) !important;
+  min-height: var(--filter-control-h) !important;
+  max-height: var(--filter-control-h) !important;
+  box-sizing: border-box !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-input,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-select,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .shamsi-picker-input {
+  width: 100% !important;
+  height: var(--filter-control-h) !important;
+  min-height: var(--filter-control-h) !important;
+  max-height: var(--filter-control-h) !important;
+  box-sizing: border-box !important;
+}
+
+#app .app-shell:not(.is-auth-route) .modern-page-filters .modern-filter-reset,
+#app .app-shell:not(.is-auth-route) .modern-page-filters .filter-reset-btn {
+  height: var(--filter-control-h) !important;
+  min-height: var(--filter-control-h) !important;
+  max-height: var(--filter-control-h) !important;
+  padding-inline: 14px !important;
+  white-space: nowrap !important;
+}
+
+/* —— Chat page layout —— */
+#app .app-shell:not(.is-auth-route) .chat-page {
+  display: grid !important;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) !important;
+  gap: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 0 !important;
+  height: calc(100dvh - 140px) !important;
+  max-height: calc(100dvh - 140px) !important;
+  border-radius: 18px !important;
+  overflow: hidden !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-sidebar,
+#app .app-shell:not(.is-auth-route) .chat-thread {
+  min-height: 0 !important;
+  height: 100% !important;
+  display: grid !important;
+  grid-template-rows: auto auto minmax(0, 1fr) auto !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-thread:not(:has(.chat-composer)) {
+  grid-template-rows: auto minmax(0, 1fr) !important;
+}
+
+#app .app-shell:not(.is-auth-route) form.chat-composer {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 6px !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 4px 8px !important;
+  min-height: var(--chat-composer-h) !important;
+  height: var(--chat-composer-h) !important;
+  max-height: var(--chat-composer-h) !important;
+  box-sizing: border-box !important;
+  border-top: 1px solid rgba(52, 144, 139, 0.12) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+}
+
+#app .app-shell:not(.is-auth-route) form.chat-composer:has(.chat-pending-file) {
+  height: auto !important;
+  max-height: none !important;
+  min-height: var(--chat-composer-h) !important;
+  padding-block: 6px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-composer-main {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 4px !important;
+}
+
+#app .app-shell:not(.is-auth-route) form.chat-composer input[type='text'] {
+  width: 100% !important;
+  height: var(--chat-control-h) !important;
+  min-height: var(--chat-control-h) !important;
+  max-height: var(--chat-control-h) !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+  border-radius: 10px !important;
+  box-sizing: border-box !important;
+  line-height: var(--chat-control-h) !important;
+  font-size: 0.84rem !important;
+}
+
+#app .app-shell:not(.is-auth-route) button.chat-attach-btn,
+#app .app-shell:not(.is-auth-route) .chat-attach-btn {
+  width: var(--chat-control-h) !important;
+  height: var(--chat-control-h) !important;
+  min-width: var(--chat-control-h) !important;
+  min-height: var(--chat-control-h) !important;
+  max-width: var(--chat-control-h) !important;
+  max-height: var(--chat-control-h) !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: rgba(52, 144, 139, 0.12) !important;
+  color: #1f5c59 !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) button.chat-send-btn,
+#app .app-shell:not(.is-auth-route) .chat-send-btn {
+  width: auto !important;
+  height: var(--chat-control-h) !important;
+  min-width: var(--chat-control-h) !important;
+  min-height: var(--chat-control-h) !important;
+  max-height: var(--chat-control-h) !important;
+  padding: 0 12px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: #34908b !important;
+  color: #fff !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  box-shadow: none !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+}
+
+#app .app-shell:not(.is-auth-route) button.chat-send-btn span:not(.iconly-shell),
+#app .app-shell:not(.is-auth-route) .chat-send-btn > span:last-child {
+  display: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) button.chat-send-btn .iconly-shell,
+#app .app-shell:not(.is-auth-route) .chat-send-btn .iconly-shell,
+#app .app-shell:not(.is-auth-route) button.chat-attach-btn .iconly-shell,
+#app .app-shell:not(.is-auth-route) .chat-attach-btn .iconly-shell {
+  font-size: 15px !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+#app .app-shell:not(.is-auth-route) button.chat-send-btn .iconly-img,
+#app .app-shell:not(.is-auth-route) .chat-send-btn .iconly-img {
+  filter: brightness(0) invert(1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-sidebar-head,
+#app .app-shell:not(.is-auth-route) .chat-thread-head {
+  padding: 12px 14px 8px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-search {
+  margin: 0 12px 8px !important;
+}
+
+@media (max-width: 1100px) {
+  #app .app-shell:not(.is-auth-route) .page-filters.modern-page-filters.topbar-filters,
+  #app .app-shell:not(.is-auth-route) .modern-page-filters.topbar-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .modern-page-filters .modern-filter-reset,
+  #app .app-shell:not(.is-auth-route) .modern-page-filters .filter-reset-btn {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 920px) {
+  #app .app-shell:not(.is-auth-route) {
+    --layout-inline: 14px;
+    --layout-block: 14px;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-page {
+    grid-template-columns: 1fr !important;
+    height: calc(100dvh - 120px) !important;
+    max-height: calc(100dvh - 120px) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .page-filters.modern-page-filters.topbar-filters,
+  #app .app-shell:not(.is-auth-route) .modern-page-filters.topbar-filters {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* —— Dashboard header actions —— */
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .page-header-tools {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .page-header-tools .notifications-bell-btn {
+  width: 50px !important;
+  height: 50px !important;
+  border-radius: 8px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .page-header-tools .notifications-bell-btn .iconly-shell {
+  width: 26px !important;
+  height: 26px !important;
+  font-size: 26px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .page-header-tools .notifications-bell-btn .iconly-img {
+  width: 26px !important;
+  height: 26px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .page-header-tools .dashboard-punch-btn,
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .page-header-tools button.dashboard-punch-btn,
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .page-header-tools .icon-btn.dashboard-punch-btn {
+  width: 50px !important;
+  height: 50px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: #1f8a70 !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 32px rgba(31, 138, 112, 0.34) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .page-header-tools .dashboard-punch-btn:hover,
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .page-header-tools button.dashboard-punch-btn:hover {
+  background: #18745e !important;
+  color: #ffffff !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .page-header-tools .dashboard-punch-btn .iconly-shell,
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .page-header-tools .dashboard-punch-btn:hover .iconly-shell {
+  width: 40px !important;
+  height: 40px !important;
+  font-size: 40px !important;
+  color: #ffffff !important;
+  --iconly-filter: brightness(0) invert(1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .page-header-tools .dashboard-punch-btn .iconly-img,
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .page-header-tools .dashboard-punch-btn:hover .iconly-img {
+  width: 40px !important;
+  height: 40px !important;
+  filter: brightness(0) invert(1) !important;
+}

@@ -21,6 +21,7 @@ const newDepartmentName = ref('')
 const activeLetter = ref('همه')
 const locationBusy = ref(false)
 const locationMessage = ref('')
+const scheduleMessage = ref('')
 const mapPickerRef = ref(null)
 const locationDraft = ref({
   label: '',
@@ -246,6 +247,27 @@ async function clearAttendanceLocation() {
   }
 }
 
+async function persistWorkSchedule() {
+  if (!state.settings.canEdit || saving.value) return
+  saving.value = true
+  scheduleMessage.value = ''
+  try {
+    await saveSettings({
+      workSchedule: {
+        workDayStart: state.settings.workSchedule.workDayStart || '09:00',
+        workDayEnd: state.settings.workSchedule.workDayEnd || '17:00',
+        monthlyLeaveHours: Number(state.settings.workSchedule.monthlyLeaveHours) || 20,
+      },
+    })
+    scheduleMessage.value = 'ساعات کاری و سهمیه مرخصی ذخیره شد.'
+  } catch (error) {
+    setLastError(error, 'ذخیره ساعات کاری ناموفق بود.')
+    scheduleMessage.value = error?.message || 'ذخیره ساعات کاری ناموفق بود.'
+  } finally {
+    saving.value = false
+  }
+}
+
 onMounted(async () => {
   await loadSettings(true)
   syncLocationDraftFromState()
@@ -385,6 +407,49 @@ onMounted(async () => {
             <span>حذف لوکیشن</span>
           </button>
         </div>
+      </div>
+    </section>
+
+    <section class="surface-block attendance-location-panel">
+      <div class="section-label-row">
+        <SectionHeading
+          title="ساعات کاری و مرخصی"
+          description="بازه شیفت روزانه و سهمیه مرخصی ماهانه برای محاسبه اضافه‌کار و گزارش حضور."
+        />
+      </div>
+
+      <div class="settings-stack">
+        <div class="modal-grid two-col">
+          <label class="field-shell">
+            <span>شروع شیفت</span>
+            <input v-model="state.settings.workSchedule.workDayStart" type="time" :readonly="!state.settings.canEdit" />
+          </label>
+          <label class="field-shell">
+            <span>پایان شیفت</span>
+            <input v-model="state.settings.workSchedule.workDayEnd" type="time" :readonly="!state.settings.canEdit" />
+          </label>
+          <label class="field-shell">
+            <span>سهمیه مرخصی ماهانه (ساعت)</span>
+            <input
+              v-model.number="state.settings.workSchedule.monthlyLeaveHours"
+              type="number"
+              min="0"
+              max="320"
+              :readonly="!state.settings.canEdit"
+            />
+          </label>
+        </div>
+        <p v-if="scheduleMessage" class="settings-avatar-note">{{ scheduleMessage }}</p>
+        <button
+          v-if="state.settings.canEdit"
+          class="action-btn tone-primary"
+          type="button"
+          :disabled="saving"
+          @click="persistWorkSchedule"
+        >
+          <IconlyIcon name="save" decorative />
+          <span>{{ saving ? 'در حال ذخیره...' : 'ذخیره ساعات کاری' }}</span>
+        </button>
       </div>
     </section>
 

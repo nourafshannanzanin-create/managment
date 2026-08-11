@@ -1,6 +1,6 @@
 <script setup>
 import IconlyIcon from './base/IconlyIcon.vue'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import BaseModal from './BaseModal.vue'
 import ErrorNotice from './ErrorNotice.vue'
@@ -27,6 +27,30 @@ const {
   submitRequest,
   availableRecipientUsers,
 } = useWorkflowHub()
+
+const requestTypeOptions = [
+  { value: 'general', label: 'عمومی' },
+  { value: 'leave_hourly', label: 'مرخصی ساعتی' },
+  { value: 'leave_daily', label: 'مرخصی روزانه' },
+  { value: 'mission', label: 'مأموریت' },
+  { value: 'overtime', label: 'اضافه‌کار' },
+  { value: 'remote', label: 'دورکاری' },
+  { value: 'purchase', label: 'خرید/تدارکات' },
+]
+
+const isLeaveHourly = computed(() => props.form.requestType === 'leave_hourly')
+const isLeaveDaily = computed(() => props.form.requestType === 'leave_daily')
+const isLeave = computed(() => isLeaveHourly.value || isLeaveDaily.value)
+
+const computedLeaveHours = computed(() => {
+  if (!isLeaveHourly.value) return 0
+  const start = String(props.form.leaveStartTime || '')
+  const end = String(props.form.leaveEndTime || '')
+  const [sh, sm] = start.split(':').map(Number)
+  const [eh, em] = end.split(':').map(Number)
+  if ([sh, sm, eh, em].some((item) => Number.isNaN(item))) return 0
+  return Math.max(0, Math.round((((eh * 60 + em) - (sh * 60 + sm)) / 60) * 100) / 100)
+})
 
 const managerChoices = computed(() => state.directories.managers || [])
 const employeeChoices = computed(() => availableRecipientUsers().filter((item) => item.accessRole === 'employee'))
@@ -74,6 +98,15 @@ function openReferral() {
   referralTab.value = 'managers'
   referralOpen.value = true
 }
+
+watch(
+  () => props.form.requestType,
+  (next) => {
+    if ((next === 'leave_hourly' || next === 'leave_daily') && !String(props.form.title || '').trim()) {
+      props.form.title = next === 'leave_daily' ? 'مرخصی روزانه' : 'مرخصی ساعتی'
+    }
+  },
+)
 </script>
 
 <template>
@@ -85,6 +118,13 @@ function openReferral() {
       </div>
 
       <div class="modal-grid two-col request-composer-grid">
+        <label class="field-shell">
+          <span>نوع درخواست</span>
+          <select v-model="form.requestType">
+            <option v-for="item in requestTypeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
+          </select>
+        </label>
+
         <label :class="['field-shell', fieldHasError('title') && 'has-error']">
           <span>عنوان</span>
           <input v-model="form.title" type="text" />
@@ -112,6 +152,31 @@ function openReferral() {
           <span>تاریخ</span>
           <ShamsiDatePicker v-model="form.deadline" model-type="jalali" placeholder="1405/04/01" />
         </label>
+
+        <template v-if="isLeave">
+          <label :class="['field-shell', fieldHasError('leaveStartDate') && 'has-error']">
+            <span>{{ isLeaveDaily ? 'از تاریخ' : 'تاریخ مرخصی' }}</span>
+            <ShamsiDatePicker v-model="form.leaveStartDate" model-type="jalali" placeholder="1405/04/01" />
+          </label>
+          <label v-if="isLeaveDaily" class="field-shell">
+            <span>تا تاریخ</span>
+            <ShamsiDatePicker v-model="form.leaveEndDate" model-type="jalali" placeholder="1405/04/01" />
+          </label>
+          <template v-if="isLeaveHourly">
+            <label class="field-shell">
+              <span>از ساعت</span>
+              <input v-model="form.leaveStartTime" type="time" />
+            </label>
+            <label class="field-shell">
+              <span>تا ساعت</span>
+              <input v-model="form.leaveEndTime" type="time" />
+            </label>
+            <div class="field-shell">
+              <span>جمع ساعات</span>
+              <strong class="leave-hours-value">{{ computedLeaveHours }} ساعت</strong>
+            </div>
+          </template>
+        </template>
 
         <label class="field-shell priority-field">
           <span>اولویت</span>
@@ -260,5 +325,13 @@ function openReferral() {
   .modal-grid.two-col {
     grid-template-columns: 1fr;
   }
+}
+
+.leave-hours-value {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-soft, #f3f6f4) 88%, white);
+  font-size: 0.95rem;
 }
 </style>

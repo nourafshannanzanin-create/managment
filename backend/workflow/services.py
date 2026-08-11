@@ -27,6 +27,7 @@ from workflow.models import (
     ExpenseCategory,
     ExpenseStatus,
     FeaturePurchase,
+    LeaveRequest,
     Organization,
     OrganizationMembership,
     OrganizationPreference,
@@ -37,6 +38,7 @@ from workflow.models import (
     RequestPriority,
     RequestStatus,
     RequestTimeline,
+    RequestType,
     SupportAttachment,
     SupportMessage,
     SupportTicket,
@@ -608,6 +610,10 @@ def serialize_current_user(user: User) -> dict:
         "purchasedMenuAccess": sorted([key for key, allowed in menu_access.items() if allowed]),
         "menuAccess": menu_access,
         "menu_access": menu_access,
+        "attendanceToken": getattr(user, "attendance_token", "") or "",
+        "attendance_token": getattr(user, "attendance_token", "") or "",
+        "attendancePath": f"/attendance/{user.attendance_token}" if getattr(user, "attendance_token", None) else "",
+        "attendance_path": f"/attendance/{user.attendance_token}" if getattr(user, "attendance_token", None) else "",
         "licenseStatus": license_status,
         "license_status": license_status,
     }
@@ -682,6 +688,30 @@ def visible_settings_payload(user: User) -> dict:
     }
 
 
+REQUEST_TYPE_LABELS = {
+    RequestType.GENERAL: "عمومی",
+    RequestType.LEAVE_HOURLY: "مرخصی ساعتی",
+    RequestType.LEAVE_DAILY: "مرخصی روزانه",
+    RequestType.MISSION: "مأموریت",
+    RequestType.OVERTIME: "اضافه‌کار",
+    RequestType.REMOTE: "دورکاری",
+    RequestType.PURCHASE: "خرید/تدارکات",
+}
+
+
+def serialize_leave_request(leave: LeaveRequest | None) -> dict | None:
+    if leave is None:
+        return None
+    return {
+        "mode": leave.mode,
+        "startsAt": leave.starts_at.isoformat() if leave.starts_at else "",
+        "endsAt": leave.ends_at.isoformat() if leave.ends_at else "",
+        "hours": float(leave.hours or 0),
+        "status": leave.status,
+        "statusLabel": request_status_label(leave.status),
+    }
+
+
 def serialize_request(request_obj: Request) -> dict:
     current_user = getattr(request_obj, "_current_user", None)
     assignments = list(getattr(request_obj, "_prefetched_objects_cache", {}).get("approval_assignments", []))
@@ -694,6 +724,12 @@ def serialize_request(request_obj: Request) -> dict:
         and request_obj.status in {RequestStatus.SUBMITTED, RequestStatus.UNDER_REVIEW}
     )
     attachments = list(getattr(request_obj, "_prefetched_objects_cache", {}).get("attachments", []))
+    leave = None
+    try:
+        leave = request_obj.leave_request
+    except LeaveRequest.DoesNotExist:
+        leave = None
+    request_type = getattr(request_obj, "request_type", None) or RequestType.GENERAL
     return {
         "id": request_obj.code,
         "title": request_obj.title,
@@ -703,6 +739,9 @@ def serialize_request(request_obj: Request) -> dict:
         "managerAssigneeIds": [item.id for item in request_obj.assigned_managers.all()],
         "employeeAssignees": [normalize_person_name(item.full_name) for item in request_obj.assigned_employees.all()],
         "employeeAssigneeIds": [item.id for item in request_obj.assigned_employees.all()],
+        "requestType": request_type,
+        "requestTypeLabel": REQUEST_TYPE_LABELS.get(request_type, request_type),
+        "leave": serialize_leave_request(leave),
         "priority": priority_label(request_obj.priority),
         "priorityValue": request_obj.priority,
         "status": request_status_label(request_obj.status),

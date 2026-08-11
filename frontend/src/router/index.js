@@ -1,10 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-import LandingPage from '../pages/LandingPage.vue'
 import { applyRouteSeo } from '../utils/seo'
 
 const ApprovalsPage = () => import('../pages/ApprovalsPage.vue')
 const AttendancePage = () => import('../pages/AttendancePage.vue')
+const ChatPage = () => import('../pages/ChatPage.vue')
 const CloudPage = () => import('../pages/CloudPage.vue')
 const DashboardPage = () => import('../pages/DashboardPage.vue')
 const ExpensesPage = () => import('../pages/ExpensesPage.vue')
@@ -18,7 +18,7 @@ const UsersPage = () => import('../pages/UsersPage.vue')
 const WalletPage = () => import('../pages/WalletPage.vue')
 
 const routes = [
-  { path: '/', name: 'landing', component: LandingPage, meta: { public: true, publicCanvas: true, landing: true, seo: { robots: 'index, follow', canonicalPath: '/' } } },
+  { path: '/', redirect: '/login' },
   { path: '/login', name: 'login', component: LoginPage, meta: { public: true, publicCanvas: true, seo: { title: 'ورود به کارنومند', description: 'ورود به سامانه مدیریت گردش‌کار کارنومند.', robots: 'noindex, nofollow', canonicalPath: '/login' } } },
   { path: '/dashboard', name: 'dashboard', component: DashboardPage, meta: { fullCanvas: true } },
   { path: '/requests', name: 'requests', component: RequestsPage, meta: { fullCanvas: true } },
@@ -29,6 +29,7 @@ const routes = [
   { path: '/attendance/:token', name: 'public-attendance', component: AttendancePage, meta: { public: true, publicCanvas: true, seo: { robots: 'noindex, nofollow', canonicalPath: false } } },
   { path: '/cloud', name: 'cloud', component: CloudPage, meta: { fullCanvas: true, feature: 'cloud_storage' } },
   { path: '/support', name: 'support', component: SupportPage, meta: { fullCanvas: true } },
+  { path: '/chat', name: 'chat', component: ChatPage, meta: { fullCanvas: true } },
   { path: '/hq', name: 'hq', component: HqPanelPage, meta: { fullCanvas: true } },
   { path: '/approvals', name: 'approvals', component: ApprovalsPage, meta: { fullCanvas: true } },
   { path: '/reports', name: 'reports', component: ReportsPage, meta: { fullCanvas: true } },
@@ -49,8 +50,8 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const token = localStorage.getItem('workflow-hub-token')
-  if (!to.meta.public && !token) return '/'
-  if (token && (to.path === '/login' || to.name === 'landing')) {
+  if (!to.meta.public && !token) return '/login'
+  if (token && to.path === '/login') {
     return '/dashboard'
   }
   return true

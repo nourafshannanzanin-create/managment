@@ -5,6 +5,7 @@ import { computed } from 'vue'
 import SectionHeading from '../components/SectionHeading.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { joinDisplayParts } from '../utils/text'
+import { rowToneForStatus, toneForStatus } from '../utils/status'
 
 const {
   downloadProtectedFile,
@@ -45,14 +46,6 @@ const approvalStats = computed(() => [
     tone: 'is-total',
   },
 ])
-
-function toneForStatus(status) {
-  const label = String(status || '')
-  if (label.includes('رد')) return 'is-danger'
-  if (label.includes('تایید')) return 'is-success'
-  if (label.includes('بررسی') || label.includes('انتظار')) return 'is-warning'
-  return ''
-}
 
 function bucketTone(item) {
   if (String(item.status || '').includes('رد')) return 'approval-state-rejected'
@@ -143,7 +136,7 @@ async function handleDownload(item) {
             <tr
               v-for="item in approvalHistory"
               :key="item.id"
-              class="table-click-row"
+              :class="['table-click-row', rowToneForStatus(item.status)]"
               tabindex="0"
               @click="openApprovalDetail(item.id)"
               @keydown.enter.prevent="openApprovalDetail(item.id)"

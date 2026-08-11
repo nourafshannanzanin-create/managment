@@ -1,8 +1,9 @@
 <script setup>
 import IconlyIcon from './base/IconlyIcon.vue'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
+import AttendancePunchModal from './AttendancePunchModal.vue'
 import PageFilters from './PageFilters.vue'
 import TitleHint from './TitleHint.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -25,7 +26,18 @@ const {
   userPeople,
 } = useWorkflowHub()
 
+const attendancePunchOpen = ref(false)
 const hqOrganizations = computed(() => state.hq.directories.organizations || [])
+const attendanceToken = computed(() =>
+  String(state.currentUser.attendanceToken || state.currentUser.attendance_token || '').trim(),
+)
+const canPunchAttendance = computed(() =>
+  Boolean(
+    !state.currentUser.isHq &&
+    attendanceToken.value &&
+    state.currentUser.menuAccess?.attendance === true,
+  ),
+)
 
 const pageConfig = computed(() => {
   const configs = {
@@ -33,6 +45,7 @@ const pageConfig = computed(() => {
       eyebrow: 'مرکز کنترل',
       title: 'داشبورد اجرایی',
       description: 'نمای خلاصه وضعیت درخواست‌ها، هزینه‌ها و تاییدها برای تصمیم‌گیری سریع روز.',
+      actions: [],
     },
     requests: {
       eyebrow: 'درخواست‌ها',
@@ -173,12 +186,23 @@ function handleHqOrganizationChange(event) {
           <button
             v-for="action in pageConfig.actions"
             :key="action.label"
-            :class="['action-btn', `tone-${action.tone || 'primary'}`]"
+            :class="[
+              action.iconOnly ? 'icon-btn topbar-icon-action' : 'action-btn',
+              `tone-${action.tone || 'primary'}`,
+              action.iconOnly && 'is-icon-only',
+              (action.punch || action.icon === 'fingerprint') && 'is-punch-action attendance-punch-topbar-btn',
+            ]"
             type="button"
+            :aria-label="action.label"
+            :title="action.label"
             @click="action.handler"
           >
-            <IconlyIcon :name="action.icon" decorative />
-            <span>{{ action.label }}</span>
+            <IconlyIcon
+              :name="action.icon"
+              :size="(action.punch || action.icon === 'fingerprint') ? 'xl' : 'md'"
+              decorative
+            />
+            <span v-if="!action.iconOnly">{{ action.label }}</span>
           </button>
         </div>
       </div>
@@ -199,11 +223,30 @@ function handleHqOrganizationChange(event) {
       @reset="resetFilters"
     />
   </header>
+
+  <AttendancePunchModal
+    :open="attendancePunchOpen"
+    :token="attendanceToken"
+    @close="attendancePunchOpen = false"
+  />
 </template>
 
 <style scoped>
 .topbar-shell {
   direction: rtl;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.topbar-filters {
+  width: 100%;
+  max-width: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  box-sizing: border-box;
 }
 
 .topbar-main-row {
@@ -253,5 +296,56 @@ function handleHqOrganizationChange(event) {
 .mobile-menu-trigger {
   flex: 0 0 auto;
   order: 0;
+}
+
+.topbar-icon-action.is-icon-only {
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  border-radius: 12px;
+  display: inline-grid;
+  place-items: center;
+}
+
+.topbar-icon-action.is-icon-only.tone-primary {
+  background: #34908B;
+  color: #fff;
+  border: 0;
+}
+
+.topbar-icon-action.is-icon-only.is-punch-action,
+.topbar-icon-action.is-icon-only.attendance-punch-topbar-btn {
+  width: 64px !important;
+  height: 64px !important;
+  min-width: 64px !important;
+  min-height: 64px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 20px !important;
+  background: #1f8a70 !important;
+  color: #fff !important;
+  box-shadow: 0 12px 28px rgba(31, 138, 112, 0.32) !important;
+}
+
+.topbar-icon-action.is-icon-only.is-punch-action:hover,
+.topbar-icon-action.is-icon-only.is-punch-action:focus-visible,
+.topbar-icon-action.is-icon-only.attendance-punch-topbar-btn:hover,
+.topbar-icon-action.is-icon-only.attendance-punch-topbar-btn:focus-visible {
+  background: #187a63 !important;
+  color: #fff !important;
+  box-shadow: 0 14px 30px rgba(31, 138, 112, 0.4) !important;
+}
+
+.topbar-icon-action.is-icon-only.is-punch-action :deep(.iconly-shell),
+.topbar-icon-action.is-icon-only.attendance-punch-topbar-btn :deep(.iconly-shell) {
+  font-size: 34px !important;
+  color: #fff !important;
+  --iconly-filter: brightness(0) invert(1) !important;
+}
+
+.topbar-icon-action.is-icon-only.is-punch-action :deep(.iconly-img),
+.topbar-icon-action.is-icon-only.attendance-punch-topbar-btn :deep(.iconly-img) {
+  filter: brightness(0) invert(1) !important;
 }
 </style>

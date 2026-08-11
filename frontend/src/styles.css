@@ -470,7 +470,7 @@ a {
   overflow: hidden;
   display: grid;
   direction: rtl;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .auth-main {
@@ -489,10 +489,19 @@ a {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.shell-content-body {
+  flex: 1 1 auto;
+  min-width: 0;
   padding: 26px;
 }
 
 .topbar-shell {
+  flex: 0 0 auto;
   min-height: 98px;
   padding: 20px 26px;
   display: flex;
@@ -502,6 +511,9 @@ a {
   background: rgba(247, 241, 235, 0.82);
   backdrop-filter: none;
   border-bottom: 1px solid rgba(36, 59, 107, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .topbar-intro,
@@ -1037,6 +1049,46 @@ a {
 .status-badge.is-danger {
   background: var(--danger-soft);
   color: var(--danger);
+}
+
+/* Full-row status coloring for workflow tables */
+.data-table tbody tr.row-status-success,
+.report-table tbody tr.row-status-success,
+.attendance-report-table tbody tr.row-status-success {
+  background: rgba(46, 160, 110, 0.16);
+}
+
+.data-table tbody tr.row-status-warning,
+.report-table tbody tr.row-status-warning,
+.attendance-report-table tbody tr.row-status-warning {
+  background: rgba(230, 180, 40, 0.22);
+}
+
+.data-table tbody tr.row-status-danger,
+.report-table tbody tr.row-status-danger,
+.attendance-report-table tbody tr.row-status-danger {
+  background: rgba(210, 80, 70, 0.16);
+}
+
+.data-table tbody tr.row-status-success:hover,
+.data-table tbody tr.row-status-success:focus-visible,
+.report-table tbody tr.row-status-success:hover,
+.report-table tbody tr.row-status-success:focus-visible {
+  background: rgba(46, 160, 110, 0.24);
+}
+
+.data-table tbody tr.row-status-warning:hover,
+.data-table tbody tr.row-status-warning:focus-visible,
+.report-table tbody tr.row-status-warning:hover,
+.report-table tbody tr.row-status-warning:focus-visible {
+  background: rgba(230, 180, 40, 0.32);
+}
+
+.data-table tbody tr.row-status-danger:hover,
+.data-table tbody tr.row-status-danger:focus-visible,
+.report-table tbody tr.row-status-danger:hover,
+.report-table tbody tr.row-status-danger:focus-visible {
+  background: rgba(210, 80, 70, 0.24);
 }
 
 .list-card-head,
@@ -2263,7 +2315,7 @@ body {
   font-size: 14px;
 }
 
-.shell-content {
+.shell-content-body {
   padding-top: 18px;
 }
 
@@ -3052,7 +3104,7 @@ body {
     min-width: 0;
   }
 
-  .shell-content {
+  .shell-content-body {
     padding: 12px;
   }
 
@@ -3359,7 +3411,7 @@ body {
 }
 
 @media (max-width: 420px) {
-  .shell-content {
+  .shell-content-body {
     padding: 10px;
   }
 
@@ -3567,7 +3619,7 @@ textarea:focus-visible,
   gap: var(--space-5);
 }
 
-.shell-content {
+.shell-content-body {
   padding: var(--space-5);
 }
 
@@ -3765,7 +3817,7 @@ textarea:focus-visible,
     font-size: 12px;
   }
 
-  .shell-content {
+  .shell-content-body {
     padding: var(--space-3);
   }
 
@@ -4216,6 +4268,30 @@ body {
   background: var(--surface-soft) !important;
 }
 
+#app :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-success {
+  background: rgba(46, 160, 110, 0.18) !important;
+}
+
+#app :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-warning {
+  background: rgba(230, 180, 40, 0.24) !important;
+}
+
+#app :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-danger {
+  background: rgba(210, 80, 70, 0.18) !important;
+}
+
+#app :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-success:hover {
+  background: rgba(46, 160, 110, 0.28) !important;
+}
+
+#app :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-warning:hover {
+  background: rgba(230, 180, 40, 0.34) !important;
+}
+
+#app :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-danger:hover {
+  background: rgba(210, 80, 70, 0.28) !important;
+}
+
 #app .modal-layer {
   background: rgba(15, 23, 42, 0.44) !important;
   backdrop-filter: none;
@@ -4603,6 +4679,30 @@ body,
 
 #app :where(.table-click-row, .report-click-row, tbody tr):hover {
   background: rgba(255, 255, 255, 0.42) !important;
+}
+
+#app :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-success {
+  background: rgba(46, 160, 110, 0.2) !important;
+}
+
+#app :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-warning {
+  background: rgba(230, 180, 40, 0.26) !important;
+}
+
+#app :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-danger {
+  background: rgba(210, 80, 70, 0.2) !important;
+}
+
+#app :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-success:hover {
+  background: rgba(46, 160, 110, 0.3) !important;
+}
+
+#app :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-warning:hover {
+  background: rgba(230, 180, 40, 0.36) !important;
+}
+
+#app :where(.data-table, .report-table, .attendance-report-table) tbody tr.row-status-danger:hover {
+  background: rgba(210, 80, 70, 0.3) !important;
 }
 
 #app .modal-layer {
@@ -5965,6 +6065,11 @@ body,
   width: min(1080px, 100%) !important;
 }
 
+.modal-shell.size-wide {
+  width: min(1240px, 96vw) !important;
+  max-width: 1240px !important;
+}
+
 .modal-shell.size-sm {
   width: min(560px, 100%) !important;
 }
@@ -6448,19 +6553,97 @@ body,
 
 .modal-shell .decision-row {
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) auto !important;
-  gap: 6px 12px !important;
-  padding: 12px !important;
-  border: 1px solid rgba(38, 56, 92, 0.08) !important;
+  gap: 10px !important;
+  padding: 12px 14px !important;
+  border: 1px solid transparent !important;
   border-radius: 14px !important;
-  background: #ffffff !important;
+  background: rgba(36, 59, 107, 0.04) !important;
 }
 
+.modal-shell .decision-row-main {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+
+.modal-shell .decision-row-meta {
+  display: grid !important;
+  gap: 4px !important;
+  min-width: 0 !important;
+  text-align: right !important;
+}
+
+.modal-shell .decision-row-meta strong {
+  color: #1f2f4d !important;
+  font-size: 14px !important;
+}
+
+.modal-shell .decision-row-meta small,
+.modal-shell .decision-row small {
+  color: var(--muted) !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+.modal-shell .decision-status-badge {
+  flex: 0 0 auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 28px !important;
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  color: #fff !important;
+  background: #7a879c !important;
+}
+
+.modal-shell .decision-row-note,
 .modal-shell .decision-row p {
   grid-column: 1 / -1 !important;
   margin: 0 !important;
-  color: #8a3d3d !important;
+  color: #5a4a3a !important;
   line-height: 1.85 !important;
+  white-space: pre-wrap !important;
+}
+
+.modal-shell .decision-row.is-approved,
+.modal-shell .decision-row.approved {
+  background: rgba(23, 111, 82, 0.12) !important;
+  border-color: rgba(23, 111, 82, 0.18) !important;
+}
+
+.modal-shell .decision-row.is-approved .decision-status-badge,
+.modal-shell .decision-row.approved .decision-status-badge {
+  background: #176f52 !important;
+  color: #fff !important;
+}
+
+.modal-shell .decision-row.is-rejected,
+.modal-shell .decision-row.rejected {
+  background: rgba(171, 67, 67, 0.12) !important;
+  border-color: rgba(171, 67, 67, 0.18) !important;
+}
+
+.modal-shell .decision-row.is-rejected .decision-status-badge,
+.modal-shell .decision-row.rejected .decision-status-badge {
+  background: #ab4343 !important;
+  color: #fff !important;
+}
+
+.modal-shell .decision-row.is-pending,
+.modal-shell .decision-row.pending {
+  background: rgba(196, 146, 42, 0.14) !important;
+  border-color: rgba(196, 146, 42, 0.22) !important;
+}
+
+.modal-shell .decision-row.is-pending .decision-status-badge,
+.modal-shell .decision-row.pending .decision-status-badge {
+  background: #b8860b !important;
+  color: #fff !important;
 }
 
 .modal-shell .empty-state-inline,
@@ -7017,7 +7200,18 @@ body,
 }
 
 #app .app-shell:not(.is-auth-route) .shell-content {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .shell-content-body {
+  width: 100% !important;
+  max-width: var(--container-width) !important;
+  margin: 0 auto !important;
   padding: 28px 32px 40px !important;
+  box-sizing: border-box !important;
 }
 
 #app .app-shell:not(.is-auth-route) .shell-sidebar {

@@ -112,6 +112,10 @@ export function jalaliToGregorian(jy, jm, jd) {
   return { gy, gm, gd }
 }
 
+export function formatJalaliSlash({ jy, jm, jd }) {
+  return `${pad(jd)} / ${pad(jm)} / ${jy}`
+}
+
 export function formatJalali({ jy, jm, jd }) {
   return `${jy}/${pad(jm)}/${pad(jd)}`
 }

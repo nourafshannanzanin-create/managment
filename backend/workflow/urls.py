@@ -31,6 +31,7 @@ urlpatterns = [
     path("attendance/dashboard", views.attendance_dashboard_view),
     path("attendance/events", views.attendance_event_view),
     path("attendance/reports", views.attendance_reports_view),
+    path("attendance/my-report", views.attendance_my_report_view),
     path("attendance/public/<str:token>", views.public_attendance_view),
     path("support/tickets", views.support_tickets_view),
     path("support/tickets/<int:ticket_id>", views.support_ticket_detail_view),
@@ -67,4 +68,8 @@ urlpatterns = [
     path("maps/neshan/reverse", views.neshan_reverse_view),
     path("settings", views.settings_view),
     path("settings/profile", views.settings_profile_view),
+    path("chat/users", views.chat_users_view),
+    path("chat/conversations", views.chat_conversations_view),
+    path("chat/conversations/<int:conversation_id>/messages", views.chat_conversation_messages_view),
+    path("chat/conversations/<int:conversation_id>/read", views.chat_conversation_read_view),
 ]

@@ -4,6 +4,7 @@ import { computed } from 'vue'
 
 import SectionHeading from '../components/SectionHeading.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
+import { rowToneForStatus, toneForStatus } from '../utils/status'
 
 const { filteredRequests, openRequestDetail } = useWorkflowHub()
 
@@ -13,14 +14,6 @@ const requestStats = computed(() => [
   { label: 'تایید شده', value: filteredRequests.value.filter((item) => String(item.status || '').includes('تایید')).length, icon: 'verified', note: 'گردش کامل شده', tone: 'is-approved' },
   { label: 'فوری و بحرانی', value: filteredRequests.value.filter((item) => ['high', 'critical'].includes(item.priority)).length, icon: 'warning', note: 'اولویت بالا', tone: 'is-rejected' },
 ])
-
-function toneForStatus(status) {
-  const label = String(status || '')
-  if (label.includes('رد')) return 'is-danger'
-  if (label.includes('تایید')) return 'is-success'
-  if (label.includes('بررسی') || label.includes('انتظار')) return 'is-warning'
-  return ''
-}
 
 function priorityLabel(priority) {
   return {
@@ -72,7 +65,7 @@ function priorityLabel(priority) {
             <tr
               v-for="item in filteredRequests"
               :key="item.id"
-              class="table-click-row"
+              :class="['table-click-row', rowToneForStatus(item.status)]"
               tabindex="0"
               @click="openRequestDetail(item.id)"
               @keydown.enter.prevent="openRequestDetail(item.id)"

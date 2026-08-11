@@ -1,41 +1,67 @@
 import { notifyInfo } from './notify'
 
-export const TICKET_ALERT_SOUND_URL = encodeURI(
+export const HQ_ALERT_SOUND_URL = encodeURI(
   '/ElevenLabs_Soft_chime_new_message_notification,_single_bright_tone.mp3',
 )
+export const ORG_ALERT_SOUND_URL = '/notif.mp3'
 
-let alertAudio = null
+/** @deprecated use HQ_ALERT_SOUND_URL */
+export const TICKET_ALERT_SOUND_URL = HQ_ALERT_SOUND_URL
+
+let hqAlertAudio = null
+let orgAlertAudio = null
 let audioUnlocked = false
 let browserPermissionRequested = false
 
 const canUseNotifications = () => typeof window !== 'undefined' && 'Notification' in window
 
-export const unlockTicketAlertAudio = () => {
-  if (typeof window === 'undefined' || audioUnlocked) return
+function ensureAudio(kind = 'hq') {
+  if (typeof window === 'undefined') return null
+  if (kind === 'org') {
+    if (!orgAlertAudio) {
+      orgAlertAudio = new Audio(ORG_ALERT_SOUND_URL)
+      orgAlertAudio.preload = 'auto'
+      orgAlertAudio.volume = 0.9
+    }
+    return orgAlertAudio
+  }
+  if (!hqAlertAudio) {
+    hqAlertAudio = new Audio(HQ_ALERT_SOUND_URL)
+    hqAlertAudio.preload = 'auto'
+    hqAlertAudio.volume = 0.9
+  }
+  return hqAlertAudio
+}
+
+function unlockOne(audio) {
+  if (!audio || audioUnlocked) return
   try {
-    alertAudio = alertAudio || new Audio(TICKET_ALERT_SOUND_URL)
-    alertAudio.preload = 'auto'
-    alertAudio.volume = 0.9
-    alertAudio.muted = true
-    const playPromise = alertAudio.play()
+    audio.muted = true
+    const playPromise = audio.play()
     if (playPromise?.then) {
       playPromise
         .then(() => {
-          alertAudio.pause()
-          alertAudio.currentTime = 0
-          alertAudio.muted = false
+          audio.pause()
+          audio.currentTime = 0
+          audio.muted = false
           audioUnlocked = true
         })
         .catch(() => {
-          if (alertAudio) alertAudio.muted = false
+          audio.muted = false
         })
     } else {
-      alertAudio.muted = false
+      audio.muted = false
       audioUnlocked = true
     }
   } catch (_error) {
     // Autoplay policies can block until a real user gesture.
   }
+}
+
+export const unlockTicketAlertAudio = () => {
+  if (typeof window === 'undefined' || audioUnlocked) return
+  unlockOne(ensureAudio('hq'))
+  unlockOne(ensureAudio('org'))
 }
 
 export const ensureTicketBrowserPermission = async () => {
@@ -56,17 +82,15 @@ export const unlockTicketAlerts = () => {
   ensureTicketBrowserPermission()
 }
 
-export const playTicketAlertSound = () => {
+function playAudio(kind = 'hq') {
   if (typeof window === 'undefined') return
   try {
-    if (!alertAudio) {
-      alertAudio = new Audio(TICKET_ALERT_SOUND_URL)
-      alertAudio.preload = 'auto'
-    }
-    alertAudio.muted = false
-    alertAudio.volume = 0.9
-    alertAudio.currentTime = 0
-    const playPromise = alertAudio.play()
+    const audio = ensureAudio(kind)
+    if (!audio) return
+    audio.muted = false
+    audio.volume = 0.9
+    audio.currentTime = 0
+    const playPromise = audio.play()
     if (playPromise?.then) {
       playPromise
         .then(() => {
@@ -79,6 +103,14 @@ export const playTicketAlertSound = () => {
   } catch (_error) {
     // Browser autoplay policies can still block in some cases.
   }
+}
+
+export const playTicketAlertSound = () => playAudio('hq')
+export const playOrgAlertSound = () => playAudio('org')
+
+export const playInboxAlertSound = ({ isHq = false } = {}) => {
+  if (isHq) playTicketAlertSound()
+  else playOrgAlertSound()
 }
 
 const showBrowserNotification = ({ title, body, tag }) => {

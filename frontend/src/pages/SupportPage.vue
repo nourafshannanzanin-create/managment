@@ -370,7 +370,7 @@ const refreshTicketsQuietly = async () => {
   supportPollingInFlight = true
   try {
     const previousId = selectedTicket.value?.id
-    await loadSupportTickets(true)
+    await loadSupportTickets(true, { soft: true })
     if (previousId && !replyBody.value.trim()) {
       await openTicketDetail(previousId, { keepReply: true, soft: true })
     }

@@ -11,7 +11,10 @@ const isLicenseLocked = computed(() => Boolean(state.currentUser.licenseStatus?.
 
 const items = computed(() => {
   if (state.currentUser.isHq && !state.currentUser.isHqAdmin) {
-    return [{ to: '/hq', label: 'پشتیبانی', icon: 'support_agent' }]
+    return [
+      { to: '/hq', label: 'پشتیبانی', icon: 'support_agent' },
+      { to: '/chat', label: 'گفتگو', icon: 'forum' },
+    ]
   }
 
   if (isLicenseLocked.value) {
@@ -32,22 +35,13 @@ const items = computed(() => {
 
   const navItems = [
     { to: '/dashboard', label: 'خانه', icon: 'home' },
+    { to: '/chat', label: 'گفتگو', icon: 'forum' },
     { to: '/requests', label: 'درخواست', icon: 'list_alt' },
     { to: '/approvals', label: 'تایید', icon: 'verified' },
   ]
 
   if (state.currentUser.canAccessExpenses !== false) {
     navItems.push({ to: '/expenses', label: 'هزینه', icon: 'receipt_long' })
-  }
-
-  if (state.currentUser.canAccessUsers || state.currentUser.canManageUsers) {
-    navItems.push({ to: '/users', label: 'کاربران', icon: 'group' })
-  } else if (state.currentUser.canViewReports) {
-    navItems.push({ to: '/reports', label: 'گزارش', icon: 'monitoring' })
-  } else if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
-    navItems.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
-  } else {
-    navItems.push({ to: '/wallet', label: 'کیف پول', icon: 'account_balance_wallet' })
   }
 
   navItems.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent' })

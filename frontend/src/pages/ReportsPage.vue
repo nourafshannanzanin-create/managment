@@ -1,14 +1,18 @@
 <script setup>
 import IconlyIcon from '../components/base/IconlyIcon.vue'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
 import PageHeader from '../components/PageHeader.vue'
 import SectionHeading from '../components/SectionHeading.vue'
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
-import { jalaliToIso } from '../utils/jalali'
+import { formatJalali, getTodayJalali, gregorianToJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { joinDisplayParts } from '../utils/text'
+import { rowToneForStatus, toneForStatus } from '../utils/status'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
+const TOKEN_KEY = 'workflow-hub-token'
 
 const { exportReport, loadReports, state } = useWorkflowHub()
 
@@ -16,13 +20,29 @@ const activeTab = ref('requests')
 const selectedReportRow = ref(null)
 const selectedReportType = ref('')
 const filters = reactive({ period: 'month', startDate: '', endDate: '', userId: '' })
+const attendanceRows = ref([])
+const attendanceLoading = ref(false)
+const attendanceError = ref('')
 
-const tabs = [
-  { key: 'requests', label: 'درخواست‌ها', icon: 'assignment' },
-  { key: 'expenses', label: 'هزینه‌ها', icon: 'payments' },
-  { key: 'approvals', label: 'تاییدیه‌ها', icon: 'fact_check' },
-  { key: 'users', label: 'کاربران', icon: 'groups' },
-]
+const canViewAttendanceReports = computed(() =>
+  Boolean(
+    state.currentUser.isHq ||
+    (state.currentUser.isManager && state.currentUser.menuAccess?.attendance === true),
+  ),
+)
+
+const tabs = computed(() => {
+  const items = [
+    { key: 'requests', label: 'درخواست‌ها', icon: 'assignment' },
+    { key: 'expenses', label: 'هزینه‌ها', icon: 'payments' },
+    { key: 'approvals', label: 'تاییدیه‌ها', icon: 'fact_check' },
+    { key: 'users', label: 'کاربران', icon: 'groups' },
+  ]
+  if (canViewAttendanceReports.value) {
+    items.push({ key: 'attendance', label: 'ورود و خروج', icon: 'badge' })
+  }
+  return items
+})
 
 const periods = [
   { key: 'today', label: 'امروز' },
@@ -34,10 +54,40 @@ const periods = [
 
 const reportUsers = computed(() => state.users || [])
 
+function jalaliFromDate(date) {
+  return formatJalali(gregorianToJalali(date.getFullYear(), date.getMonth() + 1, date.getDate()))
+}
+
+function periodIsoRange() {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  let start = new Date(today)
+  let end = new Date(today)
+  if (filters.period === 'today') {
+    // keep today
+  } else if (filters.period === 'week') {
+    start.setDate(today.getDate() - ((today.getDay() + 6) % 7))
+  } else if (filters.period === 'month') {
+    start = new Date(today.getFullYear(), today.getMonth(), 1)
+  } else if (filters.period === 'year') {
+    start = new Date(today.getFullYear(), 0, 1)
+  } else if (filters.period === 'custom') {
+    return {
+      start: filters.startDate ? jalaliToIso(filters.startDate) : '',
+      end: filters.endDate ? jalaliToIso(filters.endDate) : '',
+    }
+  }
+  return {
+    start: jalaliToIso(jalaliFromDate(start)),
+    end: jalaliToIso(jalaliFromDate(end)),
+  }
+}
+
 function rowDate(item) {
   if (activeTab.value === 'requests') return item.createdAtIso || item.deadlineIso || ''
   if (activeTab.value === 'expenses') return item.createdAtIso || ''
   if (activeTab.value === 'users') return item.financeUpdatedAtIso || item.joinedAtIso || ''
+  if (activeTab.value === 'attendance') return item.eventDate || ''
   return item.uploadedAtIso || ''
 }
 
@@ -61,7 +111,39 @@ function inPeriod(isoDate) {
   return true
 }
 
+function eventLabel(type) {
+  return type === 'in' ? 'ورود' : 'خروج'
+}
+
+function sourceLabel(source) {
+  return source === 'manager' ? 'ثبت مدیر' : 'لینک پرسنل'
+}
+
+function dateTime(value) {
+  if (!value) return '-'
+  return new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value))
+}
+
+function attendanceStatus(row) {
+  return eventLabel(row.eventType || row.event_type)
+}
+
+function rowStatusValue(row) {
+  if (activeTab.value === 'attendance') return attendanceStatus(row)
+  if (activeTab.value === 'users') return row.status || ''
+  return row.status || ''
+}
+
 const activeRows = computed(() => {
+  if (activeTab.value === 'attendance') {
+    return attendanceRows.value.filter((item) => {
+      if (!filters.userId) return true
+      return String(item.userId || item.user_id) === String(filters.userId)
+    })
+  }
   const rows = activeTab.value === 'requests'
     ? state.requests
     : activeTab.value === 'expenses'
@@ -76,12 +158,13 @@ const activeRows = computed(() => {
   })
 })
 
-const selectedTabMeta = computed(() => tabs.find((item) => item.key === selectedReportType.value) || tabs[0])
+const selectedTabMeta = computed(() => tabs.value.find((item) => item.key === selectedReportType.value) || tabs.value[0])
 
 const selectedDetailTitle = computed(() => {
   const row = selectedReportRow.value
   if (!row) return ''
-  return row.title || row.description || row.id || 'جزئیات گزارش'
+  if (selectedReportType.value === 'attendance') return row.userName || 'رویداد ورود و خروج'
+  return row.title || row.description || row.name || row.id || 'جزئیات گزارش'
 })
 
 const selectedDetailSubtitle = computed(() => {
@@ -90,6 +173,13 @@ const selectedDetailSubtitle = computed(() => {
   if (selectedReportType.value === 'expenses') return joinDisplayParts([row.owner, row.department, row.submittedAt], ' / ')
   if (selectedReportType.value === 'approvals') return joinDisplayParts([row.owner, row.type, row.uploadedAt], ' / ')
   if (selectedReportType.value === 'users') return joinDisplayParts([row.role, row.department, row.financeUpdatedAt || row.joinedAt], ' / ')
+  if (selectedReportType.value === 'attendance') {
+    return joinDisplayParts([
+      eventLabel(row.eventType || row.event_type),
+      row.userDepartment || row.userRole,
+      dateTime(row.eventAt || row.event_at),
+    ], ' / ')
+  }
   return joinDisplayParts([row.owner, row.manager, row.createdAt], ' / ')
 })
 
@@ -115,6 +205,13 @@ const selectedPrimaryMetrics = computed(() => {
       { label: 'پاداش', value: row.bonusAmount || '-', icon: 'award_star' },
       { label: 'جریمه', value: row.penaltyAmount || '-', icon: 'gavel' },
       { label: 'خالص', value: row.netAdjustment || '-', icon: 'balance' },
+    ]
+  }
+  if (selectedReportType.value === 'attendance') {
+    return [
+      { label: 'نوع', value: eventLabel(row.eventType || row.event_type), icon: 'badge' },
+      { label: 'منبع', value: sourceLabel(row.source), icon: 'link' },
+      { label: 'فاصله', value: row.distanceMeters != null ? `${Math.round(row.distanceMeters)} متر` : '-', icon: 'place' },
     ]
   }
   return [
@@ -167,6 +264,20 @@ const selectedDetailFields = computed(() => {
       { label: 'خالص پاداش/جریمه', value: row.netAdjustment },
     ]
   }
+  if (selectedReportType.value === 'attendance') {
+    return [
+      { label: 'پرسنل', value: row.userName },
+      { label: 'سمت', value: row.userRole || '-' },
+      { label: 'بخش', value: row.userDepartment || '-' },
+      { label: 'موبایل', value: row.userPhone || '-' },
+      { label: 'نوع', value: eventLabel(row.eventType || row.event_type) },
+      { label: 'منبع', value: sourceLabel(row.source) },
+      { label: 'تاریخ', value: row.eventDate ? isoToJalali(row.eventDate) : '-' },
+      { label: 'ساعت', value: row.eventTime || '-' },
+      { label: 'مختصات', value: row.coordinatesLabel || '-' },
+      { label: 'یادداشت', value: row.note || '-', wide: true },
+    ]
+  }
   return [
     { label: 'کد', value: row.id },
     { label: 'عنوان', value: row.title },
@@ -181,6 +292,7 @@ const selectedDetailFields = computed(() => {
 
 function decisionText(item) {
   if (activeTab.value === 'users') return item.netAdjustment || '-'
+  if (activeTab.value === 'attendance') return sourceLabel(item.source)
   const decisions = item.decisions || []
   return decisions.length ? decisions.map((row) => `${row.approver}: ${row.statusLabel}`).join(' | ') : '-'
 }
@@ -197,11 +309,64 @@ function closeReportDetails() {
 
 function rowFileUrl(row = selectedReportRow.value) {
   if (!row) return ''
-  if (selectedReportType.value === 'users') return ''
+  if (selectedReportType.value === 'users' || selectedReportType.value === 'attendance') return ''
   return row.invoiceUrl || row.previewUrl || row.downloadUrl || ''
 }
 
+async function loadAttendanceReports() {
+  if (!canViewAttendanceReports.value) return
+  attendanceLoading.value = true
+  attendanceError.value = ''
+  try {
+    const range = periodIsoRange()
+    const params = new URLSearchParams()
+    if (range.start) params.set('start', range.start)
+    if (range.end) params.set('end', range.end)
+    if (filters.userId) params.set('userId', filters.userId)
+    const response = await fetch(`${API_BASE_URL}/attendance/reports?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}` },
+    })
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(payload.detail || payload.message || 'بارگذاری گزارش ورود و خروج ناموفق بود.')
+    attendanceRows.value = payload.rows || []
+  } catch (error) {
+    attendanceError.value = error.message || 'بارگذاری گزارش ورود و خروج ناموفق بود.'
+    attendanceRows.value = []
+  } finally {
+    attendanceLoading.value = false
+  }
+}
+
+function exportAttendanceCsv() {
+  const headers = ['ردیف', 'نام', 'سمت', 'بخش', 'نوع', 'منبع', 'تاریخ', 'ساعت', 'فاصله', 'مختصات', 'یادداشت']
+  const lines = activeRows.value.map((row, index) => [
+    index + 1,
+    row.userName || '',
+    row.userRole || '',
+    row.userDepartment || '',
+    eventLabel(row.eventType || row.event_type),
+    sourceLabel(row.source),
+    row.eventDate ? isoToJalali(row.eventDate) : '',
+    row.eventTime || '',
+    row.distanceMeters ?? '',
+    row.coordinatesLabel || '',
+    (row.note || '').replace(/\n/g, ' '),
+  ].map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+  const csv = `\uFEFF${headers.join(',')}\n${lines.join('\n')}`
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `attendance-report-${formatJalali(getTodayJalali())}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 function exportActiveTab() {
+  if (activeTab.value === 'attendance') {
+    exportAttendanceCsv()
+    return
+  }
   const params = new URLSearchParams({ format: 'csv', period: filters.period })
   if (filters.period === 'custom') {
     if (filters.startDate) params.set('startDate', jalaliToIso(filters.startDate))
@@ -211,7 +376,17 @@ function exportActiveTab() {
   exportReport('', 'csv', `/reports/${activeTab.value}/export?${params.toString()}`)
 }
 
-onMounted(() => loadReports(true))
+watch(
+  () => [activeTab.value, filters.period, filters.startDate, filters.endDate, filters.userId],
+  () => {
+    if (activeTab.value === 'attendance') void loadAttendanceReports()
+  },
+)
+
+onMounted(() => {
+  loadReports(true)
+  if (activeTab.value === 'attendance') void loadAttendanceReports()
+})
 </script>
 
 <template>
@@ -258,6 +433,7 @@ onMounted(() => loadReports(true))
           <span>دانلود جدول</span>
         </button>
       </div>
+      <div v-if="activeTab === 'attendance' && attendanceError" class="attendance-alert is-danger">{{ attendanceError }}</div>
     </section>
 
     <section class="surface-block report-table-card">
@@ -275,14 +451,53 @@ onMounted(() => loadReports(true))
             <tr v-if="activeTab === 'requests'"><th>کد</th><th>عنوان</th><th>ثبت‌کننده</th><th>مدیر</th><th>واحد</th><th>وضعیت</th><th>اولویت</th><th>تاریخ</th><th>تصمیم‌ها</th></tr>
             <tr v-else-if="activeTab === 'expenses'"><th>کد</th><th>شرح</th><th>ثبت‌کننده</th><th>مبلغ</th><th>واحد</th><th>وضعیت</th><th>تاریخ</th><th>تصمیم‌ها</th></tr>
             <tr v-else-if="activeTab === 'approvals'"><th>کد</th><th>عنوان</th><th>ثبت‌کننده</th><th>نوع</th><th>واحد</th><th>ریسک</th><th>وضعیت</th><th>تاریخ</th><th>تصمیم‌ها</th></tr>
+            <tr v-else-if="activeTab === 'attendance'"><th>ردیف</th><th>پرسنل</th><th>سمت / بخش</th><th>نوع</th><th>منبع</th><th>تاریخ</th><th>ساعت</th><th>موقعیت</th><th>یادداشت</th></tr>
             <tr v-else><th>شناسه</th><th>نام</th><th>نام کاربری</th><th>نقش</th><th>واحد</th><th>مدیر</th><th>پاداش</th><th>جریمه</th><th>خالص</th></tr>
           </thead>
           <tbody>
-            <tr v-for="row in activeRows" :key="row.id" class="report-click-row" tabindex="0" @click="openReportDetails(row)" @keydown.enter.prevent="openReportDetails(row)" @keydown.space.prevent="openReportDetails(row)">
-              <template v-if="activeTab === 'requests'"><td>{{ row.id }}</td><td>{{ row.title }}</td><td>{{ row.owner }}</td><td>{{ row.manager }}</td><td>{{ row.department }}</td><td>{{ row.status }}</td><td>{{ row.priority }}</td><td>{{ row.createdAt }}</td><td>{{ decisionText(row) }}</td></template>
-              <template v-else-if="activeTab === 'expenses'"><td>{{ row.id }}</td><td>{{ row.description }}</td><td>{{ row.owner }}</td><td>{{ row.amount }}</td><td>{{ row.department }}</td><td>{{ row.status }}</td><td>{{ row.submittedAt }}</td><td>{{ decisionText(row) }}</td></template>
-              <template v-else-if="activeTab === 'approvals'"><td>{{ row.id }}</td><td>{{ row.title }}</td><td>{{ row.owner }}</td><td>{{ row.type }}</td><td>{{ row.department }}</td><td>{{ row.risk }}</td><td>{{ row.status }}</td><td>{{ row.uploadedAt }}</td><td>{{ decisionText(row) }}</td></template>
-              <template v-else><td>{{ row.id }}</td><td>{{ row.name }}</td><td>{{ row.username }}</td><td>{{ row.role }}</td><td>{{ row.department }}</td><td>{{ row.manager }}</td><td>{{ row.bonusAmount }}</td><td>{{ row.penaltyAmount }}</td><td>{{ row.netAdjustment }}</td></template>
+            <tr
+              v-for="row in activeRows"
+              :key="row.id"
+              :class="['report-click-row', rowToneForStatus(rowStatusValue(row))]"
+              tabindex="0"
+              @click="openReportDetails(row)"
+              @keydown.enter.prevent="openReportDetails(row)"
+              @keydown.space.prevent="openReportDetails(row)"
+            >
+              <template v-if="activeTab === 'requests'">
+                <td>{{ row.id }}</td><td>{{ row.title }}</td><td>{{ row.owner }}</td><td>{{ row.manager }}</td><td>{{ row.department }}</td>
+                <td><span :class="['status-badge', toneForStatus(row.status)]">{{ row.status }}</span></td>
+                <td>{{ row.priority }}</td><td>{{ row.createdAt }}</td><td>{{ decisionText(row) }}</td>
+              </template>
+              <template v-else-if="activeTab === 'expenses'">
+                <td>{{ row.id }}</td><td>{{ row.description }}</td><td>{{ row.owner }}</td><td>{{ row.amount }}</td><td>{{ row.department }}</td>
+                <td><span :class="['status-badge', toneForStatus(row.status)]">{{ row.status }}</span></td>
+                <td>{{ row.submittedAt }}</td><td>{{ decisionText(row) }}</td>
+              </template>
+              <template v-else-if="activeTab === 'approvals'">
+                <td>{{ row.id }}</td><td>{{ row.title }}</td><td>{{ row.owner }}</td><td>{{ row.type }}</td><td>{{ row.department }}</td><td>{{ row.risk }}</td>
+                <td><span :class="['status-badge', toneForStatus(row.status)]">{{ row.status }}</span></td>
+                <td>{{ row.uploadedAt }}</td><td>{{ decisionText(row) }}</td>
+              </template>
+              <template v-else-if="activeTab === 'attendance'">
+                <td>{{ row.row || row.id }}</td>
+                <td>{{ row.userName }}</td>
+                <td>{{ joinDisplayParts([row.userRole, row.userDepartment]) }}</td>
+                <td><span :class="['status-badge', toneForStatus(attendanceStatus(row))]">{{ attendanceStatus(row) }}</span></td>
+                <td>{{ sourceLabel(row.source) }}</td>
+                <td>{{ row.eventDate ? isoToJalali(row.eventDate) : '-' }}</td>
+                <td>{{ row.eventTime || '-' }}</td>
+                <td>{{ row.distanceMeters != null ? `${Math.round(row.distanceMeters)} متر` : (row.coordinatesLabel || '-') }}</td>
+                <td>{{ row.note || '-' }}</td>
+              </template>
+              <template v-else>
+                <td>{{ row.id }}</td><td>{{ row.name }}</td><td>{{ row.username }}</td><td>{{ row.role }}</td><td>{{ row.department }}</td><td>{{ row.manager }}</td><td>{{ row.bonusAmount }}</td><td>{{ row.penaltyAmount }}</td><td>{{ row.netAdjustment }}</td>
+              </template>
+            </tr>
+            <tr v-if="!activeRows.length">
+              <td :colspan="activeTab === 'expenses' ? 8 : 9" class="table-empty">
+                {{ attendanceLoading && activeTab === 'attendance' ? 'در حال بارگذاری…' : 'ردیفی برای این فیلترها پیدا نشد.' }}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -318,7 +533,7 @@ onMounted(() => loadReports(true))
           </article>
         </section>
 
-        <section v-if="selectedReportType !== 'users'" class="report-detail-decisions">
+        <section v-if="selectedReportType !== 'users' && selectedReportType !== 'attendance'" class="report-detail-decisions">
           <div class="section-label-row">
             <SectionHeading
               title="تصمیمات و گردش تایید"

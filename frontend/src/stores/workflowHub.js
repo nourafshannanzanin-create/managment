@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { AppError, appErrorFromResponse, createValidationError, hasFieldError, normalizeError } from '../utils/errors'
 import { formatJalali, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
-import { notifyNewSupportTickets, playTicketAlertSound } from '../utils/ticketAlert'
+import { notifyNewSupportTickets, playInboxAlertSound, playTicketAlertSound } from '../utils/ticketAlert'
 import { repairPayload } from '../utils/stitch'
 import { cleanDisplayText } from '../utils/text'
 
@@ -47,6 +47,8 @@ function createCurrentUser() {
     canUseHq: false,
     purchasedMenuAccess: [],
     menuAccess: {},
+    attendanceToken: '',
+    attendancePath: '',
     licenseStatus: {
       isLocked: false,
       is_locked: false,
@@ -75,6 +77,11 @@ function createRequestForm() {
     managerAssigneeIds: [],
     employeeAssigneeIds: [],
     priority: 'medium',
+    requestType: 'general',
+    leaveStartDate: formatJalali(getTodayJalali()),
+    leaveEndDate: formatJalali(getTodayJalali()),
+    leaveStartTime: '09:00',
+    leaveEndTime: '13:00',
     deadline: formatJalali(getTodayJalali()),
     attachments: [],
   }
@@ -145,6 +152,11 @@ function createSettingsState() {
       provinceName: '',
       cityId: null,
       cityName: '',
+    },
+    workSchedule: {
+      workDayStart: '09:00',
+      workDayEnd: '17:00',
+      monthlyLeaveHours: 20,
     },
     organizationGeo: {
       provinceId: null,
@@ -223,6 +235,13 @@ function createSupportState() {
   }
 }
 
+function createChatState() {
+  return {
+    unreadConversations: 0,
+    loaded: false,
+  }
+}
+
 function getSupportSeenStorageKey() {
   const userId = state.currentUser.id || 'guest'
   const organization = state.currentUser.organization || 'global'
@@ -245,6 +264,11 @@ const state = reactive({
   authToken: localStorage.getItem(TOKEN_KEY) || '',
   sessionReady: false,
   bootstrapLoaded: false,
+  liveSync: {
+    initialized: false,
+    inFlight: false,
+    lastSnapshot: null,
+  },
   appLoading: false,
   lastError: '',
   lastErrorDetails: null,
@@ -270,6 +294,7 @@ const state = reactive({
   hq: createHqState(),
   wallet: createWalletState(),
   support: createSupportState(),
+  chat: createChatState(),
   settingsCards: [],
   directories: {
     departments: [],
@@ -370,6 +395,10 @@ function resetWalletState() {
 
 function resetSupportState() {
   Object.assign(state.support, createSupportState())
+}
+
+function resetChatState() {
+  Object.assign(state.chat, createChatState())
 }
 
 function replaceItems(target, items) {
@@ -732,6 +761,7 @@ function clearSessionState() {
   resetHqState()
   resetWalletState()
   resetSupportState()
+  resetChatState()
   state.directories.departments = []
   state.directories.managers = []
   state.directories.users = []
@@ -1069,9 +1099,81 @@ const supportUnreadCount = computed(() => {
   }).length
 })
 
+const chatUnreadCount = computed(() => Number(state.chat.unreadConversations || 0))
+
+async function loadChatUnreadConversations() {
+  if (!state.authToken) return
+  try {
+    const response = await authorizedFetch('/chat/conversations')
+    const payload = repairPayload(await response.json())
+    const list = Array.isArray(payload) ? payload : []
+    state.chat.unreadConversations = list.filter((item) => Number(item.unreadCount || 0) > 0).length
+    state.chat.loaded = true
+  } catch {
+    // keep previous badge
+  }
+}
+
 const requestInboxCount = computed(() => state.requests.filter((item) => item.canApprove).length)
 const expenseInboxCount = computed(() => state.expenses.filter((item) => item.canApprove).length)
 const approvalInboxCount = computed(() => state.approvals.filter((item) => item.canApprove).length)
+
+function captureInboxSnapshot() {
+  return {
+    requests: Number(requestInboxCount.value || 0),
+    expenses: Number(expenseInboxCount.value || 0),
+    approvals: Number(approvalInboxCount.value || 0),
+    chat: Number(chatUnreadCount.value || 0),
+    support: Number(supportUnreadCount.value || 0),
+  }
+}
+
+function notifyIfInboxIncreased(previous, next) {
+  if (!previous || !next) return false
+  const grew = ['requests', 'expenses', 'approvals', 'chat', 'support'].some(
+    (key) => Number(next[key] || 0) > Number(previous[key] || 0),
+  )
+  if (!grew) return false
+  playInboxAlertSound({ isHq: Boolean(state.currentUser.isHq) })
+  return true
+}
+
+async function softLiveSync(options = {}) {
+  if (!state.authToken || !state.sessionReady || state.liveSync.inFlight) return
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden' && !options.forceHidden) {
+    return
+  }
+
+  state.liveSync.inFlight = true
+  const previous = state.liveSync.initialized ? captureInboxSnapshot() : null
+  try {
+    await loadBootstrapData(true, { soft: true })
+    await loadChatUnreadConversations()
+
+    if (state.currentUser.isHq || state.currentUser.canUseHq) {
+      await loadSupportTickets(true, { soft: true, notifyNew: Boolean(state.liveSync.initialized) })
+      await loadHqPanel(true, { soft: true })
+    } else if (options.includeSupport !== false) {
+      await loadSupportTickets(true, { soft: true, notifyNew: false })
+    }
+
+    const next = captureInboxSnapshot()
+    if (state.liveSync.initialized && previous) {
+      if (state.currentUser.isHq) {
+        // HQ ticket alerts are handled inside loadHqTickets(notifyNew).
+        notifyIfInboxIncreased({ ...previous, support: next.support }, next)
+      } else {
+        notifyIfInboxIncreased(previous, next)
+      }
+    }
+    state.liveSync.lastSnapshot = next
+    state.liveSync.initialized = true
+  } catch {
+    // keep UI stable during quiet sync
+  } finally {
+    state.liveSync.inFlight = false
+  }
+}
 
 function markSupportTicketsSeen(ticketIds = []) {
   if (state.currentUser.isHq) return
@@ -1093,15 +1195,18 @@ function scopedApiPath(path) {
   return `${path}${separator}organizationId=${encodeURIComponent(state.hq.selectedOrganizationId)}`
 }
 
-async function loadBootstrapData(force = false) {
+async function loadBootstrapData(force = false, options = {}) {
   if (!state.authToken) {
     state.sessionReady = true
     return
   }
   if (state.bootstrapLoaded && !force) return
 
-  state.appLoading = true
-  clearLastError()
+  const soft = Boolean(options.soft)
+  if (!soft) {
+    state.appLoading = true
+    clearLastError()
+  }
   try {
     const organizationQuery = state.currentUser.isHq && state.hq.selectedOrganizationId
       ? `?organizationId=${encodeURIComponent(state.hq.selectedOrganizationId)}`
@@ -1110,11 +1215,12 @@ async function loadBootstrapData(force = false) {
     const payload = repairPayload(await response.json())
     hydrateBootstrap(payload)
     state.bootstrapLoaded = true
+    void loadChatUnreadConversations()
   } catch (error) {
-    setLastError(error, 'خطا در بارگذاری')
+    if (!soft) setLastError(error, 'خطا در بارگذاری')
     if (error.status === 401) throw error
   } finally {
-    state.appLoading = false
+    if (!soft) state.appLoading = false
     state.sessionReady = true
   }
 }
@@ -1198,6 +1304,26 @@ async function loadSettings(force = false) {
       payload.organization_geo?.city_name ??
       '',
   }
+  state.settings.workSchedule = {
+    ...createSettingsState().workSchedule,
+    ...(payload.workSchedule || payload.work_schedule || {}),
+    workDayStart:
+      payload.workSchedule?.workDayStart ||
+      payload.workSchedule?.work_day_start ||
+      payload.work_schedule?.workDayStart ||
+      '09:00',
+    workDayEnd:
+      payload.workSchedule?.workDayEnd ||
+      payload.workSchedule?.work_day_end ||
+      payload.work_schedule?.workDayEnd ||
+      '17:00',
+    monthlyLeaveHours: Number(
+      payload.workSchedule?.monthlyLeaveHours ??
+        payload.workSchedule?.monthly_leave_hours ??
+        payload.work_schedule?.monthlyLeaveHours ??
+        20,
+    ),
+  }
   state.settings.organizationGeo = {
     ...createSettingsState().organizationGeo,
     ...(payload.organizationGeo || payload.organization_geo || {}),
@@ -1276,20 +1402,35 @@ async function loadWalletOptions(force = false) {
 async function loadSupportTickets(force = false, options = {}) {
   if (!state.authToken) return
   if (state.support.loaded && !force) return
-  state.support.loading = true
-  state.support.error = ''
+  const soft = Boolean(options.soft)
+  if (!soft) {
+    state.support.loading = true
+    state.support.error = ''
+  }
   try {
     if (state.currentUser.isHq) {
       await loadHqTickets(force || true, options)
     } else {
       const response = await authorizedFetch(scopedApiPath('/support/tickets'))
-      hydrateSupportTickets(repairPayload(await response.json()))
+      const list = repairPayload(await response.json())
+      const tickets = Array.isArray(list) ? list : []
+      if (options.notifyNew && state.liveSync.initialized) {
+        const previous = Number(supportUnreadCount.value || 0)
+        hydrateSupportTickets(tickets)
+        if (Number(supportUnreadCount.value || 0) > previous) {
+          playInboxAlertSound({ isHq: false })
+        }
+      } else {
+        hydrateSupportTickets(tickets)
+      }
     }
   } catch (error) {
-    state.support.error = error.message || 'Support load failed.'
-    throw error
+    if (!soft) {
+      state.support.error = error.message || 'Support load failed.'
+      throw error
+    }
   } finally {
-    state.support.loading = false
+    if (!soft) state.support.loading = false
   }
 }
 
@@ -1567,19 +1708,24 @@ async function submitFeaturePurchase(payload) {
   }
 }
 
-async function loadHqPanel(force = false) {
+async function loadHqPanel(force = false, options = {}) {
   if (!state.authToken || !state.currentUser.canUseHq) return
   if (state.hq.loaded && !force) return
-  state.hq.loading = true
-  state.lastError = ''
+  const soft = Boolean(options.soft)
+  if (!soft) {
+    state.hq.loading = true
+    state.lastError = ''
+  }
   try {
     const response = await authorizedFetch('/hq')
     hydrateHq(repairPayload(await response.json()))
   } catch (error) {
-    state.lastError = error.message || 'HQ load failed.'
-    throw error
+    if (!soft) {
+      state.lastError = error.message || 'HQ load failed.'
+      throw error
+    }
   } finally {
-    state.hq.loading = false
+    if (!soft) state.hq.loading = false
   }
 }
 
@@ -1715,6 +1861,26 @@ async function saveSettings(nextSettings) {
       payload.organizationGeo?.cityName ??
       payload.organization_geo?.city_name ??
       '',
+  }
+  state.settings.workSchedule = {
+    ...createSettingsState().workSchedule,
+    ...(payload.workSchedule || payload.work_schedule || {}),
+    workDayStart:
+      payload.workSchedule?.workDayStart ||
+      payload.workSchedule?.work_day_start ||
+      payload.work_schedule?.workDayStart ||
+      '09:00',
+    workDayEnd:
+      payload.workSchedule?.workDayEnd ||
+      payload.workSchedule?.work_day_end ||
+      payload.work_schedule?.workDayEnd ||
+      '17:00',
+    monthlyLeaveHours: Number(
+      payload.workSchedule?.monthlyLeaveHours ??
+        payload.workSchedule?.monthly_leave_hours ??
+        payload.work_schedule?.monthlyLeaveHours ??
+        20,
+    ),
   }
   state.settings.organizationGeo = {
     ...createSettingsState().organizationGeo,
@@ -2102,8 +2268,26 @@ export function useWorkflowHub() {
       formData.append('managerAssigneeIds', managerAssigneeIds.join(','))
       formData.append('employeeAssigneeIds', state.requestForm.employeeAssigneeIds.join(','))
       formData.append('priority', state.requestForm.priority)
+      formData.append('requestType', state.requestForm.requestType || 'general')
       formData.append('action', 'refer')
       if (state.requestForm.deadline) formData.append('deadline', jalaliToIso(state.requestForm.deadline))
+      const requestType = state.requestForm.requestType || 'general'
+      if (requestType === 'leave_hourly' || requestType === 'leave_daily') {
+        const startIso = jalaliToIso(state.requestForm.leaveStartDate)
+        const endIso = jalaliToIso(state.requestForm.leaveEndDate || state.requestForm.leaveStartDate)
+        if (!startIso || !endIso) {
+          throw createValidationError('بازه مرخصی الزامی است.', [{ field: 'leaveStartDate', message: 'تاریخ مرخصی را مشخص کنید.' }])
+        }
+        if (requestType === 'leave_daily') {
+          formData.append('leaveStartDate', startIso)
+          formData.append('leaveEndDate', endIso)
+        } else {
+          const startTime = String(state.requestForm.leaveStartTime || '09:00').trim()
+          const endTime = String(state.requestForm.leaveEndTime || '13:00').trim()
+          formData.append('leaveStartsAt', `${startIso}T${startTime}:00`)
+          formData.append('leaveEndsAt', `${endIso}T${endTime}:00`)
+        }
+      }
       state.requestForm.attachments.forEach((file) => formData.append('attachments', file))
       await authorizedFetch('/requests', { method: 'POST', body: formData })
       await loadBootstrapData(true)
@@ -2535,6 +2719,7 @@ async function updateUser(userId, payload) {
     restoreSession,
     ensureAuthenticatedRedirect,
     loadBootstrapData,
+    softLiveSync,
     loadReports,
     loadSettings,
     loadWalletDashboard,
@@ -2556,6 +2741,8 @@ async function updateUser(userId, payload) {
     updateHqTeamMember,
     deleteHqTeamMember,
     supportUnreadCount,
+    chatUnreadCount,
+    loadChatUnreadConversations,
     requestInboxCount,
     expenseInboxCount,
     approvalInboxCount,

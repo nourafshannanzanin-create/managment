@@ -86,19 +86,25 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
 <style scoped>
 .modern-page-filters {
   display: grid;
-  grid-template-columns: minmax(200px, 1.35fr) minmax(150px, 0.9fr) repeat(2, minmax(150px, 0.95fr)) auto;
-  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  gap: 12px;
   align-items: end;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   padding: 0;
   background: transparent;
   border: 0;
+  box-sizing: border-box;
 }
 
 .filter-field {
   display: grid;
-  grid-template-rows: 18px 36px;
+  grid-template-rows: 16px 40px;
   align-items: stretch;
   gap: 6px;
+  min-width: 0;
+  width: 100%;
   min-height: 0;
   height: auto;
   padding: 0 !important;
@@ -113,8 +119,8 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 18px;
-  line-height: 18px;
+  height: 16px;
+  line-height: 16px;
   color: var(--muted, #5c6780);
   font-size: 11px;
   font-weight: 700;
@@ -128,18 +134,20 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
 
 .filter-field-control {
   position: relative;
-  height: 36px;
-  min-height: 36px;
-  max-height: 36px;
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
 }
 
 .filter-input,
 .filter-select {
   box-sizing: border-box;
   width: 100%;
-  height: 36px !important;
-  min-height: 36px !important;
-  max-height: 36px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
   border: 0 !important;
   border-radius: 10px !important;
   background: #e4f4f2 !important;
@@ -147,7 +155,7 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
   color: var(--text, #2a344c);
   font: inherit;
   font-size: 0.82rem;
-  line-height: 36px;
+  line-height: 40px;
   outline: none;
   box-shadow: none !important;
 }
@@ -173,7 +181,7 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
 
 .filter-select-wrap {
   position: relative;
-  height: 36px;
+  height: 40px;
 }
 
 .filter-select-wrap :deep(.filter-select-icon) {
@@ -193,11 +201,11 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
 .modern-filter-reset {
   box-sizing: border-box;
   align-self: end;
-  height: 36px !important;
-  min-height: 36px !important;
-  max-height: 36px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
   border-radius: 10px;
-  padding: 0 12px !important;
+  padding: 0 14px !important;
   background: #e4f4f2 !important;
   border: 0 !important;
   font-size: 0.8rem;
@@ -210,7 +218,7 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
 
 .modern-page-filters :deep(.shamsi-picker) {
   width: 100%;
-  height: 36px;
+  height: 40px;
 }
 
 .modern-page-filters :deep(.shamsi-picker-input-wrap) {
@@ -219,9 +227,9 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
   display: flex;
   align-items: center;
   width: 100%;
-  height: 36px !important;
-  min-height: 36px !important;
-  max-height: 36px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
   border: 0 !important;
   border-radius: 10px !important;
   background: #e4f4f2 !important;
@@ -242,7 +250,7 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
   background: transparent !important;
   border: 0 !important;
   font-size: 0.82rem;
-  line-height: 36px;
+  line-height: 40px;
 }
 
 .modern-page-filters :deep(.shamsi-picker-toggle) {

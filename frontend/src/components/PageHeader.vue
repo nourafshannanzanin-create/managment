@@ -27,7 +27,8 @@ const emit = defineEmits(['update:searchValue', 'action', 'menu'])
       </div>
     </div>
 
-    <div v-if="showSearch || actionLabel" class="page-header-tools">
+    <div v-if="showSearch || actionLabel || $slots.actions" class="page-header-tools">
+      <slot name="actions" />
       <label v-if="showSearch" class="search-shell page-header-search">
         <IconlyIcon name="search" decorative />
         <input
@@ -62,5 +63,13 @@ const emit = defineEmits(['update:searchValue', 'action', 'menu'])
 .page-header-title-row h1 {
   margin: 0;
   min-width: 0;
+}
+
+.page-header-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-inline-start: auto;
 }
 </style>

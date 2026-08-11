@@ -4,6 +4,7 @@ import { computed } from 'vue'
 
 import SectionHeading from '../components/SectionHeading.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
+import { rowToneForStatus, toneForStatus } from '../utils/status'
 
 const { filteredExpenses, openExpenseDetail, openProtectedFile, state } = useWorkflowHub()
 
@@ -16,14 +17,6 @@ const expenseStats = computed(() => {
     { label: 'هزینه سال', value: summary[3]?.value || '0', icon: 'payments', note: 'جمع سالانه', tone: 'is-rejected' },
   ]
 })
-
-function toneForStatus(status) {
-  const label = String(status || '')
-  if (label.includes('رد')) return 'is-danger'
-  if (label.includes('تایید')) return 'is-success'
-  if (label.includes('بررسی') || label.includes('انتظار')) return 'is-warning'
-  return ''
-}
 
 async function handleInvoiceOpen(item) {
   await openProtectedFile(item?.invoiceUrl, item?.id || 'expense-invoice')
@@ -69,7 +62,7 @@ async function handleInvoiceOpen(item) {
             <tr
               v-for="item in filteredExpenses"
               :key="item.id"
-              class="table-click-row"
+              :class="['table-click-row', rowToneForStatus(item.status)]"
               tabindex="0"
               @click="openExpenseDetail(item.id)"
               @keydown.enter.prevent="openExpenseDetail(item.id)"

@@ -3,6 +3,7 @@ import IconlyIcon from './base/IconlyIcon.vue'
 import { computed, reactive, ref } from 'vue'
 
 import BaseModal from './BaseModal.vue'
+import DecisionAssigneesList from './DecisionAssigneesList.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const props = defineProps({ open: { type: Boolean, default: false }, expense: { type: Object, default: null }, loading: { type: Boolean, default: false } })
@@ -41,7 +42,7 @@ async function submitRefer() { await referSelectedExpense({ managerAssigneeIds: 
         <article><span>کد</span><strong>{{ expense.id }}</strong></article><article><span>ثبت کننده</span><strong>{{ expense.owner }}</strong></article><article><span>مبلغ (تومان)</span><strong>{{ expense.amount }}</strong></article><article><span>بخش</span><strong>{{ expense.department }}</strong></article><article><span>وضعیت</span><strong>{{ expense.status }}</strong></article><article><span>تاریخ</span><strong>{{ expense.submittedAt }}</strong></article>
       </section>
       <section class="surface-inline detail-section"><div class="section-label-row"><div><h3>شرح هزینه</h3></div></div><p class="long-text">{{ expense.description || '-' }}</p></section>
-      <section class="surface-inline detail-section"><div class="section-label-row"><div><h3>تصمیم ارجاع گیرنده ها</h3></div><span class="meta-pill">{{ decisions.length }} نفر</span></div><div v-if="decisions.length" class="decision-list"><article v-for="item in decisions" :key="item.id" :class="['decision-row', item.status]"><div><strong>{{ item.approver }}</strong><small>{{ item.role }}</small></div><span>{{ item.statusLabel }}</span><p v-if="item.decisionNote">{{ item.decisionNote }}</p></article></div><div v-else class="empty-state-inline centered-empty"><IconlyIcon name="hourglass_empty" decorative /><p>ارجاع گیرنده ای ثبت نشده است.</p></div></section>
+      <section class="surface-inline detail-section"><div class="section-label-row"><div><h3>تصمیم ارجاع گیرنده ها</h3></div><span class="meta-pill">{{ decisions.length }} نفر</span></div><DecisionAssigneesList :decisions="decisions" /></section>
       <section class="surface-inline detail-section"><div class="section-label-row"><div><h3>فاکتور</h3></div></div><button v-if="expense.invoiceUrl" class="action-btn tone-primary" type="button" @click="openProtectedFile(expense.invoiceUrl, expense.invoiceName || 'invoice')"><IconlyIcon name="description" decorative /><span>مشاهده فایل</span></button><div v-else class="empty-state-inline centered-empty"><IconlyIcon name="description" decorative /><p>فایل پیوست وارد نشده است.</p></div></section>
       <p v-if="state.lastError" class="inline-error">{{ state.lastError }}</p>
       <div class="modal-actions"><button class="action-btn tone-soft" type="button" @click="$emit('close')">بستن</button><button v-if="canApproveSelectedExpense" class="action-btn tone-soft" type="button" @click="referOpen = true">ارجاع</button><button v-if="canApproveSelectedExpense" class="action-btn tone-danger" type="button" @click="rejectOpen = true">رد</button><button v-if="canApproveSelectedExpense" class="action-btn tone-primary" type="button" @click="approveSelectedExpense">تایید</button></div>
@@ -54,24 +55,10 @@ async function submitRefer() { await referSelectedExpense({ managerAssigneeIds: 
 <style scoped>
 .detail-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .detail-summary-grid article { display: grid; gap: 6px; padding: 14px; border-radius: 16px; background: rgba(72,103,183,.07); }
-.detail-summary-grid span, .decision-row small { color: var(--muted); font-size: 12px; font-weight: 800; }
+.detail-summary-grid span { color: var(--muted); font-size: 12px; font-weight: 800; }
 .detail-section { display: grid; gap: 12px; }
 .long-text { margin: 0; line-height: 2; white-space: pre-wrap; }
-.decision-list { display: grid; gap: 10px; }
-.decision-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; padding: 12px; border-radius: 14px; background: #fff; border: 1px solid rgba(38,56,92,.08); }
-.decision-row p { grid-column: 1 / -1; margin: 0; color: #8a3d3d; }
 .inline-error { color: #b42318; }
-.centered-empty {
-  min-height: 180px;
-  width: min(100%, 320px);
-  margin-inline: auto;
-  display: grid;
-  place-items: center;
-  justify-items: center;
-  align-content: center;
-  justify-content: center;
-  text-align: center;
-}
-@media (max-width: 760px) { .detail-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .decision-row { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .detail-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 420px) { .detail-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

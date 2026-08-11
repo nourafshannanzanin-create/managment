@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from uuid import uuid4
+from datetime import time as dt_time
 
 
 class UserRole(models.TextChoices):
@@ -21,6 +22,16 @@ class RequestPriority(models.TextChoices):
     MEDIUM = "medium", "متوسط"
     HIGH = "high", "بالا"
     CRITICAL = "critical", "بحرانی"
+
+
+class RequestType(models.TextChoices):
+    GENERAL = "general", "عمومی"
+    LEAVE_HOURLY = "leave_hourly", "مرخصی ساعتی"
+    LEAVE_DAILY = "leave_daily", "مرخصی روزانه"
+    MISSION = "mission", "مأموریت"
+    OVERTIME = "overtime", "اضافه‌کار"
+    REMOTE = "remote", "دورکاری"
+    PURCHASE = "purchase", "خرید/تدارکات"
 
 
 class RequestStatus(models.TextChoices):
@@ -191,6 +202,9 @@ class OrganizationPreference(models.Model):
     attendance_longitude = models.FloatField(blank=True, null=True)
     attendance_location_label = models.CharField(max_length=255, blank=True, default="")
     attendance_radius_meters = models.PositiveIntegerField(default=20)
+    work_day_start_time = models.TimeField(default=dt_time(9, 0))
+    work_day_end_time = models.TimeField(default=dt_time(17, 0))
+    monthly_leave_hours = models.PositiveIntegerField(default=20)
     updated_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
@@ -393,6 +407,7 @@ class Request(models.Model):
     code = models.CharField(max_length=40, unique=True, db_index=True)
     title = models.CharField(max_length=180)
     description = models.TextField()
+    request_type = models.CharField(max_length=32, choices=RequestType.choices, default=RequestType.GENERAL, db_index=True)
     priority = models.CharField(max_length=32, choices=RequestPriority.choices)
     status = models.CharField(max_length=32, choices=RequestStatus.choices, default=RequestStatus.SUBMITTED)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, blank=True, null=True, related_name="requests")
@@ -406,6 +421,24 @@ class Request(models.Model):
 
     class Meta:
         db_table = "requests"
+
+
+class LeaveRequest(TimeStampedModel):
+    MODE_HOURLY = "hourly"
+    MODE_DAILY = "daily"
+
+    request = models.OneToOneField(Request, on_delete=models.CASCADE, related_name="leave_request")
+    mode = models.CharField(max_length=16, choices=((MODE_HOURLY, "ساعتی"), (MODE_DAILY, "روزانه")), default=MODE_HOURLY)
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+    hours = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    status = models.CharField(max_length=32, choices=RequestStatus.choices, default=RequestStatus.SUBMITTED)
+
+    class Meta:
+        db_table = "leave_requests"
+        indexes = [
+            models.Index(fields=["starts_at", "ends_at"], name="idx_leave_request_range"),
+        ]
 
 
 class RequestAttachment(TimeStampedModel):
@@ -523,4 +556,51 @@ class AuditLog(TimeStampedModel):
         db_table = "audit_logs"
 
 
+class DirectConversation(TimeStampedModel):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="direct_conversations")
+    participants = models.ManyToManyField(User, through="DirectConversationMember", related_name="direct_conversations")
+    pair_key = models.CharField(max_length=64, db_index=True)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "direct_conversations"
+        constraints = [
+            models.UniqueConstraint(fields=["organization", "pair_key"], name="uq_direct_conversation_pair"),
+        ]
+        indexes = [
+            models.Index(fields=["organization", "-updated_at"], name="idx_direct_conv_org_updated"),
+        ]
+
+
+class DirectConversationMember(models.Model):
+    conversation = models.ForeignKey(DirectConversation, on_delete=models.CASCADE, related_name="memberships")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="direct_conversation_memberships")
+    last_read_at = models.DateTimeField(blank=True, null=True)
+    joined_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "direct_conversation_members"
+        constraints = [
+            models.UniqueConstraint(fields=["conversation", "user"], name="uq_direct_conversation_member"),
+        ]
+
+
+class DirectMessage(TimeStampedModel):
+    conversation = models.ForeignKey(DirectConversation, on_delete=models.CASCADE, related_name="messages")
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="direct_messages")
+    body = models.TextField(blank=True, default="")
+    attachment_original_name = models.CharField(max_length=255, blank=True, default="")
+    attachment_stored_name = models.CharField(max_length=255, blank=True, default="")
+    attachment_mime_type = models.CharField(max_length=120, blank=True, default="")
+    attachment_size_bytes = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = "direct_messages"
+        indexes = [
+            models.Index(fields=["conversation", "created_at"], name="idx_direct_msg_conv_date"),
+        ]
+
+    @property
+    def has_attachment(self) -> bool:
+        return bool(self.attachment_stored_name)
 

@@ -1,26 +1,45 @@
 <script setup>
 import IconlyIcon from '../components/base/IconlyIcon.vue'
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
+import AttendancePunchModal from '../components/AttendancePunchModal.vue'
+import NotificationsBell from '../components/NotificationsBell.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatJalali, getTodayJalali } from '../utils/jalali'
 import { joinDisplayParts } from '../utils/text'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
+const router = useRouter()
+
 const {
   state,
   openApprovalDetail,
   openExpenseDetail,
-  openRequestComposer,
   openRequestDetail,
+  chatUnreadCount,
+  loadChatUnreadConversations,
 } = useWorkflowHub()
 
+const todayHoursLabel = ref('—')
+const attendancePunchOpen = ref(false)
 const todayLabel = computed(() => formatJalali(getTodayJalali()))
 const currentRole = computed(() => String(state.currentUser.accessRole || ''))
 const isManagerDashboard = computed(() => ['admin', 'executive_manager', 'manager'].includes(currentRole.value))
 const currentUserName = computed(() => String(state.currentUser.name || '').trim())
 const currentUserBonus = computed(() => state.currentUser.bonusAmount || '0.00')
 const currentUserPenalty = computed(() => state.currentUser.penaltyAmount || '0.00')
+const attendanceToken = computed(() =>
+  String(state.currentUser.attendanceToken || state.currentUser.attendance_token || '').trim(),
+)
+const canPunchAttendance = computed(() =>
+  Boolean(
+    !state.currentUser.isHq &&
+    attendanceToken.value &&
+    state.currentUser.menuAccess?.attendance === true,
+  ),
+)
 
 const ownRequests = computed(() =>
   (state.requests || []).filter((item) => String(item.owner || '').trim() === currentUserName.value),
@@ -39,21 +58,66 @@ const inboxApprovals = computed(() =>
   ),
 )
 
+const openTicketsCount = computed(() =>
+  (state.support.tickets || []).filter((item) => ['open', 'pending', 'answered'].includes(String(item.status || ''))).length,
+)
+
+function isHighPriority(item) {
+  const raw = String(item.priority || item.priorityLabel || item.risk || '').toLowerCase()
+  return (
+    raw.includes('high') ||
+    raw.includes('critical') ||
+    raw.includes('بالا') ||
+    raw.includes('بحرانی') ||
+    raw.includes('urgent')
+  )
+}
+
+const importantDocs = computed(() => {
+  const rows = []
+  ;(state.requests || []).forEach((item) => {
+    if (!isHighPriority(item)) return
+    rows.push({
+      key: `req-${item.id}`,
+      kind: 'درخواست',
+      title: item.title,
+      status: item.status,
+      action: () => openRequestDetail(item.id),
+    })
+  })
+  ;(state.expenses || []).forEach((item) => {
+    if (!isHighPriority(item) && !String(item.category || '').includes('اضطر')) return
+    if (!isHighPriority(item)) return
+    rows.push({
+      key: `exp-${item.id}`,
+      kind: 'هزینه',
+      title: item.title,
+      status: item.status,
+      action: () => openExpenseDetail(item.id),
+    })
+  })
+  ;(state.approvals || []).forEach((item) => {
+    if (!isHighPriority(item)) return
+    rows.push({
+      key: `apr-${item.id}`,
+      kind: 'تاییدیه',
+      title: item.title,
+      status: item.status,
+      action: () => openApprovalDetail(item.id),
+    })
+  })
+  return rows.slice(0, 8)
+})
+
 const pageTitle = computed(() => (isManagerDashboard.value ? 'داشبورد مدیریتی' : 'داشبورد کاری'))
 const pageDescription = computed(() =>
   isManagerDashboard.value
     ? `امروز ${todayLabel.value} است. این نما، وضعیت درخواست‌ها، هزینه‌ها و تاییدها را به صورت خلاصه نشان می‌دهد.`
-    : `امروز ${todayLabel.value} است. این نما، پرونده‌ها و اقدام‌های مرتبط با حساب شما را خلاصه می‌کند.`,
+    : `امروز ${todayLabel.value} است. حضور، پاداش/جریمه و موارد مهم شما اینجاست.`,
 )
 
 const heroTitle = computed(() =>
-  isManagerDashboard.value ? 'نمای زنده تصمیم‌ها و بار عملیاتی' : 'نمای سریع کارهای روزانه و پرونده‌های شما',
-)
-
-const heroDescription = computed(() =>
-  isManagerDashboard.value
-    ? 'مهم‌ترین شاخص‌ها و پرونده‌های قابل اقدام در یک نگاه.'
-    : 'درخواست‌ها، هزینه‌ها و موارد قابل پیگیری شما در این صفحه جمع شده‌اند.',
+  isManagerDashboard.value ? 'نمای زنده تصمیم‌ها و بار عملیاتی' : 'وضعیت امروز شما',
 )
 
 const quickFocus = computed(() => {
@@ -64,11 +128,10 @@ const quickFocus = computed(() => {
       { label: 'فرم‌های فعال', value: state.requests.length, icon: 'folder_managed' },
     ]
   }
-
   return [
-    { label: 'درخواست‌های من', value: ownRequests.value.length, icon: 'assignment' },
-    { label: 'هزینه‌های من', value: ownExpenses.value.length, icon: 'receipt_long' },
-    { label: 'اقدام‌های من', value: inboxApprovals.value.length, icon: 'task' },
+    { label: 'ساعت امروز', value: todayHoursLabel.value, icon: 'schedule' },
+    { label: 'پاداش', value: currentUserBonus.value, icon: 'award_star' },
+    { label: 'جریمه', value: currentUserPenalty.value, icon: 'gavel' },
   ]
 })
 
@@ -81,17 +144,11 @@ const operationalSnapshot = computed(() => {
       { label: 'فعالیت‌ها', value: state.activities.length, detail: 'رخداد اخیر', icon: 'bolt' },
     ]
   }
-
   return [
-    { label: 'درخواست‌های من', value: ownRequests.value.length, detail: 'فرم ثبت شده', icon: 'description' },
-    { label: 'هزینه‌های من', value: ownExpenses.value.length, detail: 'ثبت هزینه', icon: 'payments' },
-    { label: 'تاییدیه‌ها', value: state.approvals.length, detail: 'اسناد قابل مشاهده', icon: 'fact_check' },
-    {
-      label: 'گزارش‌ها',
-      value: state.currentUser.canViewReports ? state.reports.length : 0,
-      detail: state.currentUser.canViewReports ? 'خروجی آماده' : 'بدون دسترسی',
-      icon: 'monitoring',
-    },
+    { label: 'تیکت باز', value: openTicketsCount.value, detail: 'پشتیبانی', icon: 'support_agent' },
+    { label: 'گفتگوی جدید', value: chatUnreadCount.value || 0, detail: 'خوانده‌نشده', icon: 'forum' },
+    { label: 'اسناد مهم', value: importantDocs.value.length, detail: 'اولویت بالا', icon: 'priority_high' },
+    { label: 'اقدام باز', value: inboxApprovals.value.length, detail: 'نیازمند تصمیم', icon: 'task' },
   ]
 })
 
@@ -142,49 +199,40 @@ const highlightedStats = computed(() => {
 
   return [
     {
-      id: 'my-requests',
-      label: 'درخواست‌های من',
-      value: ownRequests.value.length,
-      note: 'ثبت شده',
-      icon: 'assignment',
+      id: 'today-hours',
+      label: 'ساعت حضور امروز',
+      value: todayHoursLabel.value,
+      note: 'بر اساس ورود/خروج',
+      icon: 'schedule',
       tone: 'is-request',
-      accent: 'پرونده',
-    },
-    {
-      id: 'my-expenses',
-      label: 'هزینه‌های من',
-      value: ownExpenses.value.length,
-      note: 'ثبت هزینه',
-      icon: 'payments',
-      tone: 'is-expense',
-      accent: 'مصارف',
-    },
-    {
-      id: 'my-approvals',
-      label: 'اقدام‌های باز',
-      value: inboxApprovals.value.length,
-      note: 'در انتظار',
-      icon: 'pending_actions',
-      tone: 'is-approval',
-      accent: 'پیگیری',
+      accent: 'حضور',
     },
     {
       id: 'my-bonus',
-      label: 'پاداش من',
+      label: 'پاداش',
       value: currentUserBonus.value,
-      note: 'جمع پاداش ثبت‌شده',
+      note: 'جمع پاداش',
       icon: 'award_star',
       tone: 'is-success',
       accent: 'پاداش',
     },
     {
       id: 'my-penalty',
-      label: 'جریمه من',
+      label: 'جریمه',
       value: currentUserPenalty.value,
-      note: 'جمع جریمه ثبت‌شده',
+      note: 'جمع جریمه',
       icon: 'gavel',
       tone: 'is-approval',
       accent: 'جریمه',
+    },
+    {
+      id: 'open-tickets',
+      label: 'تیکت باز',
+      value: openTicketsCount.value,
+      note: 'پشتیبانی',
+      icon: 'support_agent',
+      tone: 'is-expense',
+      accent: 'پشتیبانی',
     },
   ]
 })
@@ -199,8 +247,22 @@ const recentRequests = computed(() => {
 const expenseHighlights = computed(() => (state.expenses || []).slice(0, 3))
 
 const actionCards = computed(() => {
-  const cards = []
+  if (!isManagerDashboard.value && importantDocs.value.length) {
+    return importantDocs.value.map((item) => ({
+      key: item.key,
+      kind: 'important',
+      tone: 'is-approval',
+      typeLabel: item.kind,
+      status: item.status,
+      title: item.title,
+      subtitle: 'اولویت بالا',
+      meta: [item.kind, item.status || '-'],
+      actionLabel: 'مشاهده',
+      action: item.action,
+    }))
+  }
 
+  const cards = []
   inboxApprovals.value.forEach((item) => {
     cards.push({
       key: `approval-${item.id}`,
@@ -215,7 +277,6 @@ const actionCards = computed(() => {
       action: () => openApprovalDetail(item.id),
     })
   })
-
   recentRequests.value.forEach((item) => {
     cards.push({
       key: `request-${item.id}`,
@@ -230,7 +291,6 @@ const actionCards = computed(() => {
       action: () => openRequestDetail(item.id),
     })
   })
-
   expenseHighlights.value.forEach((item) => {
     cards.push({
       key: `expense-${item.id}`,
@@ -245,7 +305,6 @@ const actionCards = computed(() => {
       action: () => openExpenseDetail(item.id),
     })
   })
-
   return cards.slice(0, isManagerDashboard.value ? 10 : 8)
 })
 
@@ -255,6 +314,46 @@ function statusClass(status) {
   if (text.includes('تایید')) return 'is-success'
   return 'is-warning'
 }
+
+function computeWorkedHours(events) {
+  const sorted = [...(events || [])].sort(
+    (a, b) => new Date(a.eventAt || a.event_at || 0) - new Date(b.eventAt || b.event_at || 0),
+  )
+  let totalMs = 0
+  let openIn = null
+  sorted.forEach((event) => {
+    const type = event.eventType || event.event_type
+    const at = new Date(event.eventAt || event.event_at || 0)
+    if (Number.isNaN(at.getTime())) return
+    if (type === 'in') openIn = at
+    if (type === 'out' && openIn) {
+      totalMs += Math.max(0, at - openIn)
+      openIn = null
+    }
+  })
+  if (openIn) totalMs += Math.max(0, Date.now() - openIn)
+  const hours = totalMs / 3600000
+  return hours ? hours.toFixed(1) : '0'
+}
+
+async function loadTodayAttendanceHours() {
+  const token = String(state.currentUser.attendanceToken || state.currentUser.attendance_token || '').trim()
+  if (!token || isManagerDashboard.value) return
+  try {
+    const response = await fetch(`${API_BASE_URL}/attendance/public/${encodeURIComponent(token)}`)
+    if (!response.ok) return
+    const payload = await response.json()
+    const events = payload.events || payload.todayEvents || payload.recentEvents || []
+    todayHoursLabel.value = computeWorkedHours(events)
+  } catch {
+    todayHoursLabel.value = '—'
+  }
+}
+
+onMounted(() => {
+  void loadTodayAttendanceHours()
+  void loadChatUnreadConversations()
+})
 </script>
 
 <template>
@@ -263,9 +362,26 @@ function statusClass(status) {
       eyebrow="مرکز عملیات"
       :title="pageTitle"
       :description="pageDescription"
-      action-label="ثبت درخواست"
-      action-icon="add_circle"
-      @action="openRequestComposer"
+    >
+      <template #actions>
+        <NotificationsBell />
+        <button
+          v-if="canPunchAttendance"
+          class="icon-btn topbar-icon-action tone-primary is-icon-only is-punch-action attendance-punch-topbar-btn dashboard-punch-btn"
+          type="button"
+          aria-label="ورود و خروج"
+          title="ورود و خروج"
+          @click="attendancePunchOpen = true"
+        >
+          <IconlyIcon name="fingerprint" size="xl" decorative />
+        </button>
+      </template>
+    </PageHeader>
+
+    <AttendancePunchModal
+      :open="attendancePunchOpen"
+      :token="attendanceToken"
+      @close="attendancePunchOpen = false"
     />
 
     <section class="dashboard-stage-grid">
@@ -286,7 +402,19 @@ function statusClass(status) {
         </div>
 
         <div class="dashboard-stage-summary">
-          <article v-for="item in operationalSnapshot" :key="item.label" class="dashboard-summary-card">
+          <article
+            v-for="item in operationalSnapshot"
+            :key="item.label"
+            class="dashboard-summary-card"
+            :role="!isManagerDashboard && (item.label === 'گفتگوی جدید' || item.label === 'تیکت باز') ? 'button' : undefined"
+            @click="
+              !isManagerDashboard && item.label === 'گفتگوی جدید'
+                ? router.push('/chat')
+                : !isManagerDashboard && item.label === 'تیکت باز'
+                  ? router.push('/support')
+                  : undefined
+            "
+          >
             <div class="dashboard-summary-icon">
               <IconlyIcon :name="item.icon" decorative />
             </div>
@@ -303,10 +431,9 @@ function statusClass(status) {
         <div class="dashboard-section-head">
           <div>
             <span class="dashboard-section-kicker">مرور سریع</span>
-            <h3>{{ isManagerDashboard ? 'شاخص‌های کلیدی امروز' : 'مرور سریع حساب شما' }}</h3>
+            <h3>{{ isManagerDashboard ? 'شاخص‌های کلیدی امروز' : 'وضعیت شخصی امروز' }}</h3>
           </div>
         </div>
-
         <div class="dashboard-metrics-grid">
           <article
             v-for="item in highlightedStats"
@@ -320,8 +447,8 @@ function statusClass(status) {
             <div class="dashboard-metric-main">
               <span class="dashboard-metric-label">{{ item.label }}</span>
               <strong>{{ item.value }}</strong>
+              <small>{{ item.note }}</small>
             </div>
-            <small>{{ item.note }}</small>
           </article>
         </div>
       </article>
@@ -331,12 +458,11 @@ function statusClass(status) {
       <article class="surface-block dashboard-actions-panel">
         <div class="dashboard-section-head dashboard-section-head-tight">
           <div>
-            <span class="dashboard-section-kicker">اولویت جاری</span>
-            <h3>{{ isManagerDashboard ? 'صف اقدام سریع' : 'پرونده‌های قابل پیگیری' }}</h3>
+            <span class="dashboard-section-kicker">{{ isManagerDashboard ? 'اولویت جاری' : 'اسناد مهم' }}</span>
+            <h3>{{ isManagerDashboard ? 'موارد قابل اقدام' : 'اولویت بالا برای شما' }}</h3>
           </div>
         </div>
-
-        <div class="dashboard-queue-grid">
+        <div v-if="actionCards.length" class="dashboard-queue-grid">
           <article v-for="item in actionCards" :key="item.key" :class="['dashboard-action-card', item.tone]">
             <div class="dashboard-action-top">
               <span class="dashboard-action-type">{{ item.typeLabel }}</span>
@@ -347,13 +473,14 @@ function statusClass(status) {
               <small>{{ item.subtitle }}</small>
             </div>
             <div class="dashboard-action-meta">
-              <span v-for="meta in item.meta" :key="meta">{{ meta }}</span>
+              <span v-for="(meta, idx) in item.meta" :key="idx">{{ meta }}</span>
             </div>
             <button class="dashboard-action-button" type="button" @click="item.action()">
               {{ item.actionLabel }}
             </button>
           </article>
         </div>
+        <div v-else class="empty-state-inline">مورد مهمی برای نمایش نیست.</div>
       </article>
     </section>
   </section>
@@ -561,12 +688,12 @@ function statusClass(status) {
 }
 
 .dashboard-focus-chip .iconly-shell {
-  width: 38px;
-  height: 38px;
-  border-radius: 13px;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
   background: rgba(73, 114, 190, 0.1);
   color: #31589c;
-  font-size: 20px;
+  font-size: 12px;
 }
 
 .dashboard-focus-chip strong,
@@ -609,11 +736,15 @@ function statusClass(status) {
 }
 
 .dashboard-summary-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 15px;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
   background: var(--surface, #fff);
   color: #27467f;
+}
+
+.dashboard-summary-icon :deep(.iconly-shell) {
+  font-size: 12px;
 }
 
 .dashboard-summary-copy strong {
@@ -693,12 +824,41 @@ function statusClass(status) {
 }
 
 .dashboard-metric-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
   background: rgba(70, 110, 186, 0.1);
   color: #375d9f;
-  font-size: 20px;
+  font-size: 12px;
+}
+
+.dashboard-punch-btn {
+  width: 64px !important;
+  height: 64px !important;
+  min-width: 64px !important;
+  min-height: 64px !important;
+  border-radius: 20px !important;
+  background: #1f8a70 !important;
+  color: #fff !important;
+  box-shadow: 0 12px 28px rgba(31, 138, 112, 0.32) !important;
+  border: 0 !important;
+}
+
+.page-header-tools :deep(.notifications-bell-btn) {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
+}
+
+.dashboard-punch-btn :deep(.iconly-shell) {
+  font-size: 34px !important;
+  color: #fff !important;
+  --iconly-filter: brightness(0) invert(1) !important;
+}
+
+.dashboard-punch-btn :deep(.iconly-img) {
+  filter: brightness(0) invert(1) !important;
 }
 
 .dashboard-metric-main {
