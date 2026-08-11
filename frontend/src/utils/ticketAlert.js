@@ -157,3 +157,22 @@ export const notifyNewSupportTickets = (tickets = []) => {
     })
   }
 }
+
+export const notifyNewChatMessages = (count = 1) => {
+  const normalizedCount = Math.max(1, Number(count || 1))
+  const title = normalizedCount === 1 ? 'پیام جدید' : `${normalizedCount.toLocaleString('fa-IR')} پیام جدید`
+  const message = normalizedCount === 1
+    ? 'یک پیام خوانده‌نشده در چت سازمانی دارید'
+    : `${normalizedCount.toLocaleString('fa-IR')} گفتگوی خوانده‌نشده در چت سازمانی دارید`
+
+  playOrgAlertSound()
+  notifyInfo(message, { title, duration: 7000, source: 'chat' })
+
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    showBrowserNotification({
+      title: `کارنومند | ${title}`,
+      body: message,
+      tag: 'workflow-chat-unread',
+    })
+  }
+}

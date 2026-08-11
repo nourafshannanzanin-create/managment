@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { AppError, appErrorFromResponse, createValidationError, hasFieldError, normalizeError } from '../utils/errors'
 import { formatJalali, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
-import { notifyNewSupportTickets, playInboxAlertSound, playTicketAlertSound } from '../utils/ticketAlert'
+import { notifyNewChatMessages, notifyNewSupportTickets, playInboxAlertSound, playTicketAlertSound } from '../utils/ticketAlert'
 import { repairPayload } from '../utils/stitch'
 import { cleanDisplayText } from '../utils/text'
 
@@ -1128,9 +1128,12 @@ function captureInboxSnapshot() {
   }
 }
 
-function notifyIfInboxIncreased(previous, next) {
+function notifyIfInboxIncreased(previous, next, options = {}) {
   if (!previous || !next) return false
-  const grew = ['requests', 'expenses', 'approvals', 'chat', 'support'].some(
+  const keys = options.excludeChat
+    ? ['requests', 'expenses', 'approvals', 'support']
+    : ['requests', 'expenses', 'approvals', 'chat', 'support']
+  const grew = keys.some(
     (key) => Number(next[key] || 0) > Number(previous[key] || 0),
   )
   if (!grew) return false
@@ -1159,11 +1162,15 @@ async function softLiveSync(options = {}) {
 
     const next = captureInboxSnapshot()
     if (state.liveSync.initialized && previous) {
+      const newChatCount = Number(next.chat || 0) - Number(previous.chat || 0)
+      if (newChatCount > 0) {
+        notifyNewChatMessages(newChatCount)
+      }
       if (state.currentUser.isHq) {
         // HQ ticket alerts are handled inside loadHqTickets(notifyNew).
-        notifyIfInboxIncreased({ ...previous, support: next.support }, next)
+        notifyIfInboxIncreased({ ...previous, support: next.support }, next, { excludeChat: true })
       } else {
-        notifyIfInboxIncreased(previous, next)
+        notifyIfInboxIncreased(previous, next, { excludeChat: true })
       }
     }
     state.liveSync.lastSnapshot = next
