@@ -107,14 +107,23 @@ MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CORS_ALLOWED_ORIGINS = env_list("WORKFLOW_FRONTEND_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+CORS_ALLOWED_ORIGINS = env_list("WORKFLOW_FRONTEND_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173")
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = env_bool("WORKFLOW_CORS_ALLOW_ALL_ORIGINS", DEBUG)
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^http://localhost:\d+$",
     r"^http://127\.0\.0\.1:\d+$",
+    r"^http://192\.168\.\d{1,3}\.\d{1,3}:\d+$",
+    r"^http://10\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$",
+    r"^https://([a-z0-9-]+\.)*carnomand\.ir$",
+    r"^http://([a-z0-9-]+\.)*carnomand\.ir$",
 ]
-CSRF_TRUSTED_ORIGINS = env_list("WORKFLOW_CSRF_TRUSTED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+CSRF_TRUSTED_ORIGINS = env_list(
+    "WORKFLOW_CSRF_TRUSTED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173",
+)
+NESHAN_SERVICE_KEY = os.getenv("WORKFLOW_NESHAN_SERVICE_KEY", "service.679d0dde3d6d42a898f33ecc2a3f2fdd")
+NESHAN_REVERSE_URL = os.getenv("WORKFLOW_NESHAN_REVERSE_URL", "https://api.neshan.org/v5/reverse")
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = env_bool("WORKFLOW_USE_X_FORWARDED_HOST", True)
 SECURE_SSL_REDIRECT = env_bool("WORKFLOW_SECURE_SSL_REDIRECT", not DEBUG)

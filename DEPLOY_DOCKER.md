@@ -29,7 +29,28 @@ WORKFLOW_ALLOWED_HOSTS=carnomand.ir,www.carnomand.ir,127.0.0.1,localhost,backend
 WORKFLOW_FRONTEND_ORIGINS=https://carnomand.ir,https://www.carnomand.ir,http://carnomand.ir,http://www.carnomand.ir
 WORKFLOW_CSRF_TRUSTED_ORIGINS=https://carnomand.ir,https://www.carnomand.ir,http://carnomand.ir,http://www.carnomand.ir
 WORKFLOW_AUTO_SEED_DB=false
+WORKFLOW_NESHAN_SERVICE_KEY=service.679d0dde3d6d42a898f33ecc2a3f2fdd
+WORKFLOW_NESHAN_REVERSE_URL=https://api.neshan.org/v5/reverse
+VITE_API_BASE_URL=/api/v1
+VITE_NESHAN_SERVICE_KEY=service.679d0dde3d6d42a898f33ecc2a3f2fdd
+VITE_NESHAN_REVERSE_URL=https://api.neshan.org/v5/reverse
 ```
+
+## 1.1 تنظیم پنل نشان (الزامی برای آدرس‌یابی)
+
+در پنل توسعه‌دهندگان نشان، روی همین API Key:
+
+1. سرویس **تبدیل نقطه به آدرس (Reverse Geocoding)** را فعال کنید.
+2. در Whitelist دامنه این‌ها را بگذارید (بدون `https://`):
+   - `carnomand.ir`
+   - `www.carnomand.ir`
+3. محدودیت IP را برای مرورگر خالی بگذارید یا فقط IP ثابت سرور را برای پروکسی بک‌اند اضافه کنید.
+4. بعد از تغییر دامنه/کلید، حتماً فرانت را دوباره `--build` کنید تا `VITE_NESHAN_*` داخل باندل برود.
+
+تست بعد از دیپلوی (از مرورگر روی دامنه، نه از IP سرور):
+
+- تنظیمات → لوکیشن ورود و خروج → کلیک روی نقشه
+- باید پیام «آدرس از سرویس نشان دریافت شد» بیاید
 
 ## 2. بالا آوردن Docker
 
@@ -98,3 +119,6 @@ DOCKER_BUILDKIT=1 docker compose --env-file .env.production up -d --build
 - API فرانت از مسیر نسبی `/api/v1` استفاده می‌کند.
 - روت‌های Vue با `try_files ... /index.html` سرو می‌شوند؛ `/` لندینگ است و `/login` صفحه ورود.
 - اگر هنوز لاگین می‌بینید، احتمالاً بیلد قدیمی در کانتینر است یا `index.html` کش شده — دوباره `--build` بزنید.
+- لوکیشن ورود/خروج با نقشه + Reverse نشان کار می‌کند؛ بدون وایت‌لیست دامنه، آدرس موقت می‌آید ولی ثبت مختصات همچنان ذخیره می‌شود.
+- Geolocation روی دامنه HTTPS پایدارتر از HTTP/IP است؛ برای موبایل حتماً SSL دامنه را فعال کنید.
+- متغیرهای `VITE_*` فقط در زمان `docker compose build` اعمال می‌شوند؛ تغییر `.env.production` بدون `--build` روی فرانت اثر ندارد.

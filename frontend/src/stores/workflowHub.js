@@ -135,6 +135,23 @@ function createSettingsState() {
       recentSessionCount: 0,
       recentSessionLabel: '',
     },
+    attendanceLocation: {
+      configured: false,
+      latitude: null,
+      longitude: null,
+      label: '',
+      radiusMeters: 20,
+      provinceId: null,
+      provinceName: '',
+      cityId: null,
+      cityName: '',
+    },
+    organizationGeo: {
+      provinceId: null,
+      provinceName: '',
+      cityId: null,
+      cityName: '',
+    },
     sections: [],
     organizationUsers: [],
     departments: [],
@@ -1147,6 +1164,68 @@ async function loadSettings(force = false) {
   replaceItems(state.settingsCards, payload.sections || [])
   state.settings.organizationUsers = (payload.organizationUsers || []).map(normalizeUser)
   state.settings.departments = payload.departments || []
+  state.settings.attendanceLocation = {
+    ...createSettingsState().attendanceLocation,
+    ...(payload.attendanceLocation || payload.attendance_location || {}),
+    radiusMeters:
+      payload.attendanceLocation?.radiusMeters ??
+      payload.attendanceLocation?.radius_meters ??
+      payload.attendance_location?.radiusMeters ??
+      payload.attendance_location?.radius_meters ??
+      20,
+    provinceId:
+      payload.attendanceLocation?.provinceId ??
+      payload.attendanceLocation?.province_id ??
+      payload.organizationGeo?.provinceId ??
+      payload.organization_geo?.province_id ??
+      null,
+    provinceName:
+      payload.attendanceLocation?.provinceName ??
+      payload.attendanceLocation?.province_name ??
+      payload.organizationGeo?.provinceName ??
+      payload.organization_geo?.province_name ??
+      '',
+    cityId:
+      payload.attendanceLocation?.cityId ??
+      payload.attendanceLocation?.city_id ??
+      payload.organizationGeo?.cityId ??
+      payload.organization_geo?.city_id ??
+      null,
+    cityName:
+      payload.attendanceLocation?.cityName ??
+      payload.attendanceLocation?.city_name ??
+      payload.organizationGeo?.cityName ??
+      payload.organization_geo?.city_name ??
+      '',
+  }
+  state.settings.organizationGeo = {
+    ...createSettingsState().organizationGeo,
+    ...(payload.organizationGeo || payload.organization_geo || {}),
+    provinceId:
+      payload.organizationGeo?.provinceId ??
+      payload.organizationGeo?.province_id ??
+      payload.organization_geo?.provinceId ??
+      payload.organization_geo?.province_id ??
+      null,
+    provinceName:
+      payload.organizationGeo?.provinceName ??
+      payload.organizationGeo?.province_name ??
+      payload.organization_geo?.provinceName ??
+      payload.organization_geo?.province_name ??
+      '',
+    cityId:
+      payload.organizationGeo?.cityId ??
+      payload.organizationGeo?.city_id ??
+      payload.organization_geo?.cityId ??
+      payload.organization_geo?.city_id ??
+      null,
+    cityName:
+      payload.organizationGeo?.cityName ??
+      payload.organizationGeo?.city_name ??
+      payload.organization_geo?.cityName ??
+      payload.organization_geo?.city_name ??
+      '',
+  }
   state.directories.departments = payload.departments || state.directories.departments
   state.currentUser.organization = payload.organizationName || state.currentUser.organization
 }
@@ -1603,6 +1682,68 @@ async function saveSettings(nextSettings) {
   replaceItems(state.settingsCards, payload.sections || [])
   state.settings.organizationUsers = (payload.organizationUsers || []).map(normalizeUser)
   state.settings.departments = payload.departments || []
+  state.settings.attendanceLocation = {
+    ...createSettingsState().attendanceLocation,
+    ...(payload.attendanceLocation || payload.attendance_location || {}),
+    radiusMeters:
+      payload.attendanceLocation?.radiusMeters ??
+      payload.attendanceLocation?.radius_meters ??
+      payload.attendance_location?.radiusMeters ??
+      payload.attendance_location?.radius_meters ??
+      20,
+    provinceId:
+      payload.attendanceLocation?.provinceId ??
+      payload.attendanceLocation?.province_id ??
+      payload.organizationGeo?.provinceId ??
+      payload.organization_geo?.province_id ??
+      null,
+    provinceName:
+      payload.attendanceLocation?.provinceName ??
+      payload.attendanceLocation?.province_name ??
+      payload.organizationGeo?.provinceName ??
+      payload.organization_geo?.province_name ??
+      '',
+    cityId:
+      payload.attendanceLocation?.cityId ??
+      payload.attendanceLocation?.city_id ??
+      payload.organizationGeo?.cityId ??
+      payload.organization_geo?.city_id ??
+      null,
+    cityName:
+      payload.attendanceLocation?.cityName ??
+      payload.attendanceLocation?.city_name ??
+      payload.organizationGeo?.cityName ??
+      payload.organization_geo?.city_name ??
+      '',
+  }
+  state.settings.organizationGeo = {
+    ...createSettingsState().organizationGeo,
+    ...(payload.organizationGeo || payload.organization_geo || {}),
+    provinceId:
+      payload.organizationGeo?.provinceId ??
+      payload.organizationGeo?.province_id ??
+      payload.organization_geo?.provinceId ??
+      payload.organization_geo?.province_id ??
+      null,
+    provinceName:
+      payload.organizationGeo?.provinceName ??
+      payload.organizationGeo?.province_name ??
+      payload.organization_geo?.provinceName ??
+      payload.organization_geo?.province_name ??
+      '',
+    cityId:
+      payload.organizationGeo?.cityId ??
+      payload.organizationGeo?.city_id ??
+      payload.organization_geo?.cityId ??
+      payload.organization_geo?.city_id ??
+      null,
+    cityName:
+      payload.organizationGeo?.cityName ??
+      payload.organizationGeo?.city_name ??
+      payload.organization_geo?.cityName ??
+      payload.organization_geo?.city_name ??
+      '',
+  }
   state.directories.departments = payload.departments || state.directories.departments
   state.currentUser.organization = payload.organizationName || state.currentUser.organization
 }

@@ -3,9 +3,11 @@ import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
+import LocationMapPicker from '../components/LocationMapPicker.vue'
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
 import SectionHeading from '../components/SectionHeading.vue'
 import UserAvatar from '../components/UserAvatar.vue'
+import { haversineDistanceMeters, readDeviceLocation } from '../lib/geolocation'
 import { jalaliToIso } from '../utils/jalali'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
@@ -29,8 +31,12 @@ const reportFilters = ref({
   userId: '',
   eventType: 'all',
 })
-const publicPayload = ref({ user: {}, events: [], organization: {} })
+const publicPayload = ref({ user: {}, events: [], organization: {}, location: {} })
 const isPublic = computed(() => Boolean(route.params.token))
+const locationBusy = ref(false)
+const locationHint = ref('')
+const liveUserLocation = ref(null)
+const liveDistanceMeters = ref(null)
 
 const fa = (value) => Number(value || 0).toLocaleString('fa-IR')
 const eventLabel = (type) => (type === 'in' ? 'ورود' : 'خروج')
@@ -43,6 +49,24 @@ const dateTime = (value) => {
     timeStyle: 'short',
   }).format(new Date(value))
 }
+
+const publicLocation = computed(() => publicPayload.value.location || {})
+const workplaceConfigured = computed(() => Boolean(publicLocation.value.configured))
+const workplaceRadius = computed(() => publicLocation.value.radiusMeters || publicLocation.value.radius_meters || 20)
+const withinRange = computed(() => {
+  if (liveDistanceMeters.value == null) return null
+  return liveDistanceMeters.value <= Number(workplaceRadius.value)
+})
+const workplaceMapModel = computed(() => ({
+  latitude: publicLocation.value.latitude ?? null,
+  longitude: publicLocation.value.longitude ?? null,
+  label: publicLocation.value.label || '',
+  radiusMeters: workplaceRadius.value,
+  provinceId: publicLocation.value.provinceId ?? publicLocation.value.province_id ?? publicPayload.value.organization?.provinceId ?? null,
+  provinceName: publicLocation.value.provinceName || publicLocation.value.province_name || publicPayload.value.organization?.provinceName || '',
+  cityId: publicLocation.value.cityId ?? publicLocation.value.city_id ?? publicPayload.value.organization?.cityId ?? null,
+  cityName: publicLocation.value.cityName || publicLocation.value.city_name || publicPayload.value.organization?.cityName || '',
+}))
 
 async function apiFetch(path, options = {}) {
   const headers = { ...(options.headers || {}) }
@@ -113,15 +137,46 @@ function resetReportFilters() {
   void loadReports()
 }
 
+async function refreshLiveLocation() {
+  if (!workplaceConfigured.value) return
+  locationBusy.value = true
+  try {
+    const coords = await readDeviceLocation()
+    liveUserLocation.value = coords
+    if (publicLocation.value.latitude != null && publicLocation.value.longitude != null) {
+      liveDistanceMeters.value = haversineDistanceMeters(
+        publicLocation.value.latitude,
+        publicLocation.value.longitude,
+        coords.latitude,
+        coords.longitude,
+      )
+      locationHint.value = withinRange.value
+        ? `داخل محدوده مجاز هستید · فاصله حدود ${fa(Math.round(liveDistanceMeters.value))} متر`
+        : `خارج از محدوده · فاصله حدود ${fa(Math.round(liveDistanceMeters.value))} متر از ${fa(workplaceRadius.value)} متر مجاز`
+    }
+  } catch (error) {
+    locationHint.value = error.message
+  } finally {
+    locationBusy.value = false
+  }
+}
+
 async function loadPublic() {
   loading.value = true
   errorMessage.value = ''
   successMessage.value = ''
+  locationHint.value = ''
   try {
     publicPayload.value = await apiFetch(`/attendance/public/${route.params.token}`)
+    if (!workplaceConfigured.value) {
+      locationHint.value = 'لوکیشن محل کار توسط مدیر مجموعه تنظیم نشده است.'
+    } else {
+      locationHint.value = `برای ثبت ورود/خروج باید در شعاع ${fa(workplaceRadius.value)} متری محل کار باشید.`
+      await refreshLiveLocation()
+    }
   } catch (error) {
     errorMessage.value = error.message
-    publicPayload.value = { user: {}, events: [], organization: {} }
+    publicPayload.value = { user: {}, events: [], organization: {}, location: {} }
   } finally {
     loading.value = false
   }
@@ -145,19 +200,42 @@ async function submitManagerEvent(user, eventType) {
 
 async function submitPublicEvent(eventType) {
   submitting.value = true
+  locationBusy.value = true
   errorMessage.value = ''
   successMessage.value = ''
   try {
+    if (!workplaceConfigured.value) {
+      throw new Error('لوکیشن محل کار توسط مدیر مجموعه تنظیم نشده است.')
+    }
+    const coords = await readDeviceLocation()
+    liveUserLocation.value = coords
+    if (publicLocation.value.latitude != null && publicLocation.value.longitude != null) {
+      liveDistanceMeters.value = haversineDistanceMeters(
+        publicLocation.value.latitude,
+        publicLocation.value.longitude,
+        coords.latitude,
+        coords.longitude,
+      )
+    }
     publicPayload.value = await apiFetch(`/attendance/public/${route.params.token}`, {
       method: 'POST',
-      body: JSON.stringify({ eventType, note: note.value }),
+      body: JSON.stringify({
+        eventType,
+        note: note.value,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      }),
     })
-    successMessage.value = `${eventLabel(eventType)} با موفقیت ثبت شد.`
+    const lastEvent = (publicPayload.value.events || [])[0]
+    const distance = lastEvent?.distanceMeters ?? lastEvent?.distance_meters ?? liveDistanceMeters.value
+    const distanceText = distance != null ? ` · فاصله ${fa(Math.round(distance))} متر` : ''
+    successMessage.value = `${eventLabel(eventType)} با موفقیت ثبت شد${distanceText}.`
     note.value = ''
   } catch (error) {
     errorMessage.value = error.message
   } finally {
     submitting.value = false
+    locationBusy.value = false
   }
 }
 
@@ -416,27 +494,51 @@ onMounted(() => {
 
         <div v-if="errorMessage" class="attendance-alert is-danger">{{ errorMessage }}</div>
         <div v-if="successMessage" class="attendance-alert is-success">{{ successMessage }}</div>
+        <div
+          v-if="locationHint"
+          :class="[
+            'attendance-alert',
+            !workplaceConfigured ? 'is-warning' : withinRange === false ? 'is-danger' : withinRange ? 'is-success' : 'is-info',
+          ]"
+        >
+          {{ locationHint }}
+        </div>
+
+        <div v-if="workplaceConfigured" class="public-map-block">
+          <LocationMapPicker
+            :model-value="workplaceMapModel"
+            mode="viewer"
+            height="320px"
+            :can-edit="false"
+            :show-radius="true"
+            :user-location="liveUserLocation"
+          />
+          <button class="action-btn tone-soft public-locate-btn" type="button" :disabled="locationBusy || submitting" @click="refreshLiveLocation">
+            <IconlyIcon name="profile" decorative />
+            <span>{{ locationBusy ? 'در حال دریافت موقعیت...' : 'بروزرسانی موقعیت من' }}</span>
+          </button>
+        </div>
 
         <div class="attendance-punch-grid">
           <button
             class="attendance-punch-btn is-in"
             type="button"
-            :disabled="submitting || publicUser.status === 'in'"
+            :disabled="submitting || locationBusy || !workplaceConfigured || publicUser.status === 'in'"
             @click="submitPublicEvent('in')"
           >
             <IconlyIcon name="login" size="xl" decorative />
-            <strong>ثبت ورود</strong>
-            <small>{{ publicUser.status === 'in' ? 'الان حاضر هستید' : 'شروع شیفت' }}</small>
+            <strong>{{ locationBusy && publicUser.status !== 'in' ? 'در حال بررسی موقعیت...' : 'ثبت ورود' }}</strong>
+            <small>{{ publicUser.status === 'in' ? 'الان حاضر هستید' : 'شروع شیفت با تأیید موقعیت' }}</small>
           </button>
           <button
             class="attendance-punch-btn is-out"
             type="button"
-            :disabled="submitting || publicUser.status !== 'in'"
+            :disabled="submitting || locationBusy || !workplaceConfigured || publicUser.status !== 'in'"
             @click="submitPublicEvent('out')"
           >
             <IconlyIcon name="logout" size="xl" decorative />
-            <strong>ثبت خروج</strong>
-            <small>{{ publicUser.status === 'in' ? 'پایان شیفت' : 'ابتدا ورود ثبت کنید' }}</small>
+            <strong>{{ locationBusy && publicUser.status === 'in' ? 'در حال بررسی موقعیت...' : 'ثبت خروج' }}</strong>
+            <small>{{ publicUser.status === 'in' ? 'پایان شیفت با تأیید موقعیت' : 'ابتدا ورود ثبت کنید' }}</small>
           </button>
         </div>
 
@@ -458,6 +560,12 @@ onMounted(() => {
             <div>
               <strong>{{ eventLabel(event.eventType || event.event_type) }}</strong>
               <small>{{ dateTime(event.eventAt || event.event_at) }}</small>
+              <small
+                v-if="(event.distanceMeters ?? event.distance_meters) != null"
+                class="public-event-note"
+              >
+                فاصله از محل کار: {{ fa(Math.round(event.distanceMeters ?? event.distance_meters)) }} متر
+              </small>
               <small v-if="event.note" class="public-event-note">{{ event.note }}</small>
             </div>
           </article>
@@ -851,6 +959,8 @@ onMounted(() => {
 
 .attendance-alert.is-danger { background: var(--danger-soft); color: var(--danger); }
 .attendance-alert.is-success { background: var(--success-soft); color: var(--success); }
+.attendance-alert.is-warning { background: var(--warning-soft); color: var(--warning); }
+.attendance-alert.is-info { background: rgba(52, 144, 139, 0.12); color: var(--primary); }
 .status-badge.is-success { background: var(--success-soft); color: var(--success); }
 .status-badge.is-warning { background: var(--warning-soft); color: var(--warning); }
 
@@ -946,6 +1056,16 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.public-map-block {
+  display: grid;
+  gap: 10px;
+}
+
+.public-locate-btn {
+  width: 100%;
+  justify-content: center;
 }
 
 .attendance-punch-btn {

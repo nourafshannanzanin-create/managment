@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import mimetypes
 import os
 from urllib import error as urllib_error
@@ -760,6 +761,10 @@ def build_settings_profile_payload(user: User, organization_id: int | None = Non
             "recentSessionCount": len(recent_logins),
             "recentSessionLabel": recent_session_label,
         },
+        "attendanceLocation": serialize_attendance_location(preference, organization),
+        "attendance_location": serialize_attendance_location(preference, organization),
+        "organizationGeo": serialize_organization_geo(organization),
+        "organization_geo": serialize_organization_geo(organization),
         "sections": section_payload,
         "organizationUsers": [
             {
@@ -822,9 +827,133 @@ def serialize_attendance_event(event: AttendanceEvent) -> dict:
         "event_type": event.event_type,
         "source": event.source,
         "note": event.note,
+        "latitude": event.latitude,
+        "longitude": event.longitude,
+        "distanceMeters": event.distance_meters,
+        "distance_meters": event.distance_meters,
         "eventAt": event.event_at.isoformat(),
         "event_at": event.event_at.isoformat(),
     }
+
+
+DEFAULT_ATTENDANCE_RADIUS_METERS = 20
+
+
+def haversine_distance_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    radius = 6371000.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lon2 - lon1)
+    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+    return 2 * radius * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def parse_coordinate(value) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(parsed):
+        return None
+    return parsed
+
+
+def serialize_attendance_location(preference: OrganizationPreference | None, organization: Organization | None = None) -> dict:
+    if preference is None:
+        return {
+            "configured": False,
+            "latitude": None,
+            "longitude": None,
+            "label": "",
+            "radiusMeters": DEFAULT_ATTENDANCE_RADIUS_METERS,
+            "radius_meters": DEFAULT_ATTENDANCE_RADIUS_METERS,
+            "provinceId": getattr(organization, "province_id", None),
+            "provinceName": getattr(organization, "province_name", "") or "",
+            "cityId": getattr(organization, "city_id", None),
+            "cityName": getattr(organization, "city_name", "") or "",
+        }
+    configured = preference.attendance_latitude is not None and preference.attendance_longitude is not None
+    radius = preference.attendance_radius_meters or DEFAULT_ATTENDANCE_RADIUS_METERS
+    return {
+        "configured": configured,
+        "latitude": preference.attendance_latitude,
+        "longitude": preference.attendance_longitude,
+        "label": preference.attendance_location_label or "",
+        "radiusMeters": radius,
+        "radius_meters": radius,
+        "provinceId": getattr(organization, "province_id", None) if organization else None,
+        "province_id": getattr(organization, "province_id", None) if organization else None,
+        "provinceName": (getattr(organization, "province_name", "") or "") if organization else "",
+        "province_name": (getattr(organization, "province_name", "") or "") if organization else "",
+        "cityId": getattr(organization, "city_id", None) if organization else None,
+        "city_id": getattr(organization, "city_id", None) if organization else None,
+        "cityName": (getattr(organization, "city_name", "") or "") if organization else "",
+        "city_name": (getattr(organization, "city_name", "") or "") if organization else "",
+    }
+
+
+def serialize_organization_geo(organization: Organization) -> dict:
+    return {
+        "provinceId": organization.province_id,
+        "province_id": organization.province_id,
+        "provinceName": organization.province_name or "",
+        "province_name": organization.province_name or "",
+        "cityId": organization.city_id,
+        "city_id": organization.city_id,
+        "cityName": organization.city_name or "",
+        "city_name": organization.city_name or "",
+    }
+
+
+def parse_optional_int(value) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def apply_organization_geo_fields(organization: Organization, payload: dict) -> list[str]:
+    updated_fields: list[str] = []
+    if "provinceId" in payload or "province_id" in payload or "provinceName" in payload or "province_name" in payload:
+        organization.province_id = parse_optional_int(payload.get("provinceId", payload.get("province_id")))
+        organization.province_name = (payload.get("provinceName") or payload.get("province_name") or "").strip()[:120]
+        updated_fields.extend(["province_id", "province_name"])
+    if "cityId" in payload or "city_id" in payload or "cityName" in payload or "city_name" in payload:
+        organization.city_id = parse_optional_int(payload.get("cityId", payload.get("city_id")))
+        organization.city_name = (payload.get("cityName") or payload.get("city_name") or "").strip()[:120]
+        updated_fields.extend(["city_id", "city_name"])
+    return updated_fields
+
+
+def validate_public_attendance_location(organization: Organization, payload: dict) -> tuple[float, float, float] | JsonResponse:
+    preference, _ = OrganizationPreference.objects.get_or_create(organization=organization)
+    if preference.attendance_latitude is None or preference.attendance_longitude is None:
+        return json_error("لوکیشن محل کار توسط مدیر مجموعه تنظیم نشده است. ثبت ورود/خروج فعلاً ممکن نیست.", status=422)
+
+    latitude = parse_coordinate(payload.get("latitude") if "latitude" in payload else payload.get("lat"))
+    longitude = parse_coordinate(payload.get("longitude") if "longitude" in payload else payload.get("lng") or payload.get("lon"))
+    if latitude is None or longitude is None:
+        return json_error("برای ثبت ورود/خروج باید دسترسی موقعیت مکانی دستگاه فعال باشد.", status=422)
+    if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+        return json_error("مختصات موقعیت مکانی معتبر نیست.", status=422)
+
+    distance = haversine_distance_meters(
+        preference.attendance_latitude,
+        preference.attendance_longitude,
+        latitude,
+        longitude,
+    )
+    radius = preference.attendance_radius_meters or DEFAULT_ATTENDANCE_RADIUS_METERS
+    if distance > radius:
+        return json_error(
+            f"خارج از محدوده مجاز هستید. فاصله شما حدود {int(round(distance))} متر است و حداکثر فاصله مجاز {radius} متر می‌باشد.",
+            status=422,
+        )
+    return latitude, longitude, round(distance, 2)
 
 
 def serialize_attendance_user(user: User, organization: Organization) -> dict:
@@ -1315,10 +1444,16 @@ def register_view(request: HttpRequest):
     manager_email = (payload.get("managerEmail") or "").strip().lower()
     manager_phone = (payload.get("managerPhone") or "").strip()
     manager_password = payload.get("managerPassword") or ""
+    province_id = parse_optional_int(payload.get("provinceId") or payload.get("province_id"))
+    province_name = (payload.get("provinceName") or payload.get("province_name") or "").strip()[:120]
+    city_id = parse_optional_int(payload.get("cityId") or payload.get("city_id"))
+    city_name = (payload.get("cityName") or payload.get("city_name") or "").strip()[:120]
     documents = request.FILES.getlist("documents")
 
     if not organization_name or not manager_name or not manager_username or not manager_phone or not manager_password:
         return json_error("نام مجموعه، نام مدیر، نام کاربری، تلفن و رمز عبور الزامی است.", status=422)
+    if not province_name or not city_name:
+        return json_error("استان و شهر مجموعه الزامی است.", status=422)
     if len(manager_password) < 6:
         return json_error("رمز عبور باید حداقل ۶ کاراکتر باشد.", status=422)
     if not documents:
@@ -1345,6 +1480,8 @@ def register_view(request: HttpRequest):
             f"نام کاربری مدیر: {manager_username}",
             f"ایمیل مدیر: {manager_email or '-'}",
             f"تلفن مدیر: {manager_phone}",
+            f"استان: {province_name}",
+            f"شهر: {city_name}",
             f"تعداد مدارک: {len(documents)}",
         ])
         ticket = SupportTicket.objects.create(
@@ -1367,6 +1504,10 @@ def register_view(request: HttpRequest):
             manager_email=manager_email,
             manager_phone=manager_phone,
             manager_password_hash=get_password_hash(manager_password),
+            province_id=province_id,
+            province_name=province_name,
+            city_id=city_id,
+            city_name=city_name,
         )
         for document in documents:
             stored_name = save_uploaded_file(document)
@@ -2006,17 +2147,27 @@ def public_attendance_view(request: HttpRequest, token: str):
     if not FeaturePurchase.objects.filter(organization=organization, feature_key="attendance", is_active=True).exists():
         return json_error("ماژول ورود و خروج برای این سازمان فعال نیست.", status=402)
 
+    preference, _ = OrganizationPreference.objects.get_or_create(organization=organization)
+    location_payload = serialize_attendance_location(preference, organization)
+
     if request.method == "POST":
         payload = parse_json(request)
         event_type = payload.get("eventType") or payload.get("event_type")
         if event_type not in {AttendanceEvent.EVENT_IN, AttendanceEvent.EVENT_OUT}:
             return json_error("نوع رویداد معتبر نیست.", status=422)
+        location_result = validate_public_attendance_location(organization, payload)
+        if isinstance(location_result, JsonResponse):
+            return location_result
+        latitude, longitude, distance_meters = location_result
         AttendanceEvent.objects.create(
             organization=organization,
             user=target_user,
             event_type=event_type,
             source=AttendanceEvent.SOURCE_LINK,
             note=(payload.get("note") or "").strip(),
+            latitude=latitude,
+            longitude=longitude,
+            distance_meters=distance_meters,
         )
 
     user_payload = serialize_attendance_user(target_user, organization)
@@ -2027,9 +2178,16 @@ def public_attendance_view(request: HttpRequest, token: str):
         .order_by("-event_at", "-id")
     )
     return json_response({
-        "organization": {"name": organization.name, "code": organization.code},
+        "organization": {
+            "name": organization.name,
+            "code": organization.code,
+            **serialize_organization_geo(organization),
+        },
         "user": user_payload,
         "events": [serialize_attendance_event(item) for item in events],
+        "location": location_payload,
+        "locationRequired": True,
+        "location_required": True,
         "serverTime": timezone.now().isoformat(),
         "server_time": timezone.now().isoformat(),
     }, status=201 if request.method == "POST" else 200)
@@ -2251,7 +2409,14 @@ def support_ticket_approve_registration_view(request: HttpRequest, ticket_id: in
         if User.objects.filter(email=manager_email).exists():
             return json_error("ایمیل مدیر قبلاً ثبت شده است.", status=409)
 
-        organization = Organization.objects.create(code=company_code, name=registration.organization_name)
+        organization = Organization.objects.create(
+            code=company_code,
+            name=registration.organization_name,
+            province_id=registration.province_id,
+            province_name=registration.province_name or "",
+            city_id=registration.city_id,
+            city_name=registration.city_name or "",
+        )
         manager = User.objects.create(
             slug=registration.manager_username,
             full_name=registration.manager_name,
@@ -4136,6 +4301,63 @@ def settings_profile_view(request: HttpRequest):
                 department = Department.objects.create(code=code, name=name)
                 submitted_ids.add(department.id)
         Department.objects.exclude(code__in=["hq-control", "hq"]).exclude(name__iexact="HQ").exclude(id__in=submitted_ids).delete()
+    elif "attendanceLocation" in payload or "attendance_location" in payload or "attendanceLatitude" in payload:
+        location_payload = payload.get("attendanceLocation") or payload.get("attendance_location") or payload
+        clear_location = bool(location_payload.get("clear") or location_payload.get("clearLocation"))
+        if clear_location:
+            preference.attendance_latitude = None
+            preference.attendance_longitude = None
+            preference.attendance_location_label = ""
+            preference.updated_at = timezone.now()
+            preference.save(
+                update_fields=["attendance_latitude", "attendance_longitude", "attendance_location_label", "updated_at"]
+            )
+        else:
+            latitude = parse_coordinate(
+                location_payload.get("latitude")
+                if "latitude" in location_payload
+                else location_payload.get("attendanceLatitude")
+            )
+            longitude = parse_coordinate(
+                location_payload.get("longitude")
+                if "longitude" in location_payload
+                else location_payload.get("attendanceLongitude")
+            )
+            if latitude is None or longitude is None:
+                return json_error("مختصات لوکیشن محل کار الزامی است.", status=422)
+            if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+                return json_error("مختصات لوکیشن محل کار معتبر نیست.", status=422)
+            radius = location_payload.get("radiusMeters")
+            if radius is None:
+                radius = location_payload.get("radius_meters")
+            if radius is None:
+                radius = location_payload.get("attendanceRadiusMeters")
+            if radius is None:
+                radius = preference.attendance_radius_meters or DEFAULT_ATTENDANCE_RADIUS_METERS
+            try:
+                radius_value = int(radius)
+            except (TypeError, ValueError):
+                return json_error("شعاع مجاز حضور معتبر نیست.", status=422)
+            if radius_value < 5 or radius_value > 2000:
+                return json_error("شعاع مجاز حضور باید بین ۵ تا ۲۰۰۰ متر باشد.", status=422)
+            label = (location_payload.get("label") or location_payload.get("attendanceLocationLabel") or "").strip()
+            preference.attendance_latitude = latitude
+            preference.attendance_longitude = longitude
+            preference.attendance_location_label = label[:255]
+            preference.attendance_radius_meters = radius_value
+            preference.updated_at = timezone.now()
+            preference.save(
+                update_fields=[
+                    "attendance_latitude",
+                    "attendance_longitude",
+                    "attendance_location_label",
+                    "attendance_radius_meters",
+                    "updated_at",
+                ]
+            )
+            geo_fields = apply_organization_geo_fields(organization, location_payload)
+            if geo_fields:
+                organization.save(update_fields=geo_fields)
     else:
         organization_name = (payload.get("organizationName") or "").strip()
         system_id = normalize_slug(payload.get("systemId") or organization.code)
@@ -4164,6 +4386,105 @@ def settings_profile_view(request: HttpRequest):
         icon="settings",
     )
     return json_response(build_settings_profile_payload(request.current_user, organization_id))
+
+
+@csrf_exempt
+@methods("POST")
+def neshan_reverse_view(request: HttpRequest):
+    payload = parse_json(request)
+    latitude = parse_coordinate(payload.get("latitude") if "latitude" in payload else payload.get("lat"))
+    longitude = parse_coordinate(payload.get("longitude") if "longitude" in payload else payload.get("lng") or payload.get("lon"))
+    if latitude is None or longitude is None:
+        return json_error("مختصات برای تبدیل آدرس الزامی است.", status=422)
+    if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+        return json_error("مختصات معتبر نیست.", status=422)
+
+    fallback_label = f"نقطه انتخاب‌شده روی نقشه · {latitude:.5f}، {longitude:.5f}"
+    service_key = getattr(settings, "NESHAN_SERVICE_KEY", "") or ""
+    reverse_url = getattr(settings, "NESHAN_REVERSE_URL", "https://api.neshan.org/v5/reverse")
+    if not service_key:
+        return json_response({
+            "formattedAddress": fallback_label,
+            "formatted_address": fallback_label,
+            "label": fallback_label,
+            "neighbourhood": "",
+            "city": "",
+            "state": "",
+            "source": "fallback",
+            "raw": {},
+        })
+
+    request_url = f"{reverse_url}?lat={latitude}&lng={longitude}"
+    http_request = urllib_request.Request(
+        request_url,
+        headers={
+            "Api-Key": service_key,
+            "Accept": "application/json",
+            "User-Agent": "Karnomand-WorkflowHub/1.0",
+        },
+        method="GET",
+    )
+    try:
+        with urllib_request.urlopen(http_request, timeout=12) as response:
+            raw = response.read().decode("utf-8")
+            data = json.loads(raw) if raw else {}
+    except Exception as exc:
+        return json_response({
+            "formattedAddress": fallback_label,
+            "formatted_address": fallback_label,
+            "label": fallback_label,
+            "neighbourhood": "",
+            "city": "",
+            "state": "",
+            "source": "fallback",
+            "warning": str(getattr(exc, "reason", "") or exc),
+            "raw": {},
+        })
+
+    if str(data.get("status") or "").upper() == "ERROR":
+        return json_response({
+            "formattedAddress": fallback_label,
+            "formatted_address": fallback_label,
+            "label": fallback_label,
+            "neighbourhood": "",
+            "city": "",
+            "state": "",
+            "source": "fallback",
+            "warning": data.get("message") or "سرویس نشان پاسخ معتبر نداد.",
+            "raw": data,
+        })
+
+    formatted = (
+        data.get("formatted_address")
+        or data.get("formattedAddress")
+        or data.get("address")
+        or fallback_label
+    )
+    return json_response({
+        "status": data.get("status") or "OK",
+        "formattedAddress": formatted,
+        "formatted_address": formatted,
+        "label": formatted,
+        "route_name": data.get("route_name") or "",
+        "routeName": data.get("route_name") or "",
+        "route_type": data.get("route_type") or "",
+        "routeType": data.get("route_type") or "",
+        "neighbourhood": data.get("neighbourhood") or "",
+        "city": data.get("city") or "",
+        "state": data.get("state") or "",
+        "place": data.get("place") or "",
+        "municipality_zone": data.get("municipality_zone") or "",
+        "municipalityZone": data.get("municipality_zone") or "",
+        "in_traffic_zone": bool(data.get("in_traffic_zone")),
+        "inTrafficZone": bool(data.get("in_traffic_zone")),
+        "in_odd_even_zone": bool(data.get("in_odd_even_zone")),
+        "inOddEvenZone": bool(data.get("in_odd_even_zone")),
+        "village": data.get("village") or "",
+        "county": data.get("county") or "",
+        "district": data.get("district") or "",
+        "source": "neshan",
+        "raw": data,
+    })
 
 
 @require_auth

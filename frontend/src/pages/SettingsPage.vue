@@ -3,6 +3,7 @@ import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, onMounted, ref } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
+import LocationMapPicker from '../components/LocationMapPicker.vue'
 import ProfileAvatarEditor from '../components/ProfileAvatarEditor.vue'
 import SectionHeading from '../components/SectionHeading.vue'
 import UserAvatar from '../components/UserAvatar.vue'
@@ -18,11 +19,41 @@ const userSearch = ref('')
 const sectionSearch = ref('')
 const newDepartmentName = ref('')
 const activeLetter = ref('همه')
+const locationBusy = ref(false)
+const locationMessage = ref('')
+const mapPickerRef = ref(null)
+const locationDraft = ref({
+  label: '',
+  radiusMeters: 20,
+  latitude: null,
+  longitude: null,
+  provinceId: null,
+  provinceName: '',
+  cityId: null,
+  cityName: '',
+})
 
 const { clearOwnAvatar, loadSettings, saveSettings, setLastError, state, uploadOwnAvatar } = useWorkflowHub()
 
 const selectedSection = computed(() => state.settings.sections.find((item) => item.key === selectedSectionKey.value) || null)
 const hasOwnProfilePhoto = computed(() => Boolean(state.currentUser.avatarUrl))
+const attendanceLocation = computed(() => state.settings.attendanceLocation || {})
+const locationConfigured = computed(() => Boolean(attendanceLocation.value.configured && attendanceLocation.value.latitude != null && attendanceLocation.value.longitude != null))
+
+function syncLocationDraftFromState() {
+  const current = state.settings.attendanceLocation || {}
+  const geo = state.settings.organizationGeo || {}
+  locationDraft.value = {
+    label: current.label || '',
+    radiusMeters: current.radiusMeters || 20,
+    latitude: current.latitude ?? null,
+    longitude: current.longitude ?? null,
+    provinceId: current.provinceId ?? geo.provinceId ?? null,
+    provinceName: current.provinceName || geo.provinceName || '',
+    cityId: current.cityId ?? geo.cityId ?? null,
+    cityName: current.cityName || geo.cityName || '',
+  }
+}
 
 const filteredSettingsSections = computed(() => {
   const query = sectionSearch.value.trim().toLowerCase()
@@ -154,8 +185,70 @@ function removeDepartment(index) {
   state.settings.departments = state.settings.departments.filter((_, itemIndex) => itemIndex !== index)
 }
 
+async function captureWorkplaceLocation() {
+  if (!state.settings.canEdit || locationBusy.value) return
+  locationBusy.value = true
+  locationMessage.value = ''
+  try {
+    await mapPickerRef.value?.locateCurrentPosition?.()
+    locationMessage.value = 'موقعیت فعلی روی نقشه قرار گرفت. برای اعمال، ذخیره کنید.'
+  } catch (error) {
+    locationMessage.value = error?.message || 'دریافت موقعیت مکانی ناموفق بود.'
+  } finally {
+    locationBusy.value = false
+  }
+}
+
+async function persistAttendanceLocation() {
+  if (!state.settings.canEdit || saving.value) return
+  if (locationDraft.value.latitude == null || locationDraft.value.longitude == null) {
+    locationMessage.value = 'ابتدا روی نقشه نقطه محل کار را انتخاب کنید یا موقعیت فعلی را بگیرید.'
+    return
+  }
+  saving.value = true
+  locationMessage.value = ''
+  try {
+    await saveSettings({
+      attendanceLocation: {
+        latitude: Number(locationDraft.value.latitude),
+        longitude: Number(locationDraft.value.longitude),
+        label: locationDraft.value.label || '',
+        radiusMeters: Number(locationDraft.value.radiusMeters) || 20,
+        provinceId: locationDraft.value.provinceId || null,
+        provinceName: locationDraft.value.provinceName || '',
+        cityId: locationDraft.value.cityId || null,
+        cityName: locationDraft.value.cityName || '',
+      },
+    })
+    syncLocationDraftFromState()
+    locationMessage.value = 'لوکیشن محل کار برای ورود و خروج ذخیره شد.'
+  } catch (error) {
+    setLastError(error, 'ذخیره لوکیشن محل کار ناموفق بود.')
+    locationMessage.value = error?.message || 'ذخیره لوکیشن محل کار ناموفق بود.'
+  } finally {
+    saving.value = false
+  }
+}
+
+async function clearAttendanceLocation() {
+  if (!state.settings.canEdit || saving.value) return
+  saving.value = true
+  locationMessage.value = ''
+  try {
+    await saveSettings({ attendanceLocation: { clear: true } })
+    syncLocationDraftFromState()
+    locationMessage.value = 'لوکیشن محل کار حذف شد.'
+  } catch (error) {
+    setLastError(error, 'حذف لوکیشن محل کار ناموفق بود.')
+    locationMessage.value = error?.message || 'حذف لوکیشن محل کار ناموفق بود.'
+  } finally {
+    saving.value = false
+  }
+}
+
 onMounted(async () => {
   await loadSettings(true)
+  syncLocationDraftFromState()
 })
 </script>
 
@@ -230,7 +323,72 @@ onMounted(async () => {
       </article>
     </section>
 
-    <section class="surface-block">
+    <section class="surface-block attendance-location-panel">
+      <div class="section-label-row">
+        <SectionHeading
+          title="لوکیشن ورود و خروج"
+          description="نقشه محل کار را با نشان تنظیم کنید. پرسنل فقط داخل شعاع مجاز می‌توانند ورود و خروج ثبت کنند."
+        />
+      </div>
+
+      <div class="settings-stack attendance-location-stack">
+        <div :class="['attendance-location-status', locationConfigured ? 'is-ready' : 'is-empty']">
+          <strong>{{ locationConfigured ? 'لوکیشن محل کار فعال است' : 'لوکیشن محل کار تنظیم نشده' }}</strong>
+          <small v-if="locationConfigured">
+            شعاع مجاز {{ attendanceLocation.radiusMeters || 20 }} متر
+            <template v-if="attendanceLocation.label"> · {{ attendanceLocation.label }}</template>
+          </small>
+          <small v-else>
+            نقشه روی شهر ثبت‌نام مجموعه باز می‌شود. موقعیت فعلی بگیرید یا روی نقشه نقطه را مشخص کنید.
+          </small>
+        </div>
+
+        <LocationMapPicker
+          ref="mapPickerRef"
+          v-model="locationDraft"
+          mode="picker"
+          height="460px"
+          :can-edit="state.settings.canEdit"
+          :show-radius="true"
+        />
+
+        <label class="field-shell">
+          <span>شعاع مجاز (متر)</span>
+          <input
+            v-model.number="locationDraft.radiusMeters"
+            type="number"
+            min="5"
+            max="2000"
+            :readonly="!state.settings.canEdit"
+          />
+        </label>
+
+        <p v-if="locationMessage" class="settings-avatar-note">{{ locationMessage }}</p>
+
+        <div v-if="state.settings.canEdit" class="attendance-location-actions">
+          <button class="action-btn tone-soft" type="button" :disabled="locationBusy || saving" @click="captureWorkplaceLocation">
+            <IconlyIcon name="profile" decorative />
+            <span>{{ locationBusy ? 'در حال دریافت...' : 'موقعیت فعلی شرکت' }}</span>
+          </button>
+          <button class="action-btn tone-primary" type="button" :disabled="saving || locationBusy" @click="persistAttendanceLocation">
+            <IconlyIcon name="save" decorative />
+            <span>{{ saving ? 'در حال ذخیره...' : 'ذخیره لوکیشن' }}</span>
+          </button>
+          <button
+            v-if="locationConfigured"
+            class="action-btn tone-danger"
+            type="button"
+            :disabled="saving || locationBusy"
+            @click="clearAttendanceLocation"
+          >
+            <IconlyIcon name="delete" decorative />
+            <span>حذف لوکیشن</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="surface-block departments-panel">
       <div class="section-label-row">
         <SectionHeading
           title="بخش‌های سازمان"
@@ -483,8 +641,56 @@ onMounted(async () => {
   max-width: 420px;
 }
 
+.attendance-location-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.attendance-location-status {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line, #b7cbc7);
+}
+
+.attendance-location-status.is-ready {
+  background: rgba(31, 122, 114, 0.1);
+  color: #1f5c59;
+}
+
+.attendance-location-status.is-empty {
+  background: rgba(176, 122, 18, 0.12);
+  color: #8a5d0a;
+}
+
+.attendance-location-status small {
+  color: inherit;
+  opacity: 0.9;
+}
+
+.attendance-location-coords {
+  display: none;
+}
+
+.attendance-location-panel {
+  overflow: visible;
+}
+
+.attendance-location-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .attendance-location-coords {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (min-width: 860px) {
-  .surface-block:nth-of-type(2) .settings-stack {
+  .departments-panel .settings-stack {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: stretch;

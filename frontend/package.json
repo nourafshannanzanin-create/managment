@@ -11,6 +11,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "iran-cities-json": "^2.0.0",
+    "leaflet": "^1.9.4",
     "vue": "^3.5.17",
     "vue-router": "^4.6.4"
   },
@@ -18,6 +20,7 @@
     "@lhci/cli": "^0.15.1",
     "@tailwindcss/container-queries": "^0.1.1",
     "@tailwindcss/forms": "^0.5.11",
+    "@types/leaflet": "^1.9.22",
     "@vitejs/plugin-vue": "^5.2.4",
     "autoprefixer": "^10.5.2",
     "postcss": "^8.5.15",

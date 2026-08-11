@@ -62,6 +62,7 @@ urlpatterns = [
     path("approvals/<str:document_code>/approve", views.approval_approve_view),
     path("approvals/<str:document_code>/reject", views.approval_reject_view),
     path("approvals/<str:document_code>/refer", views.approval_refer_view),
+    path("maps/neshan/reverse", views.neshan_reverse_view),
     path("settings", views.settings_view),
     path("settings/profile", views.settings_profile_view),
 ]

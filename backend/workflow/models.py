@@ -113,6 +113,10 @@ class Organization(TimeStampedModel):
     code = models.CharField(max_length=80, unique=True, db_index=True)
     name = models.CharField(max_length=180, unique=True)
     is_showcase = models.BooleanField(default=False, db_index=True)
+    province_id = models.PositiveIntegerField(blank=True, null=True)
+    province_name = models.CharField(max_length=120, blank=True, default="")
+    city_id = models.PositiveIntegerField(blank=True, null=True)
+    city_name = models.CharField(max_length=120, blank=True, default="")
 
     class Meta:
         db_table = "organizations"
@@ -183,10 +187,18 @@ class OrganizationPreference(models.Model):
     two_factor_required = models.BooleanField(default=True)
     sms_daily_limit = models.PositiveIntegerField(default=0)
     sms_monthly_limit = models.PositiveIntegerField(default=0)
+    attendance_latitude = models.FloatField(blank=True, null=True)
+    attendance_longitude = models.FloatField(blank=True, null=True)
+    attendance_location_label = models.CharField(max_length=255, blank=True, default="")
+    attendance_radius_meters = models.PositiveIntegerField(default=20)
     updated_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         db_table = "organization_preferences"
+
+    @property
+    def has_attendance_location(self) -> bool:
+        return self.attendance_latitude is not None and self.attendance_longitude is not None
 
 
 class SectionAccessGrant(TimeStampedModel):
@@ -270,6 +282,9 @@ class AttendanceEvent(TimeStampedModel):
     event_type = models.CharField(max_length=12, choices=((EVENT_IN, "ورود"), (EVENT_OUT, "خروج")))
     source = models.CharField(max_length=20, choices=((SOURCE_MANAGER, "ثبت مدیر"), (SOURCE_LINK, "لینک پرسنل")), default=SOURCE_LINK)
     note = models.TextField(blank=True)
+    latitude = models.FloatField(blank=True, null=True)
+    longitude = models.FloatField(blank=True, null=True)
+    distance_meters = models.FloatField(blank=True, null=True)
     event_at = models.DateTimeField(default=timezone.now, db_index=True)
 
     class Meta:
@@ -349,6 +364,10 @@ class RegistrationRequest(TimeStampedModel):
     manager_email = models.EmailField(max_length=160, blank=True)
     manager_phone = models.CharField(max_length=40)
     manager_password_hash = models.CharField(max_length=255)
+    province_id = models.PositiveIntegerField(blank=True, null=True)
+    province_name = models.CharField(max_length=120, blank=True, default="")
+    city_id = models.PositiveIntegerField(blank=True, null=True)
+    city_name = models.CharField(max_length=120, blank=True, default="")
     status = models.CharField(max_length=24, default="pending", db_index=True)
     company_code = models.CharField(max_length=80, blank=True)
     reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="reviewed_registration_requests")

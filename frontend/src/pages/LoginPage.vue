@@ -1,9 +1,10 @@
 <script setup>
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import BaseModal from '../components/BaseModal.vue'
 import ErrorNotice from '../components/ErrorNotice.vue'
+import { getCitiesByProvinceId, provinces } from '../data/iranLocations'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const REMEMBER_KEY = 'workflow-hub-remember-login'
@@ -25,10 +26,16 @@ const signup = reactive({
   managerEmail: '',
   managerPhone: '',
   managerPassword: '',
+  provinceId: 0,
+  cityId: 0,
   documents: [],
 })
 
-const { login, navigateTo, registerOrganization, state } = useWorkflowHub()
+const signupCities = computed(() => (signup.provinceId ? getCitiesByProvinceId(signup.provinceId) : []))
+const signupProvinceName = computed(() => provinces.find((item) => item.id === Number(signup.provinceId))?.name || '')
+const signupCityName = computed(() => signupCities.value.find((item) => item.id === Number(signup.cityId))?.name || '')
+
+const { login, navigateTo, registerOrganization, setLastError, state } = useWorkflowHub()
 
 function loadRememberedLogin() {
   try {
@@ -73,7 +80,23 @@ async function handleLogin() {
 
 async function handleSignup() {
   registrationSent.value = false
-  const ok = await registerOrganization({ ...signup, documents: [...signup.documents] })
+  if (!signup.provinceId || !signup.cityId) {
+    setLastError(
+      Object.assign(new Error('استان و شهر مجموعه را انتخاب کنید.'), {
+        suggestion: 'از فهرست استان و شهر، موقعیت مجموعه را مشخص کنید.',
+      }),
+      'استان و شهر مجموعه را انتخاب کنید.',
+    )
+    return
+  }
+  const ok = await registerOrganization({
+    ...signup,
+    provinceId: signup.provinceId,
+    provinceName: signupProvinceName.value,
+    cityId: signup.cityId,
+    cityName: signupCityName.value,
+    documents: [...signup.documents],
+  })
   if (!ok) return
   signupOpen.value = false
   registrationSent.value = true
@@ -82,6 +105,15 @@ async function handleSignup() {
 function setRegistrationDocuments(event) {
   signup.documents = Array.from(event.target.files || [])
 }
+
+watch(
+  () => signup.provinceId,
+  () => {
+    if (!signupCities.value.some((city) => city.id === Number(signup.cityId))) {
+      signup.cityId = 0
+    }
+  },
+)
 
 onMounted(() => {
   loadRememberedLogin()
@@ -169,6 +201,20 @@ watch(() => route.query.register, syncSignupQuery)
         <label class="field-shell"><span>نام کاربری مدیر</span><input v-model.trim="signup.managerUsername" dir="ltr" required /></label>
         <label class="field-shell"><span>ایمیل مدیر</span><input v-model.trim="signup.managerEmail" dir="ltr" type="email" placeholder="اختیاری" /></label>
         <label class="field-shell"><span>تلفن مدیر</span><input v-model.trim="signup.managerPhone" dir="ltr" required /></label>
+        <label class="field-shell">
+          <span>استان مجموعه</span>
+          <select v-model.number="signup.provinceId" required>
+            <option :value="0">انتخاب استان</option>
+            <option v-for="province in provinces" :key="province.id" :value="province.id">{{ province.name }}</option>
+          </select>
+        </label>
+        <label class="field-shell">
+          <span>شهر مجموعه</span>
+          <select v-model.number="signup.cityId" :disabled="!signup.provinceId" required>
+            <option :value="0">انتخاب شهر</option>
+            <option v-for="city in signupCities" :key="city.id" :value="city.id">{{ city.name }}</option>
+          </select>
+        </label>
       </div>
       <label class="field-shell"><span>رمز عبور مدیر</span><input v-model="signup.managerPassword" dir="ltr" type="password" minlength="6" required /></label>
       <label class="field-shell registration-documents">
