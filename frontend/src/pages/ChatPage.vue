@@ -1,6 +1,7 @@
 <script setup>
 import IconlyIcon from '../components/base/IconlyIcon.vue'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import UserAvatar from '../components/UserAvatar.vue'
+import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -211,7 +212,7 @@ async function sendMessage() {
 
 function onFilePicked(event) {
   const file = event.target?.files?.[0]
-  pendingFile.value = file || null
+  pendingFile.value = file ? markRaw(file) : null
 }
 
 function clearPendingFile() {
@@ -241,6 +242,9 @@ async function refreshQuietly() {
 
 function backToList() {
   mobileShowThread.value = false
+  showNewChat.value = false
+  composer.value = ''
+  clearPendingFile()
 }
 
 watch(showNewChat, async (open) => {
@@ -250,9 +254,6 @@ watch(showNewChat, async (open) => {
 onMounted(async () => {
   await loadConversations()
   await loadUsers()
-  if (conversations.value[0]?.id) {
-    await openConversation(conversations.value[0].id)
-  }
   pollTimer = window.setInterval(refreshQuietly, POLL_MS)
 })
 
@@ -290,7 +291,7 @@ onBeforeUnmount(() => {
           type="button"
           @click="startChatWith(user.id)"
         >
-          <div class="chat-avatar">{{ (user.avatar || user.name || '?').slice(0, 2) }}</div>
+          <UserAvatar :name="user.name" :avatar-url="user.avatarUrl || user.avatar_url" size="md" />
           <div class="chat-list-copy">
             <strong>{{ user.name }}</strong>
             <small>{{ user.role || user.department || 'همکار' }}</small>
@@ -308,7 +309,11 @@ onBeforeUnmount(() => {
           type="button"
           @click="openConversation(item.id)"
         >
-          <div class="chat-avatar">{{ (item.peer?.avatar || item.peer?.name || '?').slice(0, 2) }}</div>
+          <UserAvatar
+            :name="item.peer?.name || 'همکار'"
+            :avatar-url="item.peer?.avatarUrl || item.peer?.avatar_url"
+            size="md"
+          />
           <div class="chat-list-copy">
             <div class="chat-list-top">
               <strong>{{ item.peer?.name || 'همکار' }}</strong>
@@ -327,10 +332,15 @@ onBeforeUnmount(() => {
     <section class="chat-thread">
       <template v-if="selectedConversation">
         <header class="chat-thread-head">
-          <button class="chat-back-btn" type="button" @click="backToList">
+          <button class="chat-back-btn" type="button" aria-label="بازگشت به فهرست" @click="backToList">
             <IconlyIcon name="arrow_back" decorative />
+            <span class="chat-back-label">بازگشت</span>
           </button>
-          <div class="chat-avatar">{{ (selectedConversation.peer?.avatar || selectedConversation.peer?.name || '?').slice(0, 2) }}</div>
+          <UserAvatar
+            :name="selectedConversation.peer?.name || 'همکار'"
+            :avatar-url="selectedConversation.peer?.avatarUrl || selectedConversation.peer?.avatar_url"
+            size="md"
+          />
           <div>
             <strong>{{ selectedConversation.peer?.name || 'همکار' }}</strong>
             <small>{{ selectedConversation.peer?.role || selectedConversation.peer?.department || '' }}</small>
@@ -578,10 +588,20 @@ onBeforeUnmount(() => {
 
 .chat-back-btn {
   display: none;
+  align-items: center;
+  gap: 4px;
   border: 0;
   background: transparent;
   color: #2d7a6e;
   cursor: pointer;
+  padding: 6px 8px 6px 0;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.chat-back-label {
+  line-height: 1;
 }
 
 .chat-messages {
@@ -817,26 +837,46 @@ onBeforeUnmount(() => {
 @media (max-width: 920px) {
   .chat-page {
     grid-template-columns: 1fr;
-    height: calc(100dvh - 120px);
-    max-height: calc(100dvh - 120px);
+    height: calc(100dvh - 56px - 76px - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100dvh - 56px - 76px - env(safe-area-inset-bottom, 0px));
     min-height: 0;
+    border-radius: 0;
+    border: 0;
   }
 
-  .chat-thread {
-    display: none;
+  .chat-page.show-thread .chat-composer {
+    position: fixed;
+    inset-inline: 0;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    z-index: 56;
+    border-top: 1px solid rgba(52, 144, 139, 0.14);
+    box-shadow: 0 -8px 24px rgba(31, 92, 89, 0.08);
+  }
+
+  .chat-page.show-thread .chat-messages {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   }
 
   .chat-page.show-thread .chat-sidebar {
     display: none;
   }
 
+  .chat-page:not(.show-thread) .chat-thread {
+    display: none;
+  }
+
   .chat-page.show-thread .chat-thread {
     display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .chat-page:not(.show-thread) .chat-sidebar {
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
   }
 
   .chat-back-btn {
-    display: inline-grid;
-    place-items: center;
+    display: inline-flex;
   }
 }
 </style>

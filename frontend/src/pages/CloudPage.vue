@@ -15,7 +15,7 @@ const cloudOption = computed(() =>
 const cloudRetentionText = computed(() =>
   cloudOption.value?.retentionSummary ||
   cloudOption.value?.retention_summary ||
-  'داده‌های عملیاتی سامانه به صورت پیش‌فرض تا ۳ ماه نگهداری می‌شوند. با فعال‌سازی فضای ابری، نگهداری کامل داده‌ها تا یک سال انجام می‌شود.',
+  'بدون فضای ابری، داده‌های عملیاتی مانند گزارش‌ها، هزینه‌ها، تاییدها و گفتگوها تا ۳ ماه نگهداری می‌شوند. با خرید فضای ابری، ثبت تا پایان دوره یک‌ساله فعال می‌ماند. اطلاعات پایه کاربران و تنظیمات همیشه باقی می‌مانند.',
 )
 const cloudRetentionDays = computed(() =>
   canUseCloud.value

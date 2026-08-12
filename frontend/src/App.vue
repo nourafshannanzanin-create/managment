@@ -56,7 +56,8 @@ const {
   toggleSidebar,
 } = hub
 
-const isAuthRoute = computed(() => Boolean(route.meta.publicCanvas) || route.path === '/login')
+const isAuthRoute = computed(() => Boolean(route.meta.publicCanvas) || route.path === '/login' || route.path === '/')
+const isLandingRoute = computed(() => Boolean(route.meta.landing) || route.name === 'landing')
 const isPublicAttendanceRoute = computed(() => route.name === 'public-attendance')
 const licenseSafeRoutes = new Set(['/dashboard', '/wallet', '/support', '/login', '/'])
 
@@ -151,6 +152,9 @@ async function handleTrialExpiry() {
   }
 }
 const globalLoading = computed(() =>
+  isLandingRoute.value
+    ? false
+    : (
   (!state.sessionReady && !state.bootstrapLoaded) ||
   (state.appLoading && !state.bootstrapLoaded) ||
   state.loginPending ||
@@ -161,10 +165,12 @@ const globalLoading = computed(() =>
   state.expenseSubmitting ||
   state.userSubmitting ||
   state.documentSubmitting ||
+  state.fileUploadPreparing ||
   state.support.detailLoading ||
   state.support.submitting ||
   state.wallet.submitting ||
   signatureState.loading
+    )
 )
 
 watch(showTrialBanner, (active) => {
@@ -267,6 +273,7 @@ onUnmounted(() => {
     class="app-shell"
     :class="{
       'is-auth-route': isAuthRoute,
+      'is-landing-route': isLandingRoute,
       'is-public-attendance': isPublicAttendanceRoute,
       'has-trial-banner': showTrialBanner,
       'has-mobile-menu-open': !isAuthRoute && state.mobileMenuOpen,
@@ -315,9 +322,18 @@ onUnmounted(() => {
     <main
       v-else
       class="shell-main auth-main"
-      :class="{ 'public-canvas-main': Boolean(route.meta.publicCanvas) }"
+      :class="{
+        'landing-main': isLandingRoute,
+        'public-canvas-main': Boolean(route.meta.publicCanvas) && !isLandingRoute,
+      }"
     >
-      <div class="shell-content public-canvas-content">
+      <div
+        class="shell-content"
+        :class="{
+          'landing-content': isLandingRoute,
+          'public-canvas-content': Boolean(route.meta.publicCanvas) && !isLandingRoute,
+        }"
+      >
         <RouterView v-slot="{ Component }">
           <component :is="Component" :key="route.fullPath" />
         </RouterView>

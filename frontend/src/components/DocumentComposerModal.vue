@@ -19,6 +19,17 @@ const recipientSearch = ref('')
 
 const { state, fieldHasError, setDocumentFile, submitDocument } = useWorkflowHub()
 
+async function onDocumentFileChange(event) {
+  const input = event.target
+  try {
+    await setDocumentFile(input?.files?.[0] || null)
+  } catch {
+    // ErrorNotice reads state.lastErrorDetails
+  } finally {
+    if (input) input.value = ''
+  }
+}
+
 const recipientGroups = computed(() => {
   const managerDirectory = state.directories.managers.map((item) => ({
     id: item.id,
@@ -91,7 +102,7 @@ function isSelected(id) {
         </label>
       </div>
 
-      <label class="field-shell">
+      <label class="field-shell full-width-field">
         <span>توضیحات</span>
         <textarea v-model="form.description" rows="4"></textarea>
       </label>
@@ -112,11 +123,16 @@ function isSelected(id) {
         </label>
       </div>
 
-      <label :class="['upload-pad compact-upload', fieldHasError('file') && 'has-error']">
-        <input type="file" accept="image/*,.pdf" @change="setDocumentFile($event.target.files?.[0])" />
+      <label :class="['upload-pad compact-upload full-width-field', fieldHasError('file') && 'has-error']">
+        <input
+          type="file"
+          accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,image/*,application/pdf"
+          :disabled="submitting || state.fileUploadPreparing"
+          @change="onDocumentFileChange"
+        />
         <IconlyIcon name="upload_file" decorative />
-        <strong>{{ form.file?.name || 'افزودن فایل سند' }}</strong>
-        <small>فایل PDF یا تصویر</small>
+        <strong>{{ state.fileUploadPreparing ? 'در حال آماده‌سازی فایل...' : (form.file?.name || 'افزودن فایل سند') }}</strong>
+        <small>فایل PDF یا تصویر — حداکثر ۸ مگابایت</small>
       </label>
 
       <section :class="['surface-inline', fieldHasError('assigneeIds') && 'has-error']">
@@ -182,7 +198,7 @@ function isSelected(id) {
           <IconlyIcon name="close" decorative />
           <span>بستن</span>
         </button>
-        <button class="action-btn tone-primary" :disabled="submitting || !state.documentForm.assigneeIds.length" type="button" @click="submitDocument">
+        <button class="action-btn tone-primary" :disabled="submitting || state.fileUploadPreparing || !state.documentForm.assigneeIds.length" type="button" @click="submitDocument">
           <IconlyIcon name="send" decorative />
           <span>{{ submitting ? 'در حال ارسال...' : 'ثبت سند' }}</span>
         </button>
@@ -190,3 +206,9 @@ function isSelected(id) {
     </div>
   </BaseModal>
 </template>
+
+<style scoped>
+.full-width-field {
+  width: 100%;
+}
+</style>

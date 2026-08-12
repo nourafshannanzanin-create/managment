@@ -1,4 +1,4 @@
-﻿import { computed, reactive } from 'vue'
+﻿import { computed, markRaw, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
@@ -7,6 +7,7 @@ import { formatJalali, getTodayJalali, isoToJalali, jalaliToIso } from '../utils
 import { notifyNewChatMessages, notifyNewSupportTickets, playInboxAlertSound, playTicketAlertSound } from '../utils/ticketAlert'
 import { repairPayload } from '../utils/stitch'
 import { cleanDisplayText } from '../utils/text'
+import { prepareUploadFile, UPLOAD_LIMITS, validateUploadFile } from '../utils/uploads'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 const API_ORIGIN = API_BASE_URL.replace(/\/api\/v1\/?$/, '')
@@ -242,6 +243,60 @@ function createChatState() {
   }
 }
 
+function createTaskingState() {
+  return {
+    loaded: false,
+    loading: false,
+    submitting: false,
+    error: '',
+    date: '',
+    settings: null,
+    capacity: null,
+    stats: {
+      todayCount: 0,
+      remainingMinutes: 0,
+      needsAction: 0,
+      completedToday: 0,
+    },
+    badgeCount: 0,
+    activeTimer: null,
+    mine: {
+      today: [],
+      upcoming: [],
+      inProgress: [],
+      pendingReview: [],
+      changesRequested: [],
+      closed: [],
+      all: [],
+    },
+    assignments: {
+      pending: [],
+      accepted: [],
+      rejected: [],
+      all: [],
+    },
+    supervise: {
+      pendingReview: [],
+      inProgress: [],
+      overdue: [],
+      completed: [],
+      all: [],
+      summary: {
+        pendingReview: 0,
+        inProgress: 0,
+        overdue: 0,
+        changesRequested: 0,
+      },
+    },
+    assigneeOptions: [],
+    selectedTask: null,
+    detailLoading: false,
+    schedulePreview: null,
+    reports: null,
+    reportsLoading: false,
+  }
+}
+
 function getSupportSeenStorageKey() {
   const userId = state.currentUser.id || 'guest'
   const organization = state.currentUser.organization || 'global'
@@ -295,6 +350,7 @@ const state = reactive({
   wallet: createWalletState(),
   support: createSupportState(),
   chat: createChatState(),
+  tasking: createTaskingState(),
   settingsCards: [],
   directories: {
     departments: [],
@@ -309,6 +365,7 @@ const state = reactive({
   expenseSubmitting: false,
   userSubmitting: false,
   documentSubmitting: false,
+  fileUploadPreparing: false,
   filters: {
     requests: { query: '', person: '', startDate: '', endDate: '' },
     expenses: { query: '', person: '', startDate: '', endDate: '' },
@@ -327,6 +384,8 @@ const modalState = reactive({
   userComposer: false,
   documentComposer: false,
   signatureComposer: false,
+  taskComposer: false,
+  taskDetail: false,
 })
 
 const requestDetailState = reactive({
@@ -399,6 +458,7 @@ function resetSupportState() {
 
 function resetChatState() {
   Object.assign(state.chat, createChatState())
+  Object.assign(state.tasking, createTaskingState())
 }
 
 function replaceItems(target, items) {
@@ -467,7 +527,31 @@ function normalizeUser(item = {}) {
     netAdjustmentRaw: Number(item?.netAdjustmentRaw || 0),
     financeUpdatedAt: item?.financeUpdatedAt || '',
     financeUpdatedAtIso: item?.financeUpdatedAtIso || '',
+    currentPassword: cleanDisplayText(item?.currentPassword || item?.current_password || ''),
   }
+}
+
+function storeRawFile(file) {
+  return file ? markRaw(file) : null
+}
+
+function validateAttachmentList(files, { maxCount = UPLOAD_LIMITS.maxAttachments, label = 'پیوست' } = {}) {
+  const items = Array.isArray(files) ? files : []
+  if (items.length > maxCount) {
+    throw createValidationError(`حداکثر ${maxCount} ${label} مجاز است.`, [{
+      field: 'attachments',
+      message: `تعداد ${label}ها بیش از حد مجاز است.`,
+    }])
+  }
+  items.forEach((file, index) => {
+    const message = validateUploadFile(file)
+    if (message) {
+      throw createValidationError(message, [{
+        field: 'attachments',
+        message: `${file?.name || `${label} ${index + 1}`}: ${message}`,
+      }])
+    }
+  })
 }
 
 function upsertById(target, item) {
@@ -828,6 +912,7 @@ const canAccessCloud = computed(() => state.currentUser.isHq || state.currentUse
 const visibleNavItems = computed(() => {
   const items = [
     { to: '/dashboard', label: 'داشبورد', icon: 'dashboard' },
+    { to: '/tasking', label: 'تسکینگ', icon: 'task_alt' },
     { to: '/requests', label: 'درخواست‌ها', icon: 'assignment' },
     { to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check' },
   ]
@@ -1578,6 +1663,7 @@ async function createSupportTicket(payload) {
     formData.append('message', payload.message || '')
     formData.append('category', payload.category || 'technical')
     formData.append('priority', payload.priority || 'medium')
+    validateAttachmentList(payload.attachments || [])
     ;(payload.attachments || []).forEach((file) => formData.append('attachments', file))
     const response = await authorizedFetch(scopedApiPath('/support/tickets'), { method: 'POST', body: formData })
     hydrateSupportTicket(repairPayload(await response.json()))
@@ -1708,6 +1794,31 @@ async function submitFeaturePurchase(payload) {
     return true
   } catch (error) {
     const normalized = setLastError(error, 'خرید قابلیت ناموفق بود.')
+    state.wallet.error = normalized.message
+    return false
+  } finally {
+    state.wallet.submitting = false
+  }
+}
+
+async function payFeatureInstallment(featureKey) {
+  const key = String(featureKey || '').trim()
+  if (!key) return false
+  state.wallet.submitting = true
+  state.wallet.error = ''
+  state.wallet.message = ''
+  try {
+    const response = await authorizedFetch(scopedApiPath('/wallet/purchases'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'pay_installment', featureKey: key }),
+    })
+    hydrateWallet(repairPayload(await response.json()))
+    state.wallet.message = 'قسط با موفقیت پرداخت شد.'
+    await loadBootstrapData(true)
+    return true
+  } catch (error) {
+    const normalized = setLastError(error, 'پرداخت قسط ناموفق بود.')
     state.wallet.error = normalized.message
     return false
   } finally {
@@ -2236,20 +2347,69 @@ export function useWorkflowHub() {
     modalState.signatureComposer = false
   }
 
-  function setRequestFiles(files) {
-    state.requestForm.attachments = Array.from(files || [])
+  async function setRequestFiles(files) {
+    const incoming = Array.from(files || [])
+    if (!incoming.length) return
+    state.fileUploadPreparing = true
+    clearLastError()
+    try {
+      const nextAttachments = [...state.requestForm.attachments]
+      if (nextAttachments.length + incoming.length > UPLOAD_LIMITS.maxAttachments) {
+        throw createValidationError(`حداکثر ${UPLOAD_LIMITS.maxAttachments} پیوست مجاز است.`, [{
+          field: 'attachments',
+          message: 'تعداد پیوست‌ها بیش از حد مجاز است.',
+        }])
+      }
+      for (const file of incoming) {
+        nextAttachments.push(storeRawFile(await prepareUploadFile(file)))
+      }
+      state.requestForm.attachments = nextAttachments
+    } catch (error) {
+      setLastError(error, 'انتخاب فایل پیوست ناموفق بود.')
+      throw error
+    } finally {
+      state.fileUploadPreparing = false
+    }
   }
 
   function removeAttachment(index) {
     state.requestForm.attachments = state.requestForm.attachments.filter((_, itemIndex) => itemIndex !== index)
   }
 
-  function setExpenseInvoice(file) {
-    state.expenseForm.invoice = file || null
+  async function setExpenseInvoice(file) {
+    if (!file) {
+      state.expenseForm.invoice = null
+      return
+    }
+    state.fileUploadPreparing = true
+    clearLastError()
+    try {
+      state.expenseForm.invoice = storeRawFile(await prepareUploadFile(file))
+    } catch (error) {
+      state.expenseForm.invoice = null
+      setLastError(error, 'انتخاب فاکتور ناموفق بود.')
+      throw error
+    } finally {
+      state.fileUploadPreparing = false
+    }
   }
 
-  function setDocumentFile(file) {
-    state.documentForm.file = file || null
+  async function setDocumentFile(file) {
+    if (!file) {
+      state.documentForm.file = null
+      return
+    }
+    state.fileUploadPreparing = true
+    clearLastError()
+    try {
+      state.documentForm.file = storeRawFile(await prepareUploadFile(file))
+    } catch (error) {
+      state.documentForm.file = null
+      setLastError(error, 'انتخاب فایل سند ناموفق بود.')
+      throw error
+    } finally {
+      state.fileUploadPreparing = false
+    }
   }
 
   async function submitRequest() {
@@ -2295,6 +2455,7 @@ export function useWorkflowHub() {
           formData.append('leaveEndsAt', `${endIso}T${endTime}:00`)
         }
       }
+      validateAttachmentList(state.requestForm.attachments)
       state.requestForm.attachments.forEach((file) => formData.append('attachments', file))
       await authorizedFetch('/requests', { method: 'POST', body: formData })
       await loadBootstrapData(true)
@@ -2326,7 +2487,10 @@ export function useWorkflowHub() {
       formData.append('action', 'refer')
       formData.append('managerAssigneeIds', (state.expenseForm.managerAssigneeIds || []).join(','))
       formData.append('employeeAssigneeIds', (state.expenseForm.employeeAssigneeIds || []).join(','))
-      if (state.expenseForm.invoice) formData.append('invoice', state.expenseForm.invoice)
+      if (state.expenseForm.invoice) {
+        validateAttachmentList([state.expenseForm.invoice], { maxCount: 1, label: 'فاکتور' })
+        formData.append('invoice', state.expenseForm.invoice)
+      }
       await authorizedFetch('/expenses', { method: 'POST', body: formData })
       await loadBootstrapData(true)
       closeExpenseComposer()
@@ -2450,7 +2614,8 @@ export function useWorkflowHub() {
       formData.append('documentType', state.documentForm.documentType)
       formData.append('risk', state.documentForm.risk)
       formData.append('assigneeIds', state.documentForm.assigneeIds.join(','))
-      if (state.documentForm.file) formData.append('file', state.documentForm.file)
+      validateAttachmentList([state.documentForm.file], { maxCount: 1, label: 'فایل سند' })
+      formData.append('file', state.documentForm.file)
       await authorizedFetch('/approvals/documents', { method: 'POST', body: formData })
       await loadBootstrapData(true)
       closeDocumentComposer()
@@ -2492,7 +2657,7 @@ export function useWorkflowHub() {
     try {
       await authorizedFetch(hqScopedPath(`/approvals/${selectedApproval.value.id}/approve`), { method: 'POST' })
       await loadBootstrapData(true)
-      await loadApprovalDetail(selectedApproval.value.id)
+      closeApprovalDetail()
     } catch (error) {
       state.lastError = error.message || 'تایید سند ناموفق بود.'
       throw error
@@ -2509,7 +2674,7 @@ export function useWorkflowHub() {
         body: JSON.stringify({ reason }),
       })
       await loadBootstrapData(true)
-      await loadApprovalDetail(selectedApproval.value.id)
+      closeApprovalDetail()
     } catch (error) {
       state.lastError = error.message || 'رد سند ناموفق بود.'
       throw error
@@ -2522,7 +2687,7 @@ export function useWorkflowHub() {
     try {
       await authorizedFetch(hqScopedPath(`/requests/${selectedRequest.value.id}/approve`), { method: 'POST' })
       await loadBootstrapData(true)
-      await loadRequestDetail(selectedRequest.value.id)
+      closeRequestDetail()
     } catch (error) {
       state.lastError = error.message || 'تایید درخواست ناموفق بود.'
       throw error
@@ -2539,7 +2704,7 @@ export function useWorkflowHub() {
         body: JSON.stringify({ reason }),
       })
       await loadBootstrapData(true)
-      await loadRequestDetail(selectedRequest.value.id)
+      closeRequestDetail()
     } catch (error) {
       state.lastError = error.message || 'رد درخواست ناموفق بود.'
       throw error
@@ -2555,7 +2720,7 @@ export function useWorkflowHub() {
       body: JSON.stringify(payload),
     })
     await loadBootstrapData(true)
-    await loadRequestDetail(selectedRequest.value.id)
+    closeRequestDetail()
   }
 
   async function approveSelectedExpense() {
@@ -2564,7 +2729,7 @@ export function useWorkflowHub() {
     try {
       await authorizedFetch(hqScopedPath(`/expenses/${selectedExpense.value.id}/approve`), { method: 'POST' })
       await loadBootstrapData(true)
-      await loadExpenseDetail(selectedExpense.value.id)
+      closeExpenseDetail()
     } catch (error) {
       state.lastError = error.message || 'تایید هزینه ناموفق بود.'
       throw error
@@ -2581,7 +2746,7 @@ export function useWorkflowHub() {
         body: JSON.stringify({ reason }),
       })
       await loadBootstrapData(true)
-      await loadExpenseDetail(selectedExpense.value.id)
+      closeExpenseDetail()
     } catch (error) {
       state.lastError = error.message || 'رد هزینه ناموفق بود.'
       throw error
@@ -2597,7 +2762,7 @@ export function useWorkflowHub() {
       body: JSON.stringify(payload),
     })
     await loadBootstrapData(true)
-    await loadExpenseDetail(selectedExpense.value.id)
+    closeExpenseDetail()
   }
 
 async function updateUser(userId, payload) {
@@ -2668,7 +2833,220 @@ async function updateUser(userId, payload) {
       body: JSON.stringify(payload),
     })
     await loadBootstrapData(true)
-    await loadApprovalDetail(selectedApproval.value.id)
+    closeApprovalDetail()
+  }
+
+  function openTaskComposer() {
+    clearLastError()
+    state.tasking.schedulePreview = null
+    modalState.taskComposer = true
+  }
+
+  function closeTaskComposer() {
+    modalState.taskComposer = false
+  }
+
+  function openTaskDetail() {
+    modalState.taskDetail = true
+  }
+
+  function closeTaskDetail() {
+    modalState.taskDetail = false
+    state.tasking.selectedTask = null
+  }
+
+  const taskingBadgeCount = computed(() => Number(state.tasking.badgeCount || 0))
+
+  async function loadTaskingDashboard(force = false, dateIso = '') {
+    if (state.tasking.loading) return state.tasking
+    if (state.tasking.loaded && !force && !dateIso) return state.tasking
+    state.tasking.loading = true
+    state.tasking.error = ''
+    try {
+      const query = dateIso ? `?date=${encodeURIComponent(dateIso)}` : (state.tasking.date ? `?date=${encodeURIComponent(state.tasking.date)}` : '')
+      const response = await authorizedFetch(`/tasking/dashboard${query}`)
+      const payload = repairPayload(await response.json())
+      state.tasking.loaded = true
+      state.tasking.date = payload.date || state.tasking.date
+      state.tasking.settings = payload.settings || null
+      state.tasking.capacity = payload.capacity || null
+      state.tasking.stats = payload.stats || state.tasking.stats
+      state.tasking.badgeCount = Number(payload.badgeCount || 0)
+      state.tasking.activeTimer = payload.activeTimer || null
+      state.tasking.mine = payload.mine || createTaskingState().mine
+      state.tasking.assignments = payload.assignments || createTaskingState().assignments
+      state.tasking.supervise = payload.supervise || createTaskingState().supervise
+      state.tasking.assigneeOptions = payload.assigneeOptions || []
+      return state.tasking
+    } catch (error) {
+      state.tasking.error = error.message || 'بارگذاری تسکینگ ناموفق بود.'
+      setLastError(error, 'بارگذاری تسکینگ ناموفق بود.')
+      throw error
+    } finally {
+      state.tasking.loading = false
+    }
+  }
+
+  async function loadTaskDetail(taskId) {
+    state.tasking.detailLoading = true
+    try {
+      const response = await authorizedFetch(`/tasking/tasks/${taskId}`)
+      state.tasking.selectedTask = repairPayload(await response.json())
+      modalState.taskDetail = true
+      return state.tasking.selectedTask
+    } catch (error) {
+      setLastError(error, 'جزئیات تسک بارگذاری نشد.')
+      throw error
+    } finally {
+      state.tasking.detailLoading = false
+    }
+  }
+
+  async function previewTaskSchedule(payload) {
+    const response = await authorizedFetch('/tasking/schedule/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    state.tasking.schedulePreview = repairPayload(await response.json())
+    return state.tasking.schedulePreview
+  }
+
+  async function createTaskingTask(payload, files = []) {
+    state.tasking.submitting = true
+    clearLastError()
+    try {
+      const hasFiles = Array.isArray(files) && files.length > 0
+      let response
+      if (hasFiles) {
+        const formData = new FormData()
+        Object.entries(payload || {}).forEach(([key, value]) => {
+          if (value === undefined || value === null || value === '') return
+          if (Array.isArray(value)) {
+            formData.append(key, JSON.stringify(value))
+            return
+          }
+          if (typeof value === 'boolean') {
+            formData.append(key, value ? '1' : '0')
+            return
+          }
+          formData.append(key, String(value))
+        })
+        files.forEach((file) => formData.append('attachments', file))
+        response = await authorizedFetch('/tasking/tasks', { method: 'POST', body: formData })
+      } else {
+        response = await authorizedFetch('/tasking/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload || {}),
+        })
+      }
+      const task = repairPayload(await response.json())
+      await loadTaskingDashboard(true)
+      return task
+    } catch (error) {
+      setLastError(error, 'ثبت تسک ناموفق بود.')
+      throw error
+    } finally {
+      state.tasking.submitting = false
+    }
+  }
+
+  async function taskingAction(taskId, action, body = {}) {
+    clearLastError()
+    state.tasking.submitting = true
+    try {
+      const response = await authorizedFetch(`/tasking/tasks/${taskId}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const task = repairPayload(await response.json())
+      state.tasking.selectedTask = task
+      await loadTaskingDashboard(true)
+      return task
+    } catch (error) {
+      setLastError(error, 'انجام عملیات تسک ناموفق بود.')
+      throw error
+    } finally {
+      state.tasking.submitting = false
+    }
+  }
+
+  async function acceptTask(taskId) {
+    return taskingAction(taskId, 'accept')
+  }
+
+  async function rejectTask(taskId, reason) {
+    return taskingAction(taskId, 'reject', { reason })
+  }
+
+  async function startTask(taskId, stopOther = false) {
+    return taskingAction(taskId, 'start', { stopOther })
+  }
+
+  async function pauseTask(taskId) {
+    return taskingAction(taskId, 'pause')
+  }
+
+  async function resumeTask(taskId, stopOther = true) {
+    return taskingAction(taskId, 'resume', { stopOther })
+  }
+
+  async function submitTaskReview(taskId, deliveryNote = '') {
+    return taskingAction(taskId, 'submit-review', { deliveryNote })
+  }
+
+  async function approveTask(taskId, comment = '') {
+    return taskingAction(taskId, 'approve', { comment })
+  }
+
+  async function requestTaskChanges(taskId, comment = '') {
+    return taskingAction(taskId, 'request-changes', { comment })
+  }
+
+  async function addTaskComment(taskId, body, mentionIds = []) {
+    const response = await authorizedFetch(`/tasking/tasks/${taskId}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body, mentionIds }),
+    })
+    const comment = repairPayload(await response.json())
+    if (state.tasking.selectedTask?.id === Number(taskId)) {
+      await loadTaskDetail(taskId)
+    }
+    return comment
+  }
+
+  async function loadTaskingSettings() {
+    const response = await authorizedFetch('/tasking/settings')
+    state.tasking.settings = repairPayload(await response.json())
+    return state.tasking.settings
+  }
+
+  async function saveTaskingSettings(payload) {
+    const response = await authorizedFetch('/tasking/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    state.tasking.settings = repairPayload(await response.json())
+    return state.tasking.settings
+  }
+
+  async function loadTaskingReports(params = {}) {
+    state.tasking.reportsLoading = true
+    try {
+      const query = new URLSearchParams()
+      if (params.start) query.set('start', params.start)
+      if (params.end) query.set('end', params.end)
+      if (params.userId) query.set('userId', params.userId)
+      const response = await authorizedFetch(`/tasking/reports?${query.toString()}`)
+      state.tasking.reports = repairPayload(await response.json())
+      return state.tasking.reports
+    } finally {
+      state.tasking.reportsLoading = false
+    }
   }
 
   singleton = {
@@ -2732,6 +3110,7 @@ async function updateUser(userId, payload) {
     loadWalletDashboard,
     loadWalletOptions,
     submitFeaturePurchase,
+    payFeatureInstallment,
     submitWalletTransaction,
     loadSupportTickets,
     loadSupportTicketDetail,
@@ -2749,7 +3128,28 @@ async function updateUser(userId, payload) {
     deleteHqTeamMember,
     supportUnreadCount,
     chatUnreadCount,
+    taskingBadgeCount,
     loadChatUnreadConversations,
+    loadTaskingDashboard,
+    loadTaskDetail,
+    openTaskComposer,
+    closeTaskComposer,
+    openTaskDetail,
+    closeTaskDetail,
+    previewTaskSchedule,
+    createTaskingTask,
+    acceptTask,
+    rejectTask,
+    startTask,
+    pauseTask,
+    resumeTask,
+    submitTaskReview,
+    approveTask,
+    requestTaskChanges,
+    addTaskComment,
+    loadTaskingSettings,
+    saveTaskingSettings,
+    loadTaskingReports,
     requestInboxCount,
     expenseInboxCount,
     approvalInboxCount,

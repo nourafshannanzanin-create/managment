@@ -16,10 +16,12 @@ const {
   logout,
   supportUnreadCount,
   chatUnreadCount,
+  taskingBadgeCount,
   requestInboxCount,
   expenseInboxCount,
   approvalInboxCount,
   loadChatUnreadConversations,
+  loadTaskingDashboard,
 } = useWorkflowHub()
 const organizationTitle = computed(() => state.hq.selectedOrganization?.name || state.currentUser.organization || 'مجموعه')
 const isLicenseLocked = computed(() => Boolean(state.currentUser.licenseStatus?.isLocked || state.currentUser.licenseStatus?.is_locked))
@@ -27,6 +29,7 @@ const isLicenseLocked = computed(() => Boolean(state.currentUser.licenseStatus?.
 let chatPollTimer = null
 onMounted(() => {
   void loadChatUnreadConversations()
+  void loadTaskingDashboard(false).catch(() => {})
   chatPollTimer = window.setInterval(() => {
     void loadChatUnreadConversations()
   }, 8000)
@@ -53,6 +56,7 @@ const navItems = computed(() => {
     return items
   }
 
+  items.push({ to: '/tasking', label: 'تسکینگ', icon: 'task_alt', badge: taskingBadgeCount.value || undefined })
   items.push({ to: '/chat', label: 'گفتگو', icon: 'forum', badge: chatUnreadCount.value || undefined })
   items.push({ to: '/requests', label: 'درخواست‌ها', icon: 'assignment', badge: requestInboxCount.value })
   items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check', badge: approvalInboxCount.value })

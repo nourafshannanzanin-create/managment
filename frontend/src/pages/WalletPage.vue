@@ -11,7 +11,7 @@ const CARD_NUMBER = '6274121774209571'
 const CARD_HOLDER = 'کارنومند'
 const PAYMENT_SUBJECT = 'درخواست واریز کیف پول'
 
-const { state, loadWalletDashboard, loadWalletOptions, submitWalletTransaction, submitFeaturePurchase, createSupportTicket } = useWorkflowHub()
+const { state, loadWalletDashboard, loadWalletOptions, submitWalletTransaction, submitFeaturePurchase, payFeatureInstallment, createSupportTicket } = useWorkflowHub()
 
 const transactionForm = reactive({
   open: false,
@@ -89,8 +89,22 @@ const purchaseWallet = computed(() =>
 )
 const usesManagerPaymentFlow = computed(() => state.currentUser.isManager && !state.currentUser.canUseHq)
 
-function optionDisabled(option) {
+const overdueInstallmentOptions = computed(() =>
+  purchaseOptions.value.filter(
+    (item) => item.installmentIsDue || item.installment_is_due || item.installmentIsLocked || item.installment_is_locked,
+  ),
+)
+
+function optionCatalogDisabled(option) {
   return Boolean(option.disabled || option.isDisabled || option.is_disabled)
+}
+
+function optionInstallmentLocked(option) {
+  return Boolean(option.installmentIsLocked || option.installment_is_locked)
+}
+
+function optionDisabled(option) {
+  return optionCatalogDisabled(option) || optionInstallmentLocked(option)
 }
 
 function optionIcon(option) {
@@ -102,10 +116,17 @@ function optionIcon(option) {
 }
 
 function optionStatus(option) {
+  if (option.installmentIsLocked || option.installment_is_locked) return 'قفل شده'
   if (optionDisabled(option)) return option.disabledLabel || option.disabled_label || 'غیرفعال'
   if (option.required) return 'اجباری'
   if (option.isActive || option.is_active) return 'فعال'
   return 'قابل خرید'
+}
+
+async function submitInstallmentPayment(option) {
+  const key = option.featureKey || option.feature_key
+  if (!key) return
+  await payFeatureInstallment(key)
 }
 
 const paymentMethods = [
@@ -398,12 +419,27 @@ watch(
         </div>
       </div>
 
+      <div v-if="overdueInstallmentOptions.length" class="wallet-license-alert wallet-installment-alert">
+        <IconlyIcon name="warning" decorative />
+        <div>
+          <strong>یادآوری پرداخت قسط</strong>
+          <small
+            v-for="option in overdueInstallmentOptions"
+            :key="option.featureKey || option.feature_key"
+          >
+            {{ option.installmentLockNotice || option.installment_lock_notice || option.title }}
+            · سررسید: {{ option.nextInstallmentDueAt || option.next_installment_due_at || '—' }}
+            · مبلغ: {{ option.nextInstallmentAmount || option.next_installment_amount || '—' }}
+          </small>
+        </div>
+      </div>
+
       <div v-if="purchaseOptions.length" class="wallet-options-grid">
         <article
           v-for="option in purchaseOptions"
           :key="option.featureKey || option.feature_key"
           class="wallet-option-card"
-          :class="{ active: option.isActive || option.is_active, required: option.required, disabled: optionDisabled(option) }"
+          :class="{ active: option.isActive || option.is_active, required: option.required, disabled: optionDisabled(option), locked: option.installmentIsLocked || option.installment_is_locked }"
         >
           <div class="wallet-option-head">
             <IconlyIcon :name="optionIcon(option)" decorative />
@@ -423,9 +459,37 @@ watch(
               <span>پیش‌پرداخت</span>
               <b>{{ option.upfrontAmount || option.upfront_amount }}</b>
             </div>
-            <div class="wallet-option-price">
+            <div v-if="option.installmentMonths || option.installment_months" class="wallet-option-price">
               <span>اقساط</span>
               <b>{{ option.monthlyInstallmentAmount || option.monthly_installment_amount }} / {{ option.installmentMonths || option.installment_months }} ماه</b>
+            </div>
+            <div v-if="option.isActive || option.is_active" class="wallet-option-live">
+              <div class="wallet-option-price">
+                <span>پرداخت‌شده</span>
+                <b>{{ option.paidAmount || option.paid_amount }}</b>
+              </div>
+              <div class="wallet-option-price">
+                <span>مانده</span>
+                <b>{{ option.remainingAmount || option.remaining_amount }}</b>
+              </div>
+              <div v-if="option.nextInstallmentDueAt || option.next_installment_due_at" class="wallet-option-price">
+                <span>سررسید بعدی</span>
+                <b>{{ option.nextInstallmentDueAt || option.next_installment_due_at }}</b>
+              </div>
+              <div v-if="option.canPayNextInstallment || option.can_pay_next_installment" class="wallet-option-actions">
+                <button
+                  class="action-btn tone-primary"
+                  type="button"
+                  :disabled="state.wallet.submitting"
+                  @click="submitInstallmentPayment(option)"
+                >
+                  پرداخت قسط {{ option.nextInstallmentAmount || option.next_installment_amount }}
+                </button>
+              </div>
+            </div>
+            <div v-if="optionInstallmentLocked(option)" class="wallet-option-disabled">
+              <IconlyIcon name="lock" decorative />
+              <b>{{ option.installmentLockNotice || option.installment_lock_notice || 'این بخش به دلیل عدم پرداخت قسط قفل شده است.' }}</b>
             </div>
             <div v-if="option.annualSubscriptionAmountRaw" class="wallet-option-price annual">
               <span>اشتراک سالانه</span>
@@ -445,7 +509,11 @@ watch(
           </template>
           <div v-else class="wallet-option-disabled">
             <IconlyIcon name="lock" decorative />
-            <b>فعلا غیرفعال است</b>
+            <b>{{
+              optionInstallmentLocked(option)
+                ? (option.installmentLockNotice || option.installment_lock_notice || 'این بخش به دلیل عدم پرداخت قسط قفل شده است.')
+                : (option.disabledLabel || option.disabled_label || 'فعلا غیرفعال است')
+            }}</b>
           </div>
         </article>
       </div>

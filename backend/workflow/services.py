@@ -61,6 +61,7 @@ CORE_FEATURE_KEY = "core_software"
 CLOUD_STORAGE_FEATURE_KEY = "cloud_storage"
 DEFAULT_OPERATIONAL_RETENTION_DAYS = 90
 CLOUD_OPERATIONAL_RETENTION_DAYS = 365
+LICENSE_GRACE_DAYS = 7
 PURCHASABLE_FEATURES = [
     {
         "feature_key": CORE_FEATURE_KEY,
@@ -83,7 +84,7 @@ PURCHASABLE_FEATURES = [
         "title": "فضای ابری",
         "subtitle": "نگهداری و مدیریت فایل های سازمانی",
         "description": "بخش فضای ابری برای مشاهده، پیگیری و بارگذاری اسناد سازمانی.",
-        "retention_summary": "داده‌های عملیاتی مانند هزینه‌ها، درخواست‌ها و گزارشات به صورت پیش‌فرض ۳ ماه نگهداری می‌شوند. با خرید فضای ابری، نگهداری کامل داده‌ها تا یک سال فعال می‌شود.",
+        "retention_summary": "بدون فضای ابری، داده‌های عملیاتی مانند گزارش‌ها، هزینه‌ها، تاییدها و گفتگوها تا ۳ ماه نگهداری می‌شوند. با خرید فضای ابری، ثبت و نگهداری این داده‌ها تا پایان دوره یک‌ساله فعال می‌ماند. اطلاعات پایه کاربران و تنظیمات همیشه باقی می‌مانند.",
         "included_retention_days": 90,
         "retention_days": 365,
         "accent": "#287a6e",
@@ -281,6 +282,23 @@ def save_uploaded_file(file_obj) -> str:
     return unique_name
 
 
+MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+ALLOWED_UPLOAD_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".pdf"}
+
+
+def validate_upload_file(file_obj, *, max_bytes: int = MAX_UPLOAD_BYTES, allowed_extensions=None) -> None:
+    size = int(getattr(file_obj, "size", 0) or 0)
+    if size <= 0:
+        raise ValueError("فایل انتخاب‌شده خالی است.")
+    if size > max_bytes:
+        megabytes = max(1, max_bytes // (1024 * 1024))
+        raise ValueError(f"حجم فایل نباید بیشتر از {megabytes} مگابایت باشد.")
+    extension = Path(getattr(file_obj, "name", "") or "").suffix.lower()
+    allowed = allowed_extensions or ALLOWED_UPLOAD_EXTENSIONS
+    if extension not in allowed:
+        raise ValueError("نوع فایل مجاز نیست. فقط تصویر یا PDF قابل قبول است.")
+
+
 def next_code(prefix: str) -> str:
     alpha_code = "".join(char for char in uuid4().hex if char.isalpha())[:8].upper()
     return f"{prefix}-{alpha_code or prefix}"
@@ -404,7 +422,131 @@ def operational_retention_days(organization: Organization | None) -> int:
 
 
 def operational_retention_start(organization: Organization | None) -> date:
-    return date.today() - timedelta(days=operational_retention_days(organization))
+    if organization is not None and CLOUD_STORAGE_FEATURE_KEY in active_feature_keys(organization):
+        purchase = organization_feature_purchase(organization, CLOUD_STORAGE_FEATURE_KEY)
+        if purchase and purchase.is_active and purchase.renewal_due_at:
+            subscription_start = purchase.renewal_due_at - timedelta(days=365)
+            rolling_start = date.today() - timedelta(days=CLOUD_OPERATIONAL_RETENTION_DAYS)
+            return min(subscription_start, rolling_start)
+        return date.today() - timedelta(days=CLOUD_OPERATIONAL_RETENTION_DAYS)
+    return date.today() - timedelta(days=DEFAULT_OPERATIONAL_RETENTION_DAYS)
+
+
+def feature_installment_amount(config: dict, purchase: FeaturePurchase | None = None) -> Decimal:
+    if purchase and purchase.payment_plan == "installment" and purchase.remaining_amount > 0:
+        monthly = normalize_money(config.get("monthly_installment_amount", 0))
+        if monthly > 0:
+            return min(normalize_money(purchase.remaining_amount), monthly)
+    return normalize_money(config.get("monthly_installment_amount", 0))
+
+
+def feature_installment_status(purchase: FeaturePurchase | None, config: dict | None = None) -> dict:
+    if (
+        purchase is None
+        or not purchase.is_active
+        or purchase.payment_plan != "installment"
+        or purchase.remaining_amount <= 0
+        or not purchase.next_installment_due_at
+    ):
+        return {
+            "isDue": False,
+            "is_due": False,
+            "isLocked": False,
+            "is_locked": False,
+            "overdueDays": 0,
+            "overdue_days": 0,
+            "graceDays": LICENSE_GRACE_DAYS,
+            "grace_days": LICENSE_GRACE_DAYS,
+            "notice": "",
+        }
+    today = date.today()
+    next_due_at = purchase.next_installment_due_at
+    if next_due_at > today:
+        return {
+            "isDue": False,
+            "is_due": False,
+            "isLocked": False,
+            "is_locked": False,
+            "overdueDays": 0,
+            "overdue_days": 0,
+            "graceDays": LICENSE_GRACE_DAYS,
+            "grace_days": LICENSE_GRACE_DAYS,
+            "nextDueAt": format_date(next_due_at),
+            "next_due_at": format_date(next_due_at),
+            "amountDue": format_money(feature_installment_amount(config or {}, purchase)),
+            "amount_due": format_money(feature_installment_amount(config or {}, purchase)),
+            "notice": "",
+        }
+    overdue_days = max((today - next_due_at).days, 0)
+    feature_title = purchase.title or "آپشن"
+    is_locked = overdue_days > LICENSE_GRACE_DAYS
+    notice = (
+        f"سررسید پرداخت {feature_title} گذشته است. پس از {LICENSE_GRACE_DAYS} روز عدم پرداخت، دسترسی این بخش قفل می‌شود."
+        if not is_locked
+        else f"سررسید پرداخت {feature_title} گذشته و دسترسی این بخش قفل شده است."
+    )
+    amount_due = feature_installment_amount(config or {}, purchase)
+    return {
+        "isDue": True,
+        "is_due": True,
+        "isLocked": is_locked,
+        "is_locked": is_locked,
+        "overdueDays": overdue_days,
+        "overdue_days": overdue_days,
+        "graceDays": LICENSE_GRACE_DAYS,
+        "grace_days": LICENSE_GRACE_DAYS,
+        "nextDueAt": format_date(next_due_at),
+        "next_due_at": format_date(next_due_at),
+        "amountDue": format_money(amount_due),
+        "amount_due": format_money(amount_due),
+        "notice": notice,
+    }
+
+
+def pay_feature_installment(organization: Organization, purchase: FeaturePurchase, actor: User, config: dict) -> FeaturePurchase:
+    if not purchase.is_active or purchase.payment_plan != "installment":
+        raise ValueError("برای این آپشن پرداخت قسطی فعالی ثبت نشده است.")
+    if purchase.remaining_amount <= 0:
+        raise ValueError("مانده‌ای برای پرداخت این آپشن وجود ندارد.")
+
+    installment_amount = feature_installment_amount(config, purchase)
+    if installment_amount <= 0:
+        raise ValueError("مبلغ قسط بعدی معتبر نیست.")
+
+    wallet = Wallet.objects.select_for_update().filter(organization=organization, key="main", is_active=True).first()
+    if wallet is None:
+        raise ValueError("کیف پول اصلی برای پرداخت قسط پیدا نشد.")
+    if Decimal(wallet.balance) < installment_amount:
+        raise ValueError("موجودی کیف پول اصلی برای پرداخت قسط بعدی کافی نیست.")
+
+    wallet.balance = Decimal(wallet.balance) - installment_amount
+    wallet.updated_at = timezone.now()
+    wallet.save(update_fields=["balance", "updated_at"])
+
+    purchase.paid_amount = normalize_money(purchase.paid_amount) + installment_amount
+    purchase.remaining_amount = max(normalize_money(purchase.remaining_amount) - installment_amount, Decimal("0"))
+    if purchase.remaining_amount <= 0:
+        purchase.next_installment_due_at = None
+    else:
+        base_due = purchase.next_installment_due_at or date.today()
+        purchase.next_installment_due_at = max(base_due, date.today()) + timedelta(days=30)
+    purchase.updated_at = timezone.now()
+    purchase.save(
+        update_fields=["paid_amount", "remaining_amount", "next_installment_due_at", "updated_at"],
+    )
+
+    WalletTransaction.objects.create(
+        organization=organization,
+        wallet=wallet,
+        actor=actor,
+        direction="out",
+        transaction_type="feature_installment",
+        amount=installment_amount,
+        balance_after=wallet.balance,
+        note=f"installment:{purchase.feature_key}",
+        reference_id=str(purchase.id),
+    )
+    return purchase
 
 
 def license_status_payload(organization: Organization | None) -> dict:
@@ -495,6 +637,17 @@ def wallet_feature_option_payload(config: dict, purchase: FeaturePurchase | None
     annual_installment_amount = normalize_money(config.get("annual_subscription_installment_amount", annual_amount / annual_installment_months if annual_installment_months else 0))
     paid_amount = normalize_money(getattr(purchase, "paid_amount", 0))
     remaining_amount = normalize_money(getattr(purchase, "remaining_amount", total_amount if purchase is None else 0))
+    monthly_installment = feature_installment_amount(config, purchase)
+    total_for_progress = max(total_amount, Decimal("1"))
+    progress_percent = int((paid_amount / total_for_progress) * 100) if purchase and total_amount > 0 else 0
+    progress_percent = max(0, min(progress_percent, 100))
+    installment_status = feature_installment_status(purchase, config)
+    is_active = bool(getattr(purchase, "is_active", False))
+    payment_plan = getattr(purchase, "payment_plan", "")
+    next_due_at = getattr(purchase, "next_installment_due_at", None)
+    status_label = config.get("disabled_label", "غیرفعال") if config.get("disabled") else (
+        "قفل شده" if installment_status.get("is_locked") else ("فعال شده" if is_active else "قابل خرید")
+    )
     return {
         "featureKey": config["feature_key"],
         "feature_key": config["feature_key"],
@@ -512,10 +665,12 @@ def wallet_feature_option_payload(config: dict, purchase: FeaturePurchase | None
         "disabled": bool(config.get("disabled")),
         "disabledLabel": config.get("disabled_label", ""),
         "disabled_label": config.get("disabled_label", ""),
-        "isActive": bool(getattr(purchase, "is_active", False)),
-        "is_active": bool(getattr(purchase, "is_active", False)),
-        "paymentPlan": getattr(purchase, "payment_plan", ""),
-        "payment_plan": getattr(purchase, "payment_plan", ""),
+        "statusLabel": status_label,
+        "status_label": status_label,
+        "isActive": is_active,
+        "is_active": is_active,
+        "paymentPlan": payment_plan,
+        "payment_plan": payment_plan,
         "totalAmount": format_money(total_amount),
         "total_amount": format_money(total_amount),
         "totalAmountRaw": float(total_amount),
@@ -548,6 +703,31 @@ def wallet_feature_option_payload(config: dict, purchase: FeaturePurchase | None
         "renewal_after_months": int(config.get("renewal_after_months", 0) or 0),
         "renewalDueAt": format_date(getattr(purchase, "renewal_due_at", None)),
         "renewal_due_at": format_date(getattr(purchase, "renewal_due_at", None)),
+        "progressPercent": progress_percent,
+        "progress_percent": progress_percent,
+        "nextInstallmentAmount": format_money(monthly_installment if next_due_at and remaining_amount > 0 else 0),
+        "next_installment_amount": format_money(monthly_installment if next_due_at and remaining_amount > 0 else 0),
+        "nextInstallmentAmountRaw": float(monthly_installment if next_due_at and remaining_amount > 0 else 0),
+        "installmentIsDue": bool(installment_status.get("is_due")),
+        "installment_is_due": bool(installment_status.get("is_due")),
+        "installmentIsLocked": bool(installment_status.get("is_locked")),
+        "installment_is_locked": bool(installment_status.get("is_locked")),
+        "installmentOverdueDays": installment_status.get("overdue_days", 0),
+        "installment_overdue_days": installment_status.get("overdue_days", 0),
+        "installmentLockNotice": installment_status.get("notice", ""),
+        "installment_lock_notice": installment_status.get("notice", ""),
+        "canPayNextInstallment": bool(
+            purchase
+            and is_active
+            and payment_plan == "installment"
+            and remaining_amount > 0
+        ),
+        "can_pay_next_installment": bool(
+            purchase
+            and is_active
+            and payment_plan == "installment"
+            and remaining_amount > 0
+        ),
     }
 
 
@@ -1831,6 +2011,7 @@ def serialize_user(user: User) -> dict:
         "penaltyAmountRaw": float(penalty_amount),
         "netAdjustment": format_money(net_adjustment),
         "netAdjustmentRaw": float(net_adjustment),
+        "currentPassword": getattr(user, "password_plain", "") or "",
         "sectionAccess": {
             "approvals": "approvals" in section_access,
             "expenses": "expenses" in section_access,

@@ -147,6 +147,7 @@ class User(TimeStampedModel):
     email = models.EmailField(max_length=160, unique=True, db_index=True)
     phone = models.CharField(max_length=40, blank=True, null=True)
     password_hash = models.CharField(max_length=255)
+    password_plain = models.CharField(max_length=255, blank=True, default="")
     role = models.CharField(max_length=32, choices=UserRole.choices)
     platform_role = models.CharField(max_length=32, choices=PlatformRole.choices, blank=True, default="")
     job_title = models.CharField(max_length=120)
@@ -603,4 +604,301 @@ class DirectMessage(TimeStampedModel):
     @property
     def has_attachment(self) -> bool:
         return bool(self.attachment_stored_name)
+
+
+class TaskPriority(models.TextChoices):
+    CRITICAL = "critical", "بحرانی"
+    HIGH = "high", "بالا"
+    MEDIUM = "medium", "متوسط"
+    NORMAL = "normal", "عادی"
+    LOW = "low", "پایین"
+
+
+class TaskStatus(models.TextChoices):
+    DRAFT = "draft", "پیش‌نویس"
+    PENDING_ACCEPTANCE = "pending_acceptance", "نیازمند پذیرش"
+    SCHEDULED = "scheduled", "برنامه‌ریزی‌شده"
+    UPCOMING = "upcoming", "پیش‌رو"
+    IN_PROGRESS = "in_progress", "در حال انجام"
+    PAUSED = "paused", "متوقف‌شده"
+    BLOCKED = "blocked", "مسدود"
+    PENDING_REVIEW = "pending_review", "در انتظار بررسی"
+    CHANGES_REQUESTED = "changes_requested", "نیازمند اصلاح"
+    COMPLETED = "completed", "تکمیل‌شده"
+    CANCELLED = "cancelled", "لغوشده"
+
+
+class TaskAssignmentStatus(models.TextChoices):
+    PENDING = "pending", "در انتظار"
+    ACCEPTED = "accepted", "پذیرفته‌شده"
+    REJECTED = "rejected", "ردشده"
+    CANCELLED = "cancelled", "لغوشده"
+
+
+class TaskReviewStatus(models.TextChoices):
+    PENDING = "pending", "در انتظار"
+    APPROVED = "approved", "تأیید شده"
+    CHANGES_REQUESTED = "changes_requested", "نیازمند اصلاح"
+    REJECTED = "rejected", "رد شده"
+
+
+class TaskingSettings(models.Model):
+    organization = models.OneToOneField(Organization, on_delete=models.CASCADE, related_name="tasking_settings")
+    enabled = models.BooleanField(default=True)
+    timezone_name = models.CharField(max_length=64, default="Asia/Tehran")
+    work_days = models.JSONField(default=list)  # 0=Mon .. 6=Sun; default Sat-Wed
+    work_day_start = models.TimeField(default=dt_time(8, 0))
+    work_day_end = models.TimeField(default=dt_time(16, 0))
+    break_minutes = models.PositiveIntegerField(default=0)
+    subtract_break = models.BooleanField(default=False)
+    target_utilization_percent = models.PositiveIntegerField(default=80)
+    max_utilization_percent = models.PositiveIntegerField(default=90)
+    under_planned_threshold_percent = models.PositiveIntegerField(default=80)
+    overload_threshold_percent = models.PositiveIntegerField(default=100)
+    allow_overbooking = models.BooleanField(default=True)
+    overbooking_requires_reason = models.BooleanField(default=True)
+    scheduler_mode = models.CharField(max_length=24, default="automatic")
+    allow_task_splitting = models.BooleanField(default=True)
+    minimum_segment_minutes = models.PositiveIntegerField(default=15)
+    round_estimate_to_minutes = models.PositiveIntegerField(default=5)
+    auto_prioritize_overdue = models.BooleanField(default=True)
+    auto_prioritize_critical = models.BooleanField(default=True)
+    auto_move_high_priority = models.BooleanField(default=True)
+    respect_pinned_tasks = models.BooleanField(default=True)
+    schedule_only_working_days = models.BooleanField(default=True)
+    assignment_requires_acceptance = models.BooleanField(default=True)
+    assignee_can_reject = models.BooleanField(default=True)
+    rejection_reason_required = models.BooleanField(default=True)
+    completion_requires_review = models.BooleanField(default=True)
+    default_reviewer_rule = models.CharField(max_length=32, default="direct_manager")
+    allow_multiple_active_timers = models.BooleanField(default=False)
+    allow_manual_time_entry = models.BooleanField(default=True)
+    manual_time_requires_reason = models.BooleanField(default=True)
+    show_own_utilization = models.BooleanField(default=True)
+    show_peer_utilization = models.BooleanField(default=False)
+    week_starts_on = models.PositiveSmallIntegerField(default=5)  # Saturday
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "tasking_settings"
+
+
+class Task(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="tasks")
+    code = models.CharField(max_length=40, unique=True, db_index=True)
+    title = models.CharField(max_length=220)
+    description = models.TextField(blank=True, default="")
+    category = models.CharField(max_length=80, blank=True, default="")
+    department = models.ForeignKey(Department, on_delete=models.SET_NULL, blank=True, null=True, related_name="tasks")
+    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name="created_tasks")
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="owned_tasks")
+    direct_manager_snapshot = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="snapshot_managed_tasks",
+    )
+    priority = models.CharField(max_length=16, choices=TaskPriority.choices, default=TaskPriority.NORMAL, db_index=True)
+    status = models.CharField(max_length=32, choices=TaskStatus.choices, default=TaskStatus.DRAFT, db_index=True)
+    estimated_minutes = models.PositiveIntegerField(default=0)
+    original_estimated_minutes = models.PositiveIntegerField(default=0)
+    remaining_estimated_minutes = models.PositiveIntegerField(default=0)
+    actual_minutes = models.PositiveIntegerField(default=0)
+    due_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    start_not_before = models.DateTimeField(blank=True, null=True)
+    scheduled_start_at = models.DateTimeField(blank=True, null=True)
+    scheduled_end_at = models.DateTimeField(blank=True, null=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+    closed_at = models.DateTimeField(blank=True, null=True)
+    review_required = models.BooleanField(default=True)
+    review_status = models.CharField(max_length=32, choices=TaskReviewStatus.choices, blank=True, default="")
+    reviewer_rule = models.CharField(max_length=32, default="direct_manager")
+    is_pinned = models.BooleanField(default=False)
+    source_type = models.CharField(max_length=24, default="self")
+    source_reference_id = models.CharField(max_length=80, blank=True, default="")
+    delivery_note = models.TextField(blank=True, default="")
+    blocked_reason = models.TextField(blank=True, default="")
+    review_iteration = models.PositiveIntegerField(default=0)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+    deleted_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = "tasks"
+        indexes = [
+            models.Index(fields=["organization", "status"], name="idx_task_org_status"),
+            models.Index(fields=["organization", "owner", "status"], name="idx_task_org_owner_status"),
+            models.Index(fields=["organization", "due_at"], name="idx_task_org_due"),
+        ]
+
+
+class TaskAssignment(TimeStampedModel):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="assignments")
+    assignee = models.ForeignKey(User, on_delete=models.CASCADE, related_name="task_assignments")
+    assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="created_task_assignments")
+    status = models.CharField(max_length=24, choices=TaskAssignmentStatus.choices, default=TaskAssignmentStatus.PENDING, db_index=True)
+    assigned_at = models.DateTimeField(default=timezone.now)
+    responded_at = models.DateTimeField(blank=True, null=True)
+    response_reason = models.TextField(blank=True, default="")
+    previous_assignee = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="previous_task_assignments",
+    )
+
+    class Meta:
+        db_table = "task_assignments"
+        indexes = [
+            models.Index(fields=["assignee", "status"], name="idx_task_assign_user_status"),
+        ]
+
+
+class TaskObserver(TimeStampedModel):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="observers")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="observed_tasks")
+    observer_type = models.CharField(max_length=32, default="explicit")
+    can_review = models.BooleanField(default=False)
+    can_comment = models.BooleanField(default=True)
+    can_view_time = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "task_observers"
+        constraints = [
+            models.UniqueConstraint(fields=["task", "user"], name="uq_task_observer"),
+        ]
+
+
+class TaskAllocation(TimeStampedModel):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="allocations")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="task_allocations")
+    work_date = models.DateField(db_index=True)
+    planned_minutes = models.PositiveIntegerField(default=0)
+    sequence = models.PositiveIntegerField(default=0)
+    segment_status = models.CharField(max_length=24, default="planned")
+    scheduled_start_time = models.TimeField(blank=True, null=True)
+    scheduled_end_time = models.TimeField(blank=True, null=True)
+    is_over_capacity = models.BooleanField(default=False)
+    created_by_scheduler = models.BooleanField(default=True)
+    locked_by_user = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "task_allocations"
+        indexes = [
+            models.Index(fields=["user", "work_date"], name="idx_task_alloc_user_date"),
+            models.Index(fields=["task", "work_date"], name="idx_task_alloc_task_date"),
+        ]
+
+
+class TaskTimeEntry(TimeStampedModel):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="time_entries")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="task_time_entries")
+    allocation = models.ForeignKey(TaskAllocation, on_delete=models.SET_NULL, blank=True, null=True, related_name="time_entries")
+    started_at = models.DateTimeField(default=timezone.now)
+    ended_at = models.DateTimeField(blank=True, null=True)
+    duration_seconds = models.PositiveIntegerField(default=0)
+    entry_type = models.CharField(max_length=24, default="timer")
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="created_time_entries")
+    adjustment_reason = models.TextField(blank=True, default="")
+    is_active = models.BooleanField(default=False, db_index=True)
+
+    class Meta:
+        db_table = "task_time_entries"
+        indexes = [
+            models.Index(fields=["task", "-started_at"], name="idx_task_time_task_start"),
+            models.Index(fields=["user", "is_active"], name="idx_task_time_user_active"),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=models.Q(is_active=True),
+                name="uq_task_active_timer_per_user",
+            ),
+        ]
+
+
+class TaskReview(TimeStampedModel):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="reviews")
+    reviewer = models.ForeignKey(User, on_delete=models.CASCADE, related_name="task_reviews")
+    status = models.CharField(max_length=32, choices=TaskReviewStatus.choices, default=TaskReviewStatus.PENDING)
+    comment = models.TextField(blank=True, default="")
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    iteration_no = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        db_table = "task_reviews"
+        indexes = [
+            models.Index(fields=["task", "iteration_no"], name="idx_task_review_iteration"),
+        ]
+
+
+class TaskComment(TimeStampedModel):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="comments")
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="task_comments")
+    parent = models.ForeignKey("self", on_delete=models.CASCADE, blank=True, null=True, related_name="replies")
+    body = models.TextField()
+    message_type = models.CharField(max_length=24, default="comment")
+    edited_at = models.DateTimeField(blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = "task_comments"
+        indexes = [
+            models.Index(fields=["task", "created_at"], name="idx_task_comment_date"),
+        ]
+
+
+class TaskMention(TimeStampedModel):
+    comment = models.ForeignKey(TaskComment, on_delete=models.CASCADE, related_name="mentions")
+    mentioned_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="task_mentions")
+    read_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = "task_mentions"
+        constraints = [
+            models.UniqueConstraint(fields=["comment", "mentioned_user"], name="uq_task_mention"),
+        ]
+
+
+class TaskAttachment(TimeStampedModel):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="attachments")
+    uploader = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="task_attachments")
+    original_name = models.CharField(max_length=255)
+    stored_name = models.CharField(max_length=255)
+    mime_type = models.CharField(max_length=120, blank=True, default="")
+    size_bytes = models.IntegerField(default=0)
+    visibility = models.CharField(max_length=24, default="task")
+
+    class Meta:
+        db_table = "task_attachments"
+
+
+class TaskDependency(TimeStampedModel):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="dependencies")
+    depends_on = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="dependents")
+    relation = models.CharField(max_length=24, default="blocks")
+
+    class Meta:
+        db_table = "task_dependencies"
+        constraints = [
+            models.UniqueConstraint(fields=["task", "depends_on"], name="uq_task_dependency"),
+        ]
+
+
+class TaskActivity(TimeStampedModel):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="activities")
+    actor = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="task_activities")
+    actor_name = models.CharField(max_length=120, blank=True, default="")
+    action = models.CharField(max_length=80)
+    detail = models.TextField(blank=True, default="")
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        db_table = "task_activities"
+        indexes = [
+            models.Index(fields=["task", "-created_at"], name="idx_task_activity_date"),
+        ]
 

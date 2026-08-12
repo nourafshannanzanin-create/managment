@@ -22,6 +22,17 @@ const referralSearch = ref('')
 
 const { state, fieldHasError, setExpenseInvoice, submitExpense, availableRecipientUsers } = useWorkflowHub()
 
+async function onInvoiceChange(event) {
+  const input = event.target
+  try {
+    await setExpenseInvoice(input?.files?.[0] || null)
+  } catch {
+    // ErrorNotice reads state.lastErrorDetails
+  } finally {
+    if (input) input.value = ''
+  }
+}
+
 const managerChoices = computed(() => state.directories.managers || [])
 const employeeChoices = computed(() => availableRecipientUsers().filter((item) => item.accessRole === 'employee'))
 const filteredManagers = computed(() => managerChoices.value.filter((item) => !referralSearch.value || `${item.name} ${item.role}`.toLowerCase().includes(referralSearch.value.toLowerCase())))
@@ -57,10 +68,20 @@ function selectedNames() {
         <label class="field-shell"><span>ارجاع گیرنده</span><button class="action-btn tone-soft inline-open-btn" type="button" @click="referralOpen = true"><IconlyIcon name="group_add" decorative /><span>{{ selectedNames() }}</span></button></label>
       </div>
 
-      <label :class="['field-shell', fieldHasError('description') && 'has-error']"><span>شرح</span><textarea v-model="form.description" rows="4" /></label>
-      <label class="upload-pad compact-upload"><input type="file" accept="image/*,.pdf" @change="setExpenseInvoice($event.target.files?.[0])" /><IconlyIcon name="receipt_long" decorative /><strong>{{ form.invoice?.name || 'افزودن فاکتور' }}</strong><small>اختیاری</small></label>
+      <label :class="['field-shell full-width-field', fieldHasError('description') && 'has-error']"><span>شرح</span><textarea v-model="form.description" rows="4" /></label>
+      <label class="upload-pad compact-upload full-width-field">
+        <input
+          type="file"
+          accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,image/*,application/pdf"
+          :disabled="submitting || state.fileUploadPreparing"
+          @change="onInvoiceChange"
+        />
+        <IconlyIcon name="receipt_long" decorative />
+        <strong>{{ state.fileUploadPreparing ? 'در حال آماده‌سازی فایل...' : (form.invoice?.name || 'افزودن فاکتور') }}</strong>
+        <small>اختیاری — حداکثر ۸ مگابایت</small>
+      </label>
       <ErrorNotice :error="state.lastErrorDetails" compact />
-      <div class="modal-actions"><button class="action-btn tone-soft" type="button" @click="$emit('close')"><IconlyIcon name="close" decorative /><span>بستن</span></button><button class="action-btn tone-primary" :disabled="submitting" type="button" @click="submitExpense('refer')"><IconlyIcon name="send" decorative /><span>{{ submitting ? 'در حال ثبت...' : 'ثبت و ارجاع' }}</span></button></div>
+      <div class="modal-actions"><button class="action-btn tone-soft" type="button" @click="$emit('close')"><IconlyIcon name="close" decorative /><span>بستن</span></button><button class="action-btn tone-primary" :disabled="submitting || state.fileUploadPreparing" type="button" @click="submitExpense('refer')"><IconlyIcon name="send" decorative /><span>{{ submitting ? 'در حال ثبت...' : 'ثبت و ارجاع' }}</span></button></div>
     </div>
   </BaseModal>
 
@@ -78,6 +99,7 @@ function selectedNames() {
 
 <style scoped>
 .inline-error { margin: 0; color: #b42318; }
+.full-width-field { width: 100%; }
 @media (max-width: 760px) { .modal-grid.two-col { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 420px) { .modal-grid.two-col { grid-template-columns: 1fr; } }
 </style>

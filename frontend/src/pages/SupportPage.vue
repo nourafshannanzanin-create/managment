@@ -1,10 +1,11 @@
 <script setup>
 import IconlyIcon from '../components/base/IconlyIcon.vue'
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { getTodayJalali } from '../utils/jalali'
+import { formatFileSize, prepareUploadFile, UPLOAD_LIMITS } from '../utils/uploads'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const route = useRoute()
@@ -61,6 +62,9 @@ const ticketModal = reactive({
   context: getEmptyContext(),
   attachments: [],
 })
+
+const attachmentPreparing = ref(false)
+const attachmentError = ref('')
 
 const feedback = reactive({
   score: 0,
@@ -278,8 +282,28 @@ const openWalletPaymentTicketModal = () => {
   })
 }
 
-const handleAttachmentChange = (event) => {
-  ticketModal.attachments = Array.from(event?.target?.files || [])
+const handleAttachmentChange = async (event) => {
+  const input = event?.target
+  const incoming = Array.from(input?.files || [])
+  attachmentError.value = ''
+  if (!incoming.length) return
+
+  attachmentPreparing.value = true
+  try {
+    const nextAttachments = [...ticketModal.attachments]
+    if (nextAttachments.length + incoming.length > UPLOAD_LIMITS.maxAttachments) {
+      throw new Error(`حداکثر ${UPLOAD_LIMITS.maxAttachments} پیوست مجاز است.`)
+    }
+    for (const file of incoming) {
+      nextAttachments.push(markRaw(await prepareUploadFile(file)))
+    }
+    ticketModal.attachments = nextAttachments
+  } catch (error) {
+    attachmentError.value = error.message || 'انتخاب فایل پیوست ناموفق بود.'
+  } finally {
+    attachmentPreparing.value = false
+    if (input) input.value = ''
+  }
 }
 
 const closeCreateTicketModal = () => {
@@ -290,6 +314,7 @@ const closeCreateTicketModal = () => {
   ticketModal.category = 'technical'
   ticketModal.priority = 'medium'
   ticketModal.attachments = []
+  attachmentError.value = ''
   Object.assign(ticketModal.context, getEmptyContext())
 }
 
@@ -844,15 +869,21 @@ onBeforeUnmount(() => {
               <input
                 type="file"
                 multiple
-                accept=".jpg,.jpeg,.png,.webp,.pdf"
+                accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,application/pdf"
+                :disabled="state.support.submitting || attachmentPreparing"
                 @change="handleAttachmentChange"
               />
-              <small v-if="selectedAttachmentNames" class="receipt-file-name">{{ selectedAttachmentNames }}</small>
+              <small v-if="attachmentPreparing" class="receipt-file-name">در حال آماده‌سازی فایل...</small>
+              <small v-else-if="selectedAttachmentNames" class="receipt-file-name">{{ selectedAttachmentNames }}</small>
+              <small v-if="ticketModal.attachments.length" class="receipt-file-name">
+                {{ ticketModal.attachments.map((file) => formatFileSize(file.size)).join(' • ') }}
+              </small>
+              <small v-if="attachmentError" class="receipt-upload-error">{{ attachmentError }}</small>
             </label>
 
             <div class="modal-actions full">
               <button type="button" class="secondary-btn" @click="closeCreateTicketModal">انصراف</button>
-              <button type="submit" class="primary-btn" :disabled="state.support.submitting">
+              <button type="submit" class="primary-btn" :disabled="state.support.submitting || attachmentPreparing">
                 {{ state.support.submitting ? 'در حال ثبت...' : 'ثبت تیکت' }}
               </button>
             </div>
@@ -1669,6 +1700,11 @@ onBeforeUnmount(() => {
 
 .receipt-file-name {
   color: var(--jade-deep);
+  font-weight: 700;
+}
+
+.receipt-upload-error {
+  color: #b42318;
   font-weight: 700;
 }
 

@@ -14,7 +14,7 @@ import { rowToneForStatus, toneForStatus } from '../utils/status'
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 const TOKEN_KEY = 'workflow-hub-token'
 
-const { exportReport, loadReports, state } = useWorkflowHub()
+const { exportReport, loadReports, loadTaskingReports, state } = useWorkflowHub()
 
 const activeTab = ref('requests')
 const selectedReportRow = ref(null)
@@ -23,6 +23,7 @@ const filters = reactive({ period: 'month', startDate: '', endDate: '', userId: 
 const attendanceRows = ref([])
 const attendanceLoading = ref(false)
 const attendanceError = ref('')
+const taskingBandFilter = ref('')
 
 const canViewAttendanceReports = computed(() =>
   Boolean(
@@ -37,6 +38,7 @@ const tabs = computed(() => {
     { key: 'expenses', label: 'هزینه‌ها', icon: 'payments' },
     { key: 'approvals', label: 'تاییدیه‌ها', icon: 'fact_check' },
     { key: 'users', label: 'کاربران', icon: 'groups' },
+    { key: 'tasking', label: 'تسکینگ', icon: 'task_alt' },
   ]
   if (canViewAttendanceReports.value) {
     items.push({ key: 'attendance', label: 'ورود و خروج', icon: 'badge' })
@@ -138,6 +140,14 @@ function rowStatusValue(row) {
 }
 
 const activeRows = computed(() => {
+  if (activeTab.value === 'tasking') {
+    const rows = state.tasking.reports?.users || []
+    return rows.filter((item) => {
+      if (taskingBandFilter.value && item.band !== taskingBandFilter.value) return false
+      if (!filters.userId) return true
+      return String(item.user?.id) === String(filters.userId)
+    })
+  }
   if (activeTab.value === 'attendance') {
     return attendanceRows.value.filter((item) => {
       if (!filters.userId) return true
@@ -157,6 +167,18 @@ const activeRows = computed(() => {
     return matchesUser && inPeriod(rowDate(item))
   })
 })
+
+const taskingKpis = computed(() => state.tasking.reports?.kpi || {})
+const taskingDistribution = computed(() => state.tasking.reports?.distribution || {})
+
+async function refreshTaskingReports() {
+  const range = periodIsoRange()
+  await loadTaskingReports({
+    start: range.start,
+    end: range.end,
+    userId: filters.userId || '',
+  })
+}
 
 const selectedTabMeta = computed(() => tabs.value.find((item) => item.key === selectedReportType.value) || tabs.value[0])
 
@@ -367,6 +389,14 @@ function exportActiveTab() {
     exportAttendanceCsv()
     return
   }
+  if (activeTab.value === 'tasking') {
+    const range = periodIsoRange()
+    const params = new URLSearchParams()
+    if (range.start) params.set('start', range.start)
+    if (range.end) params.set('end', range.end)
+    exportReport('', 'csv', `/tasking/reports/export?${params.toString()}`)
+    return
+  }
   const params = new URLSearchParams({ format: 'csv', period: filters.period })
   if (filters.period === 'custom') {
     if (filters.startDate) params.set('startDate', jalaliToIso(filters.startDate))
@@ -380,12 +410,14 @@ watch(
   () => [activeTab.value, filters.period, filters.startDate, filters.endDate, filters.userId],
   () => {
     if (activeTab.value === 'attendance') void loadAttendanceReports()
+    if (activeTab.value === 'tasking') void refreshTaskingReports()
   },
 )
 
 onMounted(() => {
   loadReports(true)
   if (activeTab.value === 'attendance') void loadAttendanceReports()
+  if (activeTab.value === 'tasking') void refreshTaskingReports()
 })
 </script>
 
@@ -436,6 +468,23 @@ onMounted(() => {
       <div v-if="activeTab === 'attendance' && attendanceError" class="attendance-alert is-danger">{{ attendanceError }}</div>
     </section>
 
+    <section v-if="activeTab === 'tasking'" class="metric-grid metric-grid-4">
+      <article class="metric-card"><small>کاربران فعال</small><strong>{{ taskingKpis.activeUsers || 0 }}</strong></article>
+      <article class="metric-card"><small>در محدوده هدف</small><strong>{{ taskingKpis.targetMetUsers || 0 }}</strong></article>
+      <article class="metric-card"><small>کمتر از هدف</small><strong>{{ taskingKpis.underTargetUsers || 0 }}</strong></article>
+      <article class="metric-card"><small>بیش از ظرفیت</small><strong>{{ taskingKpis.overloadedUsers || 0 }}</strong></article>
+    </section>
+
+    <section v-if="activeTab === 'tasking'" class="surface-block">
+      <div class="chip-row">
+        <button type="button" :class="['filter-chip', !taskingBandFilter && 'is-active']" @click="taskingBandFilter = ''">همه</button>
+        <button type="button" :class="['filter-chip', taskingBandFilter === 'under' && 'is-active']" @click="taskingBandFilter = 'under'">کمتر از هدف ({{ taskingDistribution.under || 0 }})</button>
+        <button type="button" :class="['filter-chip', taskingBandFilter === 'target' && 'is-active']" @click="taskingBandFilter = 'target'">در هدف ({{ taskingDistribution.target || 0 }})</button>
+        <button type="button" :class="['filter-chip', taskingBandFilter === 'high' && 'is-active']" @click="taskingBandFilter = 'high'">بار بالا ({{ taskingDistribution.high || 0 }})</button>
+        <button type="button" :class="['filter-chip', taskingBandFilter === 'over' && 'is-active']" @click="taskingBandFilter = 'over'">بیش از ظرفیت ({{ taskingDistribution.over || 0 }})</button>
+      </div>
+    </section>
+
     <section class="surface-block report-table-card">
       <div class="section-label-row">
         <SectionHeading
@@ -452,6 +501,7 @@ onMounted(() => {
             <tr v-else-if="activeTab === 'expenses'"><th>کد</th><th>شرح</th><th>ثبت‌کننده</th><th>مبلغ</th><th>واحد</th><th>وضعیت</th><th>تاریخ</th><th>تصمیم‌ها</th></tr>
             <tr v-else-if="activeTab === 'approvals'"><th>کد</th><th>عنوان</th><th>ثبت‌کننده</th><th>نوع</th><th>واحد</th><th>ریسک</th><th>وضعیت</th><th>تاریخ</th><th>تصمیم‌ها</th></tr>
             <tr v-else-if="activeTab === 'attendance'"><th>ردیف</th><th>پرسنل</th><th>سمت / بخش</th><th>نوع</th><th>منبع</th><th>تاریخ</th><th>ساعت</th><th>موقعیت</th><th>یادداشت</th></tr>
+            <tr v-else-if="activeTab === 'tasking'"><th>نام</th><th>بخش</th><th>برنامه</th><th>هدف</th><th>واقعی</th><th>Utilization</th><th>وضعیت ظرفیت</th><th>تکمیل</th><th>عقب‌افتاده</th></tr>
             <tr v-else><th>شناسه</th><th>نام</th><th>نام کاربری</th><th>نقش</th><th>واحد</th><th>مدیر</th><th>پاداش</th><th>جریمه</th><th>خالص</th></tr>
           </thead>
           <tbody>
@@ -465,14 +515,25 @@ onMounted(() => {
               @keydown.space.prevent="openReportDetails(row)"
             >
               <template v-if="activeTab === 'requests'">
-                <td>{{ row.id }}</td><td>{{ row.title }}</td><td>{{ row.owner }}</td><td>{{ row.manager }}</td><td>{{ row.department }}</td>
-                <td><span :class="['status-badge', toneForStatus(row.status)]">{{ row.status }}</span></td>
-                <td>{{ row.priority }}</td><td>{{ row.createdAt }}</td><td>{{ decisionText(row) }}</td>
+                <td class="cell-mobile-hide">{{ row.id }}</td>
+                <td class="cell-mobile-primary">{{ row.title }}</td>
+                <td class="cell-mobile-hide">{{ row.owner }}</td>
+                <td class="cell-mobile-hide">{{ row.manager }}</td>
+                <td class="cell-mobile-hide">{{ row.department }}</td>
+                <td data-label="وضعیت"><span :class="['status-badge', toneForStatus(row.status)]">{{ row.status }}</span></td>
+                <td class="cell-mobile-hide">{{ row.priority }}</td>
+                <td data-label="تاریخ">{{ row.createdAt }}</td>
+                <td class="cell-mobile-hide">{{ decisionText(row) }}</td>
               </template>
               <template v-else-if="activeTab === 'expenses'">
-                <td>{{ row.id }}</td><td>{{ row.description }}</td><td>{{ row.owner }}</td><td>{{ row.amount }}</td><td>{{ row.department }}</td>
-                <td><span :class="['status-badge', toneForStatus(row.status)]">{{ row.status }}</span></td>
-                <td>{{ row.submittedAt }}</td><td>{{ decisionText(row) }}</td>
+                <td class="cell-mobile-hide">{{ row.id }}</td>
+                <td class="cell-mobile-primary">{{ row.description }}</td>
+                <td class="cell-mobile-hide">{{ row.owner }}</td>
+                <td data-label="مبلغ">{{ row.amount }}</td>
+                <td class="cell-mobile-hide">{{ row.department }}</td>
+                <td data-label="وضعیت"><span :class="['status-badge', toneForStatus(row.status)]">{{ row.status }}</span></td>
+                <td data-label="تاریخ">{{ row.submittedAt }}</td>
+                <td class="cell-mobile-hide">{{ decisionText(row) }}</td>
               </template>
               <template v-else-if="activeTab === 'approvals'">
                 <td>{{ row.id }}</td><td>{{ row.title }}</td><td>{{ row.owner }}</td><td>{{ row.type }}</td><td>{{ row.department }}</td><td>{{ row.risk }}</td>
@@ -489,6 +550,17 @@ onMounted(() => {
                 <td>{{ row.eventTime || '-' }}</td>
                 <td>{{ row.distanceMeters != null ? `${Math.round(row.distanceMeters)} متر` : (row.coordinatesLabel || '-') }}</td>
                 <td>{{ row.note || '-' }}</td>
+              </template>
+              <template v-else-if="activeTab === 'tasking'">
+                <td class="cell-mobile-primary">{{ row.user?.name }}</td>
+                <td class="cell-mobile-hide">{{ row.user?.department || '-' }}</td>
+                <td>{{ row.plannedMinutes }}</td>
+                <td>{{ row.targetMinutes }}</td>
+                <td>{{ row.actualMinutes }}</td>
+                <td data-label="Utilization">{{ row.utilizationPercent }}٪</td>
+                <td data-label="وضعیت"><span class="status-badge">{{ row.bandLabel }}</span></td>
+                <td>{{ row.completedCount }}</td>
+                <td>{{ row.overdueCount }}</td>
               </template>
               <template v-else>
                 <td>{{ row.id }}</td><td>{{ row.name }}</td><td>{{ row.username }}</td><td>{{ row.role }}</td><td>{{ row.department }}</td><td>{{ row.manager }}</td><td>{{ row.bonusAmount }}</td><td>{{ row.penaltyAmount }}</td><td>{{ row.netAdjustment }}</td>

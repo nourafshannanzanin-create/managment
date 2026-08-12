@@ -1,6 +1,7 @@
 from django.urls import path
 
 from workflow import views
+from workflow import tasking_views
 
 urlpatterns = [
     path("health", views.health_view),
@@ -72,4 +73,24 @@ urlpatterns = [
     path("chat/conversations", views.chat_conversations_view),
     path("chat/conversations/<int:conversation_id>/messages", views.chat_conversation_messages_view),
     path("chat/conversations/<int:conversation_id>/read", views.chat_conversation_read_view),
+    path("tasking/dashboard", tasking_views.tasking_dashboard_view),
+    path("tasking/tasks", tasking_views.tasking_tasks_view),
+    path("tasking/tasks/<int:task_id>", tasking_views.tasking_task_detail_view),
+    path("tasking/tasks/<int:task_id>/accept", tasking_views.tasking_accept_view),
+    path("tasking/tasks/<int:task_id>/reject", tasking_views.tasking_reject_view),
+    path("tasking/tasks/<int:task_id>/start", tasking_views.tasking_start_view),
+    path("tasking/tasks/<int:task_id>/pause", tasking_views.tasking_pause_view),
+    path("tasking/tasks/<int:task_id>/resume", tasking_views.tasking_resume_view),
+    path("tasking/tasks/<int:task_id>/submit-review", tasking_views.tasking_submit_review_view),
+    path("tasking/tasks/<int:task_id>/approve", tasking_views.tasking_approve_view),
+    path("tasking/tasks/<int:task_id>/request-changes", tasking_views.tasking_request_changes_view),
+    path("tasking/tasks/<int:task_id>/cancel", tasking_views.tasking_cancel_view),
+    path("tasking/tasks/<int:task_id>/comments", tasking_views.tasking_comments_view),
+    path("tasking/tasks/<int:task_id>/attachments", tasking_views.tasking_attachments_view),
+    path("tasking/tasks/<int:task_id>/attachments/<int:attachment_id>", tasking_views.tasking_attachment_download_view),
+    path("tasking/settings", tasking_views.tasking_settings_view),
+    path("tasking/schedule/preview", tasking_views.tasking_schedule_preview_view),
+    path("tasking/timer/active", tasking_views.tasking_active_timer_view),
+    path("tasking/reports", tasking_views.tasking_reports_view),
+    path("tasking/reports/export", tasking_views.tasking_reports_export_view),
 ]

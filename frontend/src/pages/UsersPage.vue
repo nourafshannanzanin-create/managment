@@ -1,6 +1,6 @@
 <script setup>
 import IconlyIcon from '../components/base/IconlyIcon.vue'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, markRaw, reactive, ref, watch } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
 import ErrorNotice from '../components/ErrorNotice.vue'
@@ -18,6 +18,7 @@ const selectedUserId = ref(null)
 const savingUser = ref(false)
 const applyingBonus = ref(false)
 const applyingPenalty = ref(false)
+const showCurrentPassword = ref(false)
 const avatarDraftFile = ref(null)
 const avatarDraftPreview = ref('')
 const clearAvatarOnSave = ref(false)
@@ -148,7 +149,7 @@ function closeUserDetails() {
 function onUserAvatarSelected(file) {
   if (!canManageUsers.value || !file) return
   revokeAvatarDraftPreview()
-  avatarDraftFile.value = file
+  avatarDraftFile.value = markRaw(file)
   avatarDraftPreview.value = URL.createObjectURL(file)
   clearAvatarOnSave.value = false
 }
@@ -445,6 +446,26 @@ function userManagerOptions(userId) {
           </label>
 
           <label class="field-shell">
+            <span>رمز عبور فعلی</span>
+            <div class="password-field-row">
+              <input
+                :value="selectedUser.currentPassword || 'ثبت نشده'"
+                :type="showCurrentPassword ? 'text' : 'password'"
+                dir="ltr"
+                readonly
+              />
+              <button
+                class="icon-btn"
+                type="button"
+                :title="showCurrentPassword ? 'مخفی کردن' : 'نمایش رمز'"
+                @click="showCurrentPassword = !showCurrentPassword"
+              >
+                <IconlyIcon :name="showCurrentPassword ? 'close' : 'show'" decorative />
+              </button>
+            </div>
+          </label>
+
+          <label class="field-shell">
             <span>رمز عبور جدید</span>
             <input v-model="editableUser.password" type="password" placeholder="در صورت نیاز تغییر دهید" :disabled="!canManageUsers" />
           </label>
@@ -728,16 +749,25 @@ function userManagerOptions(userId) {
 
 .user-card-head {
   display: flex;
-  align-items: start;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+  min-width: 0;
 }
 
 .user-directory-main {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 12px;
+  flex: 1 1 auto;
   min-width: 0;
+}
+
+.user-directory-main :deep(.user-avatar-face) {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
 }
 
 .user-avatar {
@@ -755,6 +785,7 @@ function userManagerOptions(userId) {
 .user-card-copy {
   display: grid;
   gap: 3px;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -962,6 +993,17 @@ function userManagerOptions(userId) {
   gap: 16px;
 }
 
+.password-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.password-field-row input {
+  width: 100%;
+}
+
 .user-finance-panel {
   display: grid;
   gap: 14px;
@@ -1066,11 +1108,25 @@ function userManagerOptions(userId) {
 }
 
 @media (max-width: 760px) {
-  .users-toolbar-head,
-  .user-card-head {
+  .users-toolbar-head {
     align-items: stretch;
-    grid-template-columns: 1fr;
     flex-direction: column;
+  }
+
+  .user-card-head {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .user-directory-main {
+    flex: 1 1 calc(100% - 72px);
+    min-width: 0;
+  }
+
+  .user-card-head > .status-badge {
+    flex: 0 0 auto;
+    max-width: 100%;
   }
 
   .users-header-actions {

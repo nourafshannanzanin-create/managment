@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+
 import { inferGenderFromName } from '../utils/gender'
 
 const props = defineProps({
@@ -15,12 +16,6 @@ const resolvedGender = computed(() => {
   const explicit = String(props.gender || '').toLowerCase()
   if (explicit === 'female' || explicit === 'male') return explicit
   return inferGenderFromName(props.name)
-})
-
-const initial = computed(() => {
-  const fromName = String(props.name || '').trim()
-  if (fromName) return fromName.slice(0, 1)
-  return '?'
 })
 
 const label = computed(() => props.alt || props.name || 'پروفایل')
@@ -39,44 +34,25 @@ const label = computed(() => props.alt || props.name || 'پروفایل')
   >
     <img v-if="avatarUrl" :src="avatarUrl" :alt="label" />
 
-    <div v-else-if="resolvedGender === 'female'" class="avatar-gender-badge" aria-hidden="true">
-      <svg class="gender-icon" viewBox="0 0 48 48" fill="none">
-        <circle cx="24" cy="15" r="9.5" fill="currentColor" />
+    <div v-else class="avatar-placeholder" aria-hidden="true">
+      <svg class="avatar-person-icon" viewBox="0 0 48 48" fill="none">
+        <circle cx="24" cy="17.5" r="8.5" stroke="currentColor" stroke-width="2.6" />
         <path
-          d="M11.5 43.5c1.8-9.2 7.2-14.5 12.5-14.5s10.7 5.3 12.5 14.5"
-          fill="currentColor"
-        />
-        <path
-          d="M17 22.5c1.6 3.2 4.1 4.8 7 4.8s5.4-1.6 7-4.8"
-          fill="currentColor"
-          opacity="0.22"
+          d="M10.5 40.5c1.8-8.8 7.1-13.5 13.5-13.5s11.7 4.7 13.5 13.5"
+          stroke="currentColor"
+          stroke-width="2.6"
+          stroke-linecap="round"
         />
       </svg>
     </div>
-
-    <div v-else-if="resolvedGender === 'male'" class="avatar-gender-badge" aria-hidden="true">
-      <svg class="gender-icon" viewBox="0 0 48 48" fill="none">
-        <circle cx="24" cy="15.2" r="9" fill="currentColor" />
-        <path
-          d="M10.5 43.5c1.6-8.8 6.5-13.8 13.5-13.8s11.9 5 13.5 13.8"
-          fill="currentColor"
-        />
-        <path
-          d="M15.5 11.5c2.3-2.1 5.2-3.2 8.5-3.2s6.2 1.1 8.5 3.2"
-          fill="currentColor"
-          opacity="0.18"
-        />
-      </svg>
-    </div>
-
-    <span v-else class="avatar-initial">{{ initial }}</span>
   </div>
 </template>
 
 <style scoped>
 .user-avatar-face {
-  --avatar-bg: #dcefec;
+  --avatar-bg: linear-gradient(160deg, #edf8f6 0%, #d8ece8 100%);
   --avatar-fg: #1f5c59;
+  --avatar-ring: rgba(52, 144, 139, 0.18);
   width: 44px;
   height: 44px;
   border-radius: 14px;
@@ -89,30 +65,32 @@ const label = computed(() => props.alt || props.name || 'پروفایل')
   line-height: 1;
   user-select: none;
   isolation: isolate;
+  border: 1px solid var(--avatar-ring);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .user-avatar-face.has-photo {
   background: #e4f4f2;
+  border-color: rgba(52, 144, 139, 0.14);
+  box-shadow: none;
 }
 
 .user-avatar-face.is-female {
-  --avatar-bg: #f3e4ea;
+  --avatar-bg: linear-gradient(160deg, #faf1f5 0%, #f0dde6 100%);
   --avatar-fg: #8a4a63;
+  --avatar-ring: rgba(138, 74, 99, 0.16);
 }
 
 .user-avatar-face.is-male {
-  --avatar-bg: #dcefec;
+  --avatar-bg: linear-gradient(160deg, #edf8f6 0%, #d8ece8 100%);
   --avatar-fg: #1f5c59;
+  --avatar-ring: rgba(52, 144, 139, 0.18);
 }
 
 .user-avatar-face.is-unknown {
-  --avatar-bg: #e4f4f2;
-  --avatar-fg: #1f5c59;
-}
-
-.user-avatar-face.is-female,
-.user-avatar-face.is-male {
-  font-size: 0;
+  --avatar-bg: linear-gradient(160deg, #f3f8f7 0%, #e4f4f2 100%);
+  --avatar-fg: #2f6f6a;
+  --avatar-ring: rgba(52, 144, 139, 0.14);
 }
 
 .user-avatar-face img {
@@ -122,7 +100,7 @@ const label = computed(() => props.alt || props.name || 'پروفایل')
   display: block;
 }
 
-.avatar-gender-badge {
+.avatar-placeholder {
   width: 100%;
   height: 100%;
   display: grid;
@@ -132,29 +110,11 @@ const label = computed(() => props.alt || props.name || 'پروفایل')
   color: var(--avatar-fg);
 }
 
-.user-avatar-face.is-female .avatar-gender-badge {
-  background: linear-gradient(160deg, #faf1f5 0%, #f0dde6 100%);
-}
-
-.user-avatar-face.is-male .avatar-gender-badge {
-  background: linear-gradient(160deg, #edf8f6 0%, #d8ece8 100%);
-}
-
-.gender-icon {
-  width: 78%;
-  height: 78%;
+.avatar-person-icon {
+  width: 72%;
+  height: 72%;
   display: block;
-}
-
-.avatar-initial {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  font-weight: 800;
-  font-size: 1em;
-  color: var(--avatar-fg);
-  background: var(--avatar-bg);
+  opacity: 0.92;
 }
 
 .size-sm { width: 34px; height: 34px; border-radius: 10px; font-size: 0.85rem; }

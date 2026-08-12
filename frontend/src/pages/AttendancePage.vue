@@ -137,6 +137,17 @@ const filteredUsers = computed(() => {
 const publicUser = computed(() => publicPayload.value.user || {})
 const publicEvents = computed(() => publicPayload.value.events || [])
 const reportSummary = computed(() => reportPayload.value.summary || {})
+const reportHighlightStats = computed(() => {
+  const summary = reportSummary.value
+  return [
+    { label: 'کل رویدادها', value: fa(summary.total), note: `نمایش ${fa(summary.displayedRows || reportRows.value.length)} ردیف` },
+    { label: 'پرسنل فعال', value: fa(summary.uniqueUsers), note: 'در بازه انتخاب‌شده' },
+    { label: 'ورودها', value: fa(summary.checkins), note: 'ثبت ورود' },
+    { label: 'خروج‌ها', value: fa(summary.checkouts), note: 'ثبت خروج' },
+    { label: 'مجموع ساعات', value: formatHours(summary.totalWorkedHours), note: `میانگین ${formatHours(summary.avgWorkedHoursPerUser)}` },
+    { label: 'شیفت باز', value: fa(summary.openShifts), note: 'ورود بدون خروج' },
+  ]
+})
 const reportRows = computed(() => reportPayload.value.rows || [])
 const reportUsers = computed(() => reportPayload.value.users || dashboard.value.users || [])
 const reportPersonnelStats = computed(() => reportPayload.value.personnelStats || reportPayload.value.personnel_stats || [])
@@ -382,6 +393,9 @@ async function copyLink(user) {
 }
 
 onMounted(() => {
+  if (window.matchMedia('(max-width: 760px)').matches) {
+    reportViewMode.value = 'cards'
+  }
   if (isPublic.value) void loadPublic()
   else void loadDashboard()
 })
@@ -454,7 +468,7 @@ onMounted(() => {
               :avatar-url="user.avatarUrl || user.avatar_url"
               size="md"
             />
-            <div>
+            <div class="attendance-user-identity">
               <strong>{{ user.name }}</strong>
               <small>{{ user.role }} · {{ user.department }}</small>
             </div>
@@ -591,18 +605,11 @@ onMounted(() => {
         </div>
 
         <div class="report-summary-grid report-summary-grid-wide">
-          <article><span>کل رویدادها</span><strong>{{ fa(reportSummary.total) }}</strong><small>نمایش {{ fa(reportSummary.displayedRows || reportRows.length) }} ردیف</small></article>
-          <article><span>پرسنل فعال</span><strong>{{ fa(reportSummary.uniqueUsers) }}</strong><small>در بازه انتخاب‌شده</small></article>
-          <article><span>ورودها</span><strong>{{ fa(reportSummary.checkins) }}</strong><small>ثبت ورود</small></article>
-          <article><span>خروج‌ها</span><strong>{{ fa(reportSummary.checkouts) }}</strong><small>ثبت خروج</small></article>
-          <article><span>مجموع ساعات</span><strong>{{ formatHours(reportSummary.totalWorkedHours) }}</strong><small>میانگین {{ formatHours(reportSummary.avgWorkedHoursPerUser) }}</small></article>
-          <article><span>ثبت با لینک</span><strong>{{ fa(reportSummary.linkEvents) }}</strong><small>خودکار با GPS</small></article>
-          <article><span>ثبت مدیر</span><strong>{{ fa(reportSummary.managerEvents) }}</strong><small>دستی</small></article>
-          <article><span>داخل محدوده</span><strong>{{ fa(reportSummary.withinRadius) }}</strong><small>شعاع {{ fa(reportSummary.allowedRadiusMeters || 20) }}m</small></article>
-          <article><span>خارج محدوده</span><strong>{{ fa(reportSummary.outsideRadius) }}</strong><small>دارای GPS</small></article>
-          <article><span>بدون GPS</span><strong>{{ fa(reportSummary.withoutGps) }}</strong><small>یا بدون فاصله</small></article>
-          <article><span>شیفت باز</span><strong>{{ fa(reportSummary.openShifts) }}</strong><small>ورود بدون خروج</small></article>
-          <article><span>دارای GPS</span><strong>{{ fa(reportSummary.withGps) }}</strong><small>ثبت با موقعیت</small></article>
+          <article v-for="item in reportHighlightStats" :key="item.label">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+            <small>{{ item.note }}</small>
+          </article>
         </div>
 
         <div v-if="reportSummary.truncated || reportSummary.statsTruncated" class="attendance-alert is-info report-truncation-note">
@@ -700,7 +707,7 @@ onMounted(() => {
         </section>
 
         <section v-else-if="reportViewMode === 'cards'" class="report-cards-grid">
-          <article v-for="row in reportRows" :key="row.id" class="report-event-card">
+          <article v-for="row in reportRows" :key="row.id" :class="['report-event-card', `card-tone-${row.eventType}`]">
             <div class="report-event-card-head">
               <div>
                 <strong>{{ row.userName }}</strong>
@@ -732,7 +739,7 @@ onMounted(() => {
             </div>
             <span class="table-count">{{ fa(reportPersonnelStats.length) }} نفر</span>
           </div>
-          <div class="attendance-table-wrap">
+          <div class="attendance-table-wrap desktop-data-table">
             <table class="attendance-report-table">
               <thead>
                 <tr>
@@ -767,6 +774,28 @@ onMounted(() => {
               </tbody>
             </table>
           </div>
+
+          <div class="mobile-data-cards report-cards-grid">
+            <article
+              v-for="person in reportPersonnelStats"
+              :key="`person-card-${person.userId}`"
+              class="report-event-card"
+            >
+              <div class="report-event-card-head">
+                <div>
+                  <strong>{{ person.userName }}</strong>
+                  <small>{{ person.userRole || '-' }} · {{ person.userDepartment || '-' }}</small>
+                </div>
+                <span :class="['status-badge', eventTone(person.currentStatus)]">{{ statusLabel(person.currentStatus) }}</span>
+              </div>
+              <div class="report-event-card-meta">
+                <span>رویداد: {{ fa(person.totalEvents) }} · ورود {{ fa(person.checkins) }} · خروج {{ fa(person.checkouts) }}</span>
+                <span>ساعات: {{ formatHours(person.workedHours) }}</span>
+                <span>آخرین: {{ eventLabel(person.lastEventType) }} · {{ dateTime(person.lastEventAt) }}</span>
+              </div>
+            </article>
+            <p v-if="!reportPersonnelStats.length && !loading" class="attendance-public-hint">آمار پرسنلی برای این فیلترها موجود نیست.</p>
+          </div>
         </section>
 
         <section v-else class="surface-block report-table-card">
@@ -777,7 +806,7 @@ onMounted(() => {
             </div>
             <span class="table-count">{{ fa(reportDailyStats.length) }} روز</span>
           </div>
-          <div class="attendance-table-wrap">
+          <div class="attendance-table-wrap desktop-data-table">
             <table class="attendance-report-table">
               <thead>
                 <tr>
@@ -805,6 +834,22 @@ onMounted(() => {
                 <tr v-if="!reportDailyStats.length && !loading"><td colspan="8">آمار روزانه برای این فیلترها موجود نیست.</td></tr>
               </tbody>
             </table>
+          </div>
+
+          <div class="mobile-data-cards report-cards-grid">
+            <article v-for="day in reportDailyStats" :key="`day-card-${day.date}`" class="report-event-card">
+              <div class="report-event-card-head">
+                <div>
+                  <strong>{{ dateOnly(day.date) }}</strong>
+                  <small>{{ fa(day.uniqueUsers) }} پرسنل · {{ fa(day.totalEvents) }} رویداد</small>
+                </div>
+              </div>
+              <div class="report-event-card-meta">
+                <span>ورود {{ fa(day.checkins) }} · خروج {{ fa(day.checkouts) }}</span>
+                <span>ساعات: {{ formatHours(day.workedHours) }}</span>
+              </div>
+            </article>
+            <p v-if="!reportDailyStats.length && !loading" class="attendance-public-hint">آمار روزانه برای این فیلترها موجود نیست.</p>
           </div>
         </section>
       </section>
@@ -1321,6 +1366,16 @@ onMounted(() => {
   border: 1px solid var(--line);
 }
 
+.report-event-card.card-tone-in {
+  border-color: rgba(52, 144, 139, 0.24);
+  background: linear-gradient(180deg, rgba(236, 250, 245, 0.98), rgba(255, 255, 255, 0.94));
+}
+
+.report-event-card.card-tone-out {
+  border-color: rgba(245, 158, 11, 0.24);
+  background: linear-gradient(180deg, rgba(255, 248, 232, 0.98), rgba(255, 255, 255, 0.94));
+}
+
 .report-event-card-head {
   display: flex;
   align-items: flex-start;
@@ -1448,29 +1503,32 @@ onMounted(() => {
 
 .attendance-user-head {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "avatar identity"
+    "tools tools";
+  gap: 10px 12px;
   align-items: center;
   min-width: 0;
 }
 
-.attendance-avatar {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 14px;
-  background: #dcefec;
-  color: #1f5c59;
-  font-weight: 800;
+.attendance-user-head :deep(.user-avatar-face) {
+  grid-area: avatar;
+  flex-shrink: 0;
 }
 
-.attendance-user-head > div { min-width: 0; }
+.attendance-user-identity {
+  grid-area: identity;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
 
 .attendance-user-tools {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
@@ -1484,6 +1542,14 @@ onMounted(() => {
 
 .attendance-user-head strong,
 .attendance-user-head small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attendance-user-identity strong,
+.attendance-user-identity small {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1989,7 +2055,9 @@ onMounted(() => {
   .report-summary-grid-wide { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .report-hero { flex-direction: column; }
   .report-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .report-cards-grid { grid-template-columns: 1fr; }
+  .report-cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .report-view-tab { flex: 0 0 auto; width: auto; white-space: nowrap; }
+  .attendance-tab { flex: 0 0 auto; width: auto; white-space: nowrap; }
 }
 
 @media (max-width: 760px) {
@@ -2002,7 +2070,7 @@ onMounted(() => {
   .attendance-actions { grid-template-columns: 1fr 1fr; }
   .report-hero-actions { width: 100%; }
   .report-hero-actions .action-btn { flex: 1 1 calc(50% - 4px); }
-  .report-view-tab { flex: 1 1 calc(50% - 4px); text-align: center; }
+  .report-view-tab { flex: 0 0 auto; width: auto; text-align: center; white-space: nowrap; }
   .report-detail-grid { grid-template-columns: 1fr; }
 }
 
@@ -2010,15 +2078,22 @@ onMounted(() => {
   .attendance-summary,
   .attendance-users,
   .report-summary-grid,
-  .report-summary-grid-wide { grid-template-columns: 1fr; }
-
-  .attendance-user-head { grid-template-columns: auto minmax(0, 1fr); }
-  .attendance-user-tools {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-  }
+  .report-summary-grid-wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
   .attendance-actions { grid-template-columns: 1fr 1fr; }
-  .attendance-tab { flex: 1 1 100%; }
+}
+
+.attendance-tabs,
+.report-view-tabs,
+.report-range-bar {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+}
+
+.attendance-tabs::-webkit-scrollbar,
+.report-view-tabs::-webkit-scrollbar,
+.report-range-bar::-webkit-scrollbar {
+  display: none;
 }
 </style>

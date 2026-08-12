@@ -34,7 +34,9 @@ const locationDraft = ref({
   cityName: '',
 })
 
-const { clearOwnAvatar, loadSettings, saveSettings, setLastError, state, uploadOwnAvatar } = useWorkflowHub()
+const { clearOwnAvatar, loadSettings, saveSettings, setLastError, state, uploadOwnAvatar, loadTaskingSettings, saveTaskingSettings } = useWorkflowHub()
+const taskingMessage = ref('')
+const taskingDraft = ref(null)
 
 const selectedSection = computed(() => state.settings.sections.find((item) => item.key === selectedSectionKey.value) || null)
 const hasOwnProfilePhoto = computed(() => Boolean(state.currentUser.avatarUrl))
@@ -268,9 +270,31 @@ async function persistWorkSchedule() {
   }
 }
 
+async function persistTaskingSettings() {
+  if (!state.settings.canEdit || saving.value || !taskingDraft.value) return
+  saving.value = true
+  taskingMessage.value = ''
+  try {
+    const saved = await saveTaskingSettings(taskingDraft.value)
+    taskingDraft.value = { ...saved }
+    taskingMessage.value = 'تنظیمات تسکینگ ذخیره شد.'
+  } catch (error) {
+    setLastError(error, 'ذخیره تنظیمات تسکینگ ناموفق بود.')
+    taskingMessage.value = error?.message || 'ذخیره تنظیمات تسکینگ ناموفق بود.'
+  } finally {
+    saving.value = false
+  }
+}
+
 onMounted(async () => {
   await loadSettings(true)
   syncLocationDraftFromState()
+  try {
+    const settings = await loadTaskingSettings()
+    taskingDraft.value = { ...settings }
+  } catch {
+    taskingDraft.value = null
+  }
 })
 </script>
 
@@ -291,7 +315,7 @@ onMounted(async () => {
         :avatar-file-name="state.currentUser.avatarFileName"
         :busy="avatarBusy"
         title="عکس پروفایل شخصی"
-        description="برای اسامی خانم‌ها آیکون زنانه و برای آقایان آیکون مردانه نمایش داده می‌شود تا قبل از آپلود عکس."
+        description="برای اسامی خانم‌ها پس‌زمینه ملایم صورتی و برای آقایان سبز-فیروزه‌ای نمایش داده می‌شود؛ آیکون پروفایل مینیمال و یکدست است."
         @select="onOwnAvatarSelected"
         @clear="onOwnAvatarCleared"
       />
@@ -449,6 +473,79 @@ onMounted(async () => {
         >
           <IconlyIcon name="save" decorative />
           <span>{{ saving ? 'در حال ذخیره...' : 'ذخیره ساعات کاری' }}</span>
+        </button>
+      </div>
+    </section>
+
+    <section v-if="taskingDraft" class="surface-block">
+      <div class="section-label-row">
+        <SectionHeading
+          title="تسکینگ و ظرفیت کاری"
+          description="هدف ظرفیت، سقف برنامه‌ریزی، پذیرش ارجاع و قوانین بررسی تسک‌ها."
+        />
+      </div>
+
+      <div class="settings-stack">
+        <div class="modal-grid two-col">
+          <label class="field-shell">
+            <span>فعال بودن تسکینگ</span>
+            <select v-model="taskingDraft.enabled" :disabled="!state.settings.canEdit">
+              <option :value="true">فعال</option>
+              <option :value="false">غیرفعال</option>
+            </select>
+          </label>
+          <label class="field-shell">
+            <span>هدف ظرفیت (%)</span>
+            <input v-model.number="taskingDraft.targetUtilizationPercent" type="number" min="50" max="95" :readonly="!state.settings.canEdit" />
+          </label>
+          <label class="field-shell">
+            <span>سقف برنامه‌ریزی (%)</span>
+            <input v-model.number="taskingDraft.maxUtilizationPercent" type="number" min="50" max="100" :readonly="!state.settings.canEdit" />
+          </label>
+          <label class="field-shell">
+            <span>حداقل قطعه زمانی (دقیقه)</span>
+            <input v-model.number="taskingDraft.minimumSegmentMinutes" type="number" min="5" max="120" :readonly="!state.settings.canEdit" />
+          </label>
+          <label class="field-shell">
+            <span>ارجاع نیازمند پذیرش</span>
+            <select v-model="taskingDraft.assignmentRequiresAcceptance" :disabled="!state.settings.canEdit">
+              <option :value="true">بله</option>
+              <option :value="false">خیر</option>
+            </select>
+          </label>
+          <label class="field-shell">
+            <span>پایان کار نیازمند بررسی</span>
+            <select v-model="taskingDraft.completionRequiresReview" :disabled="!state.settings.canEdit">
+              <option :value="true">بله</option>
+              <option :value="false">خیر</option>
+            </select>
+          </label>
+          <label class="field-shell">
+            <span>تقسیم تسک بین روزها</span>
+            <select v-model="taskingDraft.allowTaskSplitting" :disabled="!state.settings.canEdit">
+              <option :value="true">فعال</option>
+              <option :value="false">غیرفعال</option>
+            </select>
+          </label>
+          <label class="field-shell">
+            <span>شروع شیفت تسکینگ</span>
+            <input v-model="taskingDraft.workDayStart" type="time" :readonly="!state.settings.canEdit" />
+          </label>
+          <label class="field-shell">
+            <span>پایان شیفت تسکینگ</span>
+            <input v-model="taskingDraft.workDayEnd" type="time" :readonly="!state.settings.canEdit" />
+          </label>
+        </div>
+        <p v-if="taskingMessage" class="settings-avatar-note">{{ taskingMessage }}</p>
+        <button
+          v-if="state.settings.canEdit"
+          class="action-btn tone-primary"
+          type="button"
+          :disabled="saving"
+          @click="persistTaskingSettings"
+        >
+          <IconlyIcon name="save" decorative />
+          <span>{{ saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات تسکینگ' }}</span>
         </button>
       </div>
     </section>
@@ -651,6 +748,20 @@ onMounted(async () => {
 .access-selection-user-copy small {
   color: #5f746f;
   font-size: 0.72rem;
+}
+
+.settings-modern-grid {
+  min-width: 0;
+}
+
+.settings-modern-grid .surface-block {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.settings-stack .field-shell,
+.progress-list {
+  min-width: 0;
 }
 
 .settings-stack .field-shell input {

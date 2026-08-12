@@ -9,6 +9,7 @@ import PageHeader from '../components/PageHeader.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatJalali, getTodayJalali } from '../utils/jalali'
 import { joinDisplayParts } from '../utils/text'
+import { isPendingWorkflowItem } from '../utils/status'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 const router = useRouter()
@@ -49,13 +50,16 @@ const ownExpenses = computed(() =>
   (state.expenses || []).filter((item) => String(item.owner || '').trim() === currentUserName.value),
 )
 
+const pendingRequests = computed(() =>
+  (state.requests || []).filter((item) => isPendingWorkflowItem(item, 'request')),
+)
+
+const pendingExpenses = computed(() =>
+  (state.expenses || []).filter((item) => isPendingWorkflowItem(item, 'expense')),
+)
+
 const inboxApprovals = computed(() =>
-  [...(state.approvals || [])].filter(
-    (item) =>
-      item.bucket === 'pending' ||
-      String(item.status || '').includes('انتظار') ||
-      String(item.status || '').includes('بررسی'),
-  ),
+  (state.approvals || []).filter((item) => isPendingWorkflowItem(item, 'approval')),
 )
 
 const openTicketsCount = computed(() =>
@@ -123,9 +127,9 @@ const heroTitle = computed(() =>
 const quickFocus = computed(() => {
   if (isManagerDashboard.value) {
     return [
-      { label: 'صف تایید', value: state.approvalMetrics.pending || 0, icon: 'gavel' },
-      { label: 'هزینه‌های باز', value: state.expenses.length, icon: 'account_balance_wallet' },
-      { label: 'فرم‌های فعال', value: state.requests.length, icon: 'folder_managed' },
+      { label: 'صف تایید', value: inboxApprovals.value.length, icon: 'gavel' },
+      { label: 'هزینه‌های باز', value: pendingExpenses.value.length, icon: 'account_balance_wallet' },
+      { label: 'فرم‌های فعال', value: pendingRequests.value.length, icon: 'folder_managed' },
     ]
   }
   return [
@@ -154,7 +158,6 @@ const operationalSnapshot = computed(() => {
 
 const highlightedStats = computed(() => {
   const monthlyExpense = state.stats.find((item) => item.id === 'monthly')?.value || state.expenseSummary[2]?.value || '0'
-  const approvedDocs = state.stats.find((item) => item.id === 'approved')?.value || state.approvalMetrics.approved || 0
 
   if (isManagerDashboard.value) {
     return [
@@ -170,8 +173,8 @@ const highlightedStats = computed(() => {
       {
         id: 'active-requests',
         label: 'درخواست‌های فعال',
-        value: state.requests.length,
-        note: 'در گردش',
+        value: pendingRequests.value.length,
+        note: 'در انتظار تایید',
         icon: 'assignment',
         tone: 'is-request',
         accent: 'جریان باز',
@@ -179,20 +182,20 @@ const highlightedStats = computed(() => {
       {
         id: 'pending-approvals',
         label: 'در انتظار تایید',
-        value: state.approvalMetrics.pending || 0,
+        value: inboxApprovals.value.length,
         note: 'نیازمند تصمیم',
         icon: 'pending_actions',
         tone: 'is-approval',
         accent: 'اقدام فوری',
       },
       {
-        id: 'approved-docs',
-        label: 'اسناد تاییدشده',
-        value: approvedDocs,
-        note: 'نهایی شده',
-        icon: 'verified',
+        id: 'pending-expenses',
+        label: 'هزینه‌های باز',
+        value: pendingExpenses.value.length,
+        note: 'در انتظار تایید',
+        icon: 'receipt_long',
         tone: 'is-success',
-        accent: 'بایگانی',
+        accent: 'نیازمند اقدام',
       },
     ]
   }
@@ -237,14 +240,13 @@ const highlightedStats = computed(() => {
   ]
 })
 
-const recentRequests = computed(() => {
-  const sortable = [...(state.requests || [])]
-  return sortable
+const recentPendingRequests = computed(() =>
+  [...pendingRequests.value]
     .sort((a, b) => String(b.createdAtIso || '').localeCompare(String(a.createdAtIso || '')))
-    .slice(0, 4)
-})
+    .slice(0, 4),
+)
 
-const expenseHighlights = computed(() => (state.expenses || []).slice(0, 3))
+const pendingExpenseHighlights = computed(() => pendingExpenses.value.slice(0, 3))
 
 const actionCards = computed(() => {
   if (!isManagerDashboard.value && importantDocs.value.length) {
@@ -277,7 +279,7 @@ const actionCards = computed(() => {
       action: () => openApprovalDetail(item.id),
     })
   })
-  recentRequests.value.forEach((item) => {
+  recentPendingRequests.value.forEach((item) => {
     cards.push({
       key: `request-${item.id}`,
       kind: 'request',
@@ -291,7 +293,7 @@ const actionCards = computed(() => {
       action: () => openRequestDetail(item.id),
     })
   })
-  expenseHighlights.value.forEach((item) => {
+  pendingExpenseHighlights.value.forEach((item) => {
     cards.push({
       key: `expense-${item.id}`,
       kind: 'expense',

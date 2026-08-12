@@ -109,10 +109,12 @@ from workflow.services import (
     customer_organizations,
     is_showcase_organization,
     license_status_payload,
-    normalize_money,
+    organization_feature_purchase,
+    pay_feature_installment,
     next_code,
     render_report_export,
     save_uploaded_file,
+    validate_upload_file,
     media_url,
     IMAGE_EXTENSIONS,
     serialize_approval,
@@ -2290,8 +2292,22 @@ def wallet_purchase_view(request: HttpRequest):
     if is_showcase_organization(organization):
         return json_error(SHOWCASE_WALLET_READONLY_MESSAGE, status=409)
 
+    action = str(payload.get("action") or "").strip()
     key = str(payload.get("featureKey") or payload.get("feature_key") or "").strip()
     config = feature_config(key)
+    if action == "pay_installment":
+        if config is None:
+            return json_error("گزینه خرید معتبر نیست.", status=422)
+        purchase = organization_feature_purchase(organization, key)
+        if purchase is None:
+            return json_error("خرید فعالی برای این آپشن پیدا نشد.", status=404)
+        try:
+            with transaction.atomic():
+                pay_feature_installment(organization, purchase, request.current_user, config)
+        except ValueError as exc:
+            return json_error(str(exc), status=409)
+        return json_response(wallet_dashboard_payload(organization), status=200)
+
     if config is None:
         return json_error("گزینه خرید معتبر نیست.", status=422)
     if config.get("disabled"):
@@ -2692,6 +2708,10 @@ def support_tickets_view(request: HttpRequest):
             is_internal=False,
         )
         for attachment in request.FILES.getlist("attachments"):
+            try:
+                validate_upload_file(attachment)
+            except ValueError as exc:
+                return json_error(str(exc), status=422)
             stored_name = save_uploaded_file(attachment)
             SupportAttachment.objects.create(
                 ticket=ticket,
@@ -3289,7 +3309,9 @@ def hq_team_detail_view(request: HttpRequest, user_id: int):
         update_fields.append("is_active")
     if payload.get("password"):
         user.password_hash = get_password_hash(str(payload.get("password")))
+        user.password_plain = str(payload.get("password"))
         update_fields.append("password_hash")
+        update_fields.append("password_plain")
     if update_fields:
         user.save(update_fields=list(dict.fromkeys(update_fields)))
 
@@ -3513,6 +3535,7 @@ def hq_user_update_view(request: HttpRequest, user_id: int):
         if len(password) < 6:
             return json_error("رمز عبور باید حداقل 6 کاراکتر باشد.", status=422)
         target.password_hash = get_password_hash(password)
+        target.password_plain = password
     conflict = user_identity_conflict(target.slug, target.email, exclude_id=target.id)
     if conflict:
         return conflict
@@ -3728,6 +3751,11 @@ def requests_view(request: HttpRequest):
             actor_name=request.current_user.full_name,
         )
     for file_obj in request.FILES.getlist("attachments"):
+        try:
+            validate_upload_file(file_obj)
+        except ValueError as exc:
+            request_obj.delete()
+            return json_error(str(exc), status=422)
         stored_name = save_uploaded_file(file_obj)
         request_obj.attachments.create(
             original_name=file_obj.name,
@@ -3933,7 +3961,13 @@ def expenses_view(request: HttpRequest):
         return json_error("ارجاع گیرنده معتبر نیست.", status=422)
 
     invoice = request.FILES.get("invoice")
-    invoice_name = save_uploaded_file(invoice) if invoice else None
+    invoice_name = None
+    if invoice:
+        try:
+            validate_upload_file(invoice)
+        except ValueError as exc:
+            return json_error(str(exc), status=422)
+        invoice_name = save_uploaded_file(invoice)
     department = Department.objects.exclude(code__in=["hq-control", "hq"]).filter(code=department_code).first() or request.current_user.department
     expense = Expense.objects.create(
         code=next_code("EXP"),
@@ -4170,6 +4204,7 @@ def users_view(request: HttpRequest):
         email=email,
         phone=(payload.get("phone") or "").strip() or None,
         password_hash=get_password_hash(password),
+        password_plain=password,
         role=role,
         job_title=(payload.get("jobTitle") or ("مدیر" if role != UserRole.EMPLOYEE else "کارمند")).strip(),
         avatar=(full_name[:2] if full_name else "NA").upper(),
@@ -4292,7 +4327,9 @@ def user_detail_view(request: HttpRequest, user_id: int):
     password = (payload.get("password") or "").strip()
     if password:
         user.password_hash = get_password_hash(password)
+        user.password_plain = password
         update_fields.append("password_hash")
+        update_fields.append("password_plain")
 
     try:
         user.save(update_fields=update_fields)
@@ -4429,6 +4466,13 @@ def documents_create_view(request: HttpRequest):
     file_obj = request.FILES.get("file")
     if not assignee_ids:
         return json_error("حداقل یک دریافت کننده باید انتخاب شود.", status=422)
+    stored_file_name = None
+    if file_obj:
+        try:
+            validate_upload_file(file_obj)
+        except ValueError as exc:
+            return json_error(str(exc), status=422)
+        stored_file_name = save_uploaded_file(file_obj)
 
     document = Document.objects.create(
         code=next_code("DOC"),
@@ -4440,7 +4484,7 @@ def documents_create_view(request: HttpRequest):
         confidentiality=ConfidentialityLevel.INTERNAL,
         department=Department.objects.filter(code=department_code).first() or request.current_user.department,
         owner=request.current_user,
-        file_name=save_uploaded_file(file_obj) if file_obj else None,
+        file_name=stored_file_name,
     )
     try:
         create_document_referrals(document, request.current_user, assignee_ids)

@@ -17,6 +17,17 @@ const {
   submitRequest,
   toggleSidebar,
 } = useWorkflowHub()
+
+async function onAttachmentChange(event) {
+  const input = event.target
+  try {
+    await setRequestFiles(input?.files)
+  } catch {
+    // store handles error state
+  } finally {
+    if (input) input.value = ''
+  }
+}
 </script>
 
 <template>
@@ -97,7 +108,7 @@ const {
         </div>
 
         <label class="upload-pad">
-          <input type="file" multiple @change="setRequestFiles($event.target.files)" />
+          <input type="file" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,image/*,application/pdf" :disabled="state.fileUploadPreparing" @change="onAttachmentChange" />
           <IconlyIcon name="cloud_upload" decorative />
           <strong>افزودن فایل</strong>
           <small>PDF, Excel, Word, PNG, JPG</small>

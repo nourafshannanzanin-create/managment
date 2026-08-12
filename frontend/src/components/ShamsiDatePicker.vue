@@ -12,12 +12,14 @@ import {
   parseJalali,
   shiftJalaliMonth,
 } from '../utils/jalali'
+import { buildAnchoredPanelStyle } from '../utils/pickerPosition'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
   modelType: { type: String, default: 'iso' },
   placeholder: { type: String, default: 'انتخاب تاریخ' },
   restrictToCurrentMonth: { type: Boolean, default: false },
+  pickerOnly: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -102,34 +104,19 @@ function isToday(day) {
 
 function buildPanelStyle() {
   if (!root.value || !panel.value) return
-  const rect = root.value.getBoundingClientRect()
-  const viewportWidth = window.innerWidth
-  const viewportHeight = window.innerHeight
-  const mobile = viewportWidth <= 760
-  const sidePadding = mobile ? 8 : 12
-  const width = Math.max(220, Math.min(rect.width, viewportWidth - sidePadding * 2))
-  const left = Math.max(sidePadding, Math.min(rect.left, viewportWidth - width - sidePadding))
-  const top = rect.bottom + 8
-  const maxHeight = Math.max(220, viewportHeight - top - sidePadding)
-
-  panelStyle.value = {
-    position: 'fixed',
-    top: `${top}px`,
-    left: `${left}px`,
-    right: 'auto',
-    bottom: 'auto',
-    width: `${width}px`,
-    maxWidth: `calc(100vw - ${sidePadding * 2}px)`,
-    maxHeight: `${maxHeight}px`,
-    overflowY: 'auto',
-    zIndex: '2200',
-  }
+  const anchorWidth = root.value.getBoundingClientRect().width
+  panelStyle.value = buildAnchoredPanelStyle(root.value, panel.value, {
+    minWidth: 260,
+    preferredWidth: Math.max(anchorWidth, 280),
+    matchAnchorWidth: anchorWidth >= 240,
+  })
 }
 
 async function openPanel() {
   open.value = true
   await nextTick()
   buildPanelStyle()
+  requestAnimationFrame(buildPanelStyle)
 }
 
 function toggleOpen() {
@@ -215,8 +202,8 @@ watch(open, async (isOpen) => {
 </script>
 
 <template>
-  <div ref="root" class="shamsi-picker">
-    <div class="shamsi-picker-input-wrap">
+  <div ref="root" class="shamsi-picker" :class="{ 'is-picker-only': pickerOnly }">
+    <div class="shamsi-picker-input-wrap" @click="pickerOnly && openPanel()">
       <input
         v-model="inputValue"
         class="shamsi-picker-input"
@@ -224,8 +211,10 @@ watch(open, async (isOpen) => {
         inputmode="numeric"
         dir="ltr"
         :placeholder="placeholder"
-        @focus="openPanel"
-        @blur="applyTypedValue"
+        :readonly="pickerOnly"
+        @focus="!pickerOnly && openPanel()"
+        @click="pickerOnly && openPanel()"
+        @blur="!pickerOnly && applyTypedValue()"
       />
       <button class="shamsi-picker-toggle" type="button" @click.stop="toggleOpen">
         <IconlyIcon name="calendar_month" decorative />

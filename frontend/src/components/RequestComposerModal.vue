@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue'
 import BaseModal from './BaseModal.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
+import { formatFileSize } from '../utils/uploads'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const props = defineProps({
@@ -27,6 +28,19 @@ const {
   submitRequest,
   availableRecipientUsers,
 } = useWorkflowHub()
+
+const attachmentInputRef = ref(null)
+
+async function onAttachmentChange(event) {
+  const input = event.target
+  try {
+    await setRequestFiles(input?.files)
+  } catch {
+    // ErrorNotice reads state.lastErrorDetails
+  } finally {
+    if (input) input.value = ''
+  }
+}
 
 const requestTypeOptions = [
   { value: 'general', label: 'عمومی' },
@@ -189,25 +203,32 @@ watch(
         </label>
 
         <label class="upload-pad compact-upload">
-          <input type="file" multiple @change="setRequestFiles($event.target.files)" />
+          <input
+            ref="attachmentInputRef"
+            type="file"
+            multiple
+            accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,image/*,application/pdf"
+            :disabled="submitting || state.fileUploadPreparing"
+            @change="onAttachmentChange"
+          />
           <IconlyIcon name="attach_file" decorative />
-          <strong>افزودن پیوست</strong>
-          <small>اختیاری</small>
+          <strong>{{ state.fileUploadPreparing ? 'در حال آماده‌سازی فایل...' : 'افزودن پیوست' }}</strong>
+          <small>اختیاری — حداکثر ۸ مگابایت</small>
         </label>
 
-        <div v-if="form.attachments.length" class="file-list">
+        <div v-if="form.attachments.length" class="file-list attachment-list">
           <article v-for="(file, index) in form.attachments" :key="`${file.name}-${index}`" class="file-row">
             <div>
               <strong>{{ file.name }}</strong>
-              <small>{{ Math.round(file.size / 1024) }} KB</small>
+              <small>{{ formatFileSize(file.size) }}</small>
             </div>
-            <button class="icon-btn" type="button" @click="removeAttachment(index)">
+            <button class="icon-btn" type="button" :disabled="submitting || state.fileUploadPreparing" @click="removeAttachment(index)">
               <IconlyIcon name="delete" decorative />
             </button>
           </article>
         </div>
 
-        <label class="field-shell">
+        <label :class="['field-shell full-width-field', fieldHasError('description') && 'has-error']">
           <span>توضیحات</span>
           <textarea v-model="form.description" rows="5"></textarea>
         </label>
@@ -223,7 +244,7 @@ watch(
           <IconlyIcon name="close" decorative />
           <span>بستن</span>
         </button>
-        <button class="action-btn tone-primary" :disabled="submitting" type="button" @click="submitRequest">
+        <button class="action-btn tone-primary" :disabled="submitting || state.fileUploadPreparing" type="button" @click="submitRequest">
           <IconlyIcon name="send" decorative />
           <span>{{ submitting ? 'در حال ثبت...' : 'ثبت و ارجاع' }}</span>
         </button>
@@ -295,6 +316,11 @@ watch(
 }
 
 .priority-field {
+  grid-column: 1 / -1;
+}
+
+.full-width-field,
+.attachment-list {
   grid-column: 1 / -1;
 }
 

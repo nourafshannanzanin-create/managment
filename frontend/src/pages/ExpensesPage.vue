@@ -68,20 +68,20 @@ async function handleInvoiceOpen(item) {
               @keydown.enter.prevent="openExpenseDetail(item.id)"
               @keydown.space.prevent="openExpenseDetail(item.id)"
             >
-              <td>
+              <td class="cell-mobile-primary">
                 <strong>{{ item.title || item.description }}</strong>
                 <small>{{ item.department }}</small>
               </td>
-              <td><strong>{{ item.amount }}</strong></td>
-              <td>{{ item.category || '-' }}</td>
-              <td>{{ item.owner }}</td>
-              <td>{{ item.createdAt || '-' }}</td>
-              <td><span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span></td>
-              <td>
+              <td data-label="مبلغ"><strong>{{ item.amount }}</strong></td>
+              <td class="cell-mobile-hide">{{ item.category || '-' }}</td>
+              <td class="cell-mobile-hide">{{ item.owner }}</td>
+              <td data-label="تاریخ">{{ item.createdAt || '-' }}</td>
+              <td data-label="وضعیت"><span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span></td>
+              <td class="cell-mobile-hide">
                 <button v-if="item.invoiceUrl" class="table-link" type="button" @click.stop="handleInvoiceOpen(item)">مشاهده</button>
                 <span v-else class="table-muted">بدون فایل</span>
               </td>
-              <td><button class="table-link" type="button" @click.stop="openExpenseDetail(item.id)">جزئیات</button></td>
+              <td class="cell-mobile-hide"><button class="table-link" type="button" @click.stop="openExpenseDetail(item.id)">جزئیات</button></td>
             </tr>
           </tbody>
           <tbody v-else>

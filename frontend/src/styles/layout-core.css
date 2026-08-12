@@ -300,13 +300,57 @@
 
   #app .app-shell:not(.is-auth-route) .chat-page {
     grid-template-columns: 1fr !important;
-    height: calc(100dvh - 120px) !important;
-    max-height: calc(100dvh - 120px) !important;
+    height: calc(100dvh - 56px - 76px - env(safe-area-inset-bottom, 0px)) !important;
+    max-height: calc(100dvh - 56px - 76px - env(safe-area-inset-bottom, 0px)) !important;
+    border-radius: 0 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-page:not(.show-thread) .chat-thread {
+    display: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-page.show-thread .chat-sidebar {
+    display: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-page:not(.show-thread) .chat-sidebar {
+    display: grid !important;
+    grid-template-rows: auto auto auto minmax(0, 1fr) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-page.show-thread .chat-thread {
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-back-btn {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 4px;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-page.show-thread form.chat-composer {
+    position: fixed !important;
+    inset-inline: 0 !important;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 56 !important;
+    box-shadow: 0 -8px 24px rgba(31, 92, 89, 0.08) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-page.show-thread .chat-messages {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   #app .app-shell:not(.is-auth-route) .page-filters.modern-page-filters.topbar-filters,
   #app .app-shell:not(.is-auth-route) .modern-page-filters.topbar-filters {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .modern-page-filters .modern-filter-reset,
+  #app .app-shell:not(.is-auth-route) .modern-page-filters .filter-reset-btn {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
   }
 }
 

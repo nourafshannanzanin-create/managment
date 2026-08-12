@@ -35,6 +35,7 @@ const items = computed(() => {
 
   const navItems = [
     { to: '/dashboard', label: 'خانه', icon: 'home' },
+    { to: '/tasking', label: 'تسک', icon: 'task_alt' },
     { to: '/chat', label: 'گفتگو', icon: 'forum' },
     { to: '/requests', label: 'درخواست', icon: 'list_alt' },
     { to: '/approvals', label: 'تایید', icon: 'verified' },

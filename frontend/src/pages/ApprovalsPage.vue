@@ -142,16 +142,16 @@ async function handleDownload(item) {
               @keydown.enter.prevent="openApprovalDetail(item.id)"
               @keydown.space.prevent="openApprovalDetail(item.id)"
             >
-              <td><strong>{{ item.title }}</strong></td>
-              <td>{{ item.owner }}</td>
-              <td>{{ item.department }}</td>
-              <td>{{ (item.assignees || []).join('، ') || '-' }}</td>
-              <td><span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span></td>
-              <td>
+              <td class="cell-mobile-primary"><strong>{{ item.title }}</strong></td>
+              <td class="cell-mobile-hide">{{ item.owner }}</td>
+              <td class="cell-mobile-hide">{{ item.department }}</td>
+              <td class="cell-mobile-hide">{{ (item.assignees || []).join('، ') || '-' }}</td>
+              <td data-label="وضعیت"><span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span></td>
+              <td class="cell-mobile-hide">
                 <button v-if="item.downloadUrl" class="table-link" type="button" @click.stop="handleDownload(item)">دانلود</button>
                 <span v-else class="table-muted">بدون فایل</span>
               </td>
-              <td><button class="table-link" type="button" @click.stop="openApprovalDetail(item.id)">مشاهده</button></td>
+              <td class="cell-mobile-hide"><button class="table-link" type="button" @click.stop="openApprovalDetail(item.id)">مشاهده</button></td>
             </tr>
           </tbody>
           <tbody v-else>

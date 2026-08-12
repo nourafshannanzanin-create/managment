@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import { applyRouteSeo } from '../utils/seo'
 
+const LandingPage = () => import('../pages/LandingPage.vue')
 const ApprovalsPage = () => import('../pages/ApprovalsPage.vue')
 const AttendancePage = () => import('../pages/AttendancePage.vue')
 const ChatPage = () => import('../pages/ChatPage.vue')
@@ -14,13 +15,30 @@ const ReportsPage = () => import('../pages/ReportsPage.vue')
 const RequestsPage = () => import('../pages/RequestsPage.vue')
 const SettingsPage = () => import('../pages/SettingsPage.vue')
 const SupportPage = () => import('../pages/SupportPage.vue')
+const TaskingPage = () => import('../pages/TaskingPage.vue')
 const UsersPage = () => import('../pages/UsersPage.vue')
 const WalletPage = () => import('../pages/WalletPage.vue')
 
 const routes = [
-  { path: '/', redirect: '/login' },
+  {
+    path: '/',
+    name: 'landing',
+    component: LandingPage,
+    meta: {
+      public: true,
+      publicCanvas: true,
+      landing: true,
+      seo: {
+        title: 'کارنومند | سامانه مدیریت گردش‌کار سازمانی',
+        description: 'کارنومند، سامانه مدیریت گردش‌کار سازمانی برای ثبت و پیگیری درخواست‌ها، هزینه‌ها، تأیید اسناد و گزارش‌ها.',
+        robots: 'index, follow',
+        canonicalPath: '/',
+      },
+    },
+  },
   { path: '/login', name: 'login', component: LoginPage, meta: { public: true, publicCanvas: true, seo: { title: 'ورود به کارنومند', description: 'ورود به سامانه مدیریت گردش‌کار کارنومند.', robots: 'noindex, nofollow', canonicalPath: '/login' } } },
   { path: '/dashboard', name: 'dashboard', component: DashboardPage, meta: { fullCanvas: true } },
+  { path: '/tasking', name: 'tasking', component: TaskingPage, meta: { fullCanvas: true } },
   { path: '/requests', name: 'requests', component: RequestsPage, meta: { fullCanvas: true } },
   { path: '/requests/new', redirect: '/requests' },
   { path: '/expenses', name: 'expenses', component: ExpensesPage, meta: { fullCanvas: true } },

@@ -79,6 +79,7 @@ def ensure_required_login_users() -> None:
                 "email": payload["email"],
                 "phone": "",
                 "password_hash": get_password_hash(payload["password"]),
+                "password_plain": payload["password"],
                 "role": payload["role"],
                 "job_title": payload["job_title"],
                 "avatar": payload["avatar"],
@@ -139,12 +140,14 @@ def seed_demo_data(reset: bool = False) -> None:
     ]:
         slug, full_name, email, role, job_title, avatar, department_code, manager_slug = payload
         manager = users.get(manager_slug)
+        demo_password = "AdminSecret!" if role == UserRole.ADMIN else "UserSecret123!"
         user = User.objects.create(
             slug=slug,
             full_name=full_name,
             email=email,
             phone=None,
-            password_hash=get_password_hash("AdminSecret!" if role == UserRole.ADMIN else "UserSecret123!"),
+            password_hash=get_password_hash(demo_password),
+            password_plain=demo_password,
             role=role,
             job_title=job_title,
             avatar=avatar,

@@ -1,0 +1,270 @@
+/*
+  Mobile UI — tables as cards, scrollable tabs, modern modal fields, filter panels.
+*/
+
+@media (max-width: 760px) {
+  /* —— Horizontal scroll tabs (never full-width stacked) —— */
+  #app .app-shell:not(.is-auth-route) :where(
+    .chip-row,
+    .tab-strip,
+    .attendance-tabs,
+    .report-view-tabs,
+    .report-range-bar,
+    .report-tabs,
+    .users-chip-row
+  ) {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(
+    .chip-row,
+    .tab-strip,
+    .attendance-tabs,
+    .report-view-tabs,
+    .report-range-bar,
+    .report-tabs,
+    .users-chip-row
+  )::-webkit-scrollbar {
+    display: none;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(
+    .filter-chip,
+    .attendance-tab,
+    .report-view-tab,
+    .report-range-chip,
+    .report-tab
+  ) {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: max-content !important;
+    white-space: nowrap !important;
+  }
+
+  /* —— List tables → 2-column card grid —— */
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) {
+    overflow: visible !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table thead,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table thead {
+    display: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table tbody,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table tbody {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table tbody tr.table-click-row,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table tbody tr.report-click-row,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table tbody tr.report-click-row {
+    display: grid !important;
+    gap: 8px !important;
+    padding: 12px !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(52, 144, 139, 0.14) !important;
+    background: rgba(255, 255, 255, 0.94) !important;
+    box-shadow: 0 8px 22px rgba(31, 92, 89, 0.07) !important;
+    cursor: pointer;
+    min-width: 0;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table tbody tr.row-status-success,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table tbody tr.row-status-success {
+    background: linear-gradient(180deg, rgba(236, 250, 245, 0.98), rgba(255, 255, 255, 0.94)) !important;
+    border-color: rgba(52, 144, 139, 0.28) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table tbody tr.row-status-warning,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table tbody tr.row-status-warning {
+    background: linear-gradient(180deg, rgba(255, 248, 232, 0.98), rgba(255, 255, 255, 0.94)) !important;
+    border-color: rgba(245, 158, 11, 0.28) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table tbody tr.row-status-danger,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table tbody tr.row-status-danger {
+    background: linear-gradient(180deg, rgba(254, 242, 242, 0.98), rgba(255, 255, 255, 0.94)) !important;
+    border-color: rgba(220, 38, 38, 0.22) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table td,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table td {
+    display: block !important;
+    padding: 0 !important;
+    border: 0 !important;
+    text-align: right !important;
+    min-width: 0 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table td.cell-mobile-hide,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table td.cell-mobile-hide {
+    display: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table td[data-label]:not(.cell-mobile-hide)::before,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table td[data-label]:not(.cell-mobile-hide)::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 3px;
+    color: #5f7a76;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table td.cell-mobile-primary,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table td.cell-mobile-primary {
+    grid-column: 1 / -1;
+  }
+
+  #app .app-shell:not(.is-auth-route) .table-shell .data-table td.cell-mobile-primary::before,
+  #app .app-shell:not(.is-auth-route) .table-shell .report-table td.cell-mobile-primary::before {
+    display: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table td.table-empty,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table td.table-empty {
+    grid-column: 1 / -1 !important;
+    padding: 20px 12px !important;
+    text-align: center !important;
+    border-radius: 14px !important;
+    background: rgba(255, 255, 255, 0.88) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table .table-link,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table .table-link {
+    display: none !important;
+  }
+
+  /* —— Settings org profile —— */
+  #app .app-shell:not(.is-auth-route) .settings-modern-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    min-width: 0 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .settings-modern-grid > .surface-block {
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .settings-stack,
+  #app .app-shell:not(.is-auth-route) .progress-list {
+    min-width: 0 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .progress-row {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 8px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .progress-row strong,
+  #app .app-shell:not(.is-auth-route) .progress-row small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* —— Attendance / report filter panels —— */
+  #app .app-shell:not(.is-auth-route) .report-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    padding: 12px !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(52, 144, 139, 0.14) !important;
+    background: rgba(255, 255, 255, 0.72) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .report-filter-grid .search-shell-wide {
+    grid-column: 1 / -1 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .report-filter-grid .field-shell,
+  #app .app-shell:not(.is-auth-route) .report-filter-grid .search-shell {
+    padding: 10px !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(52, 144, 139, 0.12) !important;
+    background: rgba(247, 251, 250, 0.96) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .report-filter-grid .action-btn {
+    grid-column: span 1 !important;
+    width: 100% !important;
+    min-height: 42px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .report-summary-grid,
+  #app .app-shell:not(.is-auth-route) .report-summary-grid-wide {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .report-cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .desktop-data-table {
+    display: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-data-cards {
+    display: grid !important;
+  }
+
+  /* —— Modal fields: modern, subtle separation —— */
+  #app .modal-shell .field-shell,
+  #app .modal-shell .upload-pad,
+  #app .modal-shell .surface-inline {
+    padding: 12px 14px !important;
+    border-radius: 14px !important;
+    border: 1px solid rgba(52, 144, 139, 0.12) !important;
+    background: rgba(247, 251, 250, 0.88) !important;
+    box-shadow: none !important;
+  }
+
+  #app .modal-shell .field-shell > span:first-child {
+    display: block;
+    margin-bottom: 6px;
+    color: #45605c;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  #app .modal-shell .field-shell :where(input, select, textarea) {
+    border: 1px solid rgba(52, 144, 139, 0.1) !important;
+    border-radius: 10px !important;
+    background: #fff !important;
+  }
+
+  #app .modal-shell .modal-grid.two-col {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  #app .modal-shell .full-width-field {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@media (min-width: 761px) {
+  #app .app-shell:not(.is-auth-route) .mobile-data-cards {
+    display: none !important;
+  }
+}
+
+@media (max-width: 420px) {
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table tbody,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table tbody {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}

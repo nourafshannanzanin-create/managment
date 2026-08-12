@@ -71,18 +71,18 @@ function priorityLabel(priority) {
               @keydown.enter.prevent="openRequestDetail(item.id)"
               @keydown.space.prevent="openRequestDetail(item.id)"
             >
-              <td><strong>{{ item.id }}</strong></td>
-              <td>
+              <td class="cell-mobile-hide"><strong>{{ item.id }}</strong></td>
+              <td class="cell-mobile-primary">
                 <strong>{{ item.title }}</strong>
                 <small>{{ item.department }}</small>
               </td>
-              <td>{{ item.owner }}</td>
-              <td>{{ item.manager }}</td>
-              <td>{{ (item.employeeAssignees || []).join('، ') || '-' }}</td>
-              <td><span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span></td>
-              <td>{{ priorityLabel(item.priority) }}</td>
-              <td>{{ item.createdAt || item.deadline || '-' }}</td>
-              <td><button class="table-link" type="button" @click.stop="openRequestDetail(item.id)">مشاهده جزئیات</button></td>
+              <td class="cell-mobile-hide">{{ item.owner }}</td>
+              <td class="cell-mobile-hide">{{ item.manager }}</td>
+              <td class="cell-mobile-hide">{{ (item.employeeAssignees || []).join('، ') || '-' }}</td>
+              <td data-label="وضعیت"><span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span></td>
+              <td class="cell-mobile-hide">{{ priorityLabel(item.priority) }}</td>
+              <td data-label="تاریخ">{{ item.createdAt || item.deadline || '-' }}</td>
+              <td class="cell-mobile-hide"><button class="table-link" type="button" @click.stop="openRequestDetail(item.id)">مشاهده جزئیات</button></td>
             </tr>
           </tbody>
           <tbody v-else>
