@@ -1257,7 +1257,7 @@ async function softLiveSync(options = {}) {
     if (state.currentUser.isHq || state.currentUser.canUseHq) {
       await loadSupportTickets(true, { soft: true, notifyNew: Boolean(state.liveSync.initialized) })
       await loadHqPanel(true, { soft: true })
-    } else if (options.includeSupport !== false) {
+    } else if (options.includeSupport !== false && state.currentUser.accessRole === 'admin') {
       await loadSupportTickets(true, { soft: true, notifyNew: false })
     }
 
@@ -1509,6 +1509,16 @@ async function loadWalletOptions(force = false) {
 
 async function loadSupportTickets(force = false, options = {}) {
   if (!state.authToken) return
+  const canSupport = Boolean(
+    state.currentUser.isHq ||
+    state.currentUser.canUseHq ||
+    state.currentUser.accessRole === 'admin',
+  )
+  if (!canSupport) {
+    state.support.loaded = true
+    state.support.loading = false
+    return
+  }
   if (state.support.loaded && !force) return
   const soft = Boolean(options.soft)
   if (!soft) {
@@ -2810,13 +2820,17 @@ async function updateUser(userId, payload) {
       if (clearAvatar) formData.append('clearAvatar', '1')
       response = await authorizedFetch(`/users/${userId}`, { method: 'PATCH', body: formData })
     } else {
+      const body = {
+        ...payload,
+        managerId: payload.managerId ? Number(payload.managerId) : null,
+      }
+      if (!String(body.password || '').trim()) delete body.password
+      if (body.avatarFile) delete body.avatarFile
+      if (body.clearAvatar !== undefined) delete body.clearAvatar
       response = await authorizedFetch(`/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...payload,
-          managerId: payload.managerId ? Number(payload.managerId) : null,
-        }),
+        body: JSON.stringify(body),
       })
     }
     const updatedUser = normalizeUser(repairPayload(await response.json()))

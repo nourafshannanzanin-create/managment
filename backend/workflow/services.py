@@ -181,7 +181,7 @@ def access_role_label(role: str) -> str:
         UserRole.EXECUTIVE_MANAGER: "مدیر ارشد",
         UserRole.MANAGER: "مدیر",
         UserRole.EMPLOYEE: "کارمند",
-    }[role]
+    }.get(role, role or "کاربر")
 
 
 def normalize_person_name(value: str | None) -> str:
@@ -804,7 +804,23 @@ def serialize_current_user(user: User) -> dict:
 
 def serialize_user(user: User) -> dict:
     membership = getattr(user, "organization_membership", None)
+    if membership is None:
+        try:
+            membership = OrganizationMembership.objects.select_related("organization").filter(user=user).first()
+        except Exception:
+            membership = None
+    organization = membership.organization if membership else get_user_organization(user)
+    try:
+        section_access = set(
+            user.section_access_grants.filter(organization=organization).values_list("section_key", flat=True)
+        ) if organization is not None else set()
+    except Exception:
+        section_access = set()
+    bonus_amount = Decimal(user.bonus_amount or 0)
+    penalty_amount = Decimal(user.penalty_amount or 0)
+    net_adjustment = bonus_amount - penalty_amount
     finance_updated_at = user.finance_updated_at
+    created_at = getattr(user, "created_at", None)
     return {
         "id": user.id,
         "name": normalize_person_name(user.full_name),
@@ -813,25 +829,39 @@ def serialize_user(user: User) -> dict:
         "phone": user.phone or "",
         "role": access_role_label(user.role),
         "accessRole": user.role,
-        "departmentCode": user.department.code if user.department else "",
-        "department": user.department.name if user.department else "\u0628\u062f\u0648\u0646 \u0648\u0627\u062d\u062f",
-        "manager": normalize_person_name(user.manager.full_name) if user.manager else "\u062a\u0639\u06cc\u06cc\u0646 \u0646\u0634\u062f\u0647",
-        "kpi": user.job_title,
+        "departmentCode": user.department.code if user.department_id and user.department else "",
+        "department": user.department.name if user.department_id and user.department else "بدون واحد",
+        "manager": normalize_person_name(user.manager.full_name) if user.manager_id and user.manager else "تعیین نشده",
         "managerId": user.manager_id,
-        "avatar": user.avatar,
+        "avatar": user.avatar or "",
         "avatarUrl": user_avatar_url(user),
         "avatar_url": user_avatar_url(user),
         "avatarFileName": user_avatar_file_name(user),
         "avatar_file_name": user_avatar_file_name(user),
-        "jobTitle": user.job_title,
+        "jobTitle": user.job_title or "",
+        "kpi": user.job_title or "",
         "organization": membership.organization.name if membership else "",
         "organizationId": membership.organization_id if membership else None,
-        "joinedAt": format_date(user.created_at.date()),
-        "joinedAtIso": format_date(user.created_at.date()),
+        "joinedAt": format_date(created_at.date()) if created_at else "",
+        "joinedAtIso": format_date(created_at.date()) if created_at else "",
         "financeUpdatedAt": finance_updated_at.isoformat() if finance_updated_at else "",
         "financeUpdatedAtIso": format_date(finance_updated_at.date()) if finance_updated_at else "",
         "isActive": user.is_active,
-        "status": "\u0641\u0639\u0627\u0644" if user.is_active else "\u063a\u06cc\u0631\u0641\u0639\u0627\u0644",
+        "status": "فعال" if user.is_active else "غیرفعال",
+        "bonusAmount": format_money(bonus_amount),
+        "bonusAmountRaw": float(bonus_amount),
+        "penaltyAmount": format_money(penalty_amount),
+        "penaltyAmountRaw": float(penalty_amount),
+        "netAdjustment": format_money(net_adjustment),
+        "netAdjustmentRaw": float(net_adjustment),
+        "currentPassword": getattr(user, "password_plain", "") or "",
+        "sectionAccess": {
+            "approvals": "approvals" in section_access,
+            "expenses": "expenses" in section_access,
+            "reports": "reports" in section_access,
+            "users": "users" in section_access,
+            "settings": "settings" in section_access,
+        },
     }
 
 
@@ -1978,51 +2008,6 @@ def render_report_export(report_key: str, user: User, organization_id: int | Non
         raise ValueError("Invalid report key.")
 
     return f"{report_key}-report-{today}.csv", buffer.getvalue()
-
-def serialize_user(user: User) -> dict:
-    organization = get_user_organization(user)
-    section_access = set(
-        user.section_access_grants.filter(organization=organization).values_list("section_key", flat=True)
-    )
-    bonus_amount = Decimal(user.bonus_amount or 0)
-    penalty_amount = Decimal(user.penalty_amount or 0)
-    net_adjustment = bonus_amount - penalty_amount
-    finance_updated_at = user.finance_updated_at
-    return {
-        "id": user.id,
-        "name": normalize_person_name(user.full_name),
-        "username": user.slug,
-        "email": user.email,
-        "phone": user.phone or "",
-        "role": access_role_label(user.role),
-        "accessRole": user.role,
-        "department": user.department.name if user.department else "بدون واحد",
-        "manager": normalize_person_name(user.manager.full_name) if user.manager else "تعیین نشده",
-        "jobTitle": user.job_title,
-        "kpi": user.job_title,
-        "joinedAt": format_date(user.created_at.date()),
-        "joinedAtIso": format_date(user.created_at.date()),
-        "financeUpdatedAt": finance_updated_at.isoformat() if finance_updated_at else "",
-        "financeUpdatedAtIso": format_date(finance_updated_at.date()) if finance_updated_at else "",
-        "status": "فعال" if user.is_active else "غیرفعال",
-        "isActive": user.is_active,
-        "managerId": user.manager_id,
-        "departmentCode": user.department.code if user.department else "",
-        "bonusAmount": format_money(bonus_amount),
-        "bonusAmountRaw": float(bonus_amount),
-        "penaltyAmount": format_money(penalty_amount),
-        "penaltyAmountRaw": float(penalty_amount),
-        "netAdjustment": format_money(net_adjustment),
-        "netAdjustmentRaw": float(net_adjustment),
-        "currentPassword": getattr(user, "password_plain", "") or "",
-        "sectionAccess": {
-            "approvals": "approvals" in section_access,
-            "expenses": "expenses" in section_access,
-            "reports": "reports" in section_access,
-            "users": "users" in section_access,
-            "settings": "settings" in section_access,
-        },
-    }
 
 
 def feature_key_label(feature_key: str) -> str:

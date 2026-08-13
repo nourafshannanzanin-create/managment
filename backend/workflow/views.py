@@ -4291,108 +4291,131 @@ def user_detail_view(request: HttpRequest, user_id: int):
     except Exception as exc:
         return json_error(f"داده ارسالی معتبر نیست: {exc}", status=422)
 
-    username = normalize_slug(payload.get("username") or payload.get("slug") or user.slug)
-    conflict = user_identity_conflict(username, (payload.get("email") or user.email).strip().lower() or user.email, exclude_id=user.pk) if username else None
-    if not username:
-        return json_error("نام کاربری الزامی است.", status=422)
-    if conflict:
-        return conflict
-    if User.objects.exclude(pk=user.pk).filter(slug=username).exists():
-        return json_error("این نام کاربری قبلا ثبت شده است.", status=409)
-    email = (payload.get("email") or user.email).strip().lower() or user.email
-    if User.objects.exclude(pk=user.pk).filter(email=email).exists():
-        return json_error("شناسه داخلی کاربر تکراری است.", status=409)
-
-    manager_id = payload.get("managerId")
-    manager = None
-    if manager_id not in (None, "", 0, "0"):
-        try:
-            manager_id = int(manager_id)
-        except (TypeError, ValueError):
-            return json_error("مدیر انتخاب شده معتبر نیست.", status=422)
-        manager = User.objects.filter(pk=manager_id).first()
-        if not manager or manager.id == user.id or manager.id not in allowed_ids:
-            return json_error("مدیر انتخاب شده معتبر نیست.", status=422)
-
-    department = user.department
-    department_code = (payload.get("department") or payload.get("departmentCode") or "").strip()
-    if "department" in payload or "departmentCode" in payload:
-        department = Department.objects.filter(code=department_code).first() if department_code else None
-
-    role = payload.get("accessRole") or user.role
-    if role not in dict(UserRole.choices):
-        return json_error("نقش کاربر معتبر نیست.", status=422)
     try:
-        bonus_delta = parse_user_amount(payload.get("bonusDelta", 0), "پاداش")
-        penalty_delta = parse_user_amount(payload.get("penaltyDelta", 0), "جریمه")
-    except ValueError as exc:
-        return json_error(str(exc), status=422)
-    user.full_name = (payload.get("fullName") or user.full_name).strip()
-    user.slug = username
-    user.email = email
-    user.phone = (payload.get("phone") or "").strip() or None
-    user.role = role
-    user.job_title = (payload.get("jobTitle") or user.job_title).strip() or user.job_title
-    user.department = department
-    user.manager = manager
-    user.bonus_amount = Decimal(user.bonus_amount or 0) + bonus_delta
-    user.penalty_amount = Decimal(user.penalty_amount or 0) + penalty_delta
-    if bonus_delta or penalty_delta:
-        user.finance_updated_at = timezone.now()
-    if "isActive" in payload:
-        raw_active = payload.get("isActive")
-        if isinstance(raw_active, bool):
-            user.is_active = raw_active
-        else:
-            text = str(raw_active or "").strip().lower()
-            if text in {"1", "true", "yes", "on"}:
-                user.is_active = True
-            elif text in {"0", "false", "no", "off"}:
-                user.is_active = False
-    user.avatar = (user.full_name[:2] if user.full_name else user.avatar or "NA").upper()
-    update_fields = ["full_name", "slug", "email", "phone", "role", "job_title", "department", "manager", "bonus_amount", "penalty_amount", "is_active", "avatar"]
-    if bonus_delta or penalty_delta:
-        update_fields.append("finance_updated_at")
-    if avatar_file is not None:
+        username = normalize_slug(payload.get("username") or payload.get("slug") or user.slug)
+        conflict = user_identity_conflict(username, (payload.get("email") or user.email).strip().lower() or user.email, exclude_id=user.pk) if username else None
+        if not username:
+            return json_error("نام کاربری الزامی است.", status=422)
+        if conflict:
+            return conflict
+        if User.objects.exclude(pk=user.pk).filter(slug=username).exists():
+            return json_error("این نام کاربری قبلا ثبت شده است.", status=409)
+        email = (payload.get("email") or user.email or "").strip().lower() or user.email
+        if User.objects.exclude(pk=user.pk).filter(email=email).exists():
+            return json_error("شناسه داخلی کاربر تکراری است.", status=409)
+
+        manager_id = payload.get("managerId")
+        manager = None
+        if manager_id not in (None, "", 0, "0"):
+            try:
+                manager_id = int(manager_id)
+            except (TypeError, ValueError):
+                return json_error("مدیر انتخاب شده معتبر نیست.", status=422)
+            manager = User.objects.filter(pk=manager_id).first()
+            if not manager or manager.id == user.id or manager.id not in allowed_ids:
+                return json_error("مدیر انتخاب شده معتبر نیست.", status=422)
+
+        department = user.department
+        department_code = (payload.get("department") or payload.get("departmentCode") or "").strip()
+        if "department" in payload or "departmentCode" in payload:
+            department = Department.objects.filter(code=department_code).first() if department_code else None
+
+        role = payload.get("accessRole") or user.role
+        # Accept Persian labels if UI ever sends them
+        role_aliases = {
+            "مدیرعامل": UserRole.ADMIN,
+            "مدیر ارشد": UserRole.EXECUTIVE_MANAGER,
+            "مدیر": UserRole.MANAGER,
+            "کارمند": UserRole.EMPLOYEE,
+        }
+        role = role_aliases.get(str(role).strip(), role)
+        if role not in dict(UserRole.choices):
+            return json_error("نقش کاربر معتبر نیست.", status=422)
         try:
-            user.avatar_image = store_user_avatar_file(avatar_file)
+            bonus_delta = parse_user_amount(payload.get("bonusDelta", 0), "پاداش")
+            penalty_delta = parse_user_amount(payload.get("penaltyDelta", 0), "جریمه")
         except ValueError as exc:
             return json_error(str(exc), status=422)
-        update_fields.append("avatar_image")
-    elif payload.get("clearAvatar") in (True, "true", "1", 1):
-        user.avatar_image = ""
-        update_fields.append("avatar_image")
 
-    password = (payload.get("password") or "").strip()
-    if password:
-        if len(password) < 6:
-            return json_error("رمز عبور باید حداقل 6 کاراکتر باشد.", status=422)
-        user.password_hash = get_password_hash(password)
-        user.password_plain = password
-        update_fields.append("password_hash")
-        update_fields.append("password_plain")
+        full_name = str(payload.get("fullName") or user.full_name or "").strip() or user.full_name
+        job_title = str(payload.get("jobTitle") if payload.get("jobTitle") is not None else (user.job_title or "")).strip() or (user.job_title or "کاربر")
+        phone = str(payload.get("phone") or "").strip() or None
 
-    try:
-        user.save(update_fields=update_fields)
-    except IntegrityError:
-        return json_error("نام کاربری یا شناسه داخلی کاربر تکراری است.", status=409)
+        user.full_name = full_name
+        user.slug = username
+        user.email = email
+        user.phone = phone
+        user.role = role
+        user.job_title = job_title[:120]
+        user.department = department
+        user.manager = manager
+        user.bonus_amount = Decimal(user.bonus_amount or 0) + bonus_delta
+        user.penalty_amount = Decimal(user.penalty_amount or 0) + penalty_delta
+        if bonus_delta or penalty_delta:
+            user.finance_updated_at = timezone.now()
+        if "isActive" in payload:
+            raw_active = payload.get("isActive")
+            if isinstance(raw_active, bool):
+                user.is_active = raw_active
+            else:
+                text = str(raw_active or "").strip().lower()
+                if text in {"1", "true", "yes", "on"}:
+                    user.is_active = True
+                elif text in {"0", "false", "no", "off"}:
+                    user.is_active = False
+        initials = "".join(ch for ch in (user.full_name or "") if not ch.isspace())[:2] or "NA"
+        user.avatar = initials[:8]
+        update_fields = ["full_name", "slug", "email", "phone", "role", "job_title", "department", "manager", "bonus_amount", "penalty_amount", "is_active", "avatar"]
+        if bonus_delta or penalty_delta:
+            update_fields.append("finance_updated_at")
+        if avatar_file is not None:
+            try:
+                user.avatar_image = store_user_avatar_file(avatar_file)
+            except ValueError as exc:
+                return json_error(str(exc), status=422)
+            update_fields.append("avatar_image")
+        elif payload.get("clearAvatar") in (True, "true", "1", 1):
+            user.avatar_image = ""
+            update_fields.append("avatar_image")
+
+        password = str(payload.get("password") or "").strip()
+        if password:
+            if len(password) < 6:
+                return json_error("رمز عبور باید حداقل 6 کاراکتر باشد.", status=422)
+            user.password_hash = get_password_hash(password)
+            update_fields.append("password_hash")
+            if hasattr(user, "password_plain"):
+                user.password_plain = password[:255]
+                update_fields.append("password_plain")
+
+        try:
+            user.save(update_fields=list(dict.fromkeys(update_fields)))
+        except IntegrityError:
+            return json_error("نام کاربری یا شناسه داخلی کاربر تکراری است.", status=409)
+        except Exception as exc:
+            return json_error(f"ذخیره کاربر ناموفق بود: {exc}", status=500)
+
+        try:
+            sync_user_section_access(request.current_user, user, section_access_payload(payload))
+        except Exception as exc:
+            return json_error(f"ذخیره دسترسی‌ها ناموفق بود: {exc}", status=500)
+
+        user = User.objects.select_related("department", "manager").filter(pk=user.pk).first() or user
+        try:
+            AuditLog.objects.create(
+                actor=request.current_user,
+                actor_name=request.current_user.full_name,
+                action="user_updated",
+                entity_type="user",
+                entity_code=str(user.id),
+                detail=user.full_name,
+                icon="manage_accounts",
+            )
+        except Exception:
+            pass
+        return json_response(serialize_user(user))
     except Exception as exc:
-        return json_error(f"ذخیره کاربر ناموفق بود: {exc}", status=500)
-    try:
-        sync_user_section_access(request.current_user, user, section_access_payload(payload))
-    except Exception as exc:
-        return json_error(f"ذخیره دسترسی‌ها ناموفق بود: {exc}", status=500)
-    user.refresh_from_db()
-    AuditLog.objects.create(
-        actor=request.current_user,
-        actor_name=request.current_user.full_name,
-        action="user_updated",
-        entity_type="user",
-        entity_code=str(user.id),
-        detail=user.full_name,
-        icon="manage_accounts",
-    )
-    return json_response(serialize_user(user))
+        return json_error(f"ویرایش کاربر ناموفق بود: {exc}", status=500)
 
 
 @require_auth

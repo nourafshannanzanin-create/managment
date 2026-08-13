@@ -199,7 +199,9 @@ async function refreshRouteData(path, { soft = false } = {}) {
   }
 
   if (path === '/support') {
-    await loadSupportTickets(true, { soft: true })
+    if (state.currentUser.accessRole === 'admin' || state.currentUser.isHq || state.currentUser.canUseHq) {
+      await loadSupportTickets(true, { soft: true })
+    }
     return
   }
 
