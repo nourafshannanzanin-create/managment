@@ -115,6 +115,8 @@ function clearAvatar() {
         <label class="field-shell">
           <span>نوع دسترسی</span>
           <select v-model="form.accessRole">
+            <option value="admin">مدیرعامل</option>
+            <option value="executive_manager">مدیر ارشد</option>
             <option value="manager">مدیر</option>
             <option value="employee">کارمند</option>
           </select>

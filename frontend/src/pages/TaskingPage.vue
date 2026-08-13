@@ -154,8 +154,8 @@ const superviseSubTabs = computed(() => [
 ])
 
 const mentionSubTabs = computed(() => [
-  { key: 'unread', label: 'خوانده‌نشده', count: counts.value.mentions },
-  { key: 'all', label: 'همه منشن‌ها', count: counts.value.mentions },
+  { key: 'unread', label: 'خوانده‌نشده', count: counts.value.mentions || state.tasking.stats?.unreadMentions },
+  { key: 'all', label: 'همه منشن‌ها', count: counts.value.mentionsAll || counts.value.mentions },
 ])
 
 const currentSubTabs = computed(() => {
@@ -226,12 +226,12 @@ async function openTask(task) {
       <template #actions>
         <div class="tasking-header-actions">
           <div class="date-nav">
-            <button class="icon-btn" type="button" aria-label="روز قبل" @click="shiftDate(-1)">
-              <IconlyIcon name="arrow_forward" decorative />
+            <button class="icon-btn date-nav-btn" type="button" aria-label="روز قبل" @click="shiftDate(-1)">
+              &lt;
             </button>
             <button class="action-btn tone-soft" type="button" @click="goToday">امروز</button>
-            <button class="icon-btn" type="button" aria-label="روز بعد" @click="shiftDate(1)">
-              <IconlyIcon name="arrow_back" decorative />
+            <button class="icon-btn date-nav-btn" type="button" aria-label="روز بعد" @click="shiftDate(1)">
+              &gt;
             </button>
             <strong>{{ displayDate }}</strong>
           </div>
@@ -343,7 +343,7 @@ async function openTask(task) {
           </button>
           <button type="button" :class="['chip-btn', mainTab === 'mentions' && 'is-active']" @click="mainTab = 'mentions'">
             منشن
-            <span v-if="miniCount(state.tasking.stats.unreadMentions)" class="nav-link-badge is-mini">{{ miniCount(state.tasking.stats.unreadMentions) }}</span>
+            <span v-if="miniCount(state.tasking.stats.unreadMentions || state.tasking.counts?.mentions)" class="nav-link-badge is-mini">{{ miniCount(state.tasking.stats.unreadMentions || state.tasking.counts?.mentions) }}</span>
           </button>
         </div>
         <label class="search-shell compact-search">
@@ -438,6 +438,15 @@ async function openTask(task) {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.date-nav-btn {
+  width: 38px;
+  height: 38px;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  color: #1f5c59;
+  border-radius: 12px;
 }
 .active-timer-banner,
 .capacity-hero {
@@ -750,12 +759,53 @@ async function openTask(task) {
   .task-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
-  .task-card-grid,
+  .capacity-hero {
+    padding: 14px;
+    gap: 12px;
+  }
+  .capacity-hero-main {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+  }
+  .capacity-lede { display: none; }
   .capacity-stat-strip,
-  .tasking-metric-grid { grid-template-columns: 1fr; }
+  .tasking-metric-grid,
+  .task-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px;
+  }
+  .capacity-stat-strip article,
+  .tasking-metric-card {
+    min-width: 0;
+    padding: 12px;
+  }
   .task-card-footer { flex-direction: column; align-items: stretch; }
   .task-card-actions { flex-wrap: wrap; }
-  .capacity-ring { width: 108px; height: 108px; }
-  .capacity-ring-core { width: 80px; height: 80px; }
+  .capacity-ring { width: 92px; height: 92px; }
+  .capacity-ring-core { width: 68px; height: 68px; }
+  .capacity-ring-core strong { font-size: 18px; }
+  .date-nav-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1;
+    color: #1f5c59;
+  }
+  .tasking-toolbar {
+    display: grid;
+    gap: 10px;
+  }
+  .tab-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .tab-strip .chip-btn {
+    justify-content: center;
+    width: 100%;
+  }
 }
 </style>

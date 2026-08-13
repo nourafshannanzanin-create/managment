@@ -713,7 +713,9 @@ def store_user_avatar_file(file_obj) -> str:
 
 
 def sync_user_section_access(actor: User, user: User, access_map: dict[str, bool]) -> None:
-    organization = get_user_organization(actor)
+    organization = get_user_organization(actor) or get_user_organization(user)
+    if organization is None:
+        return
     for section_key, allowed in access_map.items():
         SectionAccessGrant.objects.filter(
             organization=organization,
@@ -2280,110 +2282,123 @@ def wallet_options_view(request: HttpRequest):
 
 
 @require_auth
-@methods("POST")
+@methods("GET", "POST")
+@csrf_exempt
 def wallet_purchase_view(request: HttpRequest):
     if not user_can_access_wallet(request.current_user):
         return json_error("دسترسی کافی ندارید.", status=403)
 
-    payload = parse_json(request)
-    organization = resolve_wallet_organization(request, payload)
-    if organization is None:
-        return json_error("مجموعه پیدا نشد.", status=404)
-    if is_showcase_organization(organization):
-        return json_error(SHOWCASE_WALLET_READONLY_MESSAGE, status=409)
+    try:
+        if request.method == "GET":
+            organization = resolve_wallet_organization(request)
+            if organization is None:
+                return json_error("مجموعه پیدا نشد.", status=404)
+            return json_response(wallet_options_payload(organization))
 
-    action = str(payload.get("action") or "").strip()
-    key = str(payload.get("featureKey") or payload.get("feature_key") or "").strip()
-    config = feature_config(key)
-    if action == "pay_installment":
+        payload = parse_json(request)
+        organization = resolve_wallet_organization(request, payload)
+        if organization is None:
+            return json_error("مجموعه پیدا نشد.", status=404)
+        if is_showcase_organization(organization):
+            return json_error(SHOWCASE_WALLET_READONLY_MESSAGE, status=409)
+
+        action = str(payload.get("action") or "").strip()
+        key = str(payload.get("featureKey") or payload.get("feature_key") or "").strip()
+        config = feature_config(key)
+        if action == "pay_installment":
+            if config is None:
+                return json_error("گزینه خرید معتبر نیست.", status=422)
+            purchase = organization_feature_purchase(organization, key)
+            if purchase is None:
+                return json_error("خرید فعالی برای این آپشن پیدا نشد.", status=404)
+            try:
+                with transaction.atomic():
+                    pay_feature_installment(organization, purchase, request.current_user, config)
+            except ValueError as exc:
+                return json_error(str(exc), status=409)
+            return json_response(wallet_dashboard_payload(organization), status=200)
+
         if config is None:
             return json_error("گزینه خرید معتبر نیست.", status=422)
-        purchase = organization_feature_purchase(organization, key)
-        if purchase is None:
-            return json_error("خرید فعالی برای این آپشن پیدا نشد.", status=404)
-        try:
-            with transaction.atomic():
-                pay_feature_installment(organization, purchase, request.current_user, config)
-        except ValueError as exc:
-            return json_error(str(exc), status=409)
-        return json_response(wallet_dashboard_payload(organization), status=200)
+        if config.get("disabled"):
+            return json_error("این گزینه فعلا غیرفعال است.", status=422)
 
-    if config is None:
-        return json_error("گزینه خرید معتبر نیست.", status=422)
-    if config.get("disabled"):
-        return json_error("این گزینه فعلا غیرفعال است.", status=422)
+        payment_plan = str(payload.get("paymentPlan") or payload.get("payment_plan") or "cash").strip()
+        if payment_plan not in {"cash", "installment"}:
+            return json_error("روش پرداخت معتبر نیست.", status=422)
 
-    payment_plan = str(payload.get("paymentPlan") or payload.get("payment_plan") or "cash").strip()
-    if payment_plan not in {"cash", "installment"}:
-        return json_error("روش پرداخت معتبر نیست.", status=422)
+        total_amount = normalize_money(config["base_price"])
+        requested_paid_amount = normalize_money(payload.get("paidAmount") or payload.get("paid_amount") or 0)
+        if payment_plan == "cash":
+            paid_amount = total_amount
+        elif requested_paid_amount > 0:
+            paid_amount = requested_paid_amount
+        else:
+            paid_amount = normalize_money(config.get("upfront_amount", 0) or config.get("monthly_installment_amount", 0))
+        if paid_amount <= 0:
+            return json_error("مبلغ پرداخت معتبر نیست.", status=422)
 
-    total_amount = normalize_money(config["base_price"])
-    requested_paid_amount = normalize_money(payload.get("paidAmount") or payload.get("paid_amount") or 0)
-    if payment_plan == "cash":
-        paid_amount = total_amount
-    elif requested_paid_amount > 0:
-        paid_amount = requested_paid_amount
-    else:
-        paid_amount = normalize_money(config.get("upfront_amount", 0) or config.get("monthly_installment_amount", 0))
-    if paid_amount <= 0:
-        return json_error("مبلغ پرداخت معتبر نیست.", status=422)
+        wallet_id = payload.get("walletId") or payload.get("wallet_id")
+        with transaction.atomic():
+            wallet_qs = Wallet.objects.select_for_update().filter(organization=organization, is_active=True)
+            wallet = wallet_qs.filter(pk=wallet_id).first() if wallet_id else wallet_qs.filter(key="main").first()
+            if wallet is None:
+                ensure_organization_wallets(organization)
+                wallet = Wallet.objects.select_for_update().filter(organization=organization, key="main", is_active=True).first()
+            if wallet is None:
+                return json_error("کیف پول معتبر برای پرداخت پیدا نشد.", status=404)
+            current_balance = Decimal(wallet.balance)
+            if current_balance < paid_amount:
+                return json_error("موجودی کیف پول برای خرید کافی نیست.", status=409)
 
-    wallet_id = payload.get("walletId") or payload.get("wallet_id")
-    with transaction.atomic():
-        wallet_qs = Wallet.objects.select_for_update().filter(organization=organization, is_active=True)
-        wallet = wallet_qs.filter(pk=wallet_id).first() if wallet_id else wallet_qs.filter(key="main").first()
-        if wallet is None:
-            return json_error("کیف پول معتبر برای پرداخت پیدا نشد.", status=404)
-        current_balance = Decimal(wallet.balance)
-        if current_balance < paid_amount:
-            return json_error("موجودی کیف پول برای خرید کافی نیست.", status=409)
+            wallet.balance = current_balance - paid_amount
+            wallet.updated_at = timezone.now()
+            wallet.save(update_fields=["balance", "updated_at"])
 
-        wallet.balance = current_balance - paid_amount
-        wallet.updated_at = timezone.now()
-        wallet.save(update_fields=["balance", "updated_at"])
-
-        remaining_amount = max(total_amount - paid_amount, Decimal("0"))
-        annual_amount = normalize_money(config.get("annual_subscription_amount", 0))
-        annual_installment_months = int(config.get("annual_subscription_installment_months", 0) or 0)
-        renewal_due_at = date.today() + timedelta(days=365) if remaining_amount <= 0 and annual_amount > 0 else None
-        purchase, _ = FeaturePurchase.objects.update_or_create(
-            organization=organization,
-            feature_key=key,
-            defaults={
-                "title": config["title"],
-                "payment_plan": payment_plan,
-                "total_amount": total_amount,
-                "paid_amount": paid_amount,
-                "remaining_amount": remaining_amount,
-                "next_installment_due_at": date.today() + timedelta(days=30) if payment_plan == "installment" and remaining_amount > 0 else None,
-                "renewal_due_at": renewal_due_at,
-                "annual_subscription_amount": annual_amount,
-                "annual_subscription_installment_months": annual_installment_months,
-                "is_active": True,
-                "updated_at": timezone.now(),
-            },
-        )
-        WalletTransaction.objects.create(
-            organization=organization,
-            wallet=wallet,
-            actor=request.current_user,
-            direction="out",
-            transaction_type="feature_purchase",
-            amount=paid_amount,
-            balance_after=wallet.balance,
-            note=f"{key}:{payment_plan}",
-            reference_id=str(purchase.id),
-        )
-        AuditLog.objects.create(
-            actor=request.current_user,
-            actor_name=request.current_user.full_name,
-            action="feature_purchase_activated",
-            entity_type="feature_purchase",
-            entity_code=purchase.feature_key,
-            detail=f"{organization.code}:{payment_plan}:{format_money(paid_amount)}",
-            icon="verified",
-        )
-    return json_response(wallet_dashboard_payload(organization), status=201)
+            remaining_amount = max(total_amount - paid_amount, Decimal("0"))
+            annual_amount = normalize_money(config.get("annual_subscription_amount", 0))
+            annual_installment_months = int(config.get("annual_subscription_installment_months", 0) or 0)
+            renewal_due_at = date.today() + timedelta(days=365) if remaining_amount <= 0 and annual_amount > 0 else None
+            purchase, _ = FeaturePurchase.objects.update_or_create(
+                organization=organization,
+                feature_key=key,
+                defaults={
+                    "title": config["title"],
+                    "payment_plan": payment_plan,
+                    "total_amount": total_amount,
+                    "paid_amount": paid_amount,
+                    "remaining_amount": remaining_amount,
+                    "next_installment_due_at": date.today() + timedelta(days=30) if payment_plan == "installment" and remaining_amount > 0 else None,
+                    "renewal_due_at": renewal_due_at,
+                    "annual_subscription_amount": annual_amount,
+                    "annual_subscription_installment_months": annual_installment_months,
+                    "is_active": True,
+                    "updated_at": timezone.now(),
+                },
+            )
+            WalletTransaction.objects.create(
+                organization=organization,
+                wallet=wallet,
+                actor=request.current_user,
+                direction="out",
+                transaction_type="feature_purchase",
+                amount=paid_amount,
+                balance_after=wallet.balance,
+                note=f"{key}:{payment_plan}",
+                reference_id=str(purchase.id),
+            )
+            AuditLog.objects.create(
+                actor=request.current_user,
+                actor_name=request.current_user.full_name,
+                action="feature_purchase_activated",
+                entity_type="feature_purchase",
+                entity_code=purchase.feature_key,
+                detail=f"{organization.code}:{payment_plan}:{format_money(paid_amount)}",
+                icon="verified",
+            )
+        return json_response(wallet_dashboard_payload(organization), status=201)
+    except Exception as exc:
+        return json_error(f"خطا در خرید/پرداخت قسط: {exc}", status=500)
 
 
 @require_auth
@@ -2651,10 +2666,20 @@ def public_attendance_view(request: HttpRequest, token: str):
     }, status=201 if request.method == "POST" else 200)
 
 
+def tenant_can_access_support(user: User) -> bool:
+    if user_is_hq_user(user):
+        return True
+    return user.role == UserRole.ADMIN
+
+
 @require_auth
 @methods("GET", "POST")
+@csrf_exempt
 def support_tickets_view(request: HttpRequest):
     close_stale_support_tickets()
+    # Tenant support desk is CEO-only (مدیرعامل)
+    if not tenant_can_access_support(request.current_user):
+        return json_error("دسترسی پشتیبانی فقط برای مدیرعامل مجموعه است.", status=403)
     organization = scoped_support_organization(request)
     if user_is_hq_user(request.current_user) and organization is None and request.method == "GET":
         tickets = scoped_support_tickets(request)
@@ -2745,6 +2770,8 @@ def support_tickets_view(request: HttpRequest):
 @methods("GET")
 def support_ticket_detail_view(request: HttpRequest, ticket_id: int):
     close_stale_support_tickets()
+    if not tenant_can_access_support(request.current_user):
+        return json_error("دسترسی پشتیبانی فقط برای مدیرعامل مجموعه است.", status=403)
     ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
     if ticket is None:
         return json_error("تیکت پیدا نشد.", status=404)
@@ -2755,6 +2782,8 @@ def support_ticket_detail_view(request: HttpRequest, ticket_id: int):
 @require_auth
 @methods("POST")
 def support_ticket_message_view(request: HttpRequest, ticket_id: int):
+    if not tenant_can_access_support(request.current_user):
+        return json_error("دسترسی پشتیبانی فقط برای مدیرعامل مجموعه است.", status=403)
     ticket = scoped_support_tickets(request).filter(pk=ticket_id).first()
     if ticket is None:
         return json_error("تیکت پیدا نشد.", status=404)
@@ -4257,7 +4286,11 @@ def user_detail_view(request: HttpRequest, user_id: int):
     if not user:
         return json_error("کاربر مورد نظر یافت نشد.", status=404)
 
-    payload, avatar_file = parse_user_write_payload(request)
+    try:
+        payload, avatar_file = parse_user_write_payload(request)
+    except Exception as exc:
+        return json_error(f"داده ارسالی معتبر نیست: {exc}", status=422)
+
     username = normalize_slug(payload.get("username") or payload.get("slug") or user.slug)
     conflict = user_identity_conflict(username, (payload.get("email") or user.email).strip().lower() or user.email, exclude_id=user.pk) if username else None
     if not username:
@@ -4272,17 +4305,23 @@ def user_detail_view(request: HttpRequest, user_id: int):
 
     manager_id = payload.get("managerId")
     manager = None
-    if manager_id:
+    if manager_id not in (None, "", 0, "0"):
+        try:
+            manager_id = int(manager_id)
+        except (TypeError, ValueError):
+            return json_error("مدیر انتخاب شده معتبر نیست.", status=422)
         manager = User.objects.filter(pk=manager_id).first()
         if not manager or manager.id == user.id or manager.id not in allowed_ids:
             return json_error("مدیر انتخاب شده معتبر نیست.", status=422)
 
-    department = None
+    department = user.department
     department_code = (payload.get("department") or payload.get("departmentCode") or "").strip()
-    if department_code:
-        department = Department.objects.filter(code=department_code).first()
+    if "department" in payload or "departmentCode" in payload:
+        department = Department.objects.filter(code=department_code).first() if department_code else None
 
     role = payload.get("accessRole") or user.role
+    if role not in dict(UserRole.choices):
+        return json_error("نقش کاربر معتبر نیست.", status=422)
     try:
         bonus_delta = parse_user_amount(payload.get("bonusDelta", 0), "پاداش")
         penalty_delta = parse_user_amount(payload.get("penaltyDelta", 0), "جریمه")
@@ -4326,6 +4365,8 @@ def user_detail_view(request: HttpRequest, user_id: int):
 
     password = (payload.get("password") or "").strip()
     if password:
+        if len(password) < 6:
+            return json_error("رمز عبور باید حداقل 6 کاراکتر باشد.", status=422)
         user.password_hash = get_password_hash(password)
         user.password_plain = password
         update_fields.append("password_hash")
@@ -4335,7 +4376,12 @@ def user_detail_view(request: HttpRequest, user_id: int):
         user.save(update_fields=update_fields)
     except IntegrityError:
         return json_error("نام کاربری یا شناسه داخلی کاربر تکراری است.", status=409)
-    sync_user_section_access(request.current_user, user, section_access_payload(payload))
+    except Exception as exc:
+        return json_error(f"ذخیره کاربر ناموفق بود: {exc}", status=500)
+    try:
+        sync_user_section_access(request.current_user, user, section_access_payload(payload))
+    except Exception as exc:
+        return json_error(f"ذخیره دسترسی‌ها ناموفق بود: {exc}", status=500)
     user.refresh_from_db()
     AuditLog.objects.create(
         actor=request.current_user,

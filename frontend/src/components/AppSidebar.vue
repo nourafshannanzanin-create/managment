@@ -57,7 +57,9 @@ const navItems = computed(() => {
 
   if (isLicenseLocked.value) {
     items.push({ to: '/wallet', label: 'خرید نرم‌افزار', icon: 'shopping_cart' })
-    items.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
+    if (state.currentUser.accessRole === 'admin' || state.currentUser.isHq) {
+      items.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
+    }
     return items
   }
 
@@ -78,7 +80,7 @@ const navItems = computed(() => {
     items.push({ to: '/wallet', label: 'کیف پول', icon: 'account_balance_wallet' })
   }
 
-  if (!state.currentUser.isHq) {
+  if (!state.currentUser.isHq && state.currentUser.accessRole === 'admin') {
     items.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
   }
 

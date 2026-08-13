@@ -81,10 +81,9 @@ const statusCount = computed(() => tickets.value.reduce((acc, item) => {
 }, { open: 0, pending: 0, answered: 0, closed: 0 }))
 
 const statusTrack = computed(() => [
-  { key: 'open', label: 'باز', icon: 'radio_button_checked', count: statusCount.value.open, description: 'تیکت‌های تازه ثبت‌شده' },
-  { key: 'pending', label: 'در حال بررسی', icon: 'hourglass_top', count: statusCount.value.pending, description: 'در صف رسیدگی پشتیبانی' },
-  { key: 'answered', label: 'پاسخ داده شده', icon: 'mark_chat_read', count: statusCount.value.answered, description: 'منتظر پاسخ شما' },
-  { key: 'closed', label: 'بسته شده', icon: 'task_alt', count: statusCount.value.closed, description: 'پرونده‌های پایان‌یافته' },
+  { key: 'open', label: 'باز', icon: 'radio_button_checked', count: statusCount.value.open + statusCount.value.pending, description: 'در انتظار پاسخ پشتیبان — کارتابل' },
+  { key: 'answered', label: 'منتظر مجموعه', icon: 'mark_chat_read', count: statusCount.value.answered, description: 'در انتظار پاسخ مجموعه — کارتابل' },
+  { key: 'closed', label: 'بسته شده', icon: 'task_alt', count: statusCount.value.closed, description: 'قابل مشاهده؛ بدون شمارنده' },
 ])
 
 const categoryTabs = [
@@ -104,9 +103,9 @@ const priorities = [
 ]
 
 const activeStatusLabel = computed(() => ({
-  open: 'باز',
+  open: 'باز (کارتابل)',
   pending: 'در حال بررسی',
-  answered: 'پاسخ داده شده',
+  answered: 'منتظر پاسخ مجموعه',
   closed: 'بسته شده',
 }[activeStatusTab.value] || 'باز'))
 
@@ -117,7 +116,11 @@ const filteredTickets = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
   return tickets.value
     .filter((item) => {
-      if (item.status !== activeStatusTab.value) return false
+      if (activeStatusTab.value === 'open') {
+        if (!['open', 'pending'].includes(item.status)) return false
+      } else if (item.status !== activeStatusTab.value) {
+        return false
+      }
       if (activeCategoryTab.value !== 'all' && item.category !== activeCategoryTab.value) return false
       if (!query) return true
       const haystack = `${item.id} ${item.subject} ${item.message || ''} ${item.category || ''} ${item.categoryLabel || ''} ${item.lastMessagePreview || ''}`.toLowerCase()
@@ -217,7 +220,7 @@ const canRateTicket = (ticket) => {
 }
 
 const toggleStatusFilter = () => {
-  const order = ['open', 'pending', 'answered', 'closed']
+  const order = ['open', 'answered', 'closed']
   const currentIndex = order.findIndex((item) => item === activeStatusTab.value)
   activeStatusTab.value = order[(currentIndex + 1) % order.length]
 }
@@ -532,11 +535,11 @@ onBeforeUnmount(() => {
 
         <div class="inbox-summary-grid">
           <article class="summary-tile">
-            <small>منتظر پاسخ من</small>
+            <small>کارتابل · منتظر مجموعه</small>
             <strong>{{ toFa(waitingForUserCount) }}</strong>
           </article>
           <article class="summary-tile">
-            <small>در حال بررسی</small>
+            <small>کارتابل · منتظر پشتیبان</small>
             <strong>{{ toFa(inProgressCount) }}</strong>
           </article>
         </div>

@@ -515,6 +515,9 @@ def pay_feature_installment(organization: Organization, purchase: FeaturePurchas
 
     wallet = Wallet.objects.select_for_update().filter(organization=organization, key="main", is_active=True).first()
     if wallet is None:
+        ensure_organization_wallets(organization)
+        wallet = Wallet.objects.select_for_update().filter(organization=organization, key="main", is_active=True).first()
+    if wallet is None:
         raise ValueError("کیف پول اصلی برای پرداخت قسط پیدا نشد.")
     if Decimal(wallet.balance) < installment_amount:
         raise ValueError("موجودی کیف پول اصلی برای پرداخت قسط بعدی کافی نیست.")

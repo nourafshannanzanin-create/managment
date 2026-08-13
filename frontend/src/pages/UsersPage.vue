@@ -18,7 +18,7 @@ const selectedUserId = ref(null)
 const savingUser = ref(false)
 const applyingBonus = ref(false)
 const applyingPenalty = ref(false)
-const showCurrentPassword = ref(false)
+const showCurrentPassword = ref(true)
 const avatarDraftFile = ref(null)
 const avatarDraftPreview = ref('')
 const clearAvatarOnSave = ref(false)
@@ -478,6 +478,8 @@ function userManagerOptions(userId) {
           <label class="field-shell">
             <span>نوع دسترسی</span>
             <select v-model="editableUser.accessRole" :disabled="!canManageUsers">
+              <option value="admin">مدیرعامل</option>
+              <option value="executive_manager">مدیر ارشد</option>
               <option value="manager">مدیر</option>
               <option value="employee">کارمند</option>
             </select>

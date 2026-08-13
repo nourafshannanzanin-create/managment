@@ -25,6 +25,32 @@ const attendanceLoading = ref(false)
 const attendanceError = ref('')
 const taskingBandFilter = ref('')
 
+const topbarFilter = computed(() => state.filters.reports || { query: '', person: '', startDate: '', endDate: '' })
+
+function matchesTopbar(item, fields = []) {
+  const query = String(topbarFilter.value.query || '').trim().toLowerCase()
+  const person = String(topbarFilter.value.person || '').trim()
+  const start = String(topbarFilter.value.startDate || '').trim()
+  const end = String(topbarFilter.value.endDate || '').trim()
+  if (query) {
+    const hay = fields.map((key) => String(item?.[key] || '')).join(' ').toLowerCase()
+    if (!hay.includes(query)) return false
+  }
+  if (person) {
+    const people = [item?.owner, item?.manager, item?.name, item?.user?.name, item?.assignee?.name].filter(Boolean).map(String)
+    if (!people.some((name) => name === person || name.includes(person))) return false
+  }
+  const iso = rowDate(item)
+  if (start || end) {
+    if (!iso) return activeTab.value === 'users' || activeTab.value === 'tasking'
+    const startIso = start.includes('-') && start.length === 10 && Number(start.slice(0, 4)) > 1500 ? start : (start ? jalaliToIso(start) : '')
+    const endIso = end.includes('-') && end.length === 10 && Number(end.slice(0, 4)) > 1500 ? end : (end ? jalaliToIso(end) : '')
+    if (startIso && iso < startIso) return false
+    if (endIso && iso > endIso) return false
+  }
+  return true
+}
+
 const canViewAttendanceReports = computed(() =>
   Boolean(
     state.currentUser.isHq ||
@@ -144,14 +170,29 @@ const activeRows = computed(() => {
     const rows = state.tasking.reports?.users || []
     return rows.filter((item) => {
       if (taskingBandFilter.value && item.band !== taskingBandFilter.value) return false
-      if (!filters.userId) return true
-      return String(item.user?.id) === String(filters.userId)
+      if (filters.userId && String(item.user?.id) !== String(filters.userId)) return false
+      return matchesTopbar(
+        {
+          ...item,
+          name: item.user?.name,
+          owner: item.user?.name,
+          department: item.user?.department,
+        },
+        ['name', 'owner', 'department', 'bandLabel'],
+      )
     })
   }
   if (activeTab.value === 'attendance') {
     return attendanceRows.value.filter((item) => {
-      if (!filters.userId) return true
-      return String(item.userId || item.user_id) === String(filters.userId)
+      if (filters.userId && String(item.userId || item.user_id) !== String(filters.userId)) return false
+      return matchesTopbar(
+        {
+          ...item,
+          name: item.userName || item.user_name,
+          owner: item.userName || item.user_name,
+        },
+        ['name', 'owner', 'source', 'eventType', 'event_type'],
+      )
     })
   }
   const rows = activeTab.value === 'requests'
@@ -164,7 +205,8 @@ const activeRows = computed(() => {
   return rows.filter((item) => {
     const user = reportUsers.value.find((row) => String(row.id) === String(filters.userId))
     const matchesUser = !filters.userId || [item.owner, item.manager, item.name].filter(Boolean).includes(user?.name)
-    return matchesUser && inPeriod(rowDate(item))
+    if (!matchesUser || !inPeriod(rowDate(item))) return false
+    return matchesTopbar(item, ['title', 'description', 'owner', 'manager', 'name', 'department', 'status', 'type', 'summary', 'id'])
   })
 })
 
@@ -173,9 +215,19 @@ const taskingDistribution = computed(() => state.tasking.reports?.distribution |
 
 async function refreshTaskingReports() {
   const range = periodIsoRange()
+  const topStart = topbarFilter.value.startDate
+    ? (String(topbarFilter.value.startDate).includes('-') && Number(String(topbarFilter.value.startDate).slice(0, 4)) > 1500
+      ? topbarFilter.value.startDate
+      : jalaliToIso(topbarFilter.value.startDate))
+    : ''
+  const topEnd = topbarFilter.value.endDate
+    ? (String(topbarFilter.value.endDate).includes('-') && Number(String(topbarFilter.value.endDate).slice(0, 4)) > 1500
+      ? topbarFilter.value.endDate
+      : jalaliToIso(topbarFilter.value.endDate))
+    : ''
   await loadTaskingReports({
-    start: range.start,
-    end: range.end,
+    start: topStart || range.start,
+    end: topEnd || range.end,
     userId: filters.userId || '',
   })
 }
@@ -407,7 +459,17 @@ function exportActiveTab() {
 }
 
 watch(
-  () => [activeTab.value, filters.period, filters.startDate, filters.endDate, filters.userId],
+  () => [
+    activeTab.value,
+    filters.period,
+    filters.startDate,
+    filters.endDate,
+    filters.userId,
+    topbarFilter.value.query,
+    topbarFilter.value.person,
+    topbarFilter.value.startDate,
+    topbarFilter.value.endDate,
+  ],
   () => {
     if (activeTab.value === 'attendance') void loadAttendanceReports()
     if (activeTab.value === 'tasking') void refreshTaskingReports()

@@ -22,9 +22,11 @@ def default_hq_support_user():
 
 
 def close_stale_support_tickets(*, now=None):
+    """Close tickets idle 3+ days while waiting for organization response."""
     current = now or timezone.now()
     cutoff = current - timedelta(days=SUPPORT_TICKET_AUTO_CLOSE_AFTER_DAYS)
-    queryset = SupportTicket.objects.exclude(status=SupportTicketStatus.CLOSED).filter(
+    # Waiting for the organization (= answered by HQ / awaiting tenant reply)
+    queryset = SupportTicket.objects.filter(status=SupportTicketStatus.ANSWERED).filter(
         Q(last_message_at__lte=cutoff) | Q(last_message_at__isnull=True, created_at__lte=cutoff)
     )
     return queryset.update(

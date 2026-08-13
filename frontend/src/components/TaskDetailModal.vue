@@ -220,8 +220,8 @@ async function sendComment() {
 <template>
   <BaseModal :open="open && Boolean(task)" size="wide" @close="emit('close')">
     <div v-if="task" class="task-detail">
-      <div class="modal-header">
-        <div>
+      <div class="modal-header task-detail-header">
+        <div class="task-detail-heading">
           <p class="eyebrow">{{ task.code }}</p>
           <h2>{{ task.title }}</h2>
           <div class="task-detail-meta">
@@ -230,7 +230,14 @@ async function sendComment() {
             <small v-if="task.overdue" class="is-danger-text">عقب‌افتاده</small>
           </div>
         </div>
-        <button v-if="task.canEdit && !editing" class="action-btn tone-soft" type="button" @click="beginEdit">ویرایش</button>
+        <button
+          v-if="task.canEdit && !editing"
+          class="action-btn tone-soft task-edit-btn"
+          type="button"
+          @click="beginEdit"
+        >
+          ویرایش
+        </button>
       </div>
 
       <ErrorNotice v-if="state.lastErrorDetails" :error="state.lastErrorDetails" />
@@ -378,7 +385,14 @@ async function sendComment() {
             <UserAvatar :name="item.author?.name" :avatar-url="item.author?.avatarUrl" size="sm" />
             <div class="chat-item-body">
               <strong>{{ item.author?.name }}</strong>
+              <div v-if="item.parent" class="chat-reply-ref">
+                <small>پاسخ به {{ item.parent.author?.name || 'پیام' }}</small>
+                <p>{{ item.parent.body }}</p>
+              </div>
               <p>{{ item.body }}</p>
+              <div v-if="(item.mentionUsers || []).length" class="chat-mention-targets">
+                <span v-for="user in item.mentionUsers" :key="user.id" class="mention-pill is-static">@{{ user.name }}</span>
+              </div>
               <small>{{ formatDateTime(item.createdAt) }}</small>
               <button class="linkish" type="button" @click="startReply(item)">پاسخ</button>
             </div>
@@ -455,7 +469,25 @@ async function sendComment() {
 
 <style scoped>
 .task-detail { display: grid; gap: 14px; }
-.modal-header { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.task-detail-header,
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  /* جا برای دکمه بستن مودال (absolute left) */
+  padding-left: 52px;
+  min-width: 0;
+}
+.task-detail-heading {
+  min-width: 0;
+  flex: 1;
+}
+.task-edit-btn {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  white-space: nowrap;
+}
 .task-detail-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
 .priority-pill {
   display: inline-flex;
@@ -590,6 +622,34 @@ async function sendComment() {
   font-size: 14px;
   line-height: 1;
   padding: 0;
+}
+.chat-reply-ref {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border-right: 3px solid #34908b;
+  background: #f3faf9;
+}
+.chat-reply-ref small {
+  color: #1f5c59;
+  font-weight: 800;
+}
+.chat-reply-ref p {
+  margin: 0;
+  color: #5f7a76;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.chat-mention-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+.mention-pill.is-static {
+  padding-inline-end: 10px;
 }
 .mention-trigger-wrap {
   position: relative;

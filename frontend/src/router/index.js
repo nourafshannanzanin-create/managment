@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import { applyRouteSeo } from '../utils/seo'
+import { useWorkflowHub } from '../stores/workflowHub'
 
 const LandingPage = () => import('../pages/LandingPage.vue')
 const ApprovalsPage = () => import('../pages/ApprovalsPage.vue')
@@ -71,6 +72,12 @@ router.beforeEach((to) => {
   if (!to.meta.public && !token) return '/login'
   if (token && to.path === '/login') {
     return '/dashboard'
+  }
+  if (to.path === '/support' && token) {
+    const { state } = useWorkflowHub()
+    const role = String(state.currentUser?.accessRole || '')
+    const isHq = Boolean(state.currentUser?.isHq || state.currentUser?.canUseHq)
+    if (state.sessionReady && !isHq && role !== 'admin') return '/dashboard'
   }
   return true
 })

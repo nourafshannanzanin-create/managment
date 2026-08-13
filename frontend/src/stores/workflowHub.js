@@ -268,6 +268,7 @@ function createTaskingState() {
       assignments: {},
       supervise: {},
       mentions: 0,
+      mentionsAll: 0,
     },
     badgeCount: 0,
     activeTimer: null,
@@ -543,7 +544,7 @@ function normalizeUser(item = {}) {
     netAdjustmentRaw: Number(item?.netAdjustmentRaw || 0),
     financeUpdatedAt: item?.financeUpdatedAt || '',
     financeUpdatedAtIso: item?.financeUpdatedAtIso || '',
-    currentPassword: cleanDisplayText(item?.currentPassword || item?.current_password || ''),
+    currentPassword: String(item?.currentPassword || item?.current_password || ''),
   }
 }
 

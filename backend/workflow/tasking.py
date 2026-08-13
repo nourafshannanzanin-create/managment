@@ -37,7 +37,7 @@ from workflow.models import (
 )
 
 
-DEFAULT_WORK_DAYS = [5, 6, 0, 1, 2]  # Sat..Wed
+DEFAULT_WORK_DAYS = [5, 6, 0, 1, 2, 3]  # Sat..Thu (Iran common work week)
 PRIORITY_SCORE = {
     TaskPriority.CRITICAL: 1000,
     TaskPriority.HIGH: 700,
@@ -89,6 +89,11 @@ def get_or_create_tasking_settings(organization: Organization) -> TaskingSetting
         settings_obj.work_days = _default_work_days()
         settings_obj.save(update_fields=["work_days"])
     if not settings_obj.work_days:
+        settings_obj.work_days = _default_work_days()
+        settings_obj.save(update_fields=["work_days"])
+    # Migrate legacy Sat-Wed defaults to include Thursday.
+    days = [int(item) for item in (settings_obj.work_days or [])]
+    if sorted(days) == [0, 1, 2, 5, 6]:
         settings_obj.work_days = _default_work_days()
         settings_obj.save(update_fields=["work_days"])
     return settings_obj
@@ -297,22 +302,28 @@ def update_tasking_settings(organization: Organization, payload: dict) -> Taskin
     return settings_obj
 
 
-def scheduled_work_minutes(settings_obj: TaskingSettings, work_date: date, preference: OrganizationPreference | None = None) -> int:
-    work_days = settings_obj.work_days or _default_work_days()
-    if settings_obj.schedule_only_working_days and work_date.weekday() not in work_days:
-        return 0
+def day_length_minutes(settings_obj: TaskingSettings, work_date: date, preference: OrganizationPreference | None = None) -> int:
+    """Raw work-day length from settings/preference (never zero when hours are misconfigured)."""
     start = settings_obj.work_day_start
     end = settings_obj.work_day_end
     if preference and preference.work_day_start_time and preference.work_day_end_time:
-        # Prefer org preference if present (single source for hours when set)
         start = preference.work_day_start_time
         end = preference.work_day_end_time
     start_dt = datetime.combine(work_date, start)
     end_dt = datetime.combine(work_date, end)
     minutes = max(0, int((end_dt - start_dt).total_seconds() // 60))
+    if minutes <= 0:
+        minutes = 8 * 60
     if settings_obj.subtract_break:
         minutes = max(0, minutes - int(settings_obj.break_minutes or 0))
-    return minutes
+    return minutes if minutes > 0 else 8 * 60
+
+
+def scheduled_work_minutes(settings_obj: TaskingSettings, work_date: date, preference: OrganizationPreference | None = None) -> int:
+    work_days = settings_obj.work_days or _default_work_days()
+    if settings_obj.schedule_only_working_days and work_date.weekday() not in work_days:
+        return 0
+    return day_length_minutes(settings_obj, work_date, preference)
 
 
 def approved_leave_minutes(user: User, work_date: date) -> int:
@@ -344,9 +355,13 @@ def effective_work_minutes(user: User, settings_obj: TaskingSettings, work_date:
 
 
 def capacity_for_day(user: User, settings_obj: TaskingSettings, work_date: date) -> dict:
+    preference = OrganizationPreference.objects.filter(organization=settings_obj.organization).first()
     effective = effective_work_minutes(user, settings_obj, work_date)
-    target = int(effective * settings_obj.target_utilization_percent / 100)
-    maximum = int(effective * settings_obj.max_utilization_percent / 100)
+    # Never show "X از ۰": if day was excluded / leave wiped hours, use configured day length.
+    if effective <= 0:
+        effective = day_length_minutes(settings_obj, work_date, preference)
+    target = int(effective * settings_obj.target_utilization_percent / 100) if effective else 0
+    maximum = int(effective * settings_obj.max_utilization_percent / 100) if effective else 0
     planned = (
         TaskAllocation.objects.filter(user=user, work_date=work_date)
         .exclude(task__status__in=[TaskStatus.CANCELLED, TaskStatus.COMPLETED, TaskStatus.PENDING_ACCEPTANCE])
@@ -360,8 +375,16 @@ def capacity_for_day(user: User, settings_obj: TaskingSettings, work_date: date)
         .get("total")
         or 0
     )
+    active_now = (
+        TaskTimeEntry.objects.filter(user=user, started_at__date=work_date, is_active=True)
+        .order_by("-started_at")
+        .first()
+    )
+    if active_now:
+        actual += max(0, int((timezone.now() - active_now.started_at).total_seconds()))
     actual_minutes = int(actual // 60)
-    utilization = int((planned / effective) * 100) if effective else 0
+    load_minutes = max(int(planned), actual_minutes)
+    utilization = int((load_minutes / effective) * 100) if effective else (100 if load_minutes else 0)
     if utilization < settings_obj.under_planned_threshold_percent:
         band = "under"
         band_label = "کمتر از ظرفیت هدف"
@@ -681,7 +704,17 @@ def serialize_allocation(item: TaskAllocation) -> dict:
 
 
 def serialize_comment(comment: TaskComment) -> dict:
-    mention_rows = list(comment.mentions.all())
+    mention_rows = list(comment.mentions.select_related("mentioned_user").all()) if hasattr(comment, "mentions") else list(comment.mentions.all())
+    parent = comment.parent
+    parent_payload = None
+    if parent_id := getattr(comment, "parent_id", None):
+        parent = parent or TaskComment.objects.filter(pk=parent_id).select_related("author").first()
+        if parent:
+            parent_payload = {
+                "id": parent.id,
+                "body": (parent.body or "")[:180],
+                "author": serialize_user_brief(parent.author),
+            }
     return {
         "id": comment.id,
         "body": comment.body,
@@ -690,6 +723,7 @@ def serialize_comment(comment: TaskComment) -> dict:
         "editedAt": comment.edited_at.isoformat() if comment.edited_at else "",
         "author": serialize_user_brief(comment.author),
         "parentId": comment.parent_id,
+        "parent": parent_payload,
         "mentions": [item.mentioned_user_id for item in mention_rows],
         "mentionUsers": [
             serialize_user_brief(item.mentioned_user)
@@ -1368,12 +1402,32 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
         .order_by("-id")
     )
     mention_task_ids = list(dict.fromkeys(unread_mentions_qs.values_list("comment__task_id", flat=True)))
-    mention_tasks = [
-        serialize_task(item, user, focus_date=today)
-        for item in qs.filter(id__in=mention_task_ids)
-    ]
+    # Include mentioned tasks even if not otherwise in default visibility edge cases
+    mention_task_qs = Task.objects.filter(
+        id__in=mention_task_ids,
+        organization=organization,
+        deleted_at__isnull=True,
+    ).select_related("owner", "creator", "department")
+    mention_tasks = [serialize_task(item, user, focus_date=today) for item in mention_task_qs]
     mention_tasks.sort(key=lambda row: mention_task_ids.index(row["id"]) if row["id"] in mention_task_ids else 9999)
     unread_mention_count = unread_mentions_qs.count()
+    # Also keep recently-read mentions briefly visible in "all"
+    recent_mentions_qs = (
+        TaskMention.objects.filter(
+            mentioned_user=user,
+            comment__deleted_at__isnull=True,
+            comment__task__organization=organization,
+            comment__task__deleted_at__isnull=True,
+        )
+        .select_related("comment__task")
+        .order_by("-id")[:100]
+    )
+    all_mention_task_ids = list(dict.fromkeys(recent_mentions_qs.values_list("comment__task_id", flat=True)))
+    all_mention_tasks = [
+        serialize_task(item, user, focus_date=today)
+        for item in Task.objects.filter(id__in=all_mention_task_ids, deleted_at__isnull=True).select_related("owner", "creator", "department")
+    ]
+    all_mention_tasks.sort(key=lambda row: all_mention_task_ids.index(row["id"]) if row["id"] in all_mention_task_ids else 9999)
 
     action_badge = (
         pending_assignments.count()
@@ -1421,6 +1475,7 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
             "assignments": assignment_counts,
             "supervise": supervise_counts,
             "mentions": unread_mention_count,
+            "mentionsAll": len(all_mention_task_ids),
         },
         "badgeCount": action_badge,
         "activeTimer": (
@@ -1462,7 +1517,7 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
         },
         "mentions": {
             "unread": mention_tasks,
-            "all": mention_tasks,
+            "all": all_mention_tasks,
         },
         "departments": [
             {"id": item.id, "code": item.code, "name": item.name}
