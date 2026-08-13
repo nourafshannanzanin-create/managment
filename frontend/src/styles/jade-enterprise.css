@@ -4050,25 +4050,27 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-punch-action:focus-visible,
 #app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.attendance-punch-topbar-btn:focus-visible,
 #app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-icon-only[aria-label="ورود و خروج"]:focus-visible {
-  width: 64px !important;
-  height: 64px !important;
-  min-width: 64px !important;
-  min-height: 64px !important;
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 20px !important;
-  background: #1f8a70 !important;
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
+  border-radius: 50% !important;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.34), transparent 42%),
+    linear-gradient(145deg, #2bb89a 0%, #1f8a70 48%, #176f5a 100%) !important;
   color: #fff !important;
-  box-shadow: 0 12px 28px rgba(31, 138, 112, 0.32) !important;
-  transform: none !important;
+  box-shadow:
+    0 10px 22px rgba(31, 138, 112, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+  border: 0 !important;
 }
 
 #app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-punch-action:hover,
 #app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.attendance-punch-topbar-btn:hover,
 #app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-icon-only[aria-label="ورود و خروج"]:hover {
-  background: #187a63 !important;
-  color: #fff !important;
-  box-shadow: 0 14px 30px rgba(31, 138, 112, 0.4) !important;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.4), transparent 42%),
+    linear-gradient(145deg, #34c4a4 0%, #18745e 55%, #13604e 100%) !important;
 }
 
 #app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-punch-action .iconly-shell,
@@ -4077,7 +4079,9 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-punch-action:hover .iconly-shell,
 #app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.attendance-punch-topbar-btn:hover .iconly-shell,
 #app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-icon-only[aria-label="ورود و خروج"]:hover .iconly-shell {
-  font-size: 34px !important;
+  width: 26px !important;
+  height: 26px !important;
+  font-size: 26px !important;
   color: #fff !important;
   --iconly-filter: brightness(0) invert(1) !important;
 }
@@ -4088,6 +4092,8 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-punch-action:hover .iconly-img,
 #app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.attendance-punch-topbar-btn:hover .iconly-img,
 #app .app-shell:not(.is-auth-route) .topbar-action-row .icon-btn.topbar-icon-action.is-icon-only[aria-label="ورود و خروج"]:hover .iconly-img {
+  width: 26px !important;
+  height: 26px !important;
   filter: brightness(0) invert(1) !important;
 }
 
