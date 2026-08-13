@@ -51,7 +51,17 @@
 
   /* —— List tables → 2-column card grid —— */
   #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) {
-    overflow: visible !important;
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) :where(.data-table, .report-table) {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
   }
 
   #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table thead,
@@ -64,6 +74,8 @@
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table tbody tr.table-click-row,
@@ -77,7 +89,11 @@
     background: rgba(255, 255, 255, 0.94) !important;
     box-shadow: 0 8px 22px rgba(31, 92, 89, 0.07) !important;
     cursor: pointer;
-    min-width: 0;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: auto !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
   }
 
   #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table tbody tr.row-status-success,
@@ -209,8 +225,21 @@
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
-  #app .app-shell:not(.is-auth-route) .report-cards-grid {
+  #app .app-shell:not(.is-auth-route) .report-cards-grid,
+  #app .app-shell:not(.is-auth-route) .mobile-data-cards {
+    display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .report-cards-grid > *,
+  #app .app-shell:not(.is-auth-route) .mobile-data-cards > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
   }
 
   #app .app-shell:not(.is-auth-route) .desktop-data-table {

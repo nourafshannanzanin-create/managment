@@ -6,7 +6,6 @@ import DurationPicker from './DurationPicker.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import IconlyIcon from './base/IconlyIcon.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
-import TimePicker from './TimePicker.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatDurationFa } from '../utils/duration'
 import { jalaliToIso } from '../utils/jalali'
@@ -33,7 +32,6 @@ const form = reactive({
   category: '',
   departmentId: '',
   dueDate: '',
-  dueTime: '17:00',
   observerIds: [],
   reviewRequired: true,
 })
@@ -44,14 +42,19 @@ const busyPreview = ref(false)
 const localError = ref('')
 
 const assigneeOptions = computed(() => state.tasking.assigneeOptions || [])
+const departmentOptions = computed(() =>
+  state.tasking.departments?.length
+    ? state.tasking.departments
+    : state.settings?.departments || state.directories?.departments || [],
+)
 const estimatedMinutes = computed(() => Number(form.estimatedMinutes || 0))
 
 function buildDueAt() {
   if (!form.dueDate) return ''
   const isoDate = jalaliToIso(form.dueDate)
   if (!isoDate) return ''
-  const time = String(form.dueTime || '17:00').trim() || '17:00'
-  return `${isoDate}T${time}:00`
+  // Day-only deadline → backend stores end of that day
+  return isoDate
 }
 
 watch(
@@ -64,9 +67,8 @@ watch(
     form.priority = 'normal'
     form.estimatedMinutes = 60
     form.category = ''
-    form.departmentId = ''
+    form.departmentId = String(state.currentUser.departmentId || state.currentUser.department_id || '')
     form.dueDate = ''
-    form.dueTime = '17:00'
     form.observerIds = []
     form.reviewRequired = true
     files.value = []
@@ -138,7 +140,7 @@ async function submit() {
       <div>
         <p class="eyebrow">تسکینگ</p>
         <h2>تسک جدید</h2>
-        <p>عنوان، مسئول، اولویت و زمان تخمینی را مشخص کنید. برنامه پیشنهادی قبل از ثبت نمایش داده می‌شود.</p>
+        <p>عنوان، مسئول، بخش، اولویت و زمان تخمینی را مشخص کنید. برنامه پیشنهادی قبل از ثبت نمایش داده می‌شود.</p>
       </div>
     </div>
 
@@ -166,6 +168,16 @@ async function submit() {
       </label>
 
       <label class="field-shell">
+        <span>بخش</span>
+        <select v-model="form.departmentId">
+          <option value="">هم‌راستا با مسئول / تنظیمات</option>
+          <option v-for="dept in departmentOptions" :key="dept.id || dept.code" :value="String(dept.id || '')">
+            {{ dept.name }}
+          </option>
+        </select>
+      </label>
+
+      <label class="field-shell">
         <span>اولویت *</span>
         <select v-model="form.priority">
           <option value="critical">بحرانی</option>
@@ -181,17 +193,15 @@ async function submit() {
         <DurationPicker v-model="form.estimatedMinutes" />
       </div>
 
-      <div class="field-shell deadline-fields">
-        <span>ددلاین</span>
-        <div class="deadline-row">
-          <ShamsiDatePicker
-            v-model="form.dueDate"
-            model-type="jalali"
-            picker-only
-            placeholder="انتخاب تاریخ"
-          />
-          <TimePicker v-model="form.dueTime" placeholder="انتخاب ساعت" />
-        </div>
+      <div class="field-shell">
+        <span>ددلاین (فقط روز)</span>
+        <ShamsiDatePicker
+          v-model="form.dueDate"
+          model-type="jalali"
+          picker-only
+          placeholder="انتخاب تاریخ"
+        />
+        <small class="field-hint">مهلت تا پایان همان روز شمسی لحاظ می‌شود.</small>
       </div>
 
       <label class="field-shell">
@@ -245,20 +255,11 @@ async function submit() {
 .task-composer-grid > * {
   min-width: 0;
 }
-.deadline-fields {
-  min-width: 0;
-}
-.deadline-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-  gap: 10px;
-  align-items: stretch;
-  min-width: 0;
-  width: 100%;
-}
-.deadline-row > * {
-  min-width: 0;
-  max-width: 100%;
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted, #5f7a76);
+  font-size: 0.72rem;
 }
 .form-inline-error {
   color: #b91c1c;
@@ -279,8 +280,5 @@ async function submit() {
   padding-inline-start: 18px;
   display: grid;
   gap: 4px;
-}
-@media (max-width: 640px) {
-  .deadline-row { grid-template-columns: 1fr; }
 }
 </style>

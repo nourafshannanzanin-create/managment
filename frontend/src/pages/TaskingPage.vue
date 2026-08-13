@@ -8,6 +8,7 @@ import TaskDetailModal from '../components/TaskDetailModal.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatDurationFa, formatDurationRatioFa } from '../utils/duration'
+import { isoToJalali } from '../utils/jalali'
 import { toneForStatus } from '../utils/status'
 
 const {
@@ -30,22 +31,28 @@ const subTab = ref('today')
 const query = ref('')
 const timerTick = ref(0)
 let timerHandle = null
+let pollHandle = null
 
 onMounted(async () => {
   await loadTaskingDashboard(true)
   timerHandle = window.setInterval(() => {
     timerTick.value += 1
   }, 1000)
+  pollHandle = window.setInterval(() => {
+    void loadTaskingDashboard(true).catch(() => {})
+  }, 20000)
 })
 
 onUnmounted(() => {
   if (timerHandle) window.clearInterval(timerHandle)
+  if (pollHandle) window.clearInterval(pollHandle)
 })
 
 watch(mainTab, (tab) => {
   if (tab === 'mine') subTab.value = 'today'
   if (tab === 'assignments') subTab.value = 'pending'
   if (tab === 'supervise') subTab.value = 'pendingReview'
+  if (tab === 'mentions') subTab.value = 'unread'
 })
 
 const capacity = computed(() => state.tasking.capacity || {})
@@ -75,6 +82,13 @@ const capacityRingStyle = computed(() => {
 function minutesLabel(value) {
   return formatDurationFa(value)
 }
+
+function shamsiDateLabel(iso) {
+  if (!iso) return 'امروز'
+  return isoToJalali(String(iso).slice(0, 10)) || iso
+}
+
+const displayDate = computed(() => shamsiDateLabel(state.tasking.date))
 
 const remainingTargetMinutes = computed(() =>
   Math.max(0, Number(capacity.value.targetMinutes || 0) - Number(capacity.value.plannedMinutes || 0)),
@@ -114,33 +128,41 @@ const metricCards = computed(() => [
   },
 ])
 
-const mineSubTabs = [
-  { key: 'today', label: 'امروز' },
-  { key: 'upcoming', label: 'پیش‌رو' },
-  { key: 'inProgress', label: 'در حال انجام' },
-  { key: 'pendingReview', label: 'در انتظار بررسی' },
-  { key: 'changesRequested', label: 'برگشتی' },
-  { key: 'closed', label: 'بسته‌شده' },
-  { key: 'all', label: 'همه' },
-]
+const counts = computed(() => state.tasking.counts || {})
 
-const assignmentSubTabs = [
-  { key: 'pending', label: 'نیازمند پاسخ' },
-  { key: 'all', label: 'همه ارجاع‌ها' },
-]
+const mineSubTabs = computed(() => [
+  { key: 'today', label: 'امروز', count: counts.value.mine?.today },
+  { key: 'upcoming', label: 'پیش‌رو', count: counts.value.mine?.upcoming },
+  { key: 'inProgress', label: 'در حال انجام', count: counts.value.mine?.inProgress },
+  { key: 'pendingReview', label: 'در انتظار بررسی', count: counts.value.mine?.pendingReview },
+  { key: 'changesRequested', label: 'برگشتی', count: counts.value.mine?.changesRequested },
+  { key: 'closed', label: 'بسته‌شده', count: counts.value.mine?.closed },
+  { key: 'all', label: 'همه', count: counts.value.mine?.all },
+])
 
-const superviseSubTabs = [
-  { key: 'pendingReview', label: 'نیازمند بررسی' },
-  { key: 'inProgress', label: 'در حال انجام تیم' },
-  { key: 'overdue', label: 'تأخیرها' },
-  { key: 'completed', label: 'تکمیل‌شده' },
-  { key: 'all', label: 'همه تحت نظارت' },
-]
+const assignmentSubTabs = computed(() => [
+  { key: 'pending', label: 'نیازمند پاسخ', count: counts.value.assignments?.pending },
+  { key: 'all', label: 'همه ارجاع‌ها', count: counts.value.assignments?.all },
+])
+
+const superviseSubTabs = computed(() => [
+  { key: 'pendingReview', label: 'نیازمند بررسی', count: counts.value.supervise?.pendingReview },
+  { key: 'inProgress', label: 'در حال انجام تیم', count: counts.value.supervise?.inProgress },
+  { key: 'overdue', label: 'تأخیرها', count: counts.value.supervise?.overdue },
+  { key: 'completed', label: 'تکمیل‌شده', count: counts.value.supervise?.completed },
+  { key: 'all', label: 'همه تحت نظارت', count: counts.value.supervise?.all },
+])
+
+const mentionSubTabs = computed(() => [
+  { key: 'unread', label: 'خوانده‌نشده', count: counts.value.mentions },
+  { key: 'all', label: 'همه منشن‌ها', count: counts.value.mentions },
+])
 
 const currentSubTabs = computed(() => {
-  if (mainTab.value === 'assignments') return assignmentSubTabs
-  if (mainTab.value === 'supervise') return superviseSubTabs
-  return mineSubTabs
+  if (mainTab.value === 'assignments') return assignmentSubTabs.value
+  if (mainTab.value === 'supervise') return superviseSubTabs.value
+  if (mainTab.value === 'mentions') return mentionSubTabs.value
+  return mineSubTabs.value
 })
 
 const currentTasks = computed(() => {
@@ -149,7 +171,9 @@ const currentTasks = computed(() => {
       ? state.tasking.assignments
       : mainTab.value === 'supervise'
         ? state.tasking.supervise
-        : state.tasking.mine
+        : mainTab.value === 'mentions'
+          ? state.tasking.mentions
+          : state.tasking.mine
   const rows = source?.[subTab.value] || []
   const q = query.value.trim().toLowerCase()
   if (!q) return rows
@@ -161,12 +185,18 @@ const currentTasks = computed(() => {
 function formatElapsed(task) {
   void timerTick.value
   if (!task?.activeTimer?.startedAt) return ''
+  const accumulated = Number(task.activeTimer.accumulatedSeconds || 0)
   const started = new Date(task.activeTimer.startedAt).getTime()
-  const seconds = Math.max(0, Math.floor((Date.now() - started) / 1000))
+  const seconds = accumulated + Math.max(0, Math.floor((Date.now() - started) / 1000))
   const hh = String(Math.floor(seconds / 3600)).padStart(2, '0')
   const mm = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')
   const ss = String(seconds % 60).padStart(2, '0')
   return `${hh}:${mm}:${ss}`
+}
+
+function miniCount(value) {
+  const n = Number(value || 0)
+  return n > 0 ? n : 0
 }
 
 async function shiftDate(delta) {
@@ -203,7 +233,7 @@ async function openTask(task) {
             <button class="icon-btn" type="button" aria-label="روز بعد" @click="shiftDate(1)">
               <IconlyIcon name="arrow_back" decorative />
             </button>
-            <strong>{{ state.tasking.date || 'امروز' }}</strong>
+            <strong>{{ displayDate }}</strong>
           </div>
           <button class="action-btn tone-primary" type="button" @click="openTaskComposer">
             <IconlyIcon name="plus" decorative />
@@ -299,12 +329,22 @@ async function openTask(task) {
     <section class="surface-block">
       <div class="tasking-toolbar">
         <div class="chip-row tab-strip">
-          <button type="button" :class="['chip-btn', mainTab === 'mine' && 'is-active']" @click="mainTab = 'mine'">کارهای من</button>
+          <button type="button" :class="['chip-btn', mainTab === 'mine' && 'is-active']" @click="mainTab = 'mine'">
+            کارهای من
+            <span v-if="miniCount(state.tasking.stats.mineCount)" class="nav-link-badge is-mini">{{ miniCount(state.tasking.stats.mineCount) }}</span>
+          </button>
           <button type="button" :class="['chip-btn', mainTab === 'assignments' && 'is-active']" @click="mainTab = 'assignments'">
             ارجاع‌ها
-            <span v-if="state.tasking.assignments.pending?.length" class="nav-link-badge">{{ state.tasking.assignments.pending.length }}</span>
+            <span v-if="miniCount(state.tasking.stats.assignmentCount)" class="nav-link-badge is-mini">{{ miniCount(state.tasking.stats.assignmentCount) }}</span>
           </button>
-          <button type="button" :class="['chip-btn', mainTab === 'supervise' && 'is-active']" @click="mainTab = 'supervise'">نظارت</button>
+          <button type="button" :class="['chip-btn', mainTab === 'supervise' && 'is-active']" @click="mainTab = 'supervise'">
+            نظارت
+            <span v-if="miniCount(state.tasking.stats.superviseCount)" class="nav-link-badge is-mini">{{ miniCount(state.tasking.stats.superviseCount) }}</span>
+          </button>
+          <button type="button" :class="['chip-btn', mainTab === 'mentions' && 'is-active']" @click="mainTab = 'mentions'">
+            منشن
+            <span v-if="miniCount(state.tasking.stats.unreadMentions)" class="nav-link-badge is-mini">{{ miniCount(state.tasking.stats.unreadMentions) }}</span>
+          </button>
         </div>
         <label class="search-shell compact-search">
           <IconlyIcon name="search" decorative />
@@ -321,6 +361,7 @@ async function openTask(task) {
           @click="subTab = item.key"
         >
           {{ item.label }}
+          <span v-if="miniCount(item.count)" class="nav-link-badge is-mini">{{ miniCount(item.count) }}</span>
         </button>
       </div>
 
@@ -563,8 +604,8 @@ async function openTask(task) {
   align-items: center;
 }
 .tasking-metric-accent {
-  width: 28px;
-  height: 4px;
+  width: 90%;
+  height: 30%;
   border-radius: 999px;
   background: #34908b;
 }
@@ -614,6 +655,20 @@ async function openTask(task) {
 .chip-btn.is-active {
   background: #dcefec;
   color: #1f5c59;
+}
+.nav-link-badge.is-mini {
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #1f7a72;
+  color: #fff;
 }
 .compact-search {
   min-width: min(280px, 100%);

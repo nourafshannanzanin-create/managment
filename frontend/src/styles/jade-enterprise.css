@@ -673,29 +673,36 @@ body:has(.app-shell:not(.is-auth-route)),
   font-weight:900 !important;
 }
 
-#app .app-shell:not(.is-auth-route) :where(.approval-metric-icon, .dashboard-metric-icon, .dashboard-summary-icon, .user-meta-icon, .approval-meta-icon, .attendance-avatar, .user-avatar) {
+#app .app-shell:not(.is-auth-route) :where(.dashboard-metric-icon, .dashboard-summary-icon, .user-meta-icon, .approval-meta-icon, .attendance-avatar, .user-avatar) {
   color:var(--primary) !important;
   background:var(--surface-container-low) !important;
   border:0 !important;
 }
 
-#app .app-shell:not(.is-auth-route) .dashboard-stage-panel {
-  position:relative !important;
-  overflow:hidden !important;
-  padding:32px !important;
+#app .app-shell:not(.is-auth-route) .approval-metric-icon,
+#app .app-shell:not(.is-auth-route) .approval-metric-icon.iconly-shell,
+#app .app-shell:not(.is-auth-route) .metric-card.approval-metric-card .approval-metric-icon {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: var(--primary) !important;
 }
 
-#app .app-shell:not(.is-auth-route) .dashboard-stage-panel::before {
-  content:'' !important;
-  position:absolute !important;
-  width:260px !important;
-  height:260px !important;
-  top:-120px !important;
-  left:-100px !important;
-  border-radius:50% !important;
-  background:rgba(52, 144, 139, 0.06) !important;
-  filter:blur(18px) !important;
-  pointer-events:none !important;
+#app .app-shell:not(.is-auth-route) .dashboard-stage-grid,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-grid > .dashboard-stage-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-grid > .dashboard-metrics-panel {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-stage-grid > .dashboard-stage-panel::before,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-grid > .dashboard-stage-panel::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
 }
 
 #app .app-shell:not(.is-auth-route) .dashboard-stage-copy,
@@ -968,6 +975,13 @@ body:has(.app-shell:not(.is-auth-route)),
 .modal-shell :where(input, textarea, select) {
   color:var(--on-surface) !important;
   background:transparent !important;
+}
+
+.modal-shell .chat-input-shell,
+.modal-shell .chat-input-shell .chat-textarea,
+.modal-shell textarea.chat-textarea {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
 }
 
 .modal-shell :where(input, textarea, select)::placeholder {
@@ -1528,6 +1542,15 @@ body:has(.app-shell:not(.is-auth-route)),
   box-shadow: 0 10px 28px rgba(40, 110, 105, 0.1) !important;
 }
 
+#app .app-shell:not(.is-auth-route) .dashboard-stage-grid,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-grid > .dashboard-stage-panel,
+#app .app-shell:not(.is-auth-route) .dashboard-stage-grid > .dashboard-metrics-panel {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
 #app .app-shell:not(.is-auth-route) .nav-link.is-active {
   color: #34908B !important;
   background: rgba(52, 144, 139, 0.12) !important;
@@ -1604,28 +1627,28 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 1),
 #app .app-shell:not(.is-auth-route) .dashboard-summary-card:nth-child(6n + 1),
 #app .app-shell:not(.is-auth-route) .wallet-summary-card:nth-child(6n + 1) {
-  background: #dcefec !important;
+  background: #f7fbfa !important;
 }
 
 #app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 2),
 #app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 2),
 #app .app-shell:not(.is-auth-route) .dashboard-summary-card:nth-child(6n + 2),
 #app .app-shell:not(.is-auth-route) .wallet-summary-card:nth-child(6n + 2) {
-  background: #d5e8f2 !important;
+  background: #f7fbfa !important;
 }
 
 #app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 3),
 #app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 3),
 #app .app-shell:not(.is-auth-route) .dashboard-summary-card:nth-child(6n + 3),
 #app .app-shell:not(.is-auth-route) .wallet-summary-card:nth-child(6n + 3) {
-  background: #d7efe6 !important;
+  background: #f7fbfa !important;
 }
 
 #app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 4),
 #app .app-shell:not(.is-auth-route) .dashboard-metric-card:nth-child(6n + 4),
 #app .app-shell:not(.is-auth-route) .dashboard-summary-card:nth-child(6n + 4),
 #app .app-shell:not(.is-auth-route) .wallet-summary-card:nth-child(6n + 4) {
-  background: #fff0cc !important;
+  background: #f7fbfa !important;
 }
 
 #app .app-shell:not(.is-auth-route) .metric-card:nth-child(6n + 5),
@@ -1674,11 +1697,15 @@ body:has(.app-shell:not(.is-auth-route)),
 
 #app .app-shell:not(.is-auth-route) .dashboard-metric-icon,
 #app .app-shell:not(.is-auth-route) .dashboard-summary-icon,
-#app .app-shell:not(.is-auth-route) .approval-metric-icon,
 #app .app-shell:not(.is-auth-route) .user-avatar,
 #app .app-shell:not(.is-auth-route) .attendance-avatar,
 #app .app-shell:not(.is-auth-route) .brand-mark {
   background: #dcefec !important;
+  color: #34908B !important;
+}
+
+#app .app-shell:not(.is-auth-route) .approval-metric-icon {
+  background: transparent !important;
   color: #34908B !important;
 }
 
@@ -3361,13 +3388,19 @@ body:has(.app-shell:not(.is-auth-route)),
     min-width: 0 !important;
   }
 
-  #app .app-shell:not(.is-auth-route) .data-table,
-  #app .app-shell:not(.is-auth-route) .table-shell,
-  #app .app-shell:not(.is-auth-route) .report-table-wrap,
+  /* Settings matrix tables may still need horizontal scroll; list/report tables use card grid (mobile-ui). */
   #app .app-shell:not(.is-auth-route) .settings-access-table,
   #app .app-shell:not(.is-auth-route) .access-selection-table {
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .table-shell,
+  #app .app-shell:not(.is-auth-route) .report-table-wrap,
+  #app .app-shell:not(.is-auth-route) .data-table,
+  #app .app-shell:not(.is-auth-route) .report-table {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
   }
 
   #app .app-shell:not(.is-auth-route) .settings-access-table-head,
@@ -3566,22 +3599,22 @@ body:has(.app-shell:not(.is-auth-route)),
 
 #app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-total,
 #app .app-shell:not(.is-auth-route) .metric-card.is-total {
-  background: #dcefec !important;
+  background: #f7fbfa !important;
 }
 
 #app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-pending,
 #app .app-shell:not(.is-auth-route) .metric-card.is-pending {
-  background: #fff0cc !important;
+  background: #f7fbfa !important;
 }
 
 #app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-approved,
 #app .app-shell:not(.is-auth-route) .metric-card.is-approved {
-  background: #d7efe6 !important;
+  background: #f7fbfa !important;
 }
 
 #app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-rejected,
 #app .app-shell:not(.is-auth-route) .metric-card.is-rejected {
-  background: #ffe3de !important;
+  background: #f7fbfa !important;
 }
 
 #app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-total::after,
@@ -3606,25 +3639,25 @@ body:has(.app-shell:not(.is-auth-route)),
 
 #app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-total .approval-metric-icon,
 #app .app-shell:not(.is-auth-route) .metric-card.is-total .approval-metric-icon {
-  background: rgba(52, 144, 139, 0.16) !important;
-  color: #34908B !important;
+  background: transparent !important;
+  color: #1f5c59 !important;
 }
 
 #app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-pending .approval-metric-icon,
 #app .app-shell:not(.is-auth-route) .metric-card.is-pending .approval-metric-icon {
-  background: rgba(176, 122, 18, 0.16) !important;
+  background: transparent !important;
   color: #b07a12 !important;
 }
 
 #app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-approved .approval-metric-icon,
 #app .app-shell:not(.is-auth-route) .metric-card.is-approved .approval-metric-icon {
-  background: rgba(31, 122, 114, 0.16) !important;
+  background: transparent !important;
   color: #1f7a72 !important;
 }
 
 #app .app-shell:not(.is-auth-route) .enterprise-page .metric-card.approval-metric-card.is-rejected .approval-metric-icon,
 #app .app-shell:not(.is-auth-route) .metric-card.is-rejected .approval-metric-icon {
-  background: rgba(196, 90, 74, 0.16) !important;
+  background: transparent !important;
   color: #c45a4a !important;
 }
 

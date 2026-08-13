@@ -86,6 +86,7 @@ urlpatterns = [
     path("tasking/tasks/<int:task_id>/request-changes", tasking_views.tasking_request_changes_view),
     path("tasking/tasks/<int:task_id>/cancel", tasking_views.tasking_cancel_view),
     path("tasking/tasks/<int:task_id>/comments", tasking_views.tasking_comments_view),
+    path("tasking/tasks/<int:task_id>/mentions/read", tasking_views.tasking_mark_mentions_read_view),
     path("tasking/tasks/<int:task_id>/attachments", tasking_views.tasking_attachments_view),
     path("tasking/tasks/<int:task_id>/attachments/<int:attachment_id>", tasking_views.tasking_attachment_download_view),
     path("tasking/settings", tasking_views.tasking_settings_view),

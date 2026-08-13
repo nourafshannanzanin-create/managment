@@ -27,15 +27,20 @@ const organizationTitle = computed(() => state.hq.selectedOrganization?.name || 
 const isLicenseLocked = computed(() => Boolean(state.currentUser.licenseStatus?.isLocked || state.currentUser.licenseStatus?.is_locked))
 
 let chatPollTimer = null
+let taskingPollTimer = null
 onMounted(() => {
   void loadChatUnreadConversations()
   void loadTaskingDashboard(false).catch(() => {})
   chatPollTimer = window.setInterval(() => {
     void loadChatUnreadConversations()
   }, 8000)
+  taskingPollTimer = window.setInterval(() => {
+    void loadTaskingDashboard(true).catch(() => {})
+  }, 20000)
 })
 onBeforeUnmount(() => {
   if (chatPollTimer) window.clearInterval(chatPollTimer)
+  if (taskingPollTimer) window.clearInterval(taskingPollTimer)
 })
 
 const navItems = computed(() => {
@@ -71,10 +76,6 @@ const navItems = computed(() => {
 
   if (state.currentUser.isManager || state.currentUser.canUseHq) {
     items.push({ to: '/wallet', label: 'کیف پول', icon: 'account_balance_wallet' })
-  }
-
-  if (state.currentUser.isHq || state.currentUser.menuAccess?.cloud_storage === true) {
-    items.push({ to: '/cloud', label: 'فضای ابری', icon: 'cloud' })
   }
 
   if (!state.currentUser.isHq) {

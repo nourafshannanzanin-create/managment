@@ -5,6 +5,7 @@ import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { AppError, appErrorFromResponse, createValidationError, hasFieldError, normalizeError } from '../utils/errors'
 import { formatJalali, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
 import { notifyNewChatMessages, notifyNewSupportTickets, playInboxAlertSound, playTicketAlertSound } from '../utils/ticketAlert'
+import { notifyInfo } from '../utils/notify'
 import { repairPayload } from '../utils/stitch'
 import { cleanDisplayText } from '../utils/text'
 import { prepareUploadFile, UPLOAD_LIMITS, validateUploadFile } from '../utils/uploads'
@@ -257,6 +258,16 @@ function createTaskingState() {
       remainingMinutes: 0,
       needsAction: 0,
       completedToday: 0,
+      unreadMentions: 0,
+      mineCount: 0,
+      assignmentCount: 0,
+      superviseCount: 0,
+    },
+    counts: {
+      mine: {},
+      assignments: {},
+      supervise: {},
+      mentions: 0,
     },
     badgeCount: 0,
     activeTimer: null,
@@ -288,6 +299,11 @@ function createTaskingState() {
         changesRequested: 0,
       },
     },
+    mentions: {
+      unread: [],
+      all: [],
+    },
+    departments: [],
     assigneeOptions: [],
     selectedTask: null,
     detailLoading: false,
@@ -918,7 +934,6 @@ const visibleNavItems = computed(() => {
   ]
   if (canViewReports.value) items.push({ to: '/reports', label: 'گزارشات', icon: 'monitoring' })
   if (canAccessUsers.value) items.push({ to: '/users', label: 'کاربران', icon: 'group' })
-  if (canAccessCloud.value) items.push({ to: '/cloud', label: 'فضای ابری', icon: 'cloud' })
 
   if (state.currentUser.canAccessSettings || canManageUsers.value) {
     items.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
@@ -2862,6 +2877,8 @@ async function updateUser(userId, payload) {
     if (state.tasking.loaded && !force && !dateIso) return state.tasking
     state.tasking.loading = true
     state.tasking.error = ''
+    const previousBadge = Number(state.tasking.badgeCount || 0)
+    const hadLoaded = Boolean(state.tasking.loaded)
     try {
       const query = dateIso ? `?date=${encodeURIComponent(dateIso)}` : (state.tasking.date ? `?date=${encodeURIComponent(state.tasking.date)}` : '')
       const response = await authorizedFetch(`/tasking/dashboard${query}`)
@@ -2870,13 +2887,21 @@ async function updateUser(userId, payload) {
       state.tasking.date = payload.date || state.tasking.date
       state.tasking.settings = payload.settings || null
       state.tasking.capacity = payload.capacity || null
-      state.tasking.stats = payload.stats || state.tasking.stats
+      state.tasking.stats = { ...createTaskingState().stats, ...(payload.stats || {}) }
+      state.tasking.counts = { ...createTaskingState().counts, ...(payload.counts || {}) }
       state.tasking.badgeCount = Number(payload.badgeCount || 0)
       state.tasking.activeTimer = payload.activeTimer || null
       state.tasking.mine = payload.mine || createTaskingState().mine
       state.tasking.assignments = payload.assignments || createTaskingState().assignments
       state.tasking.supervise = payload.supervise || createTaskingState().supervise
+      state.tasking.mentions = payload.mentions || createTaskingState().mentions
+      state.tasking.departments = payload.departments || []
       state.tasking.assigneeOptions = payload.assigneeOptions || []
+      if (hadLoaded && Number(state.tasking.badgeCount) > previousBadge) {
+        const delta = Number(state.tasking.badgeCount) - previousBadge
+        notifyInfo(`تسکینگ: ${delta} مورد جدید نیازمند توجه`)
+        playInboxAlertSound({ isHq: Boolean(state.currentUser.isHq) })
+      }
       return state.tasking
     } catch (error) {
       state.tasking.error = error.message || 'بارگذاری تسکینگ ناموفق بود.'
@@ -3005,17 +3030,53 @@ async function updateUser(userId, payload) {
     return taskingAction(taskId, 'request-changes', { comment })
   }
 
-  async function addTaskComment(taskId, body, mentionIds = []) {
+  async function addTaskComment(taskId, body, mentionIds = [], parentId = null) {
     const response = await authorizedFetch(`/tasking/tasks/${taskId}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body, mentionIds }),
+      body: JSON.stringify({ body, mentionIds, parentId }),
     })
     const comment = repairPayload(await response.json())
     if (state.tasking.selectedTask?.id === Number(taskId)) {
       await loadTaskDetail(taskId)
     }
+    await loadTaskingDashboard(true)
     return comment
+  }
+
+  async function markTaskMentionsRead(taskId) {
+    const response = await authorizedFetch(`/tasking/tasks/${taskId}/mentions/read`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    const payload = repairPayload(await response.json())
+    if (payload.task) {
+      state.tasking.selectedTask = payload.task
+    }
+    await loadTaskingDashboard(true)
+    return payload
+  }
+
+  async function updateTaskingTask(taskId, payload = {}) {
+    clearLastError()
+    state.tasking.submitting = true
+    try {
+      const response = await authorizedFetch(`/tasking/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const task = repairPayload(await response.json())
+      state.tasking.selectedTask = task
+      await loadTaskingDashboard(true)
+      return task
+    } catch (error) {
+      setLastError(error, 'به‌روزرسانی تسک ناموفق بود.')
+      throw error
+    } finally {
+      state.tasking.submitting = false
+    }
   }
 
   async function loadTaskingSettings() {
@@ -3147,6 +3208,8 @@ async function updateUser(userId, payload) {
     approveTask,
     requestTaskChanges,
     addTaskComment,
+    markTaskMentionsRead,
+    updateTaskingTask,
     loadTaskingSettings,
     saveTaskingSettings,
     loadTaskingReports,

@@ -9,8 +9,10 @@ from django.db.models import Q, Sum
 from django.utils import timezone
 
 from workflow.access import get_user_organization, is_manager, organization_users
+from workflow.services import media_url, next_code, normalize_person_name, user_avatar_url
 from workflow.models import (
     AuditLog,
+    Department,
     LeaveRequest,
     Organization,
     OrganizationPreference,
@@ -33,7 +35,6 @@ from workflow.models import (
     User,
     UserRole,
 )
-from workflow.services import media_url, next_code, normalize_person_name, user_avatar_url
 
 
 DEFAULT_WORK_DAYS = [5, 6, 0, 1, 2]  # Sat..Wed
@@ -121,6 +122,26 @@ def parse_iso_datetime(value: Any) -> datetime | None:
     if timezone.is_naive(parsed):
         return timezone.make_aware(parsed)
     return parsed
+
+
+def end_of_day_due_at(value: Any, settings_obj: TaskingSettings | None = None) -> datetime | None:
+    """Deadline is day-only: store as end of that local day (23:59:59)."""
+    if not value:
+        return None
+    tz = org_timezone(settings_obj) if settings_obj else ZoneInfo("Asia/Tehran")
+    text = str(value).strip()
+    if len(text) >= 10 and text[4] == "-" and ("T" not in text[:11] or text.endswith("T00:00:00") or text.endswith("T00:00:00Z")):
+        day = parse_iso_date(text[:10])
+        if day is None:
+            return None
+        local_dt = datetime.combine(day, dt_time(23, 59, 59), tzinfo=tz)
+        return local_dt.astimezone(timezone.get_current_timezone()) if timezone.get_current_timezone() else local_dt
+    parsed = parse_iso_datetime(value)
+    if parsed is None:
+        return None
+    local = parsed.astimezone(tz)
+    local_eod = datetime.combine(local.date(), dt_time(23, 59, 59), tzinfo=tz)
+    return local_eod
 
 
 def parse_iso_date(value: Any) -> date | None:
@@ -660,6 +681,7 @@ def serialize_allocation(item: TaskAllocation) -> dict:
 
 
 def serialize_comment(comment: TaskComment) -> dict:
+    mention_rows = list(comment.mentions.all())
     return {
         "id": comment.id,
         "body": comment.body,
@@ -668,7 +690,28 @@ def serialize_comment(comment: TaskComment) -> dict:
         "editedAt": comment.edited_at.isoformat() if comment.edited_at else "",
         "author": serialize_user_brief(comment.author),
         "parentId": comment.parent_id,
-        "mentions": [item.mentioned_user_id for item in comment.mentions.all()],
+        "mentions": [item.mentioned_user_id for item in mention_rows],
+        "mentionUsers": [
+            serialize_user_brief(item.mentioned_user)
+            for item in mention_rows
+            if getattr(item, "mentioned_user_id", None)
+        ],
+    }
+
+
+def _timer_payload(task: Task, user: User, active_timer: TaskTimeEntry | None) -> dict | None:
+    if not active_timer:
+        return None
+    accumulated = (
+        TaskTimeEntry.objects.filter(task=task, user=user, is_active=False).aggregate(total=Sum("duration_seconds")).get("total")
+        or 0
+    )
+    current = max(0, int((timezone.now() - active_timer.started_at).total_seconds()))
+    return {
+        "id": active_timer.id,
+        "startedAt": active_timer.started_at.isoformat(),
+        "accumulatedSeconds": int(accumulated),
+        "elapsedSeconds": int(accumulated) + current,
     }
 
 
@@ -735,15 +778,7 @@ def serialize_task(task: Task, current_user: User, *, include_detail: bool = Fal
         "hasUnreadComments": unread_count > 0,
         "unreadCount": unread_count,
         "attachmentsCount": task.attachments.count() if not hasattr(task, "_prefetched_objects_cache") else len(list(task.attachments.all())),
-        "activeTimer": (
-            {
-                "id": active_timer.id,
-                "startedAt": active_timer.started_at.isoformat(),
-                "elapsedSeconds": max(0, int((timezone.now() - active_timer.started_at).total_seconds())),
-            }
-            if active_timer
-            else None
-        ),
+        "activeTimer": _timer_payload(task, current_user, active_timer),
         "pendingAssignment": bool(pending_assignment),
         "canAccept": bool(pending_assignment),
         "canReject": bool(pending_assignment),
@@ -751,6 +786,7 @@ def serialize_task(task: Task, current_user: User, *, include_detail: bool = Fal
         "canPause": task.owner_id == current_user.id and task.status == TaskStatus.IN_PROGRESS,
         "canComplete": task.owner_id == current_user.id and task.status in {TaskStatus.IN_PROGRESS, TaskStatus.PAUSED, TaskStatus.SCHEDULED, TaskStatus.UPCOMING, TaskStatus.CHANGES_REQUESTED},
         "canReview": can_review_task(current_user, task) and task.status == TaskStatus.PENDING_REVIEW,
+        "canEdit": current_user.id in {task.owner_id, task.creator_id} or is_manager(current_user) or can_review_task(current_user, task),
         "version": task.version,
         "createdAt": task.created_at.isoformat() if task.created_at else "",
         "updatedAt": task.updated_at.isoformat() if task.updated_at else "",
@@ -767,7 +803,10 @@ def serialize_task(task: Task, current_user: User, *, include_detail: bool = Fal
         ]
         payload["comments"] = [
             serialize_comment(item)
-            for item in task.comments.filter(deleted_at__isnull=True).select_related("author").prefetch_related("mentions").order_by("created_at")
+            for item in task.comments.filter(deleted_at__isnull=True)
+            .select_related("author")
+            .prefetch_related("mentions__mentioned_user")
+            .order_by("created_at")
         ]
         payload["activities"] = [serialize_activity(item) for item in task.activities.select_related("actor").order_by("-created_at")[:100]]
         payload["attachments"] = [
@@ -863,7 +902,7 @@ def create_task(actor: User, payload: dict, files=None) -> Task:
     if priority not in TaskPriority.values:
         raise TaskingError("اولویت معتبر نیست.")
 
-    due_at = parse_iso_datetime(payload.get("dueAt") or payload.get("due_at"))
+    due_at = end_of_day_due_at(payload.get("dueAt") or payload.get("due_at"), settings_obj)
     start_not_before = parse_iso_datetime(payload.get("startNotBefore") or payload.get("start_not_before"))
     if due_at and start_not_before and due_at < start_not_before:
         raise TaskingError("ددلاین نمی‌تواند قبل از تاریخ شروع مجاز باشد.")
@@ -1223,15 +1262,20 @@ def add_comment(actor: User, task: Task, body: str, parent_id: int | None = None
         raise TaskingError("متن پیام الزامی است.")
     parent = None
     if parent_id:
-        parent = task.comments.filter(pk=parent_id, deleted_at__isnull=True).first()
+        parent = task.comments.filter(pk=parent_id, deleted_at__isnull=True).select_related("author").first()
     comment = TaskComment.objects.create(task=task, author=actor, parent=parent, body=body)
     org_user_ids = set(organization_users(actor).values_list("id", flat=True))
+    mention_set = set()
     for mid in mention_ids or []:
         try:
-            mid_int = int(mid)
+            mention_set.add(int(mid))
         except (TypeError, ValueError):
             continue
-        if mid_int in org_user_ids:
+    # Reply under a message also mentions the parent author
+    if parent and parent.author_id and parent.author_id != actor.id:
+        mention_set.add(parent.author_id)
+    for mid_int in mention_set:
+        if mid_int in org_user_ids and mid_int != actor.id:
             TaskMention.objects.get_or_create(comment=comment, mentioned_user_id=mid_int)
             TaskObserver.objects.get_or_create(
                 task=task,
@@ -1240,6 +1284,18 @@ def add_comment(actor: User, task: Task, body: str, parent_id: int | None = None
             )
     log_activity(task, actor, "comment_added", body[:180])
     return comment
+
+
+@transaction.atomic
+def mark_task_mentions_read(actor: User, task: Task) -> int:
+    now = timezone.now()
+    updated = TaskMention.objects.filter(
+        mentioned_user=actor,
+        read_at__isnull=True,
+        comment__task=task,
+        comment__deleted_at__isnull=True,
+    ).update(read_at=now)
+    return int(updated)
 
 
 def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
@@ -1300,7 +1356,51 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
     supervise_done = [serialize_task(item, user, focus_date=today) for item in supervised.filter(status=TaskStatus.COMPLETED).order_by("-completed_at")[:50]]
 
     active_timer = TaskTimeEntry.objects.filter(user=user, is_active=True).select_related("task").first()
-    badge_count = pending_assignments.count() + my_tasks.filter(status=TaskStatus.CHANGES_REQUESTED).count() + supervised.filter(status=TaskStatus.PENDING_REVIEW).count()
+    unread_mentions_qs = (
+        TaskMention.objects.filter(
+            mentioned_user=user,
+            read_at__isnull=True,
+            comment__deleted_at__isnull=True,
+            comment__task__organization=organization,
+            comment__task__deleted_at__isnull=True,
+        )
+        .select_related("comment", "comment__author", "comment__task", "comment__task__owner", "comment__task__creator")
+        .order_by("-id")
+    )
+    mention_task_ids = list(dict.fromkeys(unread_mentions_qs.values_list("comment__task_id", flat=True)))
+    mention_tasks = [
+        serialize_task(item, user, focus_date=today)
+        for item in qs.filter(id__in=mention_task_ids)
+    ]
+    mention_tasks.sort(key=lambda row: mention_task_ids.index(row["id"]) if row["id"] in mention_task_ids else 9999)
+    unread_mention_count = unread_mentions_qs.count()
+
+    action_badge = (
+        pending_assignments.count()
+        + my_tasks.filter(status=TaskStatus.CHANGES_REQUESTED).count()
+        + supervised.filter(status=TaskStatus.PENDING_REVIEW).count()
+        + unread_mention_count
+    )
+    mine_counts = {
+        "today": len(today_tasks),
+        "upcoming": len(upcoming),
+        "inProgress": len(in_progress),
+        "pendingReview": len(pending_review),
+        "changesRequested": len(changes),
+        "closed": len(closed),
+        "all": my_tasks.count(),
+    }
+    assignment_counts = {
+        "pending": len(assignments),
+        "all": len(assignments),
+    }
+    supervise_counts = {
+        "pendingReview": len(supervise_pending),
+        "inProgress": len(supervise_active),
+        "overdue": len(supervise_overdue),
+        "completed": len(supervise_done),
+        "all": supervised.count(),
+    }
 
     return {
         "date": today.isoformat(),
@@ -1309,16 +1409,25 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
         "stats": {
             "todayCount": len(today_tasks),
             "remainingMinutes": capacity["remainingTargetMinutes"],
-            "needsAction": badge_count,
+            "needsAction": action_badge,
             "completedToday": my_tasks.filter(status=TaskStatus.COMPLETED, completed_at__date=today).count(),
+            "unreadMentions": unread_mention_count,
+            "mineCount": mine_counts["all"],
+            "assignmentCount": assignment_counts["pending"],
+            "superviseCount": supervise_counts["pendingReview"],
         },
-        "badgeCount": badge_count,
+        "counts": {
+            "mine": mine_counts,
+            "assignments": assignment_counts,
+            "supervise": supervise_counts,
+            "mentions": unread_mention_count,
+        },
+        "badgeCount": action_badge,
         "activeTimer": (
             {
                 "taskId": active_timer.task_id,
                 "taskTitle": active_timer.task.title,
-                "startedAt": active_timer.started_at.isoformat(),
-                "elapsedSeconds": max(0, int((timezone.now() - active_timer.started_at).total_seconds())),
+                **(_timer_payload(active_timer.task, user, active_timer) or {}),
             }
             if active_timer
             else None
@@ -1351,6 +1460,14 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
                 "changesRequested": supervised.filter(status=TaskStatus.CHANGES_REQUESTED).count(),
             },
         },
+        "mentions": {
+            "unread": mention_tasks,
+            "all": mention_tasks,
+        },
+        "departments": [
+            {"id": item.id, "code": item.code, "name": item.name}
+            for item in Department.objects.exclude(code__in=["hq-control", "hq"]).exclude(name__iexact="HQ").exclude(code__endswith="-admin").order_by("name")
+        ],
         "assigneeOptions": [
             {
                 **serialize_user_brief(item),

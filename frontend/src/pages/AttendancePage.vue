@@ -439,12 +439,12 @@ onMounted(() => {
     </section>
 
     <template v-if="activeTab === 'dashboard'">
-    <section class="attendance-toolbar">
+    <section class="attendance-toolbar attendance-toolbar-modern">
       <label class="search-shell search-shell-wide">
         <IconlyIcon name="search" decorative />
         <input v-model="search" type="text" placeholder="جستجو در نام، سمت، بخش یا موبایل..." />
       </label>
-      <label class="field-shell">
+      <label class="field-shell attendance-status-field">
         <span>وضعیت</span>
         <select v-model="statusFilter">
           <option value="all">همه</option>
@@ -452,7 +452,7 @@ onMounted(() => {
           <option value="out">خارج از شیفت</option>
         </select>
       </label>
-      <button class="action-btn tone-soft" type="button" @click="loadDashboard">
+      <button class="action-btn tone-soft attendance-refresh-btn" type="button" @click="loadDashboard">
         <IconlyIcon name="refresh" decorative />
         <span>بروزرسانی</span>
       </button>
@@ -1080,13 +1080,34 @@ onMounted(() => {
 
 .attendance-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(140px, 200px) auto;
+  grid-template-columns: minmax(0, 1.6fr) minmax(150px, 200px) auto;
   gap: 12px;
   align-items: stretch;
   min-width: 0;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(52, 144, 139, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 251, 250, 0.92));
+  box-shadow: 0 10px 28px rgba(31, 92, 89, 0.06);
 }
 
 .attendance-toolbar > * { min-width: 0; }
+
+.attendance-toolbar .search-shell,
+.attendance-toolbar .field-shell {
+  min-height: 52px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(52, 144, 139, 0.12);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.attendance-toolbar .attendance-refresh-btn {
+  min-height: 52px;
+  padding-inline: 16px;
+  white-space: nowrap;
+}
 .attendance-report-panel { display: grid; gap: 14px; min-width: 0; }
 
 .report-filter-grid {

@@ -21,6 +21,8 @@ const {
   openRequestDetail,
   chatUnreadCount,
   loadChatUnreadConversations,
+  loadTaskingDashboard,
+  taskingBadgeCount,
 } = useWorkflowHub()
 
 const todayHoursLabel = ref('—')
@@ -355,6 +357,18 @@ async function loadTodayAttendanceHours() {
 onMounted(() => {
   void loadTodayAttendanceHours()
   void loadChatUnreadConversations()
+  void loadTaskingDashboard(false).catch(() => {})
+})
+
+const taskingSnapshot = computed(() => {
+  const stats = state.tasking?.stats || {}
+  const capacity = state.tasking?.capacity || {}
+  return [
+    { label: 'کارهای امروز', value: stats.todayCount || 0, icon: 'assignment' },
+    { label: 'نیازمند اقدام', value: stats.needsAction || taskingBadgeCount.value || 0, icon: 'pending_actions' },
+    { label: 'منشن‌ها', value: stats.unreadMentions || 0, icon: 'forum' },
+    { label: 'بهره‌برداری', value: `${capacity.utilizationPercent || 0}٪`, icon: 'schedule' },
+  ]
 })
 </script>
 
@@ -485,6 +499,39 @@ onMounted(() => {
         <div v-else class="empty-state-inline">مورد مهمی برای نمایش نیست.</div>
       </article>
     </section>
+
+    <section class="dashboard-actions-shell">
+      <article class="surface-block dashboard-actions-panel">
+        <div class="dashboard-section-head dashboard-section-head-tight">
+          <div>
+            <span class="dashboard-section-kicker">تسکینگ</span>
+            <h3>وضعیت کارهای شما</h3>
+          </div>
+          <button class="action-btn tone-primary" type="button" @click="router.push('/tasking')">
+            <IconlyIcon name="task_alt" decorative />
+            <span>رفتن به تسکینگ</span>
+          </button>
+        </div>
+        <div class="dashboard-stage-summary">
+          <article
+            v-for="item in taskingSnapshot"
+            :key="item.label"
+            class="dashboard-summary-card"
+            role="button"
+            @click="router.push('/tasking')"
+          >
+            <div class="dashboard-summary-icon">
+              <IconlyIcon :name="item.icon" decorative />
+            </div>
+            <div class="dashboard-summary-copy">
+              <strong>{{ item.value }}</strong>
+              <span>{{ item.label }}</span>
+              <small>به‌روز از ماژول تسکینگ</small>
+            </div>
+          </article>
+        </div>
+      </article>
+    </section>
   </section>
 </template>
 
@@ -579,6 +626,18 @@ onMounted(() => {
 
 .dashboard-stage-grid {
   grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.88fr);
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.dashboard-stage-grid > .dashboard-stage-panel,
+.dashboard-stage-grid > .dashboard-metrics-panel {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 .dashboard-stage-panel,
@@ -606,7 +665,6 @@ onMounted(() => {
   padding: 24px;
   display: grid;
   gap: 14px;
-  background: transparent;
 }
 
 .dashboard-stage-panel::after {
@@ -1004,6 +1062,7 @@ onMounted(() => {
 
 @media (max-width: 1240px) {
   .dashboard-stage-grid {
+  background-color: #041f78 !important;
     grid-template-columns: minmax(0, 1fr);
   }
 

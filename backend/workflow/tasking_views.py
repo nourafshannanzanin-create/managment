@@ -17,8 +17,10 @@ from workflow.tasking import (
     approve_task,
     create_task,
     dashboard_payload,
+    end_of_day_due_at,
     get_or_create_tasking_settings,
     local_today,
+    mark_task_mentions_read,
     parse_iso_date,
     pause_task,
     preview_schedule,
@@ -117,17 +119,35 @@ def tasking_task_detail_view(request: HttpRequest, task_id: int):
                 int(payload.get("estimatedMinutes") or payload.get("estimated_minutes")),
                 reason=payload.get("reason") or "",
             )
+        changed = []
         if "title" in payload:
             title = (payload.get("title") or "").strip()
             if title:
                 task.title = title
+                changed.append("title")
         if "description" in payload:
             task.description = (payload.get("description") or "").strip()
+            changed.append("description")
         if "priority" in payload and payload.get("priority"):
             task.priority = payload["priority"]
+            changed.append("priority")
+        if "category" in payload:
+            task.category = (payload.get("category") or "").strip()[:80]
+            changed.append("category")
+        if "departmentId" in payload or "department_id" in payload:
+            dept_id = payload.get("departmentId", payload.get("department_id"))
+            task.department_id = int(dept_id) if dept_id not in (None, "", 0, "0") else None
+            changed.append("department")
+        if "dueAt" in payload or "due_at" in payload:
+            settings_obj = get_or_create_tasking_settings(task.organization)
+            task.due_at = end_of_day_due_at(payload.get("dueAt") or payload.get("due_at"), settings_obj)
+            changed.append("due_at")
         if "isPinned" in payload or "is_pinned" in payload:
             task.is_pinned = bool(payload.get("isPinned", payload.get("is_pinned")))
-        task.save()
+            changed.append("is_pinned")
+        if changed:
+            task.version = (task.version or 0) + 1
+            task.save()
         return json_response(serialize_task(task, request.current_user, include_detail=True))
     except Exception as exc:
         return _handle_tasking_error(exc)
@@ -284,6 +304,20 @@ def tasking_comments_view(request: HttpRequest, task_id: int):
             mention_ids=payload.get("mentionIds") or payload.get("mention_ids") or [],
         )
         return json_response(serialize_comment(comment), status=201)
+    except Exception as exc:
+        return _handle_tasking_error(exc)
+
+
+@require_auth
+@methods("POST")
+@csrf_exempt
+def tasking_mark_mentions_read_view(request: HttpRequest, task_id: int):
+    task = _get_owned_or_visible_task(request, task_id)
+    if task is None:
+        return json_error("تسک پیدا نشد.", status=404)
+    try:
+        updated = mark_task_mentions_read(request.current_user, task)
+        return json_response({"updated": updated, "task": serialize_task(task, request.current_user, include_detail=True)})
     except Exception as exc:
         return _handle_tasking_error(exc)
 
