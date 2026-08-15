@@ -58,12 +58,47 @@ watch(mainTab, (tab) => {
 })
 
 const capacity = computed(() => state.tasking.capacity || {})
-const donePercent = computed(() => {
-  const effective = Number(capacity.value.effectiveWorkMinutes || 0)
-  const actual = Number(capacity.value.actualMinutes || 0)
-  if (effective <= 0) return actual > 0 ? 100 : 0
-  return Math.min(100, Math.round((actual / effective) * 100))
+const progressBaseMinutes = computed(() => {
+  const fromApi = Number(capacity.value.progressBaseMinutes || 0)
+  if (fromApi > 0) return fromApi
+  const planned = Number(capacity.value.plannedMinutes || 0)
+  if (planned > 0) return planned
+  const target = Number(capacity.value.targetMinutes || 0)
+  if (target > 0) return target
+  return Number(capacity.value.effectiveWorkMinutes || 0)
 })
+const liveActualMinutes = computed(() => {
+  void timerTick.value
+  const closed = Number(capacity.value.timerClosedMinutes)
+  const hasClosed = Number.isFinite(closed) && closed >= 0 && capacity.value.timerClosedMinutes != null
+  const active = state.tasking.activeTimer
+  if (hasClosed) {
+    let seconds = closed * 60
+    if (active?.startedAt) {
+      const started = new Date(active.startedAt).getTime()
+      if (Number.isFinite(started)) {
+        seconds += Math.max(0, Math.floor((Date.now() - started) / 1000))
+      }
+    }
+    return Math.max(0, Math.floor(seconds / 60))
+  }
+  // Fallback while older payloads lack timerClosedMinutes
+  let mins = Number(capacity.value.actualMinutes || 0)
+  if (active?.startedAt) {
+    const started = new Date(active.startedAt).getTime()
+    const liveSec = Number.isFinite(started) ? Math.max(0, Math.floor((Date.now() - started) / 1000)) : 0
+    const apiActive = Number(capacity.value.timerActiveSeconds || 0)
+    if (liveSec > apiActive) mins += Math.floor((liveSec - apiActive) / 60)
+  }
+  return Math.max(0, mins)
+})
+const donePercent = computed(() => {
+  const actual = liveActualMinutes.value
+  const base = progressBaseMinutes.value
+  if (base <= 0) return actual > 0 ? 100 : 0
+  return Math.min(100, Math.round((actual / base) * 100))
+})
+const doneBarWidth = computed(() => `${donePercent.value}%`)
 const capacityPercent = computed(() => donePercent.value)
 const capacityTone = computed(() => {
   const pct = donePercent.value
@@ -141,8 +176,11 @@ const counts = computed(() => state.tasking.counts || {})
 const upcomingPool = computed(() => {
   const mine = state.tasking.mine || {}
   const map = new Map()
+  const hidden = new Set(['completed', 'cancelled', 'pending_review', 'pending_acceptance', 'draft'])
   ;[...(mine.today || []), ...(mine.upcoming || []), ...(mine.inProgress || [])].forEach((task) => {
     if (!task?.id) return
+    const status = String(task.status || '').toLowerCase()
+    if (hidden.has(status)) return
     map.set(task.id, task)
   })
   return [...map.values()]
@@ -253,6 +291,26 @@ function miniCount(value) {
   return n > 0 ? n : 0
 }
 
+function isCompletedTask(task) {
+  return String(task?.status || '').toLowerCase() === 'completed'
+}
+
+function taskPlannedMinutes(task) {
+  return Number(task?.estimatedMinutes || task?.todayPlannedMinutes || 0)
+}
+
+function taskTimerMinutes(task) {
+  void timerTick.value
+  let minutes = Number(task?.actualMinutes || 0)
+  if (task?.activeTimer?.startedAt) {
+    const accumulated = Number(task.activeTimer.accumulatedSeconds || 0)
+    const started = new Date(task.activeTimer.startedAt).getTime()
+    const live = accumulated + Math.max(0, Math.floor((Date.now() - started) / 1000))
+    minutes = Math.max(minutes, Math.floor(live / 60))
+  }
+  return minutes
+}
+
 async function shiftDate(delta) {
   const base = state.tasking.date ? new Date(`${state.tasking.date}T12:00:00`) : new Date()
   base.setDate(base.getDate() + delta)
@@ -268,6 +326,18 @@ async function goToday() {
 
 async function openTask(task) {
   await loadTaskDetail(task.id)
+}
+
+function quickAccept(task) {
+  void openTask(task)
+}
+
+function quickStart(task, stopOther = false) {
+  if (task?.status === 'changes_requested') {
+    void openTask(task)
+    return
+  }
+  void startTask(task.id, stopOther)
 }
 </script>
 
@@ -319,7 +389,7 @@ async function openTask(task) {
         <div class="capacity-copy">
           <p class="capacity-eyebrow">ظرفیت امروز</p>
           <h3>{{ capacity.bandLabel || 'بدون برنامه' }}</h3>
-          <p class="capacity-lede">بر اساس ساعت کاری مؤثر و هدف برنامه‌ریزی مجموعه به‌روز می‌شود.</p>
+          <p class="capacity-lede">درصد و نوار پیشرفت فقط از مجموع تایمرهای امروز نسبت به برنامهٔ روز ساخته می‌شود.</p>
           <div class="capacity-bars">
             <div class="capacity-bar-row">
               <div class="capacity-bar-meta">
@@ -335,14 +405,11 @@ async function openTask(task) {
             </div>
             <div class="capacity-bar-row">
               <div class="capacity-bar-meta">
-                <span>انجام‌شده</span>
-                <strong>{{ formatDurationRatioFa(capacity.actualMinutes, capacity.effectiveWorkMinutes) }}</strong>
+                <span>کارکرد تایمر</span>
+                <strong>{{ formatDurationRatioFa(liveActualMinutes, progressBaseMinutes) }}</strong>
               </div>
               <div class="capacity-track is-animated">
-                <span
-                  class="is-actual"
-                  :style="{ width: `${Math.min(100, capacity.effectiveWorkMinutes ? (Number(capacity.actualMinutes || 0) / Number(capacity.effectiveWorkMinutes)) * 100 : 0)}%` }"
-                ></span>
+                <span class="is-actual" :style="{ width: doneBarWidth }"></span>
               </div>
             </div>
           </div>
@@ -362,8 +429,8 @@ async function openTask(task) {
           <strong>{{ minutesLabel(capacity.plannedMinutes) }}</strong>
         </article>
         <article>
-          <small>انجام‌شده</small>
-          <strong>{{ minutesLabel(capacity.actualMinutes) }}</strong>
+          <small>کارکرد تایمر</small>
+          <strong>{{ minutesLabel(liveActualMinutes) }}</strong>
         </article>
       </div>
     </section>
@@ -452,19 +519,25 @@ async function openTask(task) {
                 <span :class="['status-badge', toneForStatus(task.statusLabel)]">{{ task.statusLabel }}</span>
               </div>
               <div class="task-card-meta">
-                <span>{{ minutesLabel(task.estimatedMinutes) }}</span>
-                <span v-if="task.todayPlannedMinutes">امروز {{ minutesLabel(task.todayPlannedMinutes) }}</span>
+                <span class="task-time-chip is-planned">برنامه {{ minutesLabel(taskPlannedMinutes(task)) }}</span>
+                <span
+                  v-if="isCompletedTask(task) || taskTimerMinutes(task) > 0 || task.activeTimer"
+                  class="task-time-chip is-timer"
+                >
+                  {{ isCompletedTask(task) ? 'پایان تایمر' : 'تایمر' }} {{ minutesLabel(taskTimerMinutes(task)) }}
+                </span>
+                <span v-if="task.todayPlannedMinutes && !isCompletedTask(task)" class="task-time-chip is-today">امروز {{ minutesLabel(task.todayPlannedMinutes) }}</span>
                 <span v-if="task.assignee?.name">{{ task.assignee.name }}</span>
               </div>
               <div class="task-card-footer" @click.stop>
                 <div class="task-people">
-                  <UserAvatar :name="task.assignee?.name" :avatar-url="task.assignee?.avatarUrl" size="sm" />
+                  <UserAvatar :person="task.assignee" :name="task.assignee?.name" size="sm" />
                   <small>{{ task.priorityLabel }}</small>
                 </div>
                 <div class="task-card-actions">
-                  <button v-if="task.canAccept" class="action-btn tone-primary" type="button" @click="acceptTask(task.id)">پذیرش</button>
+                  <button v-if="task.canAccept" class="action-btn tone-primary" type="button" @click="quickAccept(task)">پذیرش</button>
                   <button v-if="task.canReject" class="action-btn tone-soft" type="button" @click="rejectTask(task.id, 'رد ارجاع')">رد</button>
-                  <button v-if="task.canStart" class="action-btn tone-primary" type="button" @click="startTask(task.id)">شروع</button>
+                  <button v-if="task.canStart" class="action-btn tone-primary" type="button" @click="quickStart(task)">شروع</button>
                   <button v-if="task.canPause" class="action-btn tone-soft" type="button" @click="pauseTask(task.id)">توقف</button>
                   <button v-if="task.canComplete || task.canSubmitReview" class="action-btn tone-primary" type="button" @click="submitTaskReview(task.id)">پایان</button>
                   <span v-if="task.activeTimer" class="timer-readout">{{ formatElapsed(task) }}</span>
@@ -493,21 +566,27 @@ async function openTask(task) {
           </div>
 
           <div class="task-card-meta">
-            <span>{{ minutesLabel(task.estimatedMinutes) }}</span>
-            <span v-if="task.todayPlannedMinutes">امروز {{ minutesLabel(task.todayPlannedMinutes) }}</span>
+            <span class="task-time-chip is-planned">برنامه {{ minutesLabel(taskPlannedMinutes(task)) }}</span>
+            <span
+              v-if="isCompletedTask(task) || taskTimerMinutes(task) > 0 || task.activeTimer"
+              class="task-time-chip is-timer"
+            >
+              {{ isCompletedTask(task) ? 'پایان تایمر' : 'تایمر' }} {{ minutesLabel(taskTimerMinutes(task)) }}
+            </span>
+            <span v-if="task.todayPlannedMinutes && !isCompletedTask(task)" class="task-time-chip is-today">امروز {{ minutesLabel(task.todayPlannedMinutes) }}</span>
             <span v-if="task.spillover" class="spill-badge">ادامه فردا</span>
             <span v-if="task.dueAt">ددلاین دارد</span>
           </div>
 
           <div class="task-card-footer">
             <div class="assignee-mini" v-if="task.assignee">
-              <UserAvatar :name="task.assignee.name" :avatar-url="task.assignee.avatarUrl" size="sm" />
+              <UserAvatar :person="task.assignee" :name="task.assignee.name" size="sm" />
               <small>{{ task.assignee.name }}</small>
             </div>
             <div class="task-card-actions" @click.stop>
-              <button v-if="task.canAccept" class="action-btn tone-primary" type="button" @click="acceptTask(task.id)">پذیرش</button>
+              <button v-if="task.canAccept" class="action-btn tone-primary" type="button" @click="quickAccept(task)">پذیرش</button>
               <button v-if="task.canReject" class="action-btn tone-soft" type="button" @click="rejectTask(task.id, 'رد ارجاع')">رد</button>
-              <button v-if="task.canStart && task.status !== 'in_progress'" class="action-btn tone-primary" type="button" @click="startTask(task.id, true)">شروع</button>
+              <button v-if="task.canStart && task.status !== 'in_progress'" class="action-btn tone-primary" type="button" @click="quickStart(task, true)">شروع</button>
               <button v-if="task.canPause" class="action-btn tone-soft" type="button" @click="pauseTask(task.id)">توقف</button>
               <button v-if="task.canComplete || task.canSubmitReview" class="action-btn tone-soft" type="button" @click="submitTaskReview(task.id)">پایان</button>
               <strong v-if="task.activeTimer" class="timer-readout">{{ formatElapsed(task) }}</strong>
@@ -857,6 +936,28 @@ async function openTask(task) {
   flex-wrap: wrap;
   color: var(--muted);
   font-size: 12px;
+  gap: 6px;
+}
+.task-time-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-weight: 800;
+  font-size: 11px;
+  line-height: 1.3;
+}
+.task-time-chip.is-planned {
+  background: rgba(52, 144, 139, 0.12);
+  color: #1f5c59;
+}
+.task-time-chip.is-timer {
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
+}
+.task-time-chip.is-today {
+  background: rgba(2, 132, 199, 0.1);
+  color: #0369a1;
 }
 .task-card-footer { justify-content: space-between; }
 .priority-dot {

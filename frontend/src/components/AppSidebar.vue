@@ -3,6 +3,7 @@ import IconlyIcon from './base/IconlyIcon.vue'
 import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
+import UserAvatar from './UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 defineProps({
@@ -132,6 +133,14 @@ const navItems = computed(() => {
         <span v-if="item.badge" class="nav-link-badge">{{ item.badge }}</span>
       </RouterLink>
     </nav>
+
+    <div class="sidebar-user-card">
+      <UserAvatar :person="state.currentUser" :name="state.currentUser.name" size="sm" />
+      <div class="sidebar-user-copy">
+        <strong>{{ state.currentUser.name || 'کاربر' }}</strong>
+        <small>{{ state.currentUser.jobTitle || state.currentUser.role || '' }}</small>
+      </div>
+    </div>
 
     <button class="action-btn tone-soft sidebar-logout" type="button" @click="logout">
       <IconlyIcon name="logout" decorative />

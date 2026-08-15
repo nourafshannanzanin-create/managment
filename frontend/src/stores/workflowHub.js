@@ -5,7 +5,7 @@ import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { AppError, appErrorFromResponse, createValidationError, hasFieldError, normalizeError } from '../utils/errors'
 import { formatJalali, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
 import { notifyNewChatMessages, notifyNewSupportTickets, playInboxAlertSound, playTicketAlertSound } from '../utils/ticketAlert'
-import { notifyInfo } from '../utils/notify'
+import { notifyInfo, notifySuccess, notifyWarning } from '../utils/notify'
 import { repairPayload } from '../utils/stitch'
 import { cleanDisplayText } from '../utils/text'
 import { prepareUploadFile, UPLOAD_LIMITS, validateUploadFile } from '../utils/uploads'
@@ -2569,12 +2569,26 @@ export function useWorkflowHub() {
       if (state.userForm.password && String(state.userForm.password).length < 6) {
         throw createValidationError('رمز عبور باید حداقل 6 کاراکتر باشد.', [{ field: 'password', message: 'رمز عبور کوتاه است.' }])
       }
+      const phoneDigits = String(state.userForm.phone || '')
+        .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+        .replace(/\D/g, '')
+      const phoneNormalized =
+        phoneDigits.length === 10 && phoneDigits.startsWith('9')
+          ? `0${phoneDigits}`
+          : phoneDigits.startsWith('98') && phoneDigits.length >= 12
+            ? `0${phoneDigits.slice(2)}`
+            : phoneDigits
+      if (!(phoneNormalized.length === 11 && phoneNormalized.startsWith('09'))) {
+        throw createValidationError('شماره موبایل برای ارسال مشخصات ورود الزامی است.', [
+          { field: 'phone', message: 'شماره موبایل معتبر وارد کنید (مثال: 09121234567).' },
+        ])
+      }
 
       const formData = new FormData()
       formData.append('fullName', String(state.userForm.fullName || '').trim())
       formData.append('username', String(state.userForm.username || '').trim())
       formData.append('password', String(state.userForm.password || ''))
-      formData.append('phone', String(state.userForm.phone || '').trim())
+      formData.append('phone', phoneNormalized)
       formData.append('accessRole', state.userForm.accessRole || 'employee')
       formData.append('department', state.userForm.department || '')
       formData.append('managerId', state.userForm.managerId ? String(state.userForm.managerId) : '')
@@ -2582,7 +2596,16 @@ export function useWorkflowHub() {
       formData.append('sectionAccess', JSON.stringify(state.userForm.sectionAccess || {}))
       if (state.userForm.avatarFile) formData.append('avatar', state.userForm.avatarFile)
 
-      await authorizedFetch('/users', { method: 'POST', body: formData })
+      const response = await authorizedFetch('/users', { method: 'POST', body: formData })
+      const created = repairPayload(await response.json())
+      const sms = created?.credentialsSms
+      if (sms?.ok) {
+        notifySuccess(`کاربر ساخته شد و پیامک ورود به ${sms.phone || phoneNormalized} ارسال شد.`)
+      } else if (sms?.message) {
+        notifyWarning(`کاربر ساخته شد، اما پیامک ارسال نشد: ${sms.message}`)
+      } else {
+        notifyInfo('کاربر جدید ثبت شد.')
+      }
       await loadBootstrapData(true)
       if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
         await loadSettings(true)
@@ -3063,36 +3086,48 @@ async function updateUser(userId, payload) {
     }
   }
 
-  async function acceptTask(taskId) {
-    return taskingAction(taskId, 'accept')
+  async function acceptTask(taskId, additionalMinutes = 0) {
+    return taskingAction(taskId, 'accept', { additionalMinutes: Number(additionalMinutes || 0) })
   }
 
   async function rejectTask(taskId, reason) {
     return taskingAction(taskId, 'reject', { reason })
   }
 
-  async function startTask(taskId, stopOther = false) {
-    return taskingAction(taskId, 'start', { stopOther })
+  async function startTask(taskId, stopOther = false, additionalMinutes = 0) {
+    return taskingAction(taskId, 'start', {
+      stopOther,
+      additionalMinutes: Number(additionalMinutes || 0),
+    })
   }
 
   async function pauseTask(taskId) {
     return taskingAction(taskId, 'pause')
   }
 
-  async function resumeTask(taskId, stopOther = true) {
-    return taskingAction(taskId, 'resume', { stopOther })
+  async function resumeTask(taskId, stopOther = true, additionalMinutes = 0) {
+    return taskingAction(taskId, 'resume', {
+      stopOther,
+      additionalMinutes: Number(additionalMinutes || 0),
+    })
   }
 
   async function submitTaskReview(taskId, deliveryNote = '') {
     return taskingAction(taskId, 'submit-review', { deliveryNote })
   }
 
-  async function approveTask(taskId, comment = '') {
-    return taskingAction(taskId, 'approve', { comment })
+  async function approveTask(taskId, comment = '', additionalMinutes = 0) {
+    return taskingAction(taskId, 'approve', {
+      comment,
+      additionalMinutes: Number(additionalMinutes || 0),
+    })
   }
 
-  async function requestTaskChanges(taskId, comment = '') {
-    return taskingAction(taskId, 'request-changes', { comment })
+  async function requestTaskChanges(taskId, comment = '', additionalMinutes = 0) {
+    return taskingAction(taskId, 'request-changes', {
+      comment,
+      additionalMinutes: Number(additionalMinutes || 0),
+    })
   }
 
   async function addTaskComment(taskId, body, mentionIds = [], parentId = null) {

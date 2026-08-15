@@ -43,6 +43,10 @@ const editing = ref(false)
 const replyTo = ref(null)
 const mentionPickerOpen = ref(false)
 const selectedMentionUsers = ref([])
+const actionModal = ref('') // requestChanges | approve | accept | startRevision
+const actionComment = ref('')
+const actionMinutes = ref(30)
+const actionError = ref('')
 const editForm = reactive({
   title: '',
   description: '',
@@ -66,6 +70,10 @@ watch(
     replyTo.value = null
     selectedMentionUsers.value = []
     mentionPickerOpen.value = false
+    actionModal.value = ''
+    actionComment.value = ''
+    actionMinutes.value = 30
+    actionError.value = ''
   },
 )
 
@@ -181,6 +189,87 @@ async function run(action, { close = false } = {}) {
   }
 }
 
+function closeActionModal() {
+  actionModal.value = ''
+  actionComment.value = ''
+  actionMinutes.value = 30
+  actionError.value = ''
+}
+
+function openActionModal(kind) {
+  actionError.value = ''
+  actionComment.value = ''
+  actionMinutes.value = 30
+  actionModal.value = kind
+}
+
+const actionModalTitle = computed(() => {
+  if (actionModal.value === 'requestChanges') return 'درخواست اصلاح'
+  if (actionModal.value === 'approve') return 'تأیید تسک'
+  if (actionModal.value === 'accept') return 'پذیرش ارجاع'
+  if (actionModal.value === 'startRevision') return 'پذیرش اصلاح و ادامه'
+  return ''
+})
+
+function onStartClick() {
+  if (task.value?.status === 'changes_requested') {
+    openActionModal('startRevision')
+    return
+  }
+  void run(() => startTask(task.value.id, true))
+}
+
+async function submitActionModal() {
+  if (!task.value?.id) return
+  actionError.value = ''
+  const minutes = Number(actionMinutes.value || 0)
+  const comment = String(actionComment.value || '').trim()
+
+  if (actionModal.value === 'requestChanges') {
+    if (!comment) {
+      actionError.value = 'توضیح درخواست اصلاح الزامی است.'
+      return
+    }
+    if (minutes <= 0) {
+      actionError.value = 'زمان اضافی اصلاح را مشخص کنید.'
+      return
+    }
+    await run(() => requestTaskChanges(task.value.id, comment, minutes), { close: true })
+    closeActionModal()
+    return
+  }
+
+  if (actionModal.value === 'approve') {
+    const needsExtra = Number(task.value.reviewIteration || 0) > 1 || Number(task.value.review_iteration || 0) > 1
+    if (needsExtra && minutes <= 0) {
+      actionError.value = 'زمان اضافی اصلاح را مشخص کنید تا به تسک اضافه شود.'
+      return
+    }
+    await run(() => approveTask(task.value.id, comment, minutes > 0 ? minutes : 0), { close: true })
+    closeActionModal()
+    return
+  }
+
+  if (actionModal.value === 'accept') {
+    if (minutes <= 0) {
+      actionError.value = 'زمان را مشخص کنید تا به تسک اضافه شود.'
+      return
+    }
+    await run(() => acceptTask(task.value.id, minutes), { close: true })
+    closeActionModal()
+    return
+  }
+
+  if (actionModal.value === 'startRevision') {
+    if (minutes <= 0) {
+      actionError.value = 'زمان اضافی اصلاح را مشخص کنید.'
+      return
+    }
+    await run(() => startTask(task.value.id, true, minutes))
+    closeActionModal()
+  }
+}
+
 function addMention(user) {
   const id = Number(user.id)
   if (!id || selectedMentionIds.value.includes(id)) {
@@ -245,14 +334,16 @@ async function sendComment() {
       <ErrorNotice v-if="state.lastErrorDetails" :error="state.lastErrorDetails" />
 
       <div class="task-action-row">
-        <button v-if="task.canAccept" class="action-btn tone-primary" type="button" @click="run(() => acceptTask(task.id), { close: true })">پذیرفتن ارجاع</button>
+        <button v-if="task.canAccept" class="action-btn tone-primary" type="button" @click="openActionModal('accept')">پذیرفتن ارجاع</button>
         <button v-if="task.canReject" class="action-btn tone-soft" type="button" @click="run(() => rejectTask(task.id, rejectReason || 'رد ارجاع'), { close: true })">رد ارجاع</button>
-        <button v-if="task.canStart && task.status !== 'in_progress'" class="action-btn tone-primary" type="button" @click="run(() => startTask(task.id, true))">شروع</button>
+        <button v-if="task.canStart && task.status !== 'in_progress'" class="action-btn tone-primary" type="button" @click="onStartClick">
+          {{ task.status === 'changes_requested' ? 'پذیرش اصلاح و شروع' : 'شروع' }}
+        </button>
         <button v-if="task.canPause" class="action-btn tone-soft" type="button" @click="run(() => pauseTask(task.id))">توقف</button>
         <button v-if="task.status === 'paused'" class="action-btn tone-primary" type="button" @click="run(() => resumeTask(task.id))">ادامه</button>
         <button v-if="task.canComplete" class="action-btn tone-primary" type="button" @click="run(() => submitTaskReview(task.id, deliveryNote), { close: true })">پایان و ارسال برای بررسی</button>
-        <button v-if="task.canReview" class="action-btn tone-primary" type="button" @click="run(() => approveTask(task.id, reviewComment), { close: true })">تأیید و بستن</button>
-        <button v-if="task.canReview" class="action-btn tone-soft" type="button" @click="run(() => requestTaskChanges(task.id, reviewComment || 'نیازمند اصلاح'), { close: true })">درخواست اصلاح</button>
+        <button v-if="task.canReview" class="action-btn tone-primary" type="button" @click="openActionModal('approve')">تأیید و بستن</button>
+        <button v-if="task.canReview" class="action-btn tone-soft" type="button" @click="openActionModal('requestChanges')">درخواست اصلاح</button>
       </div>
 
       <div class="chip-row tab-strip">
@@ -315,11 +406,17 @@ async function sendComment() {
           <div class="info-grid">
             <article>
               <small>مسئول</small>
-              <strong>{{ task.assignee?.name || '-' }}</strong>
+              <div class="person-inline">
+                <UserAvatar :person="task.assignee" :name="task.assignee?.name" size="sm" />
+                <strong>{{ task.assignee?.name || '-' }}</strong>
+              </div>
             </article>
             <article>
               <small>سازنده</small>
-              <strong>{{ task.creator?.name || '-' }}</strong>
+              <div class="person-inline">
+                <UserAvatar :person="task.creator" :name="task.creator?.name" size="sm" />
+                <strong>{{ task.creator?.name || '-' }}</strong>
+              </div>
             </article>
             <article>
               <small>بخش</small>
@@ -351,10 +448,6 @@ async function sendComment() {
           <span>یادداشت تحویل</span>
           <textarea v-model="deliveryNote" rows="3" placeholder="خلاصه نتیجه کار"></textarea>
         </label>
-        <label v-if="task.canReview" class="field-shell">
-          <span>نظر بررسی</span>
-          <textarea v-model="reviewComment" rows="3" placeholder="توضیح تأیید یا درخواست اصلاح"></textarea>
-        </label>
         <label v-if="task.canReject" class="field-shell">
           <span>دلیل رد ارجاع</span>
           <textarea v-model="rejectReason" rows="2"></textarea>
@@ -375,7 +468,10 @@ async function sendComment() {
 
       <section v-else-if="activePanel === 'activity'" class="task-panel timeline-panel">
         <article v-for="item in task.activities || []" :key="item.id" class="timeline-item">
-          <strong>{{ item.actor?.name || 'سیستم' }}</strong>
+          <div class="person-inline">
+            <UserAvatar :person="item.actor" :name="item.actor?.name || 'سیستم'" size="sm" />
+            <strong>{{ item.actor?.name || 'سیستم' }}</strong>
+          </div>
           <p>{{ item.detail || item.action }}</p>
           <small>{{ formatDateTime(item.createdAt) }}</small>
         </article>
@@ -384,7 +480,7 @@ async function sendComment() {
       <section v-else class="task-panel chat-panel">
         <div class="chat-list">
           <article v-for="item in task.comments || []" :key="item.id" class="chat-item">
-            <UserAvatar :name="item.author?.name" :avatar-url="item.author?.avatarUrl" size="sm" />
+            <UserAvatar :person="item.author" :name="item.author?.name" size="sm" />
             <div class="chat-item-body">
               <strong>{{ item.author?.name }}</strong>
               <div v-if="item.parent" class="chat-reply-ref">
@@ -429,7 +525,7 @@ async function sendComment() {
                     :class="{ 'is-picked': selectedMentionIds.includes(Number(user.id)) }"
                     @click="addMention(user)"
                   >
-                    <UserAvatar :name="user.name" :avatar-url="user.avatarUrl" size="sm" />
+                    <UserAvatar :person="user" :name="user.name" size="sm" />
                     <span>
                       <strong>{{ user.name }}</strong>
                       <small>{{ user.jobTitle || user.department || 'عضو مجموعه' }}</small>
@@ -464,6 +560,56 @@ async function sendComment() {
           <button class="action-btn tone-primary" type="button" @click="sendComment">ارسال</button>
         </div>
       </section>
+    </div>
+  </BaseModal>
+
+  <BaseModal :open="Boolean(actionModal)" size="sm" @close="closeActionModal">
+    <div class="action-modal-shell">
+      <div class="modal-headline">
+        <p class="page-eyebrow">اقدام تسک</p>
+        <h2>{{ actionModalTitle }}</h2>
+      </div>
+
+      <label v-if="actionModal === 'requestChanges' || actionModal === 'approve'" class="field-shell">
+        <span>{{ actionModal === 'requestChanges' ? 'توضیح اصلاح' : 'نظر تأیید (اختیاری)' }}</span>
+        <textarea
+          v-model="actionComment"
+          rows="4"
+          :placeholder="actionModal === 'requestChanges' ? 'چه مواردی باید اصلاح شود؟' : 'توضیح اختیاری برای تأیید'"
+        ></textarea>
+      </label>
+
+      <div v-if="actionModal !== 'approve' || Number(task?.reviewIteration || task?.review_iteration || 0) > 1" class="field-shell">
+        <span>
+          {{
+            actionModal === 'requestChanges' || actionModal === 'startRevision'
+              ? 'زمان اضافی برای اصلاح'
+              : 'زمان اضافی برای افزودن به تسک'
+          }}
+        </span>
+        <DurationPicker v-model="actionMinutes" placeholder="انتخاب زمان" />
+        <small class="action-modal-hint">این زمان به تخمین و برنامه‌ی تسک اضافه می‌شود.</small>
+      </div>
+
+      <div v-else class="field-shell">
+        <span>زمان اضافی (اختیاری)</span>
+        <DurationPicker v-model="actionMinutes" placeholder="در صورت نیاز انتخاب کنید" />
+        <small class="action-modal-hint">اگر لازم است زمان بیشتری به تسک اضافه شود، اینجا مشخص کنید.</small>
+      </div>
+
+      <p v-if="actionError" class="inline-error">{{ actionError }}</p>
+
+      <div class="modal-actions">
+        <button class="action-btn tone-soft" type="button" @click="closeActionModal">انصراف</button>
+        <button
+          class="action-btn tone-primary"
+          type="button"
+          :disabled="state.tasking.submitting"
+          @click="submitActionModal"
+        >
+          {{ state.tasking.submitting ? 'در حال ثبت...' : 'ثبت و ارسال' }}
+        </button>
+      </div>
     </div>
   </BaseModal>
 </template>
@@ -556,6 +702,29 @@ async function sendComment() {
   font-size: 0.92rem;
   line-height: 1.45;
   word-break: break-word;
+}
+.person-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.person-inline strong {
+  min-width: 0;
+}
+.action-modal-shell {
+  display: grid;
+  gap: 14px;
+  padding: 4px;
+}
+.action-modal-hint {
+  color: var(--muted, #5f7a76);
+  font-size: 12px;
+}
+.inline-error {
+  margin: 0;
+  color: #b42318;
+  font-weight: 700;
 }
 .schedule-row, .timeline-item, .chat-item {
   border: 1px solid rgba(52, 144, 139, 0.12);

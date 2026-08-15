@@ -169,16 +169,15 @@ def build_account_credentials_sms(
     person = str(full_name or "").strip() or "کاربر گرامی"
     org = str(organization_name or "").strip() or "سامانه کارنومند"
     return sms_join_lines(
-        "کارنومند | مشخصات ورود به سامانه",
+        "کارنومند | مشخصات ورود",
         f"{person} گرامی",
-        f"حساب کاربری شما در مجموعه «{org}» ایجاد شد.",
-        f"نقش شما: {role_label}",
-        "این پیامک برای اعلام مشخصات ورود شما به سامانه مدیریت کارنومند ارسال شده است.",
-        "اطلاعات ورود:",
+        f"مجموعه: {org}",
+        f"نقش: {role_label}",
+        "حساب کاربری شما ساخته شد. اطلاعات ورود:",
+        f"آدرس سایت: {url}",
         f"نام کاربری: {username}",
         f"رمز عبور: {password}",
-        f"آدرس سامانه: {url}",
-        "پس از ورود می‌توانید رمز عبور خود را از بخش تنظیمات تغییر دهید.",
+        "پس از ورود می‌توانید رمز را از تنظیمات تغییر دهید.",
     )
 
 
@@ -617,6 +616,7 @@ ERROR_FIELD_PATTERNS = [
     ("manager", "ارجاع گیرنده", ("مدیر", "ارجاع", "گیرنده")),
     ("amount", "مبلغ", ("مبلغ", "هزینه")),
     ("fullName", "نام کامل", ("نام کامل", "نام کاربر")),
+    ("phone", "موبایل", ("موبایل", "شماره", "تلفن")),
     ("email", "ایمیل", ("ایمیل",)),
     ("password", "رمز عبور", ("رمز عبور",)),
     ("file", "فایل", ("فایل", "پیوست", "سند")),
@@ -4261,6 +4261,10 @@ def users_view(request: HttpRequest):
     password = payload.get("password") or "UserSecret123!"
     if len(password) < 6:
         return json_error("رمز عبور باید حداقل 6 کاراکتر باشد.", status=422)
+    phone_raw = (payload.get("phone") or "").strip()
+    phone = normalize_sms_recipient(phone_raw)
+    if not (len(phone) == 11 and phone.startswith("09")):
+        return json_error("شماره موبایل معتبر (مثال: 09121234567) برای ارسال مشخصات ورود الزامی است.", status=422)
     if manager and manager.role == UserRole.EMPLOYEE:
         return json_error("مدیر مستقیم باید از سطح مدیریتی انتخاب شود.", status=422)
 
@@ -4275,7 +4279,7 @@ def users_view(request: HttpRequest):
         slug=username,
         full_name=full_name,
         email=email,
-        phone=(payload.get("phone") or "").strip() or None,
+        phone=phone,
         password_hash=get_password_hash(password),
         password_plain=password,
         role=role,
@@ -4300,7 +4304,7 @@ def users_view(request: HttpRequest):
         detail=user.full_name,
         icon="group",
     )
-    notify_sms(
+    sms_result = notify_sms(
         get_user_organization(request.current_user),
         build_account_credentials_sms(
             full_name=user.full_name,
@@ -4309,10 +4313,16 @@ def users_view(request: HttpRequest):
             password=password,
             role_label=user.job_title or ("مدیر" if role != UserRole.EMPLOYEE else "کارمند"),
         ),
-        [user.phone],
+        [phone],
         actor=request.current_user,
     )
-    return json_response(serialize_user(user), status=201)
+    payload_out = serialize_user(user)
+    payload_out["credentialsSms"] = {
+        "ok": bool(sms_result.get("ok")),
+        "message": str(sms_result.get("message") or ("پیامک مشخصات ورود ارسال شد." if sms_result.get("ok") else "ارسال پیامک مشخصات ورود ناموفق بود.")),
+        "phone": phone,
+    }
+    return json_response(payload_out, status=201)
 
 
 @require_auth
@@ -5171,6 +5181,7 @@ def direct_chat_schema_state() -> tuple[bool, bool]:
 
 
 def serialize_chat_user(user: User) -> dict:
+    avatar_url = media_url(getattr(user, "avatar_image", "") or "")
     return {
         "id": user.id,
         "name": user.full_name,
@@ -5179,6 +5190,9 @@ def serialize_chat_user(user: User) -> dict:
         "jobTitle": user.job_title or "",
         "avatar": user.avatar or "",
         "avatarImage": user.avatar_image or "",
+        "avatar_image": user.avatar_image or "",
+        "avatarUrl": avatar_url,
+        "avatar_url": avatar_url,
         "department": user.department.name if user.department_id else "",
     }
 

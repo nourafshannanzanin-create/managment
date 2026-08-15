@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 
 import BaseModal from './BaseModal.vue'
 import ErrorNotice from './ErrorNotice.vue'
+import UserAvatar from './UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 defineProps({
@@ -175,8 +176,11 @@ function isSelected(id) {
               @click="toggleAssignee(item.id)"
             >
               <div class="recipient-card-main">
-                <strong>{{ item.name }}</strong>
-                <small>{{ item.role || 'عضو سازمان' }}</small>
+                <UserAvatar :person="item" :name="item.name" size="sm" />
+                <div class="recipient-card-copy">
+                  <strong>{{ item.name }}</strong>
+                  <small>{{ item.role || 'عضو سازمان' }}</small>
+                </div>
               </div>
               <div class="recipient-card-meta">
                 <span>{{ item.department || 'بدون بخش' }}</span>

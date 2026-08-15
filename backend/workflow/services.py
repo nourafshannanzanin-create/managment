@@ -982,6 +982,8 @@ def serialize_request(request_obj: Request) -> dict:
                 "id": item.id,
                 "approverId": item.approver_id,
                 "approver": normalize_person_name(item.approver.full_name) if item.approver else "",
+                "approverAvatarUrl": user_avatar_url(item.approver) if item.approver else "",
+                "avatarUrl": user_avatar_url(item.approver) if item.approver else "",
                 "role": access_role_label(item.approver.role) if item.approver else "",
                 "status": item.status,
                 "statusLabel": assignment_status_label(item.status),
@@ -1030,6 +1032,8 @@ def serialize_expense(expense: Expense) -> dict:
                 "id": item.id,
                 "approverId": item.approver_id,
                 "approver": normalize_person_name(item.approver.full_name) if item.approver else "",
+                "approverAvatarUrl": user_avatar_url(item.approver) if item.approver else "",
+                "avatarUrl": user_avatar_url(item.approver) if item.approver else "",
                 "role": access_role_label(item.approver.role) if item.approver else "",
                 "status": item.status,
                 "statusLabel": assignment_status_label(item.status),
@@ -1212,6 +1216,9 @@ def serialize_hq_team_member(user: User) -> dict:
         "name": normalize_person_name(user.full_name),
         "phone": user.phone or "",
         "email": user.email,
+        "avatar": user.avatar or "",
+        "avatarUrl": user_avatar_url(user),
+        "avatar_url": user_avatar_url(user),
         "platformRole": user.platform_role or "",
         "isActive": bool(user.is_active) and not bool(getattr(user, "is_deleted", False)),
         "supportStarRating": float(user.support_star_rating or 0),
@@ -1819,7 +1826,17 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
         "directories": {
             "departments": [{"code": item.code, "name": item.name} for item in departments],
             "managers": [
-                {"id": item.id, "slug": item.slug, "name": normalize_person_name(item.full_name), "role": access_role_label(item.role)}
+                {
+                    "id": item.id,
+                    "slug": item.slug,
+                    "name": normalize_person_name(item.full_name),
+                    "role": access_role_label(item.role),
+                    "avatar": item.avatar or "",
+                    "avatarUrl": user_avatar_url(item),
+                    "avatar_url": user_avatar_url(item),
+                    "department": item.department.name if item.department_id and item.department else "",
+                    "jobTitle": item.job_title or "",
+                }
                 for item in directory_users_qs
                 if item.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER, UserRole.MANAGER}
             ],

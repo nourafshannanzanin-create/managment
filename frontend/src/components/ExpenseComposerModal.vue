@@ -5,6 +5,7 @@ import { computed, ref } from 'vue'
 import BaseModal from './BaseModal.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
+import UserAvatar from './UserAvatar.vue'
 import { formatAmountInput } from '../utils/amount'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -90,7 +91,7 @@ function selectedNames() {
       <div class="modal-headline"><p class="page-eyebrow">ارجاع هزینه</p><h2>انتخاب گیرنده ها</h2></div>
       <div class="filter-toolbar"><div class="chip-row"><button :class="['filter-chip', referralTab === 'managers' && 'is-active']" type="button" @click="referralTab = 'managers'">مدیران</button><button :class="['filter-chip', referralTab === 'employees' && 'is-active']" type="button" @click="referralTab = 'employees'">کارمندان</button></div><label class="search-shell search-shell-wide"><IconlyIcon name="search" decorative /><input v-model="referralSearch" placeholder="جستجو" /></label></div>
       <div class="recipient-grid">
-        <button v-for="item in (referralTab === 'managers' ? filteredManagers : filteredEmployees)" :key="item.id" :class="['recipient-card', (referralTab === 'managers' ? form.managerAssigneeIds : form.employeeAssigneeIds).map(Number).includes(Number(item.id)) && 'is-selected']" type="button" @click="toggle(referralTab === 'managers' ? 'managerAssigneeIds' : 'employeeAssigneeIds', item.id)"><div class="recipient-card-main"><strong>{{ item.name }}</strong><small>{{ item.role || item.department }}</small></div><IconlyIcon name="check_circle" decorative /></button>
+        <button v-for="item in (referralTab === 'managers' ? filteredManagers : filteredEmployees)" :key="item.id" :class="['recipient-card', (referralTab === 'managers' ? form.managerAssigneeIds : form.employeeAssigneeIds).map(Number).includes(Number(item.id)) && 'is-selected']" type="button" @click="toggle(referralTab === 'managers' ? 'managerAssigneeIds' : 'employeeAssigneeIds', item.id)"><div class="recipient-card-main"><UserAvatar :person="item" :name="item.name" size="sm" /><div class="recipient-card-copy"><strong>{{ item.name }}</strong><small>{{ item.role || item.department }}</small></div></div><IconlyIcon name="check_circle" decorative /></button>
       </div>
       <div class="modal-actions"><button class="action-btn tone-primary" type="button" @click="referralOpen = false">ثبت انتخاب ها</button></div>
     </div>

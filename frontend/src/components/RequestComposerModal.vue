@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue'
 import BaseModal from './BaseModal.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
+import UserAvatar from './UserAvatar.vue'
 import { formatFileSize } from '../utils/uploads'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -283,8 +284,11 @@ watch(
           @click="toggle(referralTab === 'managers' ? 'managerAssigneeIds' : 'employeeAssigneeIds', item.id)"
         >
           <div class="recipient-card-main">
-            <strong>{{ item.name }}</strong>
-            <small>{{ item.role || item.department }}</small>
+            <UserAvatar :person="item" :name="item.name" size="sm" />
+            <div class="recipient-card-copy">
+              <strong>{{ item.name }}</strong>
+              <small>{{ item.role || item.department }}</small>
+            </div>
           </div>
           <IconlyIcon name="check_circle" decorative />
         </button>

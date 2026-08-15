@@ -679,9 +679,9 @@ onMounted(async () => {
             <span class="access-selection-state">{{ isSelected(user.id) ? 'انتخاب شده' : 'انتخاب نشده' }}</span>
             <span class="access-selection-user">
               <UserAvatar
+                :person="user"
                 :name="user.name"
                 :avatar="user.avatar"
-                :avatar-url="user.avatarUrl"
                 size="sm"
               />
               <span class="access-selection-user-copy">

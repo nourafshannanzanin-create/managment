@@ -275,6 +275,7 @@ class UserAndSettingsTests(TestCase):
 
     @patch("workflow.views.notify_sms")
     def test_create_user_persists_phone(self, notify_sms_mock):
+        notify_sms_mock.return_value = {"ok": True, "message": "پیامک ارسال شد."}
         response = self.client.post(
             "/api/v1/users",
             data={
@@ -292,17 +293,36 @@ class UserAndSettingsTests(TestCase):
         self.assertEqual(response.status_code, 201)
         created_user = User.objects.get(slug="millaad")
         self.assertEqual(created_user.phone, "09134279848")
-        self.assertEqual(response.json()["phone"], "09134279848")
+        body = response.json()
+        self.assertEqual(body["phone"], "09134279848")
+        self.assertTrue(body["credentialsSms"]["ok"])
+        self.assertEqual(body["credentialsSms"]["phone"], "09134279848")
         notify_sms_mock.assert_called_once()
         sms_tenant, sms_text, sms_recipients = notify_sms_mock.call_args.args[:3]
         self.assertEqual(sms_tenant, self.organization)
         self.assertEqual(sms_recipients, ["09134279848"])
-        self.assertIn("کارنومند | مشخصات ورود به سامانه", sms_text)
-        self.assertIn(f"مجموعه «{self.organization.name}»", sms_text)
-        self.assertIn("این پیامک برای اعلام مشخصات ورود شما", sms_text)
+        self.assertIn("کارنومند | مشخصات ورود", sms_text)
+        self.assertIn(f"مجموعه: {self.organization.name}", sms_text)
         self.assertIn("نام کاربری: millaad", sms_text)
         self.assertIn("رمز عبور: Secret123!", sms_text)
-        self.assertIn("آدرس سامانه: https://carnomand.ir", sms_text)
+        self.assertIn("آدرس سایت: https://carnomand.ir", sms_text)
+
+    @patch("workflow.views.notify_sms")
+    def test_create_user_requires_phone(self, notify_sms_mock):
+        response = self.client.post(
+            "/api/v1/users",
+            data={
+                "fullName": "بدون موبایل",
+                "username": "nophone",
+                "password": "Secret123!",
+                "accessRole": "employee",
+                "department": self.department.code,
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 422)
+        notify_sms_mock.assert_not_called()
+        self.assertFalse(User.objects.filter(slug="nophone").exists())
 
     def test_settings_profile_includes_user_avatar_fields(self):
         self.manager.avatar_image = "avatars/manager-photo.png"

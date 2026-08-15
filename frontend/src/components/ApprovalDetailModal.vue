@@ -3,6 +3,7 @@ import IconlyIcon from './base/IconlyIcon.vue'
 import { computed, ref, watch } from 'vue'
 
 import BaseModal from './BaseModal.vue'
+import UserAvatar from './UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const props = defineProps({
@@ -418,8 +419,11 @@ watch(
           @click="toggleAssignee(item.id)"
         >
           <div class="recipient-card-main">
-            <strong>{{ item.name }}</strong>
-            <small>{{ item.role || item.department }}</small>
+            <UserAvatar :person="item" :name="item.name" size="sm" />
+            <div class="recipient-card-copy">
+              <strong>{{ item.name }}</strong>
+              <small>{{ item.role || item.department }}</small>
+            </div>
           </div>
           <IconlyIcon name="check_circle" decorative />
         </button>

@@ -164,8 +164,13 @@ def tasking_accept_view(request: HttpRequest, task_id: int):
     task = _get_owned_or_visible_task(request, task_id)
     if task is None:
         return json_error("تسک پیدا نشد.", status=404)
+    payload = parse_json(request)
     try:
-        task = accept_task(request.current_user, task)
+        extra = int(payload.get("additionalMinutes") or payload.get("additional_minutes") or 0)
+    except (TypeError, ValueError):
+        extra = 0
+    try:
+        task = accept_task(request.current_user, task, additional_minutes=extra)
         return json_response(serialize_task(task, request.current_user, include_detail=True))
     except Exception as exc:
         return _handle_tasking_error(exc)
@@ -195,7 +200,16 @@ def tasking_start_view(request: HttpRequest, task_id: int):
         return json_error("تسک پیدا نشد.", status=404)
     payload = parse_json(request)
     try:
-        task = start_task(request.current_user, task, stop_other=bool(payload.get("stopOther") or payload.get("stop_other")))
+        extra = int(payload.get("additionalMinutes") or payload.get("additional_minutes") or 0)
+    except (TypeError, ValueError):
+        extra = 0
+    try:
+        task = start_task(
+            request.current_user,
+            task,
+            stop_other=bool(payload.get("stopOther") or payload.get("stop_other")),
+            additional_minutes=extra,
+        )
         return json_response(serialize_task(task, request.current_user, include_detail=True))
     except Exception as exc:
         return _handle_tasking_error(exc)
@@ -246,7 +260,16 @@ def tasking_approve_view(request: HttpRequest, task_id: int):
         return json_error("تسک پیدا نشد.", status=404)
     payload = parse_json(request)
     try:
-        task = approve_task(request.current_user, task, comment=payload.get("comment") or "")
+        extra = int(payload.get("additionalMinutes") or payload.get("additional_minutes") or 0)
+    except (TypeError, ValueError):
+        extra = 0
+    try:
+        task = approve_task(
+            request.current_user,
+            task,
+            comment=payload.get("comment") or "",
+            additional_minutes=extra,
+        )
         return json_response(serialize_task(task, request.current_user, include_detail=True))
     except Exception as exc:
         return _handle_tasking_error(exc)
@@ -261,7 +284,16 @@ def tasking_request_changes_view(request: HttpRequest, task_id: int):
         return json_error("تسک پیدا نشد.", status=404)
     payload = parse_json(request)
     try:
-        task = request_changes(request.current_user, task, comment=payload.get("comment") or payload.get("reason") or "")
+        extra = int(payload.get("additionalMinutes") or payload.get("additional_minutes") or 0)
+    except (TypeError, ValueError):
+        extra = 0
+    try:
+        task = request_changes(
+            request.current_user,
+            task,
+            comment=payload.get("comment") or payload.get("reason") or "",
+            additional_minutes=extra,
+        )
         return json_response(serialize_task(task, request.current_user, include_detail=True))
     except Exception as exc:
         return _handle_tasking_error(exc)

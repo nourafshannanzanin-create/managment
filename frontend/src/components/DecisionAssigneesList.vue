@@ -1,5 +1,6 @@
 <script setup>
 import IconlyIcon from './base/IconlyIcon.vue'
+import UserAvatar from './UserAvatar.vue'
 
 defineProps({
   decisions: {
@@ -18,8 +19,16 @@ defineProps({
     >
       <div class="decision-row-main">
         <div class="decision-row-meta">
-          <strong>{{ item.approver }}</strong>
-          <small>{{ item.role }}</small>
+          <UserAvatar
+            :name="item.approver"
+            :avatar-url="item.approverAvatarUrl || item.avatarUrl"
+            :avatar-image="item.approverAvatarImage"
+            size="sm"
+          />
+          <div class="decision-row-copy">
+            <strong>{{ item.approver }}</strong>
+            <small>{{ item.role }}</small>
+          </div>
         </div>
         <span class="decision-status-badge">{{ item.statusLabel }}</span>
       </div>
@@ -31,3 +40,17 @@ defineProps({
     <p>ارجاع گیرنده ای ثبت نشده است.</p>
   </div>
 </template>
+
+<style scoped>
+.decision-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.decision-row-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+</style>

@@ -362,27 +362,46 @@ def capacity_for_day(user: User, settings_obj: TaskingSettings, work_date: date)
         effective = day_length_minutes(settings_obj, work_date, preference)
     target = int(effective * settings_obj.target_utilization_percent / 100) if effective else 0
     maximum = int(effective * settings_obj.max_utilization_percent / 100) if effective else 0
+
+    # Day plan (open + completed allocations) — progress "done" is measured against this.
     planned = (
         TaskAllocation.objects.filter(user=user, work_date=work_date)
-        .exclude(task__status__in=[TaskStatus.CANCELLED, TaskStatus.COMPLETED, TaskStatus.PENDING_ACCEPTANCE])
+        .exclude(task__status__in=[TaskStatus.CANCELLED, TaskStatus.PENDING_ACCEPTANCE, TaskStatus.DRAFT])
         .aggregate(total=Sum("planned_minutes"))
         .get("total")
         or 0
     )
-    actual = (
-        TaskTimeEntry.objects.filter(user=user, started_at__date=work_date, is_active=False)
-        .aggregate(total=Sum("duration_seconds"))
-        .get("total")
-        or 0
-    )
-    active_now = (
-        TaskTimeEntry.objects.filter(user=user, started_at__date=work_date, is_active=True)
-        .order_by("-started_at")
-        .first()
-    )
-    if active_now:
-        actual += max(0, int((timezone.now() - active_now.started_at).total_seconds()))
-    actual_minutes = int(actual // 60)
+
+    # Done = ONLY real timer time for this local day (sum of all timer sessions).
+    tz = org_timezone(settings_obj)
+    day_start = datetime.combine(work_date, dt_time.min, tzinfo=tz)
+    day_end = datetime.combine(work_date, dt_time.max, tzinfo=tz)
+    closed_entries = TaskTimeEntry.objects.filter(
+        user=user,
+        is_active=False,
+        started_at__gte=day_start,
+        started_at__lte=day_end,
+    ).only("duration_seconds", "started_at", "ended_at")
+    closed_seconds = 0
+    for entry in closed_entries:
+        seconds = int(entry.duration_seconds or 0)
+        if seconds <= 0 and entry.started_at and entry.ended_at:
+            seconds = max(0, int((entry.ended_at - entry.started_at).total_seconds()))
+        closed_seconds += seconds
+
+    active_seconds = 0
+    active_now = TaskTimeEntry.objects.filter(user=user, is_active=True).order_by("-started_at").first()
+    if active_now is not None:
+        local_started = active_now.started_at.astimezone(tz).date() if active_now.started_at else None
+        if local_started == work_date:
+            active_seconds = max(0, int((timezone.now() - active_now.started_at).total_seconds()))
+
+    actual_seconds = closed_seconds + active_seconds
+    actual_minutes = max(0, int(actual_seconds // 60))
+    progress_base = int(planned) if int(planned) > 0 else int(target) if int(target) > 0 else int(effective)
+    done_percent = int((actual_minutes / progress_base) * 100) if progress_base else (100 if actual_minutes else 0)
+    done_percent = min(100, done_percent)
+
     load_minutes = max(int(planned), actual_minutes)
     utilization = int((load_minutes / effective) * 100) if effective else (100 if load_minutes else 0)
     if utilization < settings_obj.under_planned_threshold_percent:
@@ -406,6 +425,10 @@ def capacity_for_day(user: User, settings_obj: TaskingSettings, work_date: date)
         "remainingTargetMinutes": max(0, target - int(planned)),
         "remainingMaxMinutes": max(0, maximum - int(planned)),
         "actualMinutes": actual_minutes,
+        "timerClosedMinutes": max(0, int(closed_seconds // 60)),
+        "timerActiveSeconds": int(active_seconds),
+        "progressBaseMinutes": progress_base,
+        "donePercent": done_percent,
         "utilizationPercent": utilization,
         "band": band,
         "bandLabel": band_label,
@@ -766,6 +789,7 @@ def serialize_task(task: Task, current_user: User, *, include_detail: bool = Fal
     allocations = list(task.allocations.all()) if hasattr(task, "_prefetched_objects_cache") else list(task.allocations.order_by("work_date", "sequence"))
     today_planned = sum(item.planned_minutes for item in allocations if item.work_date == today)
     spillover = sum(item.planned_minutes for item in allocations if item.work_date > today)
+    actual_minutes = compute_actual_minutes(task)
     active_timer = next((item for item in task.time_entries.all() if item.is_active and item.user_id == current_user.id), None)
     if active_timer is None:
         active_timer = TaskTimeEntry.objects.filter(task=task, user=current_user, is_active=True).first()
@@ -793,7 +817,7 @@ def serialize_task(task: Task, current_user: User, *, include_detail: bool = Fal
         "estimatedMinutes": task.estimated_minutes,
         "originalEstimatedMinutes": task.original_estimated_minutes,
         "remainingMinutes": task.remaining_estimated_minutes,
-        "actualMinutes": task.actual_minutes,
+        "actualMinutes": actual_minutes,
         "todayPlannedMinutes": today_planned,
         "spilloverMinutes": spillover,
         "spillover": spillover > 0,
@@ -1054,7 +1078,38 @@ def create_task(actor: User, payload: dict, files=None) -> Task:
 
 
 @transaction.atomic
-def accept_task(actor: User, task: Task) -> Task:
+def add_additional_estimate(actor: User, task: Task, additional_minutes: int, reason: str = "") -> Task:
+    """Add extra planned minutes to an existing task and reschedule remaining work."""
+    if actor.id not in {task.owner_id, task.creator_id} and not can_review_task(actor, task) and not is_manager(actor):
+        raise TaskingError("اجازه افزودن زمان به این تسک را ندارید.", status=403)
+    settings_obj = get_or_create_tasking_settings(task.organization)
+    try:
+        extra = round_minutes(int(additional_minutes or 0), settings_obj.round_estimate_to_minutes)
+    except (TypeError, ValueError) as exc:
+        raise TaskingError("زمان اضافی معتبر نیست.") from exc
+    if extra <= 0:
+        raise TaskingError("زمان اضافی باید بیشتر از صفر باشد.")
+    refresh_task_time_fields(task)
+    old = int(task.estimated_minutes or 0)
+    task.estimated_minutes = old + extra
+    task.remaining_estimated_minutes = max(0, int(task.remaining_estimated_minutes or 0) + extra)
+    task.updated_at = timezone.now()
+    task.version += 1
+    task.save(update_fields=["estimated_minutes", "remaining_estimated_minutes", "updated_at", "version"])
+    if task.status not in {TaskStatus.PENDING_ACCEPTANCE, TaskStatus.COMPLETED, TaskStatus.CANCELLED}:
+        schedule_task(task, settings_obj=settings_obj)
+    log_activity(
+        task,
+        actor,
+        "estimate_added",
+        reason or f"{extra} دقیقه به تخمین اضافه شد (از {old} به {task.estimated_minutes})",
+        {"from": old, "added": extra, "to": task.estimated_minutes},
+    )
+    return task
+
+
+@transaction.atomic
+def accept_task(actor: User, task: Task, additional_minutes: int = 0) -> Task:
     assignment = task.assignments.filter(assignee=actor, status=TaskAssignmentStatus.PENDING).select_for_update().first()
     if assignment is None:
         raise TaskingError("ارجاع قابل پذیرشی یافت نشد.", status=409)
@@ -1066,6 +1121,9 @@ def accept_task(actor: User, task: Task) -> Task:
     task.updated_at = timezone.now()
     task.version += 1
     task.save(update_fields=["owner", "status", "updated_at", "version"])
+    if additional_minutes:
+        add_additional_estimate(actor, task, additional_minutes, reason="زمان اضافه‌شده هنگام پذیرش ارجاع")
+        task.refresh_from_db()
     settings_obj = get_or_create_tasking_settings(task.organization)
     schedule_task(task, settings_obj=settings_obj)
     log_activity(task, actor, "assignment_accepted", "ارجاع پذیرفته شد.")
@@ -1098,11 +1156,15 @@ def reject_task(actor: User, task: Task, reason: str = "") -> Task:
 
 
 @transaction.atomic
-def start_task(actor: User, task: Task, *, stop_other: bool = False) -> Task:
+def start_task(actor: User, task: Task, *, stop_other: bool = False, additional_minutes: int = 0) -> Task:
     if task.owner_id != actor.id:
         raise TaskingError("فقط مسئول تسک می‌تواند تایمر را شروع کند.", status=403)
     if task.status in {TaskStatus.PENDING_ACCEPTANCE, TaskStatus.CANCELLED, TaskStatus.COMPLETED, TaskStatus.BLOCKED}:
         raise TaskingError("شروع این تسک در وضعیت فعلی مجاز نیست.", status=409)
+
+    if additional_minutes:
+        add_additional_estimate(actor, task, additional_minutes, reason="زمان اضافه‌شده هنگام ادامه اصلاح")
+        task.refresh_from_db()
 
     settings_obj = get_or_create_tasking_settings(task.organization)
     active = TaskTimeEntry.objects.select_for_update().filter(user=actor, is_active=True).first()
@@ -1200,6 +1262,7 @@ def submit_review(actor: User, task: Task, delivery_note: str = "") -> Task:
         task.completed_at = timezone.now()
         task.closed_at = timezone.now()
         task.review_status = TaskReviewStatus.APPROVED
+        refresh_task_time_fields(task)
         log_activity(task, actor, "completed", "تسک تکمیل و ثبت شد.")
     task.updated_at = timezone.now()
     task.version += 1
@@ -1211,6 +1274,8 @@ def submit_review(actor: User, task: Task, delivery_note: str = "") -> Task:
             "review_iteration",
             "completed_at",
             "closed_at",
+            "actual_minutes",
+            "remaining_estimated_minutes",
             "updated_at",
             "version",
         ]
@@ -1219,11 +1284,14 @@ def submit_review(actor: User, task: Task, delivery_note: str = "") -> Task:
 
 
 @transaction.atomic
-def approve_task(actor: User, task: Task, comment: str = "") -> Task:
+def approve_task(actor: User, task: Task, comment: str = "", additional_minutes: int = 0) -> Task:
     if not can_review_task(actor, task):
         raise TaskingError("اجازه بررسی این تسک را ندارید.", status=403)
     if task.status != TaskStatus.PENDING_REVIEW:
         raise TaskingError("تسک در انتظار بررسی نیست.", status=409)
+    if additional_minutes:
+        add_additional_estimate(actor, task, additional_minutes, reason="زمان اضافه‌شده هنگام تأیید اصلاح")
+        task.refresh_from_db()
     review = TaskReview.objects.filter(task=task, reviewer=actor, iteration_no=task.review_iteration).first()
     if review is None:
         review = TaskReview.objects.create(
@@ -1240,15 +1308,27 @@ def approve_task(actor: User, task: Task, comment: str = "") -> Task:
     task.review_status = TaskReviewStatus.APPROVED
     task.completed_at = timezone.now()
     task.closed_at = timezone.now()
+    refresh_task_time_fields(task)
     task.updated_at = timezone.now()
     task.version += 1
-    task.save(update_fields=["status", "review_status", "completed_at", "closed_at", "updated_at", "version"])
+    task.save(
+        update_fields=[
+            "status",
+            "review_status",
+            "completed_at",
+            "closed_at",
+            "actual_minutes",
+            "remaining_estimated_minutes",
+            "updated_at",
+            "version",
+        ]
+    )
     log_activity(task, actor, "review_approved", review.comment or "تسک تأیید و بسته شد.")
     return task
 
 
 @transaction.atomic
-def request_changes(actor: User, task: Task, comment: str = "") -> Task:
+def request_changes(actor: User, task: Task, comment: str = "", additional_minutes: int = 0) -> Task:
     if not can_review_task(actor, task):
         raise TaskingError("اجازه بررسی این تسک را ندارید.", status=403)
     if task.status != TaskStatus.PENDING_REVIEW:
@@ -1274,11 +1354,15 @@ def request_changes(actor: User, task: Task, comment: str = "") -> Task:
         iteration_no=task.review_iteration,
         status=TaskReviewStatus.PENDING,
     )
-    settings_obj = get_or_create_tasking_settings(task.organization)
-    remaining = max(task.remaining_estimated_minutes, settings_obj.minimum_segment_minutes)
-    task.remaining_estimated_minutes = remaining
-    task.save(update_fields=["remaining_estimated_minutes"])
-    schedule_task(task, settings_obj=settings_obj)
+    if additional_minutes:
+        add_additional_estimate(actor, task, additional_minutes, reason="زمان اضافه‌شده برای اصلاح")
+        task.refresh_from_db()
+    else:
+        settings_obj = get_or_create_tasking_settings(task.organization)
+        remaining = max(task.remaining_estimated_minutes, settings_obj.minimum_segment_minutes)
+        task.remaining_estimated_minutes = remaining
+        task.save(update_fields=["remaining_estimated_minutes"])
+        schedule_task(task, settings_obj=settings_obj)
     task.status = TaskStatus.CHANGES_REQUESTED
     task.updated_at = timezone.now()
     task.save(update_fields=["status", "updated_at"])
@@ -1371,8 +1455,31 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
     ).distinct()
 
     capacity = capacity_for_day(user, settings_obj, today)
-    today_task_ids = TaskAllocation.objects.filter(user=user, work_date=today).values_list("task_id", flat=True)
-    today_tasks = [serialize_task(item, user, focus_date=today) for item in my_tasks.filter(id__in=today_task_ids).order_by("priority", "due_at", "id")]
+    closed_statuses = {
+        TaskStatus.COMPLETED,
+        TaskStatus.CANCELLED,
+        TaskStatus.PENDING_REVIEW,
+        TaskStatus.PENDING_ACCEPTANCE,
+        TaskStatus.DRAFT,
+    }
+    tz = org_timezone(settings_obj)
+    day_start = datetime.combine(today, dt_time.min, tzinfo=tz)
+    day_end = datetime.combine(today, dt_time.max, tzinfo=tz)
+    today_task_ids = list(
+        TaskAllocation.objects.filter(user=user, work_date=today)
+        .exclude(task__status__in=[TaskStatus.CANCELLED, TaskStatus.PENDING_ACCEPTANCE, TaskStatus.DRAFT])
+        .values_list("task_id", flat=True)
+        .distinct()
+    )
+    today_open_ids = list(
+        my_tasks.filter(id__in=today_task_ids)
+        .exclude(status__in=closed_statuses)
+        .values_list("id", flat=True)
+    )
+    today_tasks = [
+        serialize_task(item, user, focus_date=today)
+        for item in my_tasks.filter(id__in=today_open_ids).order_by("priority", "due_at", "id")
+    ]
     # Also include in-progress without allocation edge cases
     active_extra = my_tasks.filter(status__in=[TaskStatus.IN_PROGRESS, TaskStatus.PAUSED]).exclude(id__in=[t["id"] for t in today_tasks])
     today_tasks.extend(serialize_task(item, user, focus_date=today) for item in active_extra)
@@ -1384,7 +1491,7 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
 
     upcoming = [
         serialize_task(item, user, focus_date=today)
-        for item in my_tasks.filter(allocations__work_date__gt=today).exclude(status__in=[TaskStatus.COMPLETED]).distinct()[:50]
+        for item in my_tasks.filter(allocations__work_date__gt=today).exclude(status__in=closed_statuses).distinct()[:50]
     ]
     in_progress = [serialize_task(item, user, focus_date=today) for item in my_tasks.filter(status__in=[TaskStatus.IN_PROGRESS, TaskStatus.PAUSED])]
     pending_review = [serialize_task(item, user, focus_date=today) for item in my_tasks.filter(status=TaskStatus.PENDING_REVIEW)]
@@ -1512,10 +1619,14 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
         "settings": serialize_tasking_settings(settings_obj),
         "capacity": capacity,
         "stats": {
-            "todayCount": len(today_tasks),
+            "todayCount": len(set(today_task_ids)),
             "remainingMinutes": capacity["remainingTargetMinutes"],
             "needsAction": action_badge,
-            "completedToday": my_tasks.filter(status=TaskStatus.COMPLETED, completed_at__date=today).count(),
+            "completedToday": my_tasks.filter(
+                status=TaskStatus.COMPLETED,
+                completed_at__gte=day_start,
+                completed_at__lte=day_end,
+            ).count(),
             "unreadMentions": unread_mention_count,
             "mineCount": mine_counts["all"],
             "assignmentCount": assignment_counts["pending"] + assignment_counts["outboundReview"],

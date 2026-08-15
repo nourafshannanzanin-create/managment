@@ -291,7 +291,7 @@ onBeforeUnmount(() => {
           type="button"
           @click="startChatWith(user.id)"
         >
-          <UserAvatar :name="user.name" :avatar-url="user.avatarUrl || user.avatar_url" size="md" />
+          <UserAvatar :person="user" :name="user.name" size="md" />
           <div class="chat-list-copy">
             <strong>{{ user.name }}</strong>
             <small>{{ user.role || user.department || 'همکار' }}</small>
@@ -310,8 +310,8 @@ onBeforeUnmount(() => {
           @click="openConversation(item.id)"
         >
           <UserAvatar
+            :person="item.peer"
             :name="item.peer?.name || 'همکار'"
-            :avatar-url="item.peer?.avatarUrl || item.peer?.avatar_url"
             size="md"
           />
           <div class="chat-list-copy">
@@ -337,8 +337,8 @@ onBeforeUnmount(() => {
             <span class="chat-back-label">بازگشت</span>
           </button>
           <UserAvatar
+            :person="selectedConversation.peer"
             :name="selectedConversation.peer?.name || 'همکار'"
-            :avatar-url="selectedConversation.peer?.avatarUrl || selectedConversation.peer?.avatar_url"
             size="md"
           />
           <div>
@@ -349,11 +349,19 @@ onBeforeUnmount(() => {
 
         <div ref="threadRef" class="chat-messages">
           <div v-if="loadingThread && !messages.length" class="chat-empty">در حال بارگذاری پیام‌ها...</div>
-          <article
+          <div
             v-for="message in messages"
             :key="message.id"
-            :class="['chat-bubble', message.mine ? 'is-mine' : 'is-peer']"
+            :class="['chat-message-row', message.mine ? 'is-mine' : 'is-peer']"
           >
+            <UserAvatar
+              v-if="!message.mine"
+              class="chat-bubble-avatar"
+              :person="selectedConversation?.peer"
+              :name="selectedConversation?.peer?.name || 'همکار'"
+              size="sm"
+            />
+            <article :class="['chat-bubble', message.mine ? 'is-mine' : 'is-peer']">
             <a
               v-if="message.attachment?.isImage && message.attachment?.fileUrl"
               class="chat-attach-image"
@@ -384,7 +392,8 @@ onBeforeUnmount(() => {
                 aria-hidden="true"
               >{{ message.read ? '✓✓' : '✓' }}</span>
             </div>
-          </article>
+            </article>
+          </div>
         </div>
 
         <form class="chat-composer" @submit.prevent="sendMessage">
@@ -619,6 +628,28 @@ onBeforeUnmount(() => {
   border-radius: 16px;
   display: grid;
   gap: 4px;
+}
+
+.chat-message-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.chat-message-row.is-mine {
+  align-self: flex-start;
+  justify-content: flex-start;
+}
+
+.chat-message-row.is-peer {
+  align-self: flex-end;
+  justify-content: flex-end;
+  flex-direction: row-reverse;
+}
+
+.chat-bubble-avatar {
+  margin-bottom: 2px;
 }
 
 .chat-bubble p {

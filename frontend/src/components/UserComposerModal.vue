@@ -107,9 +107,9 @@ function clearAvatar() {
           <input v-model="form.password" type="password" />
         </label>
 
-        <label class="field-shell">
-          <span>موبایل</span>
-          <input v-model="form.phone" type="text" dir="ltr" />
+        <label :class="['field-shell', fieldHasError('phone') && 'has-error']">
+          <span>موبایل (برای پیامک ورود)</span>
+          <input v-model="form.phone" type="text" dir="ltr" placeholder="09121234567" />
         </label>
 
         <label class="field-shell">

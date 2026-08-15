@@ -4,6 +4,7 @@ import { computed, reactive, ref, watch } from 'vue'
 
 import BaseModal from './BaseModal.vue'
 import DecisionAssigneesList from './DecisionAssigneesList.vue'
+import UserAvatar from './UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const props = defineProps({
@@ -158,7 +159,7 @@ async function submitRefer() {
       </div>
       <div class="recipient-grid">
         <button v-for="item in (referTab === 'managers' ? filteredManagers : filteredEmployees)" :key="item.id" :class="['recipient-card', (referTab === 'managers' ? referForm.managerAssigneeIds : referForm.employeeAssigneeIds).map(Number).includes(Number(item.id)) && 'is-selected']" type="button" @click="toggle(referTab === 'managers' ? 'managerAssigneeIds' : 'employeeAssigneeIds', item.id)">
-          <div class="recipient-card-main"><strong>{{ item.name }}</strong><small>{{ item.role || item.department }}</small></div>
+          <div class="recipient-card-main"><UserAvatar :person="item" :name="item.name" size="sm" /><div class="recipient-card-copy"><strong>{{ item.name }}</strong><small>{{ item.role || item.department }}</small></div></div>
           <IconlyIcon name="check_circle" decorative />
         </button>
       </div>

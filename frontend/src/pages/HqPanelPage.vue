@@ -2,6 +2,7 @@
 import IconlyIcon from '../components/base/IconlyIcon.vue'
 import HqReportsPanel from '../components/hq/HqReportsPanel.vue'
 import HqServicesPanel from '../components/hq/HqServicesPanel.vue'
+import UserAvatar from '../components/UserAvatar.vue'
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 
 import { formatAmountInput } from '../utils/amount'
@@ -930,7 +931,12 @@ onUnmounted(() => {
           </div>
           <div class="team-grid">
             <div v-for="member in teamMembers" :key="member.id" class="team-card">
-              <div class="team-avatar">{{ initials(member.fullName || member.username) }}</div>
+              <UserAvatar
+                class="team-avatar"
+                :person="member"
+                :name="member.fullName || member.username"
+                size="md"
+              />
               <div class="team-card-body">
                 <strong>{{ member.fullName || member.username }}</strong>
                 <p>{{ member.platformRole === 'hq_admin' ? 'مدیرکل' : 'پشتیبان مرکزی' }}</p>
@@ -1888,14 +1894,6 @@ onUnmounted(() => {
 }
 
 .team-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, var(--jade), var(--jade-strong));
-  color: #fff;
-  font-weight: 800;
   flex: 0 0 auto;
 }
 

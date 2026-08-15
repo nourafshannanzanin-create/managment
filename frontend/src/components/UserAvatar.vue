@@ -1,12 +1,15 @@
 <script setup>
 import { computed } from 'vue'
 
+import { personAvatarUrl, resolveAvatarUrl } from '../utils/avatar'
 import { inferGenderFromName } from '../utils/gender'
 
 const props = defineProps({
   name: { type: String, default: '' },
   avatar: { type: String, default: '' },
   avatarUrl: { type: String, default: '' },
+  avatarImage: { type: String, default: '' },
+  person: { type: Object, default: null },
   gender: { type: String, default: '' },
   size: { type: String, default: 'md' },
   alt: { type: String, default: '' },
@@ -15,10 +18,18 @@ const props = defineProps({
 const resolvedGender = computed(() => {
   const explicit = String(props.gender || '').toLowerCase()
   if (explicit === 'female' || explicit === 'male') return explicit
-  return inferGenderFromName(props.name)
+  return inferGenderFromName(props.name || props.person?.name || '')
 })
 
-const label = computed(() => props.alt || props.name || 'پروفایل')
+const photoUrl = computed(() => {
+  if (props.person) {
+    const fromPerson = personAvatarUrl(props.person)
+    if (fromPerson) return fromPerson
+  }
+  return resolveAvatarUrl(props.avatarUrl, props.avatarImage)
+})
+
+const label = computed(() => props.alt || props.name || props.person?.name || 'پروفایل')
 </script>
 
 <template>
@@ -26,13 +37,13 @@ const label = computed(() => props.alt || props.name || 'پروفایل')
     class="user-avatar-face"
     :class="[
       `size-${size}`,
-      avatarUrl ? 'has-photo' : `is-${resolvedGender}`,
+      photoUrl ? 'has-photo' : `is-${resolvedGender}`,
     ]"
     :title="label"
     role="img"
     :aria-label="label"
   >
-    <img v-if="avatarUrl" :src="avatarUrl" :alt="label" />
+    <img v-if="photoUrl" :src="photoUrl" :alt="label" loading="lazy" />
 
     <div v-else class="avatar-placeholder" aria-hidden="true">
       <svg class="avatar-person-icon" viewBox="0 0 48 48" fill="none">
@@ -58,67 +69,48 @@ const label = computed(() => props.alt || props.name || 'پروفایل')
   border-radius: 14px;
   display: grid;
   place-items: center;
-  overflow: hidden;
   flex: 0 0 auto;
+  overflow: hidden;
   background: var(--avatar-bg);
   color: var(--avatar-fg);
-  line-height: 1;
-  user-select: none;
-  isolation: isolate;
-  border: 1px solid var(--avatar-ring);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 0 0 1px var(--avatar-ring);
 }
-
 .user-avatar-face.has-photo {
-  background: #e4f4f2;
-  border-color: rgba(52, 144, 139, 0.14);
-  box-shadow: none;
+  background: #e8f2f0;
 }
-
 .user-avatar-face.is-female {
-  --avatar-bg: linear-gradient(160deg, #faf1f5 0%, #f0dde6 100%);
-  --avatar-fg: #8a4a63;
-  --avatar-ring: rgba(138, 74, 99, 0.16);
+  --avatar-bg: linear-gradient(160deg, #fce7f3 0%, #fbcfe8 100%);
+  --avatar-fg: #9d174d;
+  --avatar-ring: rgba(219, 39, 119, 0.18);
 }
-
 .user-avatar-face.is-male {
+  --avatar-bg: linear-gradient(160deg, #e0f2fe 0%, #bae6fd 100%);
+  --avatar-fg: #075985;
+  --avatar-ring: rgba(14, 165, 233, 0.18);
+}
+.user-avatar-face.is-unknown {
   --avatar-bg: linear-gradient(160deg, #edf8f6 0%, #d8ece8 100%);
   --avatar-fg: #1f5c59;
-  --avatar-ring: rgba(52, 144, 139, 0.18);
 }
-
-.user-avatar-face.is-unknown {
-  --avatar-bg: linear-gradient(160deg, #f3f8f7 0%, #e4f4f2 100%);
-  --avatar-fg: #2f6f6a;
-  --avatar-ring: rgba(52, 144, 139, 0.14);
-}
-
 .user-avatar-face img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
-
 .avatar-placeholder {
-  width: 100%;
-  height: 100%;
   display: grid;
   place-items: center;
-  border-radius: inherit;
-  background: var(--avatar-bg);
-  color: var(--avatar-fg);
+  width: 100%;
+  height: 100%;
 }
-
 .avatar-person-icon {
-  width: 72%;
-  height: 72%;
-  display: block;
-  opacity: 0.92;
+  width: 58%;
+  height: 58%;
 }
-
-.size-sm { width: 34px; height: 34px; border-radius: 10px; font-size: 0.85rem; }
-.size-md { width: 44px; height: 44px; border-radius: 14px; font-size: 1rem; }
-.size-lg { width: 64px; height: 64px; border-radius: 18px; font-size: 1.35rem; }
-.size-xl { width: 88px; height: 88px; border-radius: 24px; font-size: 1.7rem; }
+.size-xs { width: 28px; height: 28px; border-radius: 9px; }
+.size-sm { width: 34px; height: 34px; border-radius: 11px; }
+.size-md { width: 44px; height: 44px; border-radius: 14px; }
+.size-lg { width: 64px; height: 64px; border-radius: 18px; }
+.size-xl { width: 88px; height: 88px; border-radius: 24px; }
 </style>

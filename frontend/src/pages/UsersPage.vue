@@ -324,9 +324,9 @@ function userManagerOptions(userId) {
           <div class="user-card-head">
             <div class="user-directory-main">
               <UserAvatar
+                :person="item"
                 :name="item.name"
                 :avatar="item.avatar"
-                :avatar-url="item.avatarUrl"
                 size="md"
               />
               <div class="user-card-copy">
