@@ -2,36 +2,44 @@
 
 FROM python:3.12-slim
 
-# Primary index can be overridden at build time, e.g.:
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /app
+
+# Keep this layer stable. Changing PIP_* args/env below must NOT invalidate apt cache.
+# BuildKit apt cache also keeps .deb files across rebuilds when the layer does invalidate.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    set -eux; \
+    rm -f /etc/apt/apt.conf.d/docker-clean; \
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        curl \
+        ca-certificates \
+        libfreetype6 \
+        libjpeg62-turbo \
+        libopenjp2-7 \
+        libtiff6 \
+        zlib1g; \
+    if ! apt-get install -y --no-install-recommends libpng16-16t64; then \
+      apt-get install -y --no-install-recommends libpng16-16; \
+    fi
+
+# Override at build time without busting the apt layer above:
 #   --build-arg PIP_INDEX_URL=https://pypi.org/simple/ --build-arg PIP_TRUSTED_HOST=pypi.org
 ARG PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
 ARG PIP_TRUSTED_HOST=mirrors.aliyun.com
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_DEFAULT_TIMEOUT=300 \
     PIP_RETRIES=10 \
     PIP_INDEX_URL=${PIP_INDEX_URL} \
     PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST}
 
-WORKDIR /app
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        curl \
-        libfreetype6 \
-        libjpeg62-turbo-dev \
-        libopenjp2-7 \
-        libpng-dev \
-        libtiff6 \
-        zlib1g-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY requirements.txt .
-# Slow/unstable mirrors often time out on large wheels (Pillow/PyMuPDF).
-# Retry across several indexes before failing the build.
 RUN --mount=type=cache,target=/root/.cache/pip \
     set -eu; \
     try_install() { \
