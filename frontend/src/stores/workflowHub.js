@@ -283,6 +283,9 @@ function createTaskingState() {
     },
     assignments: {
       pending: [],
+      outbound: [],
+      outboundReview: [],
+      outboundActive: [],
       accepted: [],
       rejected: [],
       all: [],
@@ -340,6 +343,7 @@ const state = reactive({
     initialized: false,
     inFlight: false,
     lastSnapshot: null,
+    tick: 0,
   },
   appLoading: false,
   lastError: '',
@@ -1138,9 +1142,20 @@ function hydrateBootstrap(payload) {
     state.wallet.schematicNotice = payload.wallet.schematicNotice || payload.wallet.schematic_notice || ''
   }
 
-  selectedState.requestId = state.requests[0]?.id || ''
-  if (!expenseDetailState.item) selectedState.expenseId = state.expenses[0]?.id || ''
-  if (!approvalDetailState.item) selectedState.approvalId = state.approvals[0]?.id || ''
+  // Preserve open selections during soft/live refresh so drafts and modals stay stable.
+  if (!selectedState.requestId || !state.requests.some((item) => item.id === selectedState.requestId)) {
+    selectedState.requestId = state.requests[0]?.id || ''
+  }
+  if (!expenseDetailState.item) {
+    if (!selectedState.expenseId || !state.expenses.some((item) => item.id === selectedState.expenseId)) {
+      selectedState.expenseId = state.expenses[0]?.id || ''
+    }
+  }
+  if (!approvalDetailState.item) {
+    if (!selectedState.approvalId || !state.approvals.some((item) => item.id === selectedState.approvalId)) {
+      selectedState.approvalId = state.approvals[0]?.id || ''
+    }
+  }
 }
 
 function hydrateHq(payload) {
@@ -1231,12 +1246,24 @@ function captureInboxSnapshot() {
 
 function notifyIfInboxIncreased(previous, next, options = {}) {
   if (!previous || !next) return false
+  const labels = {
+    requests: 'درخواست جدید یا تغییر وضعیت درخواست',
+    expenses: 'هزینه جدید یا تغییر وضعیت هزینه',
+    approvals: 'تاییدیه جدید نیازمند تصمیم',
+    chat: 'پیام گفتگوی جدید',
+    support: 'به‌روزرسانی تیکت پشتیبانی',
+  }
   const keys = options.excludeChat
     ? ['requests', 'expenses', 'approvals', 'support']
     : ['requests', 'expenses', 'approvals', 'chat', 'support']
-  const grew = keys.some(
-    (key) => Number(next[key] || 0) > Number(previous[key] || 0),
-  )
+  let grew = false
+  keys.forEach((key) => {
+    const delta = Number(next[key] || 0) - Number(previous[key] || 0)
+    if (delta > 0) {
+      grew = true
+      notifyInfo(`${labels[key] || 'اعلان جدید'}${delta > 1 ? ` (${delta})` : ''}`)
+    }
+  })
   if (!grew) return false
   playInboxAlertSound({ isHq: Boolean(state.currentUser.isHq) })
   return true
@@ -1251,14 +1278,20 @@ async function softLiveSync(options = {}) {
   state.liveSync.inFlight = true
   const previous = state.liveSync.initialized ? captureInboxSnapshot() : null
   try {
-    await loadBootstrapData(true, { soft: true })
+    state.liveSync.tick = Number(state.liveSync.tick || 0) + 1
+    // Quiet inbox sync — soft bootstrap only every few ticks so drafts don't thrash.
     await loadChatUnreadConversations()
-
     if (state.currentUser.isHq || state.currentUser.canUseHq) {
       await loadSupportTickets(true, { soft: true, notifyNew: Boolean(state.liveSync.initialized) })
       await loadHqPanel(true, { soft: true })
     } else if (options.includeSupport !== false && state.currentUser.accessRole === 'admin') {
       await loadSupportTickets(true, { soft: true, notifyNew: false })
+    }
+    const shouldBootstrap =
+      options.includeBootstrap === true ||
+      (options.includeBootstrap !== false && state.liveSync.tick % 3 === 0)
+    if (shouldBootstrap) {
+      await loadBootstrapData(true, { soft: true })
     }
 
     const next = captureInboxSnapshot()
@@ -1267,12 +1300,7 @@ async function softLiveSync(options = {}) {
       if (newChatCount > 0) {
         notifyNewChatMessages(newChatCount)
       }
-      if (state.currentUser.isHq) {
-        // HQ ticket alerts are handled inside loadHqTickets(notifyNew).
-        notifyIfInboxIncreased({ ...previous, support: next.support }, next, { excludeChat: true })
-      } else {
-        notifyIfInboxIncreased(previous, next, { excludeChat: true })
-      }
+      notifyIfInboxIncreased(previous, next, { excludeChat: true })
     }
     state.liveSync.lastSnapshot = next
     state.liveSync.initialized = true
@@ -2682,8 +2710,9 @@ export function useWorkflowHub() {
     state.lastError = ''
     try {
       await authorizedFetch(hqScopedPath(`/approvals/${selectedApproval.value.id}/approve`), { method: 'POST' })
-      await loadBootstrapData(true)
       closeApprovalDetail()
+      notifyInfo('سند تایید شد.')
+      await loadBootstrapData(true, { soft: true })
     } catch (error) {
       state.lastError = error.message || 'تایید سند ناموفق بود.'
       throw error
@@ -2699,8 +2728,9 @@ export function useWorkflowHub() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),
       })
-      await loadBootstrapData(true)
       closeApprovalDetail()
+      notifyInfo('سند رد شد.')
+      await loadBootstrapData(true, { soft: true })
     } catch (error) {
       state.lastError = error.message || 'رد سند ناموفق بود.'
       throw error
@@ -2712,8 +2742,9 @@ export function useWorkflowHub() {
     state.lastError = ''
     try {
       await authorizedFetch(hqScopedPath(`/requests/${selectedRequest.value.id}/approve`), { method: 'POST' })
-      await loadBootstrapData(true)
       closeRequestDetail()
+      notifyInfo('درخواست تایید شد.')
+      await loadBootstrapData(true, { soft: true })
     } catch (error) {
       state.lastError = error.message || 'تایید درخواست ناموفق بود.'
       throw error
@@ -2729,8 +2760,9 @@ export function useWorkflowHub() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),
       })
-      await loadBootstrapData(true)
       closeRequestDetail()
+      notifyInfo('درخواست رد شد.')
+      await loadBootstrapData(true, { soft: true })
     } catch (error) {
       state.lastError = error.message || 'رد درخواست ناموفق بود.'
       throw error
@@ -2754,8 +2786,9 @@ export function useWorkflowHub() {
     state.lastError = ''
     try {
       await authorizedFetch(hqScopedPath(`/expenses/${selectedExpense.value.id}/approve`), { method: 'POST' })
-      await loadBootstrapData(true)
       closeExpenseDetail()
+      notifyInfo('هزینه تایید شد.')
+      await loadBootstrapData(true, { soft: true })
     } catch (error) {
       state.lastError = error.message || 'تایید هزینه ناموفق بود.'
       throw error
@@ -2771,8 +2804,9 @@ export function useWorkflowHub() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),
       })
-      await loadBootstrapData(true)
       closeExpenseDetail()
+      notifyInfo('هزینه رد شد.')
+      await loadBootstrapData(true, { soft: true })
     } catch (error) {
       state.lastError = error.message || 'رد هزینه ناموفق بود.'
       throw error
@@ -2887,12 +2921,16 @@ async function updateUser(userId, payload) {
 
   const taskingBadgeCount = computed(() => Number(state.tasking.badgeCount || 0))
 
-  async function loadTaskingDashboard(force = false, dateIso = '') {
-    if (state.tasking.loading) return state.tasking
+  async function loadTaskingDashboard(force = false, dateIso = '', options = {}) {
+    const soft = Boolean(options.soft)
+    if (state.tasking.loading && !soft) return state.tasking
     if (state.tasking.loaded && !force && !dateIso) return state.tasking
-    state.tasking.loading = true
-    state.tasking.error = ''
+    if (!soft) {
+      state.tasking.loading = true
+      state.tasking.error = ''
+    }
     const previousBadge = Number(state.tasking.badgeCount || 0)
+    const previousMentions = Number(state.tasking.stats?.unreadMentions || 0)
     const hadLoaded = Boolean(state.tasking.loaded)
     try {
       const query = dateIso ? `?date=${encodeURIComponent(dateIso)}` : (state.tasking.date ? `?date=${encodeURIComponent(state.tasking.date)}` : '')
@@ -2912,18 +2950,30 @@ async function updateUser(userId, payload) {
       state.tasking.mentions = payload.mentions || createTaskingState().mentions
       state.tasking.departments = payload.departments || []
       state.tasking.assigneeOptions = payload.assigneeOptions || []
-      if (hadLoaded && Number(state.tasking.badgeCount) > previousBadge) {
+      if (hadLoaded && soft) {
+        const badgeDelta = Number(state.tasking.badgeCount) - previousBadge
+        const mentionDelta = Number(state.tasking.stats.unreadMentions || 0) - previousMentions
+        if (badgeDelta > 0) {
+          notifyInfo(`تسکینگ: ${badgeDelta} مورد جدید نیازمند توجه`)
+          playInboxAlertSound({ isHq: Boolean(state.currentUser.isHq) })
+        } else if (mentionDelta > 0) {
+          notifyInfo(`منشن جدید در تسکینگ: ${mentionDelta}`)
+        }
+      } else if (hadLoaded && Number(state.tasking.badgeCount) > previousBadge) {
         const delta = Number(state.tasking.badgeCount) - previousBadge
         notifyInfo(`تسکینگ: ${delta} مورد جدید نیازمند توجه`)
         playInboxAlertSound({ isHq: Boolean(state.currentUser.isHq) })
       }
       return state.tasking
     } catch (error) {
-      state.tasking.error = error.message || 'بارگذاری تسکینگ ناموفق بود.'
-      setLastError(error, 'بارگذاری تسکینگ ناموفق بود.')
-      throw error
+      if (!soft) {
+        state.tasking.error = error.message || 'بارگذاری تسکینگ ناموفق بود.'
+        setLastError(error, 'بارگذاری تسکینگ ناموفق بود.')
+        throw error
+      }
+      return state.tasking
     } finally {
-      state.tasking.loading = false
+      if (!soft) state.tasking.loading = false
     }
   }
 

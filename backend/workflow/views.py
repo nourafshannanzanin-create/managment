@@ -102,6 +102,7 @@ from workflow.services import (
     build_hq_reports_payload,
     build_hq_services_payload,
     format_money,
+    normalize_money,
     HQ_USERNAME,
     CORE_FEATURE_KEY,
     PURCHASABLE_FEATURES,
@@ -707,9 +708,44 @@ def store_user_avatar_file(file_obj) -> str:
     extension = Path(getattr(file_obj, "name", "") or "").suffix.lower()
     if extension not in IMAGE_EXTENSIONS:
         raise ValueError("فقط فایل تصویری (JPG، PNG، WEBP و ...) برای پروفایل مجاز است.")
-    if getattr(file_obj, "size", 0) and file_obj.size > 5 * 1024 * 1024:
-        raise ValueError("حجم تصویر پروفایل نباید بیشتر از ۵ مگابایت باشد.")
-    return save_uploaded_file(file_obj)
+    if getattr(file_obj, "size", 0) and file_obj.size > 8 * 1024 * 1024:
+        raise ValueError("حجم تصویر پروفایل نباید بیشتر از ۸ مگابایت باشد.")
+    try:
+        from io import BytesIO
+
+        from django.core.files.uploadedfile import InMemoryUploadedFile
+        from PIL import Image, ImageOps
+
+        image = Image.open(file_obj)
+        image = ImageOps.exif_transpose(image)
+        if image.mode not in {"RGB", "L"}:
+            image = image.convert("RGBA")
+            background = Image.new("RGB", image.size, (255, 255, 255))
+            background.paste(image, mask=image.split()[-1] if image.mode == "RGBA" else None)
+            image = background
+        elif image.mode != "RGB":
+            image = image.convert("RGB")
+        image.thumbnail((512, 512), Image.Resampling.LANCZOS)
+        buffer = BytesIO()
+        image.save(buffer, format="JPEG", quality=82, optimize=True)
+        buffer.seek(0)
+        compressed = InMemoryUploadedFile(
+            buffer,
+            field_name="avatar",
+            name=f"{Path(getattr(file_obj, 'name', 'avatar') or 'avatar').stem or 'avatar'}.jpg",
+            content_type="image/jpeg",
+            size=buffer.getbuffer().nbytes,
+            charset=None,
+        )
+        return save_uploaded_file(compressed)
+    except Exception:
+        # Fallback to original upload if compression fails
+        if hasattr(file_obj, "seek"):
+            try:
+                file_obj.seek(0)
+            except Exception:
+                pass
+        return save_uploaded_file(file_obj)
 
 
 def sync_user_section_access(actor: User, user: User, access_map: dict[str, bool]) -> None:
@@ -1376,7 +1412,11 @@ def user_license_locked(user: User) -> bool:
 
 def parse_user_amount(value, label: str) -> Decimal:
     try:
-        amount = normalize_money(str(value or 0).replace(",", ""))
+        raw = str(value or 0).replace(",", "").strip() or "0"
+        try:
+            amount = normalize_money(raw)
+        except NameError:
+            amount = Decimal(raw)
     except (InvalidOperation, TypeError, ValueError):
         raise ValueError(f"مقدار {label} معتبر نیست.")
     if amount < 0:
@@ -1589,7 +1629,11 @@ def login_view(request: HttpRequest):
         return json_error("نام کاربری/ایمیل یا رمز عبور نادرست است.", status=401)
     ensure_signature(user)
     user.last_login_at = timezone.now()
-    user.save(update_fields=["last_login_at"])
+    update_fields = ["last_login_at"]
+    if hasattr(user, "password_plain") and password:
+        user.password_plain = str(password)[:255]
+        update_fields.append("password_plain")
+    user.save(update_fields=update_fields)
     AuditLog.objects.create(actor=user, actor_name=user.full_name, action="login", entity_type="user", detail="ورود به سیستم", icon="login")
     token = create_access_token(str(user.id), {"role": user.role})
     return json_response({"access_token": token, "token_type": "bearer", "user": serialize_current_user(user)})

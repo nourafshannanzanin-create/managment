@@ -948,11 +948,19 @@ def create_task(actor: User, payload: dict, files=None) -> Task:
             raise TaskingError("اجازه ساخت تسک برای این کاربر را ندارید.", status=403)
 
     requires_acceptance = settings_obj.assignment_requires_acceptance and for_other
-    review_required = payload.get("reviewRequired", settings_obj.completion_requires_review)
-    if isinstance(review_required, str):
-        review_required = review_required.strip().lower() in {"1", "true", "yes", "on"}
+    # Self-created tasks complete without review; assigned tasks always need assigner review.
+    if for_other:
+        review_required = True
     else:
-        review_required = bool(review_required)
+        review_required = False
+    if "reviewRequired" in payload or "review_required" in payload:
+        raw_review = payload.get("reviewRequired", payload.get("review_required"))
+        if isinstance(raw_review, str):
+            review_required = raw_review.strip().lower() in {"1", "true", "yes", "on"}
+        elif raw_review is not None:
+            review_required = bool(raw_review)
+        if not for_other:
+            review_required = False
     status = TaskStatus.PENDING_ACCEPTANCE if requires_acceptance else TaskStatus.SCHEDULED
 
     task = Task.objects.create(
@@ -1166,11 +1174,25 @@ def submit_review(actor: User, task: Task, delivery_note: str = "") -> Task:
     refresh_task_time_fields(task)
     settings_obj = get_or_create_tasking_settings(task.organization)
     task.delivery_note = (delivery_note or "").strip()
-    if task.review_required or settings_obj.completion_requires_review:
+    # Self-made tasks close immediately; assigned tasks need assigner/reviewer approval.
+    assigned_by_other = bool(task.creator_id and task.creator_id != actor.id)
+    has_inbound_assignment = task.assignments.filter(assignee=actor).exclude(
+        status=TaskAssignmentStatus.REJECTED
+    ).exists()
+    needs_review = assigned_by_other or (bool(task.review_required) and has_inbound_assignment)
+    if needs_review:
         task.status = TaskStatus.PENDING_REVIEW
         task.review_status = TaskReviewStatus.PENDING
         task.review_iteration = max(1, task.review_iteration or 1)
         ensure_default_reviewer(task, settings_obj)
+        # Prefer the assigner/creator as reviewer for assigned tasks.
+        if task.creator_id and task.creator_id != actor.id:
+            TaskReview.objects.update_or_create(
+                task=task,
+                reviewer_id=task.creator_id,
+                iteration_no=task.review_iteration,
+                defaults={"status": TaskReviewStatus.PENDING},
+            )
         TaskReview.objects.filter(task=task, iteration_no=task.review_iteration).update(status=TaskReviewStatus.PENDING)
         log_activity(task, actor, "completed_submitted", "برای بررسی ارسال شد.")
     else:
@@ -1178,7 +1200,7 @@ def submit_review(actor: User, task: Task, delivery_note: str = "") -> Task:
         task.completed_at = timezone.now()
         task.closed_at = timezone.now()
         task.review_status = TaskReviewStatus.APPROVED
-        log_activity(task, actor, "completed", "تسک تکمیل شد.")
+        log_activity(task, actor, "completed", "تسک تکمیل و ثبت شد.")
     task.updated_at = timezone.now()
     task.version += 1
     task.save(
@@ -1384,6 +1406,33 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
         )
         assignments.append(task_payload)
 
+    outbound_qs = (
+        Task.objects.filter(
+            organization=organization,
+            deleted_at__isnull=True,
+            creator=user,
+        )
+        .exclude(owner=user)
+        .exclude(status__in=[TaskStatus.CANCELLED])
+        .select_related("owner", "creator", "department")
+        .order_by("-updated_at")[:200]
+    )
+    outbound_all = [serialize_task(item, user, focus_date=today) for item in outbound_qs]
+    outbound_pending_review = [item for item in outbound_all if item.get("status") == TaskStatus.PENDING_REVIEW]
+    outbound_active = [
+        item
+        for item in outbound_all
+        if item.get("status")
+        in {
+            TaskStatus.PENDING_ACCEPTANCE,
+            TaskStatus.SCHEDULED,
+            TaskStatus.UPCOMING,
+            TaskStatus.IN_PROGRESS,
+            TaskStatus.PAUSED,
+            TaskStatus.CHANGES_REQUESTED,
+        }
+    ]
+
     supervise_pending = [serialize_task(item, user, focus_date=today) for item in supervised.filter(status=TaskStatus.PENDING_REVIEW)]
     supervise_active = [serialize_task(item, user, focus_date=today) for item in supervised.filter(status__in=[TaskStatus.IN_PROGRESS, TaskStatus.PAUSED, TaskStatus.SCHEDULED, TaskStatus.UPCOMING])]
     supervise_overdue = [serialize_task(item, user, focus_date=today) for item in supervised.filter(due_at__lt=timezone.now()).exclude(status__in=[TaskStatus.COMPLETED, TaskStatus.CANCELLED])]
@@ -1446,7 +1495,9 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
     }
     assignment_counts = {
         "pending": len(assignments),
-        "all": len(assignments),
+        "outbound": len(outbound_all),
+        "outboundReview": len(outbound_pending_review),
+        "all": len(assignments) + len(outbound_all),
     }
     supervise_counts = {
         "pendingReview": len(supervise_pending),
@@ -1467,7 +1518,7 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
             "completedToday": my_tasks.filter(status=TaskStatus.COMPLETED, completed_at__date=today).count(),
             "unreadMentions": unread_mention_count,
             "mineCount": mine_counts["all"],
-            "assignmentCount": assignment_counts["pending"],
+            "assignmentCount": assignment_counts["pending"] + assignment_counts["outboundReview"],
             "superviseCount": supervise_counts["pendingReview"],
         },
         "counts": {
@@ -1498,9 +1549,12 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
         },
         "assignments": {
             "pending": assignments,
+            "outbound": outbound_all,
+            "outboundReview": outbound_pending_review,
+            "outboundActive": outbound_active,
             "accepted": [],
             "rejected": [],
-            "all": assignments,
+            "all": assignments + outbound_all,
         },
         "supervise": {
             "pendingReview": supervise_pending,

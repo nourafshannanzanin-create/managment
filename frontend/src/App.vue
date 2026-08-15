@@ -257,7 +257,7 @@ onMounted(async () => {
   liveSyncTimer = window.setInterval(() => {
     if (!state.authToken || state.liveSync.inFlight) return
     void softLiveSync({ includeSupport: true })
-  }, 8000)
+  }, 20000)
 })
 
 onUnmounted(() => {

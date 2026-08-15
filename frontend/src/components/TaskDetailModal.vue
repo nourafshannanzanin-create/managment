@@ -73,15 +73,16 @@ const task = computed(() => props.task || state.tasking.selectedTask)
 const mentionMembers = computed(() => {
   const me = Number(state.currentUser.id)
   const fromTasking = state.tasking.assigneeOptions || []
-  const fromUsers = state.users || state.directories?.users || []
-  const source = fromTasking.length ? fromTasking : fromUsers
+  const fromUsers = state.users || []
+  const fromDirectories = state.directories?.users || []
+  const source = [...fromTasking, ...fromUsers, ...fromDirectories]
   const seen = new Set()
   return source
     .map((u) => ({
       id: u.id,
       name: u.name || u.fullName || u.full_name || '',
       jobTitle: u.jobTitle || u.job_title || '',
-      department: u.department || '',
+      department: typeof u.department === 'string' ? u.department : (u.department?.name || ''),
       avatarUrl: u.avatarUrl || u.avatar_url || '',
     }))
     .filter((u) => {
@@ -90,6 +91,7 @@ const mentionMembers = computed(() => {
       seen.add(id)
       return true
     })
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'fa'))
 })
 const selectedMentionIds = computed(() => selectedMentionUsers.value.map((u) => Number(u.id)))
 const departmentOptions = computed(() =>
@@ -456,7 +458,6 @@ async function sendComment() {
               class="chat-textarea"
               placeholder="پیام داخل تسک..."
               @keydown.escape="mentionPickerOpen = false"
-              @focus="mentionPickerOpen = false"
             ></textarea>
           </div>
 
@@ -572,7 +573,14 @@ async function sendComment() {
 .chat-item { align-items: flex-start; justify-content: flex-start; }
 .chat-item-body { display: grid; gap: 4px; min-width: 0; }
 .chat-list { display: grid; gap: 10px; max-height: 320px; overflow: auto; }
-.chat-composer { align-items: stretch; flex-direction: column; gap: 10px; }
+.chat-composer {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 10px;
+  overflow: visible;
+  position: relative;
+  z-index: 2;
+}
 .chat-input-shell {
   display: grid;
   gap: 8px;
@@ -582,12 +590,17 @@ async function sendComment() {
   border: 1px solid rgba(52, 144, 139, 0.18);
   background: #ffffff !important;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+  overflow: visible;
+  position: relative;
 }
 .chat-input-top {
   display: flex;
   align-items: flex-start;
   gap: 8px;
   min-width: 0;
+  overflow: visible;
+  position: relative;
+  z-index: 3;
 }
 .mention-selected {
   display: flex;
@@ -654,6 +667,7 @@ async function sendComment() {
 .mention-trigger-wrap {
   position: relative;
   flex: 0 0 auto;
+  z-index: 5;
 }
 .mention-at-btn {
   width: 36px;
@@ -674,19 +688,21 @@ async function sendComment() {
 }
 .mention-dropdown {
   position: absolute;
-  bottom: calc(100% + 8px);
+  top: calc(100% + 8px);
+  bottom: auto;
   right: 0;
-  z-index: 40;
-  width: min(300px, 78vw);
-  max-height: 240px;
+  z-index: 80;
+  width: min(320px, 82vw);
+  max-height: min(280px, 42vh);
   overflow: auto;
+  overscroll-behavior: contain;
   display: grid;
   gap: 4px;
   padding: 8px;
   border-radius: 14px;
   border: 1px solid rgba(52, 144, 139, 0.16);
   background: #ffffff !important;
-  box-shadow: 0 12px 28px rgba(31, 92, 89, 0.14);
+  box-shadow: 0 16px 36px rgba(31, 92, 89, 0.18);
 }
 .mention-dropdown-title {
   margin: 0;

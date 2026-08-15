@@ -6,10 +6,12 @@ import { useRouter } from 'vue-router'
 import AttendancePunchModal from '../components/AttendancePunchModal.vue'
 import NotificationsBell from '../components/NotificationsBell.vue'
 import PageHeader from '../components/PageHeader.vue'
+import ProfileAvatarEditor from '../components/ProfileAvatarEditor.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatJalali, getTodayJalali } from '../utils/jalali'
 import { joinDisplayParts } from '../utils/text'
 import { isPendingWorkflowItem } from '../utils/status'
+import { notifyError, notifyInfo } from '../utils/notify'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 const router = useRouter()
@@ -23,10 +25,13 @@ const {
   loadChatUnreadConversations,
   loadTaskingDashboard,
   taskingBadgeCount,
+  uploadOwnAvatar,
+  clearOwnAvatar,
 } = useWorkflowHub()
 
 const todayHoursLabel = ref('—')
 const attendancePunchOpen = ref(false)
+const avatarBusy = ref(false)
 const todayLabel = computed(() => formatJalali(getTodayJalali()))
 const currentRole = computed(() => String(state.currentUser.accessRole || ''))
 const isManagerDashboard = computed(() => ['admin', 'executive_manager', 'manager'].includes(currentRole.value))
@@ -363,13 +368,42 @@ onMounted(() => {
 const taskingSnapshot = computed(() => {
   const stats = state.tasking?.stats || {}
   const capacity = state.tasking?.capacity || {}
+  const effective = Number(capacity.effectiveWorkMinutes || 0)
+  const actual = Number(capacity.actualMinutes || 0)
+  const donePct = effective > 0 ? Math.min(100, Math.round((actual / effective) * 100)) : (actual > 0 ? 100 : 0)
   return [
     { label: 'کارهای امروز', value: stats.todayCount || 0, icon: 'assignment' },
     { label: 'نیازمند اقدام', value: stats.needsAction || taskingBadgeCount.value || 0, icon: 'pending_actions' },
     { label: 'منشن‌ها', value: stats.unreadMentions || 0, icon: 'forum' },
-    { label: 'بهره‌برداری', value: `${capacity.utilizationPercent || 0}٪`, icon: 'schedule' },
+    { label: 'انجام‌شده', value: `${donePct}٪`, icon: 'verified' },
   ]
 })
+
+async function onOwnAvatarSelect(file) {
+  if (!file || avatarBusy.value) return
+  avatarBusy.value = true
+  try {
+    await uploadOwnAvatar(file)
+    notifyInfo('عکس پروفایل به‌روز شد.')
+  } catch (error) {
+    notifyError(error?.message || 'آپلود عکس پروفایل ناموفق بود.')
+  } finally {
+    avatarBusy.value = false
+  }
+}
+
+async function onOwnAvatarClear() {
+  if (avatarBusy.value) return
+  avatarBusy.value = true
+  try {
+    await clearOwnAvatar()
+    notifyInfo('عکس پروفایل حذف شد.')
+  } catch (error) {
+    notifyError(error?.message || 'حذف عکس پروفایل ناموفق بود.')
+  } finally {
+    avatarBusy.value = false
+  }
+}
 </script>
 
 <template>
@@ -402,6 +436,22 @@ const taskingSnapshot = computed(() => {
 
     <section class="dashboard-stage-grid">
       <article class="dashboard-stage-panel">
+        <div class="dashboard-profile-row">
+          <ProfileAvatarEditor
+            :name="currentUserName"
+            :avatar="state.currentUser.avatar"
+            :avatar-url="state.currentUser.avatarUrl"
+            :avatar-file-name="state.currentUser.avatarFileName"
+            size="lg"
+            :busy="avatarBusy"
+            title="عکس پروفایل شما"
+            description="روی تغییر عکس بزنید؛ تصویر فشرده و در سرور ذخیره می‌شود."
+            add-label="افزودن عکس"
+            change-label="تغییر عکس"
+            @select="onOwnAvatarSelect"
+            @clear="onOwnAvatarClear"
+          />
+        </div>
         <div class="dashboard-stage-copy">
           <span class="dashboard-stage-badge">{{ isManagerDashboard ? 'نمای زنده عملیات' : 'نمای کار روزانه' }}</span>
           <h2 :class="{ 'is-single-line': !isManagerDashboard }">{{ heroTitle }}</h2>
@@ -690,6 +740,19 @@ const taskingSnapshot = computed(() => {
   z-index: 1;
   display: grid;
   gap: 8px;
+}
+
+.dashboard-profile-row {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 2px;
+}
+
+.dashboard-profile-row :deep(.profile-avatar-editor) {
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(52, 144, 139, 0.14);
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .dashboard-stage-badge,

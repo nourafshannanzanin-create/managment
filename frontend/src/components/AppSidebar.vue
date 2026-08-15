@@ -33,10 +33,10 @@ onMounted(() => {
   void loadTaskingDashboard(false).catch(() => {})
   chatPollTimer = window.setInterval(() => {
     void loadChatUnreadConversations()
-  }, 8000)
+  }, 15000)
   taskingPollTimer = window.setInterval(() => {
-    void loadTaskingDashboard(true).catch(() => {})
-  }, 20000)
+    void loadTaskingDashboard(true, '', { soft: true }).catch(() => {})
+  }, 60000)
 })
 onBeforeUnmount(() => {
   if (chatPollTimer) window.clearInterval(chatPollTimer)

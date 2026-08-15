@@ -113,7 +113,7 @@ const userStats = computed(() => [
 
 const selectedUser = computed(() => state.users.find((item) => item.id === selectedUserId.value) || null)
 
-watch(selectedUser, (user) => {
+function syncEditableFromUser(user) {
   resetAvatarDraft()
   Object.assign(editableUser, {
     fullName: user?.name || '',
@@ -135,7 +135,17 @@ watch(selectedUser, (user) => {
       settings: Boolean(user?.sectionAccess?.settings),
     },
   })
-}, { immediate: true })
+}
+
+// Only resync when opening another user — soft bootstrap must not wipe in-progress edits.
+watch(
+  selectedUserId,
+  (id) => {
+    if (!id) return
+    syncEditableFromUser(selectedUser.value)
+  },
+  { immediate: true },
+)
 
 function openUserDetails(id) {
   selectedUserId.value = id

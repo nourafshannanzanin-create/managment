@@ -27,7 +27,7 @@ const {
 } = useWorkflowHub()
 
 const mainTab = ref('mine')
-const subTab = ref('today')
+const subTab = ref('upcoming')
 const query = ref('')
 const timerTick = ref(0)
 let timerHandle = null
@@ -38,9 +38,11 @@ onMounted(async () => {
   timerHandle = window.setInterval(() => {
     timerTick.value += 1
   }, 1000)
+  // Soft poll only — sidebar already refreshes badges; avoid double hard reloads.
   pollHandle = window.setInterval(() => {
-    void loadTaskingDashboard(true).catch(() => {})
-  }, 20000)
+    if (document.visibilityState === 'hidden') return
+    void loadTaskingDashboard(true, '', { soft: true }).catch(() => {})
+  }, 60000)
 })
 
 onUnmounted(() => {
@@ -49,19 +51,25 @@ onUnmounted(() => {
 })
 
 watch(mainTab, (tab) => {
-  if (tab === 'mine') subTab.value = 'today'
+  if (tab === 'mine') subTab.value = 'upcoming'
   if (tab === 'assignments') subTab.value = 'pending'
-  if (tab === 'supervise') subTab.value = 'pendingReview'
+  if (tab === 'supervise') subTab.value = 'all'
   if (tab === 'mentions') subTab.value = 'unread'
 })
 
 const capacity = computed(() => state.tasking.capacity || {})
-const capacityPercent = computed(() => Math.min(100, Number(capacity.value.utilizationPercent || 0)))
+const donePercent = computed(() => {
+  const effective = Number(capacity.value.effectiveWorkMinutes || 0)
+  const actual = Number(capacity.value.actualMinutes || 0)
+  if (effective <= 0) return actual > 0 ? 100 : 0
+  return Math.min(100, Math.round((actual / effective) * 100))
+})
+const capacityPercent = computed(() => donePercent.value)
 const capacityTone = computed(() => {
-  const band = capacity.value.band
-  if (band === 'over') return 'is-danger'
-  if (band === 'high') return 'is-warning'
-  if (band === 'target') return 'is-success'
+  const pct = donePercent.value
+  if (pct >= 100) return 'is-success'
+  if (pct >= 70) return 'is-success'
+  if (pct >= 40) return 'is-warning'
   return 'is-idle'
 })
 const capacityRingStyle = computed(() => {
@@ -130,27 +138,70 @@ const metricCards = computed(() => [
 
 const counts = computed(() => state.tasking.counts || {})
 
+const upcomingPool = computed(() => {
+  const mine = state.tasking.mine || {}
+  const map = new Map()
+  ;[...(mine.today || []), ...(mine.upcoming || []), ...(mine.inProgress || [])].forEach((task) => {
+    if (!task?.id) return
+    map.set(task.id, task)
+  })
+  return [...map.values()]
+})
+
+const weekdayFa = ['دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه', 'یکشنبه']
+
+function taskDayKey(task) {
+  const raw = String(task?.focusDate || task?.dueAt || task?.allocations?.[0]?.workDate || state.tasking.date || '').slice(0, 10)
+  return raw || 'بدون تاریخ'
+}
+
+function dayHeading(iso) {
+  if (!iso || iso === 'بدون تاریخ') return 'بدون تاریخ'
+  const d = new Date(`${iso}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return shamsiDateLabel(iso)
+  const name = weekdayFa[(d.getDay() + 6) % 7]
+  return `${name} ${shamsiDateLabel(iso)}`
+}
+
+const upcomingGroups = computed(() => {
+  const groups = new Map()
+  upcomingPool.value.forEach((task) => {
+    const key = taskDayKey(task)
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(task)
+  })
+  return [...groups.entries()]
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+    .map(([date, tasks]) => ({
+      date,
+      label: dayHeading(date),
+      tasks: tasks.sort((x, y) => {
+        const pr = Number(y.priorityScore || 0) - Number(x.priorityScore || 0)
+        if (pr) return pr
+        return String(x.dueAt || '').localeCompare(String(y.dueAt || ''))
+      }),
+    }))
+})
+
 const mineSubTabs = computed(() => [
-  { key: 'today', label: 'امروز', count: counts.value.mine?.today },
-  { key: 'upcoming', label: 'پیش‌رو', count: counts.value.mine?.upcoming },
-  { key: 'inProgress', label: 'در حال انجام', count: counts.value.mine?.inProgress },
+  { key: 'upcoming', label: 'پیش‌رو', count: upcomingPool.value.length },
   { key: 'pendingReview', label: 'در انتظار بررسی', count: counts.value.mine?.pendingReview },
   { key: 'changesRequested', label: 'برگشتی', count: counts.value.mine?.changesRequested },
-  { key: 'closed', label: 'بسته‌شده', count: counts.value.mine?.closed },
-  { key: 'all', label: 'همه', count: counts.value.mine?.all },
+  { key: 'closed', label: 'بسته شده', count: counts.value.mine?.closed },
 ])
 
 const assignmentSubTabs = computed(() => [
-  { key: 'pending', label: 'نیازمند پاسخ', count: counts.value.assignments?.pending },
-  { key: 'all', label: 'همه ارجاع‌ها', count: counts.value.assignments?.all },
+  { key: 'pending', label: 'ارجاع به من', count: counts.value.assignments?.pending },
+  { key: 'outboundReview', label: 'نیازمند تایید من', count: counts.value.assignments?.outboundReview },
+  { key: 'outbound', label: 'ارجاع داده‌شده', count: counts.value.assignments?.outbound },
 ])
 
 const superviseSubTabs = computed(() => [
+  { key: 'all', label: 'همه تیم', count: counts.value.supervise?.all },
   { key: 'pendingReview', label: 'نیازمند بررسی', count: counts.value.supervise?.pendingReview },
-  { key: 'inProgress', label: 'در حال انجام تیم', count: counts.value.supervise?.inProgress },
+  { key: 'inProgress', label: 'در حال انجام', count: counts.value.supervise?.inProgress },
   { key: 'overdue', label: 'تأخیرها', count: counts.value.supervise?.overdue },
   { key: 'completed', label: 'تکمیل‌شده', count: counts.value.supervise?.completed },
-  { key: 'all', label: 'همه تحت نظارت', count: counts.value.supervise?.all },
 ])
 
 const mentionSubTabs = computed(() => [
@@ -166,6 +217,7 @@ const currentSubTabs = computed(() => {
 })
 
 const currentTasks = computed(() => {
+  if (mainTab.value === 'mine' && subTab.value === 'upcoming') return upcomingPool.value
   const source =
     mainTab.value === 'assignments'
       ? state.tasking.assignments
@@ -181,6 +233,8 @@ const currentTasks = computed(() => {
     `${item.title} ${item.code} ${item.assignee?.name || ''}`.toLowerCase().includes(q),
   )
 })
+
+const showGroupedUpcoming = computed(() => mainTab.value === 'mine' && subTab.value === 'upcoming' && !query.value.trim())
 
 function formatElapsed(task) {
   void timerTick.value
@@ -257,8 +311,8 @@ async function openTask(task) {
         <div class="capacity-ring-wrap">
           <div class="capacity-ring" :style="capacityRingStyle">
             <div class="capacity-ring-core">
-              <strong>{{ capacity.utilizationPercent || 0 }}٪</strong>
-              <small>بهره‌برداری</small>
+              <strong>{{ donePercent }}٪</strong>
+              <small>انجام‌شده</small>
             </div>
           </div>
         </div>
@@ -272,7 +326,7 @@ async function openTask(task) {
                 <span>برنامه‌ریزی‌شده</span>
                 <strong>{{ formatDurationRatioFa(capacity.plannedMinutes, capacity.targetMinutes) }}</strong>
               </div>
-              <div class="capacity-track">
+              <div class="capacity-track is-animated">
                 <span
                   class="is-planned"
                   :style="{ width: `${Math.min(100, capacity.targetMinutes ? (Number(capacity.plannedMinutes || 0) / Number(capacity.targetMinutes)) * 100 : 0)}%` }"
@@ -284,7 +338,7 @@ async function openTask(task) {
                 <span>انجام‌شده</span>
                 <strong>{{ formatDurationRatioFa(capacity.actualMinutes, capacity.effectiveWorkMinutes) }}</strong>
               </div>
-              <div class="capacity-track">
+              <div class="capacity-track is-animated">
                 <span
                   class="is-actual"
                   :style="{ width: `${Math.min(100, capacity.effectiveWorkMinutes ? (Number(capacity.actualMinutes || 0) / Number(capacity.effectiveWorkMinutes)) * 100 : 0)}%` }"
@@ -365,14 +419,60 @@ async function openTask(task) {
         </button>
       </div>
 
-      <div v-if="state.tasking.loading" class="empty-copy">در حال بارگذاری...</div>
+      <div v-if="state.tasking.loading && !state.tasking.loaded" class="empty-copy">در حال بارگذاری...</div>
 
-      <div v-else-if="!currentTasks.length" class="empty-state-card">
+      <div v-else-if="showGroupedUpcoming ? !upcomingGroups.length : !currentTasks.length" class="empty-state-card">
         <strong>موردی برای نمایش نیست</strong>
-        <p v-if="mainTab === 'mine' && subTab === 'today'">برای امروز هنوز تسکی برنامه‌ریزی نشده است.</p>
-        <p v-else-if="mainTab === 'assignments'">ارجاع جدیدی نیازمند پاسخ شما نیست.</p>
+        <p v-if="mainTab === 'mine' && subTab === 'upcoming'">هنوز تسکی برای پیش‌رو ندارید.</p>
+        <p v-else-if="mainTab === 'assignments'">ارجاع جدیدی برای نمایش نیست.</p>
         <p v-else>در این فیلتر تسکی وجود ندارد.</p>
         <button v-if="mainTab === 'mine'" class="action-btn tone-primary" type="button" @click="openTaskComposer">افزودن تسک</button>
+      </div>
+
+      <div v-else-if="showGroupedUpcoming" class="task-day-groups">
+        <section v-for="group in upcomingGroups" :key="group.date" class="task-day-group">
+          <header class="task-day-heading">
+            <strong>{{ group.label }}</strong>
+            <span>{{ group.tasks.length }} تسک</span>
+          </header>
+          <div class="task-card-grid">
+            <article
+              v-for="task in group.tasks"
+              :key="task.id"
+              class="task-card"
+              :class="toneForStatus(task.statusLabel)"
+              @click="openTask(task)"
+            >
+              <div class="task-card-top">
+                <span class="priority-dot" :data-priority="task.priority" :title="task.priorityLabel"></span>
+                <div class="task-card-copy">
+                  <small>{{ task.code }}</small>
+                  <strong>{{ task.title }}</strong>
+                </div>
+                <span :class="['status-badge', toneForStatus(task.statusLabel)]">{{ task.statusLabel }}</span>
+              </div>
+              <div class="task-card-meta">
+                <span>{{ minutesLabel(task.estimatedMinutes) }}</span>
+                <span v-if="task.todayPlannedMinutes">امروز {{ minutesLabel(task.todayPlannedMinutes) }}</span>
+                <span v-if="task.assignee?.name">{{ task.assignee.name }}</span>
+              </div>
+              <div class="task-card-footer" @click.stop>
+                <div class="task-people">
+                  <UserAvatar :name="task.assignee?.name" :avatar-url="task.assignee?.avatarUrl" size="sm" />
+                  <small>{{ task.priorityLabel }}</small>
+                </div>
+                <div class="task-card-actions">
+                  <button v-if="task.canAccept" class="action-btn tone-primary" type="button" @click="acceptTask(task.id)">پذیرش</button>
+                  <button v-if="task.canReject" class="action-btn tone-soft" type="button" @click="rejectTask(task.id, 'رد ارجاع')">رد</button>
+                  <button v-if="task.canStart" class="action-btn tone-primary" type="button" @click="startTask(task.id)">شروع</button>
+                  <button v-if="task.canPause" class="action-btn tone-soft" type="button" @click="pauseTask(task.id)">توقف</button>
+                  <button v-if="task.canComplete || task.canSubmitReview" class="action-btn tone-primary" type="button" @click="submitTaskReview(task.id)">پایان</button>
+                  <span v-if="task.activeTimer" class="timer-readout">{{ formatElapsed(task) }}</span>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
       </div>
 
       <div v-else class="task-card-grid">
@@ -409,7 +509,7 @@ async function openTask(task) {
               <button v-if="task.canReject" class="action-btn tone-soft" type="button" @click="rejectTask(task.id, 'رد ارجاع')">رد</button>
               <button v-if="task.canStart && task.status !== 'in_progress'" class="action-btn tone-primary" type="button" @click="startTask(task.id, true)">شروع</button>
               <button v-if="task.canPause" class="action-btn tone-soft" type="button" @click="pauseTask(task.id)">توقف</button>
-              <button v-if="task.canComplete" class="action-btn tone-soft" type="button" @click="submitTaskReview(task.id)">پایان</button>
+              <button v-if="task.canComplete || task.canSubmitReview" class="action-btn tone-soft" type="button" @click="submitTaskReview(task.id)">پایان</button>
               <strong v-if="task.activeTimer" class="timer-readout">{{ formatElapsed(task) }}</strong>
             </div>
           </div>
@@ -422,7 +522,7 @@ async function openTask(task) {
       :open="modalState.taskDetail"
       :task="state.tasking.selectedTask"
       @close="closeTaskDetail"
-      @changed="loadTaskingDashboard(true)"
+      @changed="loadTaskingDashboard(true, '', { soft: true })"
     />
   </section>
 </template>
@@ -564,10 +664,50 @@ async function openTask(task) {
   display: block;
   height: 100%;
   border-radius: inherit;
-  transition: width 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  min-width: 0;
+  transition: width 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.capacity-track.is-animated span {
+  will-change: width;
 }
 .capacity-track .is-planned { background: linear-gradient(90deg, #34908b, #5bb8b2); }
 .capacity-track .is-actual { background: linear-gradient(90deg, #0f766e, #14b8a6); }
+.capacity-ring {
+  position: relative;
+}
+.capacity-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35);
+  pointer-events: none;
+}
+.task-day-groups {
+  display: grid;
+  gap: 18px;
+}
+.task-day-group {
+  display: grid;
+  gap: 12px;
+}
+.task-day-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 2px;
+  border-bottom: 1px dashed rgba(52, 144, 139, 0.28);
+}
+.task-day-heading strong {
+  font-size: 14px;
+  color: #1f5c59;
+}
+.task-day-heading span {
+  font-size: 12px;
+  color: #5f7a76;
+  font-weight: 700;
+}
 .capacity-stat-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
