@@ -320,8 +320,28 @@ function formatElapsed(task) {
 
 function miniCount(value) {
   const n = Number(value || 0)
-  return n > 0 ? n : 0
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
 }
+
+function tabBadge(value) {
+  const n = miniCount(value)
+  return n > 0 ? n.toLocaleString('fa-IR') : ''
+}
+
+const mainTabBadges = computed(() => {
+  const counts = state.tasking.counts || {}
+  const stats = state.tasking.stats || {}
+  return {
+    mine: tabBadge(counts.mine?.all ?? stats.mineCount),
+    assignments: tabBadge(counts.assignments?.all ?? stats.assignmentCount),
+    supervise: tabBadge(counts.supervise?.all ?? stats.superviseCount),
+    mentions: tabBadge(
+      counts.mentionsAll
+      || counts.mentions
+      || stats.unreadMentions,
+    ),
+  }
+})
 
 function isCompletedTask(task) {
   return String(task?.status || '').toLowerCase() === 'completed'
@@ -481,22 +501,22 @@ function quickStart(task, stopOther = false) {
 
     <section class="surface-block">
       <div class="tasking-toolbar">
-        <div class="chip-row tab-strip">
+        <div class="chip-row tab-strip main-tab-strip">
           <button type="button" :class="['chip-btn', mainTab === 'mine' && 'is-active']" @click="mainTab = 'mine'">
-            کارهای من
-            <span v-if="miniCount(state.tasking.stats.mineCount)" class="nav-link-badge is-mini">{{ miniCount(state.tasking.stats.mineCount) }}</span>
+            <span>کارهای من</span>
+            <span v-if="mainTabBadges.mine" class="tasking-tab-badge">{{ mainTabBadges.mine }}</span>
           </button>
           <button type="button" :class="['chip-btn', mainTab === 'assignments' && 'is-active']" @click="mainTab = 'assignments'">
-            ارجاع‌ها
-            <span v-if="miniCount(state.tasking.stats.assignmentCount)" class="nav-link-badge is-mini">{{ miniCount(state.tasking.stats.assignmentCount) }}</span>
+            <span>ارجاع‌ها</span>
+            <span v-if="mainTabBadges.assignments" class="tasking-tab-badge">{{ mainTabBadges.assignments }}</span>
           </button>
           <button type="button" :class="['chip-btn', mainTab === 'supervise' && 'is-active']" @click="mainTab = 'supervise'">
-            نظارت
-            <span v-if="miniCount(state.tasking.stats.superviseCount)" class="nav-link-badge is-mini">{{ miniCount(state.tasking.stats.superviseCount) }}</span>
+            <span>نظارت</span>
+            <span v-if="mainTabBadges.supervise" class="tasking-tab-badge">{{ mainTabBadges.supervise }}</span>
           </button>
           <button type="button" :class="['chip-btn', mainTab === 'mentions' && 'is-active']" @click="mainTab = 'mentions'">
-            منشن
-            <span v-if="miniCount(state.tasking.stats.unreadMentions || state.tasking.counts?.mentions)" class="nav-link-badge is-mini">{{ miniCount(state.tasking.stats.unreadMentions || state.tasking.counts?.mentions) }}</span>
+            <span>منشن</span>
+            <span v-if="mainTabBadges.mentions" class="tasking-tab-badge">{{ mainTabBadges.mentions }}</span>
           </button>
         </div>
         <div class="tasking-filter-row">
@@ -525,7 +545,7 @@ function quickStart(task, stopOther = false) {
           @click="subTab = item.key"
         >
           {{ item.label }}
-          <span v-if="miniCount(item.count)" class="nav-link-badge is-mini">{{ miniCount(item.count) }}</span>
+          <span v-if="tabBadge(item.count)" class="tasking-tab-badge is-sub">{{ tabBadge(item.count) }}</span>
         </button>
       </div>
 
@@ -944,10 +964,32 @@ function quickStart(task, stopOther = false) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  position: relative;
 }
 .chip-btn.is-active {
   background: #dcefec;
   color: #1f5c59;
+}
+.tasking-tab-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e11d48;
+  color: #fff !important;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+.tasking-tab-badge.is-sub {
+  background: #1f7a72;
+  min-width: 16px;
+  height: 16px;
+  font-size: 10px;
 }
 .nav-link-badge.is-mini {
   min-width: 15px;
@@ -1104,12 +1146,31 @@ function quickStart(task, stopOther = false) {
     display: grid;
     gap: 10px;
   }
-  .tab-strip {
+  .main-tab-strip.tab-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    overflow: visible;
+  }
+  .main-tab-strip .chip-btn {
+    justify-content: space-between;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    overflow: visible;
+  }
+  .main-tab-strip .tasking-tab-badge {
+    min-width: 20px;
+    height: 20px;
+    font-size: 12px;
+  }
+  .tab-strip:not(.main-tab-strip) {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
-  .tab-strip .chip-btn {
+  .tab-strip:not(.main-tab-strip) .chip-btn {
     justify-content: center;
     width: 100%;
   }
