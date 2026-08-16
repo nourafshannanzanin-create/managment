@@ -6,6 +6,5 @@ import './styles.css'
 import './styles/jade-enterprise.css'
 import './styles/layout-core.css'
 import './styles/mobile-ui.css'
-import './styles/landing.css'
 
 createApp(App).use(router).mount('#app')

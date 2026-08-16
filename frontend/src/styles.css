@@ -418,7 +418,7 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--surface, #fff);
+  background: #e11d48;
   color: #fff;
   font-size: 12px;
   font-weight: 800;
@@ -3994,9 +3994,9 @@ body {
   letter-spacing: 0;
 }
 
-#app .app-shell:not(.is-landing-route) *,
-#app .app-shell:not(.is-landing-route) *::before,
-#app .app-shell:not(.is-landing-route) *::after {
+#app .app-shell *,
+#app .app-shell *::before,
+#app .app-shell *::after {
   background-image: none !important;
   box-shadow: none;
   text-shadow: none;
@@ -4101,7 +4101,13 @@ body {
   background: var(--primary) !important;
 }
 
-#app .nav-link-badge,
+#app .nav-link-badge {
+  border-radius: 999px !important;
+  border: 0 !important;
+  background: #e11d48 !important;
+  color: #fff !important;
+}
+
 #app .status-badge,
 #app .meta-pill,
 #app .filter-chip,
@@ -4127,12 +4133,12 @@ body {
   gap: 12px !important;
 }
 
-#app .app-shell:not(.is-landing-route) .topbar-intro-copy strong,
-#app .app-shell:not(.is-landing-route) .page-header h1,
-#app .app-shell:not(.is-landing-route) .section-label-row h3,
-#app .app-shell:not(.is-landing-route) h1,
-#app .app-shell:not(.is-landing-route) h2,
-#app .app-shell:not(.is-landing-route) h3 {
+#app .app-shell .topbar-intro-copy strong,
+#app .app-shell .page-header h1,
+#app .app-shell .section-label-row h3,
+#app .app-shell h1,
+#app .app-shell h2,
+#app .app-shell h3 {
   color: var(--text) !important;
   font-weight: 650 !important;
 }
@@ -4155,11 +4161,11 @@ body {
   line-height: 1.3 !important;
 }
 
-#app .app-shell:not(.is-landing-route) .page-header-description,
-#app .app-shell:not(.is-landing-route) .topbar-intro-copy small,
-#app .app-shell:not(.is-landing-route) .section-label-row p,
-#app .app-shell:not(.is-landing-route) small,
-#app .app-shell:not(.is-landing-route) .table-muted {
+#app .app-shell .page-header-description,
+#app .app-shell .topbar-intro-copy small,
+#app .app-shell .section-label-row p,
+#app .app-shell small,
+#app .app-shell .table-muted {
   color: var(--muted) !important;
 }
 
@@ -4503,8 +4509,8 @@ body,
   background-attachment: scroll !important;
 }
 
-#app .app-shell:not(.is-landing-route) *::before,
-#app .app-shell:not(.is-landing-route) *::after {
+#app .app-shell *::before,
+#app .app-shell *::after {
   background-image: inherit !important;
 }
 
@@ -4606,11 +4612,11 @@ body,
   background: transparent !important;
 }
 
-#app .app-shell:not(.is-landing-route) .page-header h1,
-#app .app-shell:not(.is-landing-route) .topbar-intro-copy strong,
-#app .app-shell:not(.is-landing-route) h1,
-#app .app-shell:not(.is-landing-route) h2,
-#app .app-shell:not(.is-landing-route) h3 {
+#app .app-shell .page-header h1,
+#app .app-shell .topbar-intro-copy strong,
+#app .app-shell h1,
+#app .app-shell h2,
+#app .app-shell h3 {
   color: var(--text) !important;
   font-weight: 760 !important;
 }
@@ -4774,10 +4780,17 @@ body,
 #app .filter-chip,
 #app .priority-chip,
 #app .access-selection-state,
-#app .mini-person-pill,
-#app .nav-link-badge {
+#app .mini-person-pill {
   background: rgba(255, 255, 255, 0.52) !important;
   border-color: rgba(255, 255, 255, 0.64) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+#app .nav-link-badge {
+  background: #e11d48 !important;
+  border-color: transparent !important;
+  color: #fff !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
 }
@@ -4905,9 +4918,9 @@ body,
   --glow-warm: 0 18px 48px rgba(216, 175, 140, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.32);
 }
 
-#app .app-shell:not(.is-landing-route) *,
-#app .app-shell:not(.is-landing-route) *::before,
-#app .app-shell:not(.is-landing-route) *::after {
+#app .app-shell *,
+#app .app-shell *::before,
+#app .app-shell *::after {
   border-color: transparent !important;
 }
 
@@ -5298,20 +5311,20 @@ body,
   backdrop-filter: none !important;
 }
 
-#app .app-shell:not(.is-landing-route) .page-header h1,
-#app .app-shell:not(.is-landing-route) .topbar-intro-copy strong,
-#app .app-shell:not(.is-landing-route) h1,
-#app .app-shell:not(.is-landing-route) h2,
-#app .app-shell:not(.is-landing-route) h3 {
+#app .app-shell .page-header h1,
+#app .app-shell .topbar-intro-copy strong,
+#app .app-shell h1,
+#app .app-shell h2,
+#app .app-shell h3 {
   color: var(--text) !important;
   font-weight: 720 !important;
 }
 
-#app .app-shell:not(.is-landing-route) .page-header-description,
-#app .app-shell:not(.is-landing-route) .topbar-intro-copy small,
-#app .app-shell:not(.is-landing-route) .section-label-row p,
-#app .app-shell:not(.is-landing-route) small,
-#app .app-shell:not(.is-landing-route) .table-muted {
+#app .app-shell .page-header-description,
+#app .app-shell .topbar-intro-copy small,
+#app .app-shell .section-label-row p,
+#app .app-shell small,
+#app .app-shell .table-muted {
   color: var(--muted) !important;
 }
 
@@ -7144,10 +7157,11 @@ body,
 }
 
 #app .app-shell:not(.is-auth-route) .nav-link-badge {
-  background: rgba(63, 79, 114, 0.14) !important;
-  color: var(--primary) !important;
+  background: #e11d48 !important;
+  color: #fff !important;
   border: 0 !important;
   border-radius: 999px !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55) !important;
 }
 
 /* Actions */
@@ -7289,17 +7303,6 @@ body,
   box-shadow: none !important;
 }
 
-/* Landing route: do not force dashboard gray background onto marketing page */
-html:has(.app-shell.is-landing-route),
-body:has(.app-shell.is-landing-route),
-#app:has(.app-shell.is-landing-route),
-#app .app-shell.is-landing-route,
-#app .app-shell.is-landing-route .shell-main,
-#app .app-shell.is-landing-route .auth-main {
-  background: #f5f8f6 !important;
-  background-image: none !important;
-  color: #10231f !important;
-}
 
 /* Public self-service attendance (/attendance/:token) */
 #app .public-canvas-main,

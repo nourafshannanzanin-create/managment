@@ -1,17 +1,27 @@
-﻿import { computed, markRaw, reactive } from 'vue'
+import { computed, markRaw, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { AppError, appErrorFromResponse, createValidationError, hasFieldError, normalizeError } from '../utils/errors'
 import { formatJalali, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
-import { notifyNewChatMessages, notifyNewSupportTickets, playInboxAlertSound, playTicketAlertSound } from '../utils/ticketAlert'
+import { notifyNewChatMessages, notifyNewSupportTickets, notifyInboxGrowth, playInboxAlertSound, playTicketAlertSound } from '../utils/ticketAlert'
 import { notifyInfo, notifySuccess, notifyWarning } from '../utils/notify'
 import { repairPayload } from '../utils/stitch'
 import { cleanDisplayText } from '../utils/text'
 import { prepareUploadFile, UPLOAD_LIMITS, validateUploadFile } from '../utils/uploads'
 
+import { personAvatarUrl, resolveAvatarUrl, resolveApiOrigin } from '../utils/avatar'
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
-const API_ORIGIN = API_BASE_URL.replace(/\/api\/v1\/?$/, '')
+const API_ORIGIN = (() => {
+  const base = String(API_BASE_URL || '').trim()
+  if (!base || base.startsWith('/')) return ''
+  try {
+    return new URL(base).origin
+  } catch {
+    return base.replace(/\/api\/v1\/?$/, '')
+  }
+})()
 const TOKEN_KEY = 'workflow-hub-token'
 const SUPPORT_SEEN_KEY = 'workflow-hub-support-seen'
 
@@ -503,10 +513,7 @@ function fieldHasError(field) {
 }
 
 function resolveAssetUrl(rawUrl) {
-  if (!rawUrl) return ''
-  if (/^https?:\/\//i.test(rawUrl) || rawUrl.startsWith('data:')) return rawUrl
-  if (rawUrl.startsWith('/')) return `${API_ORIGIN}${rawUrl}`
-  return `${API_ORIGIN}/${rawUrl}`
+  return resolveAvatarUrl(rawUrl)
 }
 
 function formatNumber(value) {
@@ -538,7 +545,7 @@ function normalizeUser(item = {}) {
     phone: cleanDisplayText(item?.phone),
     status: cleanDisplayText(item?.status),
     avatar: cleanDisplayText(item?.avatar),
-    avatarUrl: resolveAssetUrl(item?.avatarUrl || item?.avatar_url || ''),
+    avatarUrl: resolveAvatarUrl(item?.avatarUrl || item?.avatar_url || item?.avatarImage || item?.avatar_image || ''),
     avatarFileName: cleanDisplayText(item?.avatarFileName || item?.avatar_file_name),
     bonusAmount: item?.bonusAmount || '0',
     bonusAmountRaw: Number(item?.bonusAmountRaw || 0),
@@ -758,7 +765,7 @@ function parseDownloadFilename(disposition = '') {
 
 function fallbackFilenameFromUrl(rawUrl = '', fallback = 'download') {
   try {
-    const url = new URL(rawUrl, API_ORIGIN)
+    const url = new URL(rawUrl, resolveApiOrigin() || API_ORIGIN || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost'))
     const fileName = decodeURIComponent(url.pathname.split('/').filter(Boolean).pop() || '')
     return fileName || fallback
   } catch {
@@ -1111,7 +1118,7 @@ function hydrateBootstrap(payload) {
   if (!payload) return
 
   Object.assign(state.currentUser, createCurrentUser(), payload.currentUser || {})
-  state.currentUser.avatarUrl = resolveAssetUrl(state.currentUser.avatarUrl || state.currentUser.avatar_url || '')
+  state.currentUser.avatarUrl = resolveAvatarUrl(state.currentUser.avatarUrl || state.currentUser.avatar_url || '')
   state.currentUser.avatarFileName = cleanDisplayText(state.currentUser.avatarFileName || state.currentUser.avatar_file_name)
   replaceItems(state.stats, payload.stats)
   replaceItems(state.chartData, payload.chartData)
@@ -1241,55 +1248,67 @@ function captureInboxSnapshot() {
     approvals: Number(approvalInboxCount.value || 0),
     chat: Number(chatUnreadCount.value || 0),
     support: Number(supportUnreadCount.value || 0),
+    tasking: Number(state.tasking.badgeCount || 0),
   }
 }
 
 function notifyIfInboxIncreased(previous, next, options = {}) {
   if (!previous || !next) return false
   const labels = {
-    requests: 'درخواست جدید یا تغییر وضعیت درخواست',
-    expenses: 'هزینه جدید یا تغییر وضعیت هزینه',
-    approvals: 'تاییدیه جدید نیازمند تصمیم',
+    requests: 'درخواست نیازمند بررسی',
+    expenses: 'هزینه نیازمند تایید',
+    approvals: 'تاییدیه نیازمند تصمیم',
     chat: 'پیام گفتگوی جدید',
     support: 'به‌روزرسانی تیکت پشتیبانی',
+    tasking: 'تسک نیازمند اقدام',
   }
   const keys = options.excludeChat
-    ? ['requests', 'expenses', 'approvals', 'support']
-    : ['requests', 'expenses', 'approvals', 'chat', 'support']
-  let grew = false
+    ? ['requests', 'expenses', 'approvals', 'support', 'tasking']
+    : ['requests', 'expenses', 'approvals', 'chat', 'support', 'tasking']
+  const grewMessages = []
   keys.forEach((key) => {
     const delta = Number(next[key] || 0) - Number(previous[key] || 0)
     if (delta > 0) {
-      grew = true
-      notifyInfo(`${labels[key] || 'اعلان جدید'}${delta > 1 ? ` (${delta})` : ''}`)
+      grewMessages.push(`${labels[key] || 'اعلان جدید'}${delta > 1 ? ` (${delta.toLocaleString('fa-IR')})` : ''}`)
     }
   })
-  if (!grew) return false
-  playInboxAlertSound({ isHq: Boolean(state.currentUser.isHq) })
+  if (!grewMessages.length) return false
+  notifyInboxGrowth({
+    title: 'اعلان جدید',
+    message: grewMessages.join(' · '),
+    isHq: Boolean(state.currentUser.isHq),
+    tag: 'workflow-inbox-delta',
+  })
   return true
 }
 
 async function softLiveSync(options = {}) {
   if (!state.authToken || !state.sessionReady || state.liveSync.inFlight) return
-  if (typeof document !== 'undefined' && document.visibilityState === 'hidden' && !options.forceHidden) {
-    return
-  }
 
   state.liveSync.inFlight = true
   const previous = state.liveSync.initialized ? captureInboxSnapshot() : null
   try {
     state.liveSync.tick = Number(state.liveSync.tick || 0) + 1
-    // Quiet inbox sync — soft bootstrap only every few ticks so drafts don't thrash.
+    // Always refresh badge sources (even when tab is backgrounded) so notifs stay alive.
     await loadChatUnreadConversations()
-    if (state.currentUser.isHq || state.currentUser.canUseHq) {
-      await loadSupportTickets(true, { soft: true, notifyNew: Boolean(state.liveSync.initialized) })
-      await loadHqPanel(true, { soft: true })
-    } else if (options.includeSupport !== false && state.currentUser.accessRole === 'admin') {
-      await loadSupportTickets(true, { soft: true, notifyNew: false })
+    await loadTaskingDashboard(true, '', { soft: true, quiet: true }).catch(() => {})
+
+    if (
+      options.includeSupport !== false &&
+      (state.currentUser.isHq || state.currentUser.canUseHq || state.currentUser.accessRole === 'admin')
+    ) {
+      if (state.liveSync.tick % 2 === 0 || options.forceSupport) {
+        await loadSupportTickets(true, {
+          soft: true,
+          notifyNew: Boolean(state.liveSync.initialized && (state.currentUser.isHq || state.currentUser.canUseHq)),
+        })
+      }
     }
+
+    // Bootstrap feeds request/expense/approval badges — keep it frequent enough for counters.
     const shouldBootstrap =
       options.includeBootstrap === true ||
-      (options.includeBootstrap !== false && state.liveSync.tick % 3 === 0)
+      (options.includeBootstrap !== false && state.liveSync.tick % 2 === 0)
     if (shouldBootstrap) {
       await loadBootstrapData(true, { soft: true })
     }
@@ -2632,7 +2651,7 @@ export function useWorkflowHub() {
     const response = await authorizedFetch('/me/avatar', { method: 'POST', body: formData })
     const payload = repairPayload(await response.json())
     Object.assign(state.currentUser, createCurrentUser(), payload || {})
-    state.currentUser.avatarUrl = resolveAssetUrl(state.currentUser.avatarUrl || state.currentUser.avatar_url || '')
+    state.currentUser.avatarUrl = resolveAvatarUrl(state.currentUser.avatarUrl || state.currentUser.avatar_url || '')
     state.currentUser.avatarFileName = cleanDisplayText(state.currentUser.avatarFileName || state.currentUser.avatar_file_name)
     patchUserAvatarInLists(state.currentUser.id, state.currentUser.avatar, state.currentUser.avatarUrl, {
       avatarFileName: state.currentUser.avatarFileName,
@@ -2645,7 +2664,7 @@ export function useWorkflowHub() {
     const response = await authorizedFetch('/me/avatar', { method: 'DELETE' })
     const payload = repairPayload(await response.json())
     Object.assign(state.currentUser, createCurrentUser(), payload || {})
-    state.currentUser.avatarUrl = resolveAssetUrl(state.currentUser.avatarUrl || state.currentUser.avatar_url || '')
+    state.currentUser.avatarUrl = resolveAvatarUrl(state.currentUser.avatarUrl || state.currentUser.avatar_url || '')
     state.currentUser.avatarFileName = ''
     patchUserAvatarInLists(state.currentUser.id, state.currentUser.avatar, state.currentUser.avatarUrl, {
       avatarFileName: '',
@@ -2973,7 +2992,7 @@ async function updateUser(userId, payload) {
       state.tasking.mentions = payload.mentions || createTaskingState().mentions
       state.tasking.departments = payload.departments || []
       state.tasking.assigneeOptions = payload.assigneeOptions || []
-      if (hadLoaded && soft) {
+      if (hadLoaded && soft && !options.quiet) {
         const badgeDelta = Number(state.tasking.badgeCount) - previousBadge
         const mentionDelta = Number(state.tasking.stats.unreadMentions || 0) - previousMentions
         if (badgeDelta > 0) {
@@ -2982,7 +3001,7 @@ async function updateUser(userId, payload) {
         } else if (mentionDelta > 0) {
           notifyInfo(`منشن جدید در تسکینگ: ${mentionDelta}`)
         }
-      } else if (hadLoaded && Number(state.tasking.badgeCount) > previousBadge) {
+      } else if (hadLoaded && !soft && Number(state.tasking.badgeCount) > previousBadge) {
         const delta = Number(state.tasking.badgeCount) - previousBadge
         notifyInfo(`تسکینگ: ${delta} مورد جدید نیازمند توجه`)
         playInboxAlertSound({ isHq: Boolean(state.currentUser.isHq) })
@@ -3169,7 +3188,7 @@ async function updateUser(userId, payload) {
       })
       const task = repairPayload(await response.json())
       state.tasking.selectedTask = task
-      await loadTaskingDashboard(true)
+      await loadTaskingDashboard(true, '', { soft: true })
       return task
     } catch (error) {
       setLastError(error, 'به‌روزرسانی تسک ناموفق بود.')

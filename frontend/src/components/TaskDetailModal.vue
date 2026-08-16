@@ -162,17 +162,22 @@ function beginEdit() {
 
 async function saveEdit() {
   if (!task.value?.id) return
-  await updateTaskingTask(task.value.id, {
-    title: editForm.title,
-    description: editForm.description,
-    priority: editForm.priority,
-    category: editForm.category,
-    departmentId: editForm.departmentId || null,
-    estimatedMinutes: Number(editForm.estimatedMinutes || 0),
-    dueAt: editForm.dueDate ? jalaliToIso(editForm.dueDate) : '',
-  })
-  editing.value = false
-  emit('changed')
+  try {
+    await updateTaskingTask(task.value.id, {
+      title: editForm.title,
+      description: editForm.description,
+      priority: editForm.priority,
+      category: editForm.category,
+      departmentId: editForm.departmentId || null,
+      estimatedMinutes: Number(editForm.estimatedMinutes || 0),
+      dueAt: editForm.dueDate ? jalaliToIso(editForm.dueDate) : '',
+      reason: 'ویرایش مشخصات تسک',
+    })
+    editing.value = false
+    emit('changed')
+  } catch {
+    // store surfaces error
+  }
 }
 
 async function run(action, { close = false } = {}) {

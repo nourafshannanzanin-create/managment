@@ -8,33 +8,36 @@ export const ORG_ALERT_SOUND_URL = '/notif.mp3'
 /** @deprecated use HQ_ALERT_SOUND_URL */
 export const TICKET_ALERT_SOUND_URL = HQ_ALERT_SOUND_URL
 
-let hqAlertAudio = null
-let orgAlertAudio = null
-let audioUnlocked = false
+const audioByKind = {
+  hq: null,
+  org: null,
+}
+const unlockedByKind = {
+  hq: false,
+  org: false,
+}
 let browserPermissionRequested = false
 
 const canUseNotifications = () => typeof window !== 'undefined' && 'Notification' in window
 
 function ensureAudio(kind = 'hq') {
   if (typeof window === 'undefined') return null
-  if (kind === 'org') {
-    if (!orgAlertAudio) {
-      orgAlertAudio = new Audio(ORG_ALERT_SOUND_URL)
-      orgAlertAudio.preload = 'auto'
-      orgAlertAudio.volume = 0.9
-    }
-    return orgAlertAudio
+  const key = kind === 'org' ? 'org' : 'hq'
+  if (!audioByKind[key]) {
+    const audio = new Audio(key === 'org' ? ORG_ALERT_SOUND_URL : HQ_ALERT_SOUND_URL)
+    audio.preload = 'auto'
+    audio.volume = 0.95
+    audioByKind[key] = audio
   }
-  if (!hqAlertAudio) {
-    hqAlertAudio = new Audio(HQ_ALERT_SOUND_URL)
-    hqAlertAudio.preload = 'auto'
-    hqAlertAudio.volume = 0.9
-  }
-  return hqAlertAudio
+  return audioByKind[key]
 }
 
-function unlockOne(audio) {
-  if (!audio || audioUnlocked) return
+function unlockOne(kind = 'hq') {
+  if (typeof window === 'undefined') return
+  const key = kind === 'org' ? 'org' : 'hq'
+  if (unlockedByKind[key]) return
+  const audio = ensureAudio(key)
+  if (!audio) return
   try {
     audio.muted = true
     const playPromise = audio.play()
@@ -44,14 +47,14 @@ function unlockOne(audio) {
           audio.pause()
           audio.currentTime = 0
           audio.muted = false
-          audioUnlocked = true
+          unlockedByKind[key] = true
         })
         .catch(() => {
           audio.muted = false
         })
     } else {
       audio.muted = false
-      audioUnlocked = true
+      unlockedByKind[key] = true
     }
   } catch (_error) {
     // Autoplay policies can block until a real user gesture.
@@ -59,13 +62,15 @@ function unlockOne(audio) {
 }
 
 export const unlockTicketAlertAudio = () => {
-  if (typeof window === 'undefined' || audioUnlocked) return
-  unlockOne(ensureAudio('hq'))
-  unlockOne(ensureAudio('org'))
+  if (typeof window === 'undefined') return
+  unlockOne('hq')
+  unlockOne('org')
 }
 
 export const ensureTicketBrowserPermission = async () => {
-  if (!canUseNotifications() || browserPermissionRequested) return Notification.permission
+  if (!canUseNotifications() || browserPermissionRequested) {
+    return canUseNotifications() ? Notification.permission : 'denied'
+  }
   browserPermissionRequested = true
   if (Notification.permission === 'default') {
     try {
@@ -79,26 +84,37 @@ export const ensureTicketBrowserPermission = async () => {
 
 export const unlockTicketAlerts = () => {
   unlockTicketAlertAudio()
-  ensureTicketBrowserPermission()
+  void ensureTicketBrowserPermission()
 }
 
 function playAudio(kind = 'hq') {
   if (typeof window === 'undefined') return
+  const key = kind === 'org' ? 'org' : 'hq'
   try {
-    const audio = ensureAudio(kind)
-    if (!audio) return
+    // Prefer a fresh instance so rapid consecutive alerts are not dropped.
+    const base = ensureAudio(key)
+    if (!base) return
+    const audio = base.cloneNode?.(true) || base
     audio.muted = false
-    audio.volume = 0.9
+    audio.volume = 0.95
     audio.currentTime = 0
     const playPromise = audio.play()
     if (playPromise?.then) {
       playPromise
         .then(() => {
-          audioUnlocked = true
+          unlockedByKind[key] = true
         })
-        .catch(() => {})
+        .catch(() => {
+          // Fallback: retry original element after unlock attempt.
+          unlockOne(key)
+          base.muted = false
+          base.currentTime = 0
+          void base.play().then(() => {
+            unlockedByKind[key] = true
+          }).catch(() => {})
+        })
     } else {
-      audioUnlocked = true
+      unlockedByKind[key] = true
     }
   } catch (_error) {
     // Browser autoplay policies can still block in some cases.
@@ -113,7 +129,7 @@ export const playInboxAlertSound = ({ isHq = false } = {}) => {
   else playOrgAlertSound()
 }
 
-const showBrowserNotification = ({ title, body, tag }) => {
+export const showBrowserNotification = ({ title, body, tag }) => {
   if (!canUseNotifications() || Notification.permission !== 'granted') return
   try {
     const notification = new Notification(title, {
@@ -166,13 +182,26 @@ export const notifyNewChatMessages = (count = 1) => {
     : `${normalizedCount.toLocaleString('fa-IR')} گفتگوی خوانده‌نشده در چت سازمانی دارید`
 
   playOrgAlertSound()
-  notifyInfo(message, { title, duration: 7000, source: 'chat' })
+  notifyInfo(message, { title, duration: 7000, route: 'chat' })
 
   if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
     showBrowserNotification({
       title: `کارنومند | ${title}`,
       body: message,
       tag: 'workflow-chat-unread',
+    })
+  }
+}
+
+export const notifyInboxGrowth = ({ title, message, isHq = false, tag = 'workflow-inbox' } = {}) => {
+  if (!message) return
+  playInboxAlertSound({ isHq })
+  notifyInfo(message, { title: title || 'اعلان جدید', duration: 6500 })
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    showBrowserNotification({
+      title: `کارنومند | ${title || 'اعلان جدید'}`,
+      body: message,
+      tag,
     })
   }
 }

@@ -319,8 +319,8 @@ async function loadPublic() {
     if (!workplaceConfigured.value) {
       locationHint.value = 'لوکیشن محل کار توسط مدیر مجموعه تنظیم نشده است.'
     } else {
-      locationHint.value = `برای ثبت ورود/خروج باید در شعاع ${fa(workplaceRadius.value)} متری محل کار باشید.`
-      await refreshLiveLocation()
+      locationHint.value = `برای ثبت ورود/خروج باید در شعاع ${fa(workplaceRadius.value)} متری محل کار باشید. ابتدا دکمه «اجازه موقعیت» را بزنید.`
+      // iOS Safari only prompts geolocation after a user gesture — do not auto-request here.
     }
   } catch (error) {
     errorMessage.value = error.message
@@ -922,9 +922,9 @@ onMounted(() => {
               :show-radius="true"
               :user-location="liveUserLocation"
             />
-            <button class="action-btn tone-soft public-locate-btn" type="button" :disabled="locationBusy || submitting" @click="refreshLiveLocation">
+            <button class="action-btn tone-primary public-locate-btn" type="button" :disabled="locationBusy || submitting" @click="refreshLiveLocation">
               <IconlyIcon name="profile" decorative />
-              <span>{{ locationBusy ? 'در حال دریافت موقعیت...' : 'بروزرسانی موقعیت من' }}</span>
+              <span>{{ locationBusy ? 'در حال دریافت موقعیت...' : (liveUserLocation ? 'بروزرسانی موقعیت من' : 'اجازه موقعیت و یافتن من') }}</span>
             </button>
           </div>
 

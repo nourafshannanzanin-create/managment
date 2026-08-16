@@ -29,6 +29,7 @@ const {
 const mainTab = ref('mine')
 const subTab = ref('upcoming')
 const query = ref('')
+const superviseOwnerId = ref('')
 const timerTick = ref(0)
 let timerHandle = null
 let pollHandle = null
@@ -53,7 +54,10 @@ onUnmounted(() => {
 watch(mainTab, (tab) => {
   if (tab === 'mine') subTab.value = 'upcoming'
   if (tab === 'assignments') subTab.value = 'pending'
-  if (tab === 'supervise') subTab.value = 'all'
+  if (tab === 'supervise') {
+    subTab.value = 'all'
+    superviseOwnerId.value = ''
+  }
   if (tab === 'mentions') subTab.value = 'unread'
 })
 
@@ -254,6 +258,28 @@ const currentSubTabs = computed(() => {
   return mineSubTabs.value
 })
 
+const superviseEmployeeOptions = computed(() => {
+  const map = new Map()
+  const buckets = state.tasking.supervise || {}
+  Object.values(buckets).forEach((list) => {
+    if (!Array.isArray(list)) return
+    list.forEach((task) => {
+      const person = task?.assignee || task?.owner
+      const id = Number(person?.id || 0)
+      const name = String(person?.name || '').trim()
+      if (!id || !name || map.has(id)) return
+      map.set(id, { id, name })
+    })
+  })
+  ;(state.tasking.assigneeOptions || []).forEach((person) => {
+    const id = Number(person?.id || 0)
+    const name = String(person?.name || '').trim()
+    if (!id || !name || map.has(id)) return
+    map.set(id, { id, name })
+  })
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'fa'))
+})
+
 const currentTasks = computed(() => {
   if (mainTab.value === 'mine' && subTab.value === 'upcoming') return upcomingPool.value
   const source =
@@ -264,7 +290,11 @@ const currentTasks = computed(() => {
         : mainTab.value === 'mentions'
           ? state.tasking.mentions
           : state.tasking.mine
-  const rows = source?.[subTab.value] || []
+  let rows = source?.[subTab.value] || []
+  if (mainTab.value === 'supervise' && superviseOwnerId.value) {
+    const ownerId = Number(superviseOwnerId.value)
+    rows = rows.filter((item) => Number(item?.assignee?.id || item?.owner?.id || 0) === ownerId)
+  }
   const q = query.value.trim().toLowerCase()
   if (!q) return rows
   return rows.filter((item) =>
@@ -272,7 +302,9 @@ const currentTasks = computed(() => {
   )
 })
 
-const showGroupedUpcoming = computed(() => mainTab.value === 'mine' && subTab.value === 'upcoming' && !query.value.trim())
+const showGroupedUpcoming = computed(() =>
+  mainTab.value === 'mine' && subTab.value === 'upcoming' && !query.value.trim() && !superviseOwnerId.value,
+)
 
 function formatElapsed(task) {
   void timerTick.value
@@ -467,10 +499,21 @@ function quickStart(task, stopOther = false) {
             <span v-if="miniCount(state.tasking.stats.unreadMentions || state.tasking.counts?.mentions)" class="nav-link-badge is-mini">{{ miniCount(state.tasking.stats.unreadMentions || state.tasking.counts?.mentions) }}</span>
           </button>
         </div>
-        <label class="search-shell compact-search">
-          <IconlyIcon name="search" decorative />
-          <input v-model="query" type="search" placeholder="جستجوی عنوان، کد یا مسئول" />
-        </label>
+        <div class="tasking-filter-row">
+          <label v-if="mainTab === 'supervise'" class="field-shell supervise-owner-filter">
+            <span>کارمند</span>
+            <select v-model="superviseOwnerId">
+              <option value="">همه کارمندان</option>
+              <option v-for="person in superviseEmployeeOptions" :key="person.id" :value="String(person.id)">
+                {{ person.name }}
+              </option>
+            </select>
+          </label>
+          <label class="search-shell compact-search">
+            <IconlyIcon name="search" decorative />
+            <input v-model="query" type="search" placeholder="جستجوی عنوان، کد یا مسئول" />
+          </label>
+        </div>
       </div>
 
       <div class="chip-row tab-strip subtab-strip">
@@ -860,6 +903,28 @@ function quickStart(task, stopOther = false) {
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 12px;
+}
+.tasking-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+  margin-inline-start: auto;
+}
+.supervise-owner-filter {
+  min-width: 190px;
+  margin: 0;
+}
+.supervise-owner-filter span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted, #5f7a76);
+}
+.supervise-owner-filter select {
+  min-height: 42px;
+  width: 100%;
 }
 .chip-row, .tab-strip, .subtab-strip {
   display: flex;

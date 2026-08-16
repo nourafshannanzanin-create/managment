@@ -172,11 +172,13 @@ def round_minutes(value: int, step: int) -> int:
 def serialize_user_brief(user: User | None) -> dict | None:
     if user is None:
         return None
+    avatar = user_avatar_url(user)
     return {
         "id": user.id,
         "name": normalize_person_name(user.full_name),
         "avatar": user.avatar or "",
-        "avatarUrl": user_avatar_url(user),
+        "avatarUrl": avatar,
+        "avatar_url": avatar,
         "jobTitle": user.job_title or "",
         "department": user.department.name if user.department_id else "",
         "role": user.role,

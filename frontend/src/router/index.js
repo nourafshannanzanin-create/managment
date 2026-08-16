@@ -3,7 +3,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { applyRouteSeo } from '../utils/seo'
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const LandingPage = () => import('../pages/LandingPage.vue')
 const ApprovalsPage = () => import('../pages/ApprovalsPage.vue')
 const AttendancePage = () => import('../pages/AttendancePage.vue')
 const ChatPage = () => import('../pages/ChatPage.vue')
@@ -23,21 +22,23 @@ const WalletPage = () => import('../pages/WalletPage.vue')
 const routes = [
   {
     path: '/',
-    name: 'landing',
-    component: LandingPage,
+    redirect: () => (localStorage.getItem('workflow-hub-token') ? '/dashboard' : '/login'),
+  },
+  {
+    path: '/login',
+    name: 'login',
+    component: LoginPage,
     meta: {
       public: true,
       publicCanvas: true,
-      landing: true,
       seo: {
-        title: 'کارنومند | سامانه مدیریت گردش‌کار سازمانی',
-        description: 'کارنومند، سامانه مدیریت گردش‌کار سازمانی برای ثبت و پیگیری درخواست‌ها، هزینه‌ها، تأیید اسناد و گزارش‌ها.',
-        robots: 'index, follow',
-        canonicalPath: '/',
+        title: 'ورود به کارنومند',
+        description: 'ورود به سامانه کارنومند.',
+        robots: 'noindex, nofollow',
+        canonicalPath: '/login',
       },
     },
   },
-  { path: '/login', name: 'login', component: LoginPage, meta: { public: true, publicCanvas: true, seo: { title: 'ورود به کارنومند', description: 'ورود به سامانه مدیریت گردش‌کار کارنومند.', robots: 'noindex, nofollow', canonicalPath: '/login' } } },
   { path: '/dashboard', name: 'dashboard', component: DashboardPage, meta: { fullCanvas: true } },
   { path: '/tasking', name: 'tasking', component: TaskingPage, meta: { fullCanvas: true } },
   { path: '/requests', name: 'requests', component: RequestsPage, meta: { fullCanvas: true } },
@@ -45,7 +46,12 @@ const routes = [
   { path: '/expenses', name: 'expenses', component: ExpensesPage, meta: { fullCanvas: true } },
   { path: '/wallet', name: 'wallet', component: WalletPage, meta: { fullCanvas: true } },
   { path: '/attendance', name: 'attendance', component: AttendancePage, meta: { fullCanvas: true, feature: 'attendance' } },
-  { path: '/attendance/:token', name: 'public-attendance', component: AttendancePage, meta: { public: true, publicCanvas: true, seo: { robots: 'noindex, nofollow', canonicalPath: false } } },
+  {
+    path: '/attendance/:token',
+    name: 'public-attendance',
+    component: AttendancePage,
+    meta: { public: true, publicCanvas: true, seo: { robots: 'noindex, nofollow', canonicalPath: false } },
+  },
   { path: '/cloud', name: 'cloud', component: CloudPage, meta: { fullCanvas: true, feature: 'cloud_storage' } },
   { path: '/support', name: 'support', component: SupportPage, meta: { fullCanvas: true } },
   { path: '/chat', name: 'chat', component: ChatPage, meta: { fullCanvas: true } },
@@ -59,10 +65,7 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior(to) {
-    if (to.hash) {
-      return { el: to.hash, behavior: 'smooth', top: 96 }
-    }
+  scrollBehavior() {
     return { top: 0 }
   },
 })

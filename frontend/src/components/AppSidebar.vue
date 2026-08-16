@@ -4,6 +4,8 @@ import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import UserAvatar from './UserAvatar.vue'
+import { formatBadgeCount } from '../utils/badges'
+import { unlockTicketAlerts } from '../utils/ticketAlert'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 defineProps({
@@ -50,8 +52,8 @@ const navItems = computed(() => {
   // HQ supporters: ticket-focused navigation
   if (state.currentUser.isHq && !state.currentUser.isHqAdmin) {
     items.push({ to: '/hq', label: 'میز پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
-    items.push({ to: '/chat', label: 'گفتگو', icon: 'forum', badge: chatUnreadCount.value || undefined })
-    return items
+    items.push({ to: '/chat', label: 'گفتگو', icon: 'forum', badge: chatUnreadCount.value })
+    return items.map((item) => ({ ...item, badgeLabel: formatBadgeCount(item.badge) }))
   }
 
   items.push({ to: '/dashboard', label: 'داشبورد', icon: 'space_dashboard' })
@@ -61,11 +63,11 @@ const navItems = computed(() => {
     if (state.currentUser.accessRole === 'admin' || state.currentUser.isHq) {
       items.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
     }
-    return items
+    return items.map((item) => ({ ...item, badgeLabel: formatBadgeCount(item.badge) }))
   }
 
-  items.push({ to: '/tasking', label: 'تسکینگ', icon: 'task_alt', badge: taskingBadgeCount.value || undefined })
-  items.push({ to: '/chat', label: 'گفتگو', icon: 'forum', badge: chatUnreadCount.value || undefined })
+  items.push({ to: '/tasking', label: 'تسکینگ', icon: 'task_alt', badge: taskingBadgeCount.value })
+  items.push({ to: '/chat', label: 'گفتگو', icon: 'forum', badge: chatUnreadCount.value })
   items.push({ to: '/requests', label: 'درخواست‌ها', icon: 'assignment', badge: requestInboxCount.value })
   items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check', badge: approvalInboxCount.value })
 
@@ -101,12 +103,12 @@ const navItems = computed(() => {
     items.push({ to: '/hq', label: 'HQ', icon: 'admin_panel_settings', badge: supportUnreadCount.value })
   }
 
-  return items
+  return items.map((item) => ({ ...item, badgeLabel: formatBadgeCount(item.badge) }))
 })
 </script>
 
 <template>
-  <aside :class="['shell-sidebar', mobileMenuOpen && 'is-open']">
+  <aside :class="['shell-sidebar', mobileMenuOpen && 'is-open']" @pointerdown="unlockTicketAlerts">
     <div class="sidebar-brand">
       <div class="brand-copy">
         <strong>{{ organizationTitle }}</strong>
@@ -130,7 +132,7 @@ const navItems = computed(() => {
       >
         <IconlyIcon :name="item.icon" decorative />
         <span class="nav-link-label">{{ item.label }}</span>
-        <span v-if="item.badge" class="nav-link-badge">{{ item.badge }}</span>
+        <span v-if="item.badgeLabel" class="nav-link-badge">{{ item.badgeLabel }}</span>
       </RouterLink>
     </nav>
 

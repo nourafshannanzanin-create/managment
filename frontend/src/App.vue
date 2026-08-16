@@ -56,10 +56,9 @@ const {
   toggleSidebar,
 } = hub
 
-const isAuthRoute = computed(() => Boolean(route.meta.publicCanvas) || route.path === '/login' || route.path === '/')
-const isLandingRoute = computed(() => Boolean(route.meta.landing) || route.name === 'landing')
+const isAuthRoute = computed(() => Boolean(route.meta.publicCanvas) || route.path === '/login')
 const isPublicAttendanceRoute = computed(() => route.name === 'public-attendance')
-const licenseSafeRoutes = new Set(['/dashboard', '/wallet', '/support', '/login', '/'])
+const licenseSafeRoutes = new Set(['/dashboard', '/wallet', '/support', '/login'])
 
 const licenseStatus = computed(() => state.currentUser.licenseStatus || {})
 const isLicenseLocked = computed(() => Boolean(licenseStatus.value?.isLocked || licenseStatus.value?.is_locked))
@@ -152,9 +151,6 @@ async function handleTrialExpiry() {
   }
 }
 const globalLoading = computed(() =>
-  isLandingRoute.value
-    ? false
-    : (
   (!state.sessionReady && !state.bootstrapLoaded) ||
   (state.appLoading && !state.bootstrapLoaded) ||
   state.loginPending ||
@@ -170,7 +166,6 @@ const globalLoading = computed(() =>
   state.support.submitting ||
   state.wallet.submitting ||
   signatureState.loading
-    )
 )
 
 watch(showTrialBanner, (active) => {
@@ -189,7 +184,7 @@ watch(trialRemainingSeconds, (value, previous) => {
 })
 
 async function refreshRouteData(path, { soft = false } = {}) {
-  if (!state.authToken || path === '/login' || path === '/') return
+  if (!state.authToken || path === '/login') return
 
   await loadBootstrapData(true, { soft: soft || state.bootstrapLoaded })
 
@@ -257,7 +252,7 @@ onMounted(async () => {
   liveSyncTimer = window.setInterval(() => {
     if (!state.authToken || state.liveSync.inFlight) return
     void softLiveSync({ includeSupport: true })
-  }, 20000)
+  }, 45000)
 })
 
 onUnmounted(() => {
@@ -275,7 +270,6 @@ onUnmounted(() => {
     class="app-shell"
     :class="{
       'is-auth-route': isAuthRoute,
-      'is-landing-route': isLandingRoute,
       'is-public-attendance': isPublicAttendanceRoute,
       'has-trial-banner': showTrialBanner,
       'has-mobile-menu-open': !isAuthRoute && state.mobileMenuOpen,
@@ -325,15 +319,13 @@ onUnmounted(() => {
       v-else
       class="shell-main auth-main"
       :class="{
-        'landing-main': isLandingRoute,
-        'public-canvas-main': Boolean(route.meta.publicCanvas) && !isLandingRoute,
+        'public-canvas-main': Boolean(route.meta.publicCanvas),
       }"
     >
       <div
         class="shell-content"
         :class="{
-          'landing-content': isLandingRoute,
-          'public-canvas-content': Boolean(route.meta.publicCanvas) && !isLandingRoute,
+          'public-canvas-content': Boolean(route.meta.publicCanvas),
         }"
       >
         <RouterView v-slot="{ Component }">

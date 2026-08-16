@@ -8,7 +8,7 @@ from django.http import FileResponse, HttpRequest
 from django.views.decorators.csrf import csrf_exempt
 
 from workflow.access import can_access_settings, can_manage_users, can_view_reports, get_user_organization, is_manager
-from workflow.models import Task, TaskAttachment, TaskStatus, UserRole
+from workflow.models import Department, Task, TaskAttachment, TaskStatus, UserRole
 from workflow.services import save_uploaded_file, validate_upload_file
 from workflow.tasking import (
     TaskingError,
@@ -113,12 +113,17 @@ def tasking_task_detail_view(request: HttpRequest, task_id: int):
     payload = parse_json(request)
     try:
         if "estimatedMinutes" in payload or "estimated_minutes" in payload:
-            task = update_estimate(
-                request.current_user,
-                task,
-                int(payload.get("estimatedMinutes") or payload.get("estimated_minutes")),
-                reason=payload.get("reason") or "",
-            )
+            try:
+                new_estimate = int(payload.get("estimatedMinutes") or payload.get("estimated_minutes") or 0)
+            except (TypeError, ValueError):
+                return json_error("زمان تخمینی معتبر نیست.", status=422)
+            if new_estimate != int(task.estimated_minutes or 0):
+                task = update_estimate(
+                    request.current_user,
+                    task,
+                    new_estimate,
+                    reason=(payload.get("reason") or "").strip() or "ویرایش مشخصات تسک",
+                )
         changed = []
         if "title" in payload:
             title = (payload.get("title") or "").strip()
@@ -135,12 +140,21 @@ def tasking_task_detail_view(request: HttpRequest, task_id: int):
             task.category = (payload.get("category") or "").strip()[:80]
             changed.append("category")
         if "departmentId" in payload or "department_id" in payload:
-            dept_id = payload.get("departmentId", payload.get("department_id"))
-            task.department_id = int(dept_id) if dept_id not in (None, "", 0, "0") else None
+            raw_dept = payload.get("departmentId", payload.get("department_id"))
+            if raw_dept in (None, "", 0, "0"):
+                task.department_id = None
+            elif str(raw_dept).isdigit():
+                task.department_id = int(raw_dept)
+            else:
+                dept = Department.objects.filter(code=str(raw_dept)).first()
+                if dept is None:
+                    return json_error("بخش انتخاب‌شده معتبر نیست.", status=422)
+                task.department_id = dept.id
             changed.append("department")
         if "dueAt" in payload or "due_at" in payload:
             settings_obj = get_or_create_tasking_settings(task.organization)
-            task.due_at = end_of_day_due_at(payload.get("dueAt") or payload.get("due_at"), settings_obj)
+            raw_due = payload.get("dueAt") if "dueAt" in payload else payload.get("due_at")
+            task.due_at = end_of_day_due_at(raw_due, settings_obj) if raw_due not in (None, "") else None
             changed.append("due_at")
         if "isPinned" in payload or "is_pinned" in payload:
             task.is_pinned = bool(payload.get("isPinned", payload.get("is_pinned")))

@@ -1,8 +1,8 @@
 const SITE_URL = 'https://carnomand.ir'
 
 const DEFAULT_META = {
-  title: 'کارنومند | سامانه مدیریت گردش‌کار سازمانی',
-  description: 'کارنومند، سامانه مدیریت گردش‌کار سازمانی برای ثبت و پیگیری درخواست‌ها، هزینه‌ها، تأیید اسناد، گزارش‌ها و کنترل دسترسی تیم‌ها.',
+  title: 'کارنومند',
+  description: 'سامانه کارنومند',
   robots: 'noindex, nofollow',
   canonicalPath: false,
 }

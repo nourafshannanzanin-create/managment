@@ -3,17 +3,27 @@ import IconlyIcon from './base/IconlyIcon.vue'
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
+import { formatBadgeCount } from '../utils/badges'
+import { unlockTicketAlerts } from '../utils/ticketAlert'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const route = useRoute()
-const { state } = useWorkflowHub()
+const {
+  state,
+  supportUnreadCount,
+  chatUnreadCount,
+  taskingBadgeCount,
+  requestInboxCount,
+  expenseInboxCount,
+  approvalInboxCount,
+} = useWorkflowHub()
 const isLicenseLocked = computed(() => Boolean(state.currentUser.licenseStatus?.isLocked || state.currentUser.licenseStatus?.is_locked))
 
 const items = computed(() => {
   if (state.currentUser.isHq && !state.currentUser.isHqAdmin) {
     return [
-      { to: '/hq', label: 'پشتیبانی', icon: 'support_agent' },
-      { to: '/chat', label: 'گفتگو', icon: 'forum' },
+      { to: '/hq', label: 'پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value },
+      { to: '/chat', label: 'گفتگو', icon: 'forum', badge: chatUnreadCount.value },
     ]
   }
 
@@ -21,44 +31,56 @@ const items = computed(() => {
     return [
       { to: '/dashboard', label: 'خانه', icon: 'home' },
       { to: '/wallet', label: 'کیف پول', icon: 'account_balance_wallet' },
-      { to: '/support', label: 'پشتیبانی', icon: 'support_agent' },
+      { to: '/support', label: 'پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value },
     ]
   }
 
   if (state.currentUser.isHq) {
     return [
-      { to: '/hq', label: 'HQ', icon: 'admin_panel_settings' },
+      { to: '/hq', label: 'HQ', icon: 'admin_panel_settings', badge: supportUnreadCount.value },
       { to: '/dashboard', label: 'خانه', icon: 'home' },
+      { to: '/chat', label: 'گفتگو', icon: 'forum', badge: chatUnreadCount.value },
+      { to: '/tasking', label: 'تسک', icon: 'task_alt', badge: taskingBadgeCount.value },
       { to: '/wallet', label: 'کیف پول', icon: 'account_balance_wallet' },
     ]
   }
 
   const navItems = [
     { to: '/dashboard', label: 'خانه', icon: 'home' },
-    { to: '/tasking', label: 'تسک', icon: 'task_alt' },
-    { to: '/chat', label: 'گفتگو', icon: 'forum' },
-    { to: '/requests', label: 'درخواست', icon: 'list_alt' },
-    { to: '/approvals', label: 'تایید', icon: 'verified' },
+    { to: '/tasking', label: 'تسک', icon: 'task_alt', badge: taskingBadgeCount.value },
+    { to: '/chat', label: 'گفتگو', icon: 'forum', badge: chatUnreadCount.value },
+    { to: '/requests', label: 'درخواست', icon: 'list_alt', badge: requestInboxCount.value },
+    { to: '/approvals', label: 'تایید', icon: 'verified', badge: approvalInboxCount.value },
   ]
 
-  if (state.currentUser.canAccessExpenses !== false) {
-    navItems.push({ to: '/expenses', label: 'هزینه', icon: 'receipt_long' })
+  if (state.currentUser.canAccessExpenses !== false && Number(expenseInboxCount.value || 0) > 0) {
+    // Prefer showing expense badge when actionable items exist.
+    navItems[4] = { to: '/expenses', label: 'هزینه', icon: 'receipt_long', badge: expenseInboxCount.value }
   }
 
-  navItems.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent' })
-  return navItems.slice(0, 5)
+  if (state.currentUser.accessRole === 'admin' && Number(supportUnreadCount.value || 0) > 0) {
+    navItems.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
+  }
+
+  return navItems.slice(0, 5).map((item) => ({
+    ...item,
+    badgeLabel: formatBadgeCount(item.badge),
+  }))
 })
 </script>
 
 <template>
-  <nav class="mobile-bottom-nav" aria-label="ناوبری موبایل">
+  <nav class="mobile-bottom-nav" aria-label="ناوبری موبایل" @pointerdown="unlockTicketAlerts">
     <RouterLink
       v-for="item in items"
       :key="item.to + '-' + item.label"
       :to="item.to"
       :class="['mobile-bottom-link', route.path === item.to && 'is-active']"
     >
-      <IconlyIcon :name="item.icon" decorative />
+      <span class="mobile-bottom-icon-wrap">
+        <IconlyIcon :name="item.icon" decorative />
+        <span v-if="item.badgeLabel" class="mobile-bottom-badge">{{ item.badgeLabel }}</span>
+      </span>
       <small>{{ item.label }}</small>
     </RouterLink>
   </nav>
@@ -95,6 +117,7 @@ const items = computed(() => {
   }
 
   .mobile-bottom-link {
+    position: relative;
     min-width: 0;
     min-height: 52px;
     padding: 6px 4px;
@@ -109,8 +132,36 @@ const items = computed(() => {
     transition: background-color 0.16s ease, color 0.16s ease;
   }
 
+  .mobile-bottom-icon-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 22px;
+  }
+
   .mobile-bottom-link :deep(.iconly-shell) {
     font-size: 18px;
+  }
+
+  .mobile-bottom-badge {
+    position: absolute;
+    top: -7px;
+    inset-inline-end: -10px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #e11d48;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+    box-shadow: 0 0 0 2px #f7fbfa;
   }
 
   .mobile-bottom-link small {

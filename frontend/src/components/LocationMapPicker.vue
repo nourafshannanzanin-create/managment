@@ -381,9 +381,8 @@ watch(
 onMounted(async () => {
   syncProvinceCityFromModel()
   await initializeMap()
-  if (props.autoLocateOnMount && editable.value && currentPoint.value.latitude == null) {
-    await locateCurrentPosition()
-  }
+  // Never auto-request geolocation: iOS Safari only shows the permission prompt
+  // after an explicit user tap. Use the locate button instead.
 })
 
 onBeforeUnmount(() => {
@@ -422,9 +421,9 @@ defineExpose({
           <option v-for="city in provinceCities" :key="city.id" :value="city.id">{{ city.name }}</option>
         </select>
       </label>
-      <button class="action-btn tone-soft" type="button" :disabled="busy" @click="locateCurrentPosition">
+      <button class="action-btn tone-primary" type="button" :disabled="busy" @click="locateCurrentPosition">
         <IconlyIcon name="profile" decorative />
-        <span>{{ busy ? 'در حال دریافت...' : 'موقعیت فعلی' }}</span>
+        <span>{{ busy ? 'در حال دریافت...' : 'اجازه موقعیت و یافتن من' }}</span>
       </button>
     </div>
 

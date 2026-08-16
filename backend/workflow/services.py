@@ -307,7 +307,22 @@ def next_code(prefix: str) -> str:
 def media_url(file_name: str | None) -> str:
     if not file_name:
         return ""
-    return f"{settings.MEDIA_URL}{file_name}"
+    name = str(file_name).strip().replace("\\", "/")
+    if not name:
+        return ""
+    if name.startswith("http://") or name.startswith("https://"):
+        return name
+    name = name.lstrip("/")
+    if name.startswith("uploads/"):
+        name = name[len("uploads/") :]
+    if name.startswith("media/"):
+        name = name[len("media/") :]
+    media = str(getattr(settings, "MEDIA_URL", "/uploads/") or "/uploads/").strip() or "/uploads/"
+    if not media.startswith("/"):
+        media = f"/{media}"
+    if not media.endswith("/"):
+        media = f"{media}/"
+    return f"{media}{name}"
 
 
 def user_avatar_url(user: User) -> str:

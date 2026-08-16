@@ -14,6 +14,7 @@ const {
   openRequestDetail,
   chatUnreadCount,
   supportUnreadCount,
+  taskingBadgeCount,
   markSupportTicketsSeen,
 } = useWorkflowHub()
 
@@ -94,6 +95,22 @@ const liveItems = computed(() => {
       onOpen: () => {
         open.value = false
         router.push('/chat')
+      },
+    })
+  }
+
+  if (Number(taskingBadgeCount.value || 0) > 0) {
+    rows.push({
+      id: 'tasking-action',
+      type: 'warning',
+      title: 'تسکینگ',
+      message: `${Number(taskingBadgeCount.value).toLocaleString('fa-IR')} مورد نیازمند اقدام`,
+      meta: 'پذیرش، بررسی یا پیگیری',
+      icon: 'task_alt',
+      createdAt: '',
+      onOpen: () => {
+        open.value = false
+        router.push('/tasking')
       },
     })
   }
