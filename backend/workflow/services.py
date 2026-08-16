@@ -44,6 +44,7 @@ from workflow.models import (
     SupportTicket,
     SupportTicketStatus,
     User,
+    UserEntrustedItem,
     UserRole,
     Wallet,
     WalletTransaction,
@@ -817,6 +818,93 @@ def serialize_current_user(user: User) -> dict:
     }
 
 
+def serialize_entrusted_item(item: UserEntrustedItem) -> dict:
+    amount = Decimal(item.amount or 0)
+    return {
+        "id": item.id,
+        "title": item.title or "",
+        "amount": format_money(amount),
+        "amountRaw": float(amount),
+        "entrustedAt": format_date(item.entrusted_at) if item.entrusted_at else "",
+        "entrustedAtIso": item.entrusted_at.isoformat() if item.entrusted_at else "",
+        "description": item.description or "",
+        "createdAt": item.created_at.isoformat() if item.created_at else "",
+    }
+
+
+def user_entrusted_items_payload(user: User) -> list[dict]:
+    cached = getattr(user, "_prefetched_objects_cache", {}).get("entrusted_items")
+    if cached is not None:
+        items = list(cached)
+    else:
+        items = list(user.entrusted_items.all())
+    return [serialize_entrusted_item(item) for item in items]
+
+
+def parse_entrusted_item_payload(raw: dict) -> dict:
+    title = str(raw.get("title") or raw.get("name") or "").strip()
+    if not title:
+        raise ValueError("نام امانت الزامی است.")
+    description = str(raw.get("description") or raw.get("note") or "").strip()
+    amount_raw = raw.get("amount")
+    if amount_raw in (None, ""):
+        amount_raw = raw.get("amountRaw", 0)
+    try:
+        amount = Decimal(str(amount_raw).replace(",", "").strip() or "0")
+    except Exception as exc:
+        raise ValueError("مبلغ امانت معتبر نیست.") from exc
+    if amount < 0:
+        raise ValueError("مبلغ امانت نمی‌تواند منفی باشد.")
+
+    date_raw = str(raw.get("entrustedAt") or raw.get("entrustedAtIso") or raw.get("date") or "").strip()
+    entrusted_at = date.today()
+    if date_raw:
+        parsed = None
+        if len(date_raw) >= 10 and date_raw[4] == "-":
+            try:
+                parsed = date.fromisoformat(date_raw[:10])
+            except ValueError:
+                parsed = None
+        if parsed is None:
+            parsed = parse_report_date_param(date_raw)
+        if parsed is None:
+            raise ValueError("تاریخ امانت معتبر نیست.")
+        entrusted_at = parsed
+
+    return {
+        "title": title[:180],
+        "amount": amount,
+        "entrusted_at": entrusted_at,
+        "description": description[:2000],
+    }
+
+
+def create_user_entrusted_item(user: User, raw: dict) -> UserEntrustedItem:
+    payload = parse_entrusted_item_payload(raw)
+    return UserEntrustedItem.objects.create(user=user, **payload)
+
+
+def replace_user_entrusted_items(user: User, raw_items) -> list[UserEntrustedItem]:
+    if raw_items is None:
+        return list(user.entrusted_items.all())
+    if isinstance(raw_items, str):
+        import json
+
+        try:
+            raw_items = json.loads(raw_items)
+        except json.JSONDecodeError as exc:
+            raise ValueError("فهرست امانات معتبر نیست.") from exc
+    if not isinstance(raw_items, list):
+        raise ValueError("فهرست امانات باید آرایه باشد.")
+    UserEntrustedItem.objects.filter(user=user).delete()
+    created = []
+    for raw in raw_items:
+        if not isinstance(raw, dict):
+            continue
+        created.append(create_user_entrusted_item(user, raw))
+    return created
+
+
 def serialize_user(user: User) -> dict:
     membership = getattr(user, "organization_membership", None)
     if membership is None:
@@ -870,6 +958,7 @@ def serialize_user(user: User) -> dict:
         "netAdjustment": format_money(net_adjustment),
         "netAdjustmentRaw": float(net_adjustment),
         "currentPassword": getattr(user, "password_plain", "") or "",
+        "entrustedItems": user_entrusted_items_payload(user),
         "sectionAccess": {
             "approvals": "approvals" in section_access,
             "expenses": "expenses" in section_access,
@@ -1700,7 +1789,7 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
         requests_qs = list(visible_requests(user))
         expenses_qs = list(visible_expenses(user))
         approvals_qs = list(visible_approvals(user))
-        users_qs = list(visible_users(user).select_related("department", "manager", "organization_membership__organization").order_by("created_at"))
+        users_qs = list(visible_users(user).select_related("department", "manager", "organization_membership__organization").prefetch_related("entrusted_items").order_by("created_at"))
 
     for request_obj in requests_qs:
         request_obj._current_user = user
@@ -1711,6 +1800,7 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
     directory_users_qs = list(
         organization_users(user)
         .select_related("department", "manager", "organization_membership__organization")
+        .prefetch_related("entrusted_items")
         .order_by("created_at")
     )
     activities = list(

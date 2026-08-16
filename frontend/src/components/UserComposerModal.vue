@@ -3,7 +3,9 @@ import IconlyIcon from './base/IconlyIcon.vue'
 import BaseModal from './BaseModal.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import UserAvatar from './UserAvatar.vue'
+import UserEntrustedPanel from './UserEntrustedPanel.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
+import { formatAmountInput } from '../utils/amount'
 
 defineProps({
   open: { type: Boolean, default: false },
@@ -51,6 +53,10 @@ function clearAvatar() {
   if (formPreviewNeedsRevoke()) URL.revokeObjectURL(state.userForm.avatarPreview)
   state.userForm.avatarFile = null
   state.userForm.avatarPreview = ''
+}
+
+function handleMoneyInput(field, value) {
+  state.userForm[field] = formatAmountInput(value)
 }
 </script>
 
@@ -143,6 +149,44 @@ function clearAvatar() {
         <span>عنوان شغلی</span>
         <input v-model="form.jobTitle" type="text" />
       </label>
+
+      <section class="composer-finance-stack">
+        <section class="composer-finance-panel">
+          <div class="composer-finance-head">
+            <strong>پاداش و جریمه</strong>
+            <p>مبالغ اولیه حساب کاربر را در صورت نیاز همین‌جا تنظیم کنید.</p>
+          </div>
+          <div class="modal-grid two-col finance-duo">
+            <label class="field-shell finance-seed is-bonus">
+              <span>پاداش اولیه</span>
+              <input
+                :value="form.bonusAmount"
+                type="text"
+                inputmode="numeric"
+                placeholder="۰"
+                @input="handleMoneyInput('bonusAmount', $event.target.value)"
+              />
+            </label>
+            <label class="field-shell finance-seed is-penalty">
+              <span>جریمه اولیه</span>
+              <input
+                :value="form.penaltyAmount"
+                type="text"
+                inputmode="numeric"
+                placeholder="۰"
+                @input="handleMoneyInput('penaltyAmount', $event.target.value)"
+              />
+            </label>
+          </div>
+        </section>
+
+        <UserEntrustedPanel
+          mode="local"
+          :items="form.entrustedItems || []"
+          :disabled="submitting"
+          @update:items="form.entrustedItems = $event"
+        />
+      </section>
 
       <section class="surface-inline user-access-panel">
         <div class="section-label-row compact">
@@ -243,6 +287,50 @@ function clearAvatar() {
 .user-access-panel {
   display: grid;
   gap: 14px;
+}
+
+.composer-finance-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.composer-finance-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  background:
+    linear-gradient(160deg, rgba(248, 250, 252, 0.98), rgba(232, 240, 248, 0.9));
+  border: 1px solid rgba(36, 59, 107, 0.1);
+}
+
+.composer-finance-head strong {
+  display: block;
+  color: #152523;
+}
+
+.composer-finance-head p {
+  margin: 4px 0 0;
+  color: #45605c;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.finance-seed {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(36, 59, 107, 0.08);
+}
+
+.finance-seed.is-bonus {
+  border-color: rgba(52, 144, 139, 0.22);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(220, 239, 236, 0.55));
+}
+
+.finance-seed.is-penalty {
+  border-color: rgba(171, 67, 67, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(248, 232, 232, 0.55));
 }
 
 .section-label-row.compact h3,

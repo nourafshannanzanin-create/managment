@@ -7,10 +7,11 @@ import ErrorNotice from '../components/ErrorNotice.vue'
 import ProfileAvatarEditor from '../components/ProfileAvatarEditor.vue'
 import SectionHeading from '../components/SectionHeading.vue'
 import UserAvatar from '../components/UserAvatar.vue'
+import UserEntrustedPanel from '../components/UserEntrustedPanel.vue'
 import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const { availableManagerDirectory, openUserComposer, state, updateUser } = useWorkflowHub()
+const { availableManagerDirectory, openUserComposer, state, updateUser, addUserEntrustedItem, removeUserEntrustedItem } = useWorkflowHub()
 
 const searchQuery = ref('')
 const activeCategory = ref('all')
@@ -18,10 +19,12 @@ const selectedUserId = ref(null)
 const savingUser = ref(false)
 const applyingBonus = ref(false)
 const applyingPenalty = ref(false)
+const applyingEntrusted = ref(false)
 const showCurrentPassword = ref(true)
 const avatarDraftFile = ref(null)
 const avatarDraftPreview = ref('')
 const clearAvatarOnSave = ref(false)
+const entrustedPanelRef = ref(null)
 
 const editableUser = reactive({
   fullName: '',
@@ -220,7 +223,6 @@ async function applyBonusDelta() {
   try {
     await updateUser(selectedUser.value.id, { bonusDelta: amount })
     editableUser.bonusDelta = ''
-    closeUserDetails()
   } finally {
     applyingBonus.value = false
   }
@@ -236,9 +238,29 @@ async function applyPenaltyDelta() {
   try {
     await updateUser(selectedUser.value.id, { penaltyDelta: amount })
     editableUser.penaltyDelta = ''
-    closeUserDetails()
   } finally {
     applyingPenalty.value = false
+  }
+}
+
+async function onAddEntrustedItem(payload) {
+  if (!selectedUser.value || applyingEntrusted.value || !canManageUsers.value) return
+  applyingEntrusted.value = true
+  try {
+    await addUserEntrustedItem(selectedUser.value.id, payload)
+    entrustedPanelRef.value?.onDraftAddedExternally?.()
+  } finally {
+    applyingEntrusted.value = false
+  }
+}
+
+async function onRemoveEntrustedItem(item) {
+  if (!selectedUser.value || applyingEntrusted.value || !canManageUsers.value || !item?.id) return
+  applyingEntrusted.value = true
+  try {
+    await removeUserEntrustedItem(selectedUser.value.id, item.id)
+  } finally {
+    applyingEntrusted.value = false
   }
 }
 
@@ -517,62 +539,76 @@ function userManagerOptions(userId) {
           </label>
         </div>
 
-        <section class="surface-inline user-finance-panel">
-          <div class="section-label-row">
-            <SectionHeading
-              title="پاداش و جریمه"
-              description="ثبت یا تعدیل پاداش و جریمه برای کاربر انتخاب‌شده."
-            />
-          </div>
-
-          <div class="modal-grid two-col">
-            <div class="field-shell finance-field-shell">
-              <span>پاداش</span>
-              <strong class="finance-current-value">{{ selectedUser.bonusAmount || '0' }}</strong>
-              <div class="finance-input-row">
-                <input
-                  :value="editableUser.bonusDelta"
-                  type="text"
-                  inputmode="numeric"
-                  placeholder="مبلغ جدید"
-                  :disabled="!canManageUsers || applyingBonus"
-                  @input="handleMoneyInput('bonusDelta', $event.target.value)"
-                />
-                <button
-                  class="action-btn tone-primary finance-apply-btn"
-                  type="button"
-                  :disabled="!canManageUsers || applyingBonus"
-                  @click="applyBonusDelta"
-                >
-                  <span>{{ applyingBonus ? 'در حال افزودن...' : 'افزودن' }}</span>
-                </button>
-              </div>
+        <div class="user-finance-stack">
+          <section class="surface-inline user-finance-panel">
+            <div class="section-label-row">
+              <SectionHeading
+                title="پاداش و جریمه"
+                description="ثبت یا تعدیل پاداش و جریمه برای کاربر انتخاب‌شده."
+              />
             </div>
 
-            <div class="field-shell finance-field-shell">
-              <span>جریمه</span>
-              <strong class="finance-current-value">{{ selectedUser.penaltyAmount || '0' }}</strong>
-              <div class="finance-input-row">
-                <input
-                  :value="editableUser.penaltyDelta"
-                  type="text"
-                  inputmode="numeric"
-                  placeholder="مبلغ جدید"
-                  :disabled="!canManageUsers || applyingPenalty"
-                  @input="handleMoneyInput('penaltyDelta', $event.target.value)"
-                />
-                <button
-                  class="action-btn tone-primary finance-apply-btn"
-                  type="button"
-                  :disabled="!canManageUsers || applyingPenalty"
-                  @click="applyPenaltyDelta"
-                >
-                  <span>{{ applyingPenalty ? 'در حال افزودن...' : 'افزودن' }}</span>
-                </button>
+            <div class="modal-grid two-col finance-duo">
+              <div class="field-shell finance-field-shell is-bonus">
+                <span>پاداش</span>
+                <strong class="finance-current-value">{{ selectedUser.bonusAmount || '0' }}</strong>
+                <div class="finance-input-row">
+                  <input
+                    :value="editableUser.bonusDelta"
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="مبلغ جدید"
+                    :disabled="!canManageUsers || applyingBonus"
+                    @input="handleMoneyInput('bonusDelta', $event.target.value)"
+                  />
+                  <button
+                    class="action-btn tone-primary finance-apply-btn"
+                    type="button"
+                    :disabled="!canManageUsers || applyingBonus"
+                    @click="applyBonusDelta"
+                  >
+                    <IconlyIcon name="add_circle" decorative />
+                    <span>{{ applyingBonus ? '...' : 'افزودن' }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="field-shell finance-field-shell is-penalty">
+                <span>جریمه</span>
+                <strong class="finance-current-value">{{ selectedUser.penaltyAmount || '0' }}</strong>
+                <div class="finance-input-row">
+                  <input
+                    :value="editableUser.penaltyDelta"
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="مبلغ جدید"
+                    :disabled="!canManageUsers || applyingPenalty"
+                    @input="handleMoneyInput('penaltyDelta', $event.target.value)"
+                  />
+                  <button
+                    class="action-btn tone-primary finance-apply-btn"
+                    type="button"
+                    :disabled="!canManageUsers || applyingPenalty"
+                    @click="applyPenaltyDelta"
+                  >
+                    <IconlyIcon name="add_circle" decorative />
+                    <span>{{ applyingPenalty ? '...' : 'افزودن' }}</span>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+
+          <UserEntrustedPanel
+            ref="entrustedPanelRef"
+            mode="remote"
+            :items="selectedUser.entrustedItems || []"
+            :disabled="!canManageUsers"
+            :busy="applyingEntrusted"
+            @add="onAddEntrustedItem"
+            @remove="onRemoveEntrustedItem"
+          />
+        </div>
 
         <div class="user-access-grid">
           <label
@@ -1016,20 +1052,67 @@ function userManagerOptions(userId) {
   width: 100%;
 }
 
+.user-finance-stack {
+  display: grid;
+  gap: 14px;
+}
+
 .user-finance-panel {
   display: grid;
   gap: 14px;
+  padding: 16px;
+  border-radius: 16px;
+  background:
+    linear-gradient(160deg, rgba(248, 250, 252, 0.98), rgba(232, 240, 248, 0.9));
+  border: 1px solid rgba(36, 59, 107, 0.1);
 }
 
 .finance-field-shell {
   display: grid;
   gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(36, 59, 107, 0.08);
+}
+
+.finance-field-shell.is-bonus {
+  border-color: rgba(52, 144, 139, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(220, 239, 236, 0.55));
+}
+
+.finance-field-shell.is-penalty {
+  border-color: rgba(171, 67, 67, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(248, 232, 232, 0.55));
+}
+
+.finance-field-shell > span {
+  color: #45605c;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.finance-field-shell.is-penalty > span {
+  color: #8a3d3d;
 }
 
 .finance-current-value {
-  color: #203255;
-  font-size: 18px;
+  color: #152523;
+  font-size: 1.25rem;
   line-height: 1.4;
+  font-weight: 800;
+  direction: ltr;
+  text-align: right;
+}
+
+.finance-field-shell.is-penalty .finance-current-value {
+  color: #8a3d3d;
+}
+
+.finance-field-shell.is-bonus .finance-current-value {
+  color: #1f5c59;
 }
 
 .finance-input-row {

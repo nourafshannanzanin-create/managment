@@ -55,6 +55,8 @@ urlpatterns = [
     path("expenses/<str:expense_code>/refer", views.expense_refer_view),
     path("users", views.users_view),
     path("users/<int:user_id>", views.user_detail_view),
+    path("users/<int:user_id>/entrusted-items", views.user_entrusted_items_view),
+    path("users/<int:user_id>/entrusted-items/<int:item_id>", views.user_entrusted_item_detail_view),
     path("reports", views.reports_view),
     path("reports/<str:report_key>/export", views.report_export_view),
     path("approvals", views.approvals_view),

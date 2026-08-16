@@ -79,6 +79,7 @@ from workflow.models import (
     SupportTicketPriority,
     SupportTicketStatus,
     User,
+    UserEntrustedItem,
     UserRole,
     UserSignature,
     Wallet,
@@ -125,6 +126,9 @@ from workflow.services import (
     serialize_request,
     serialize_support_ticket,
     serialize_user,
+    serialize_entrusted_item,
+    create_user_entrusted_item,
+    replace_user_entrusted_items,
     wallet_options_payload,
     wallet_dashboard_payload,
     ensure_organization_wallets,
@@ -691,6 +695,12 @@ def parse_user_write_payload(request: HttpRequest) -> tuple[dict, object | None]
                 payload["sectionAccess"] = json.loads(raw_access or "{}")
             except json.JSONDecodeError:
                 payload["sectionAccess"] = {}
+        raw_entrusted = payload.get("entrustedItems")
+        if isinstance(raw_entrusted, str):
+            try:
+                payload["entrustedItems"] = json.loads(raw_entrusted or "[]")
+            except json.JSONDecodeError:
+                payload["entrustedItems"] = []
         manager_id = payload.get("managerId")
         if manager_id in ("", None):
             payload["managerId"] = None
@@ -4229,7 +4239,7 @@ def users_view(request: HttpRequest):
     if request.method == "GET":
         if not can_access_users(request.current_user):
             return json_error("دسترسی کافی ندارید.", status=403)
-        users_qs = visible_users(request.current_user).select_related("department", "manager").order_by("created_at")
+        users_qs = visible_users(request.current_user).select_related("department", "manager").prefetch_related("entrusted_items").order_by("created_at")
         return json_response([serialize_user(item) for item in users_qs], safe=False)
 
     if not can_manage_users(request.current_user):
@@ -4291,10 +4301,25 @@ def users_view(request: HttpRequest):
         department=department,
         manager=manager,
     )
+    try:
+        if payload.get("bonusAmount") not in (None, ""):
+            user.bonus_amount = parse_user_amount(payload.get("bonusAmount"), "پاداش")
+        if payload.get("penaltyAmount") not in (None, ""):
+            user.penalty_amount = parse_user_amount(payload.get("penaltyAmount"), "جریمه")
+        if user.bonus_amount or user.penalty_amount:
+            user.finance_updated_at = timezone.now()
+            user.save(update_fields=["bonus_amount", "penalty_amount", "finance_updated_at"])
+    except ValueError as exc:
+        return json_error(str(exc), status=422)
     organization = OrganizationMembership.objects.select_related("organization").get(user=request.current_user).organization
     OrganizationMembership.objects.create(organization=organization, user=user, display_title=user.job_title)
     sync_user_section_access(request.current_user, user, section_access_payload(payload))
-    user = User.objects.select_related("department", "manager").get(pk=user.pk)
+    if "entrustedItems" in payload:
+        try:
+            replace_user_entrusted_items(user, payload.get("entrustedItems") or [])
+        except ValueError as exc:
+            return json_error(str(exc), status=422)
+    user = User.objects.select_related("department", "manager").prefetch_related("entrusted_items").get(pk=user.pk)
     AuditLog.objects.create(
         actor=request.current_user,
         actor_name=request.current_user.full_name,
@@ -4454,7 +4479,7 @@ def user_detail_view(request: HttpRequest, user_id: int):
         except Exception as exc:
             return json_error(f"ذخیره دسترسی‌ها ناموفق بود: {exc}", status=500)
 
-        user = User.objects.select_related("department", "manager").filter(pk=user.pk).first() or user
+        user = User.objects.select_related("department", "manager").prefetch_related("entrusted_items").filter(pk=user.pk).first() or user
         try:
             AuditLog.objects.create(
                 actor=request.current_user,
@@ -4470,6 +4495,63 @@ def user_detail_view(request: HttpRequest, user_id: int):
         return json_response(serialize_user(user))
     except Exception as exc:
         return json_error(f"ویرایش کاربر ناموفق بود: {exc}", status=500)
+
+
+@require_auth
+@csrf_exempt
+@methods("POST")
+def user_entrusted_items_view(request: HttpRequest, user_id: int):
+    if not can_manage_users(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+    allowed_ids = set(visible_users(request.current_user).values_list("id", flat=True))
+    if user_id not in allowed_ids:
+        return json_error("کاربر مورد نظر یافت نشد.", status=404)
+    user = User.objects.filter(pk=user_id).first()
+    if not user:
+        return json_error("کاربر مورد نظر یافت نشد.", status=404)
+    payload = parse_json(request)
+    try:
+        item = create_user_entrusted_item(user, payload)
+    except ValueError as exc:
+        return json_error(str(exc), status=422)
+    AuditLog.objects.create(
+        actor=request.current_user,
+        actor_name=request.current_user.full_name,
+        action="user_entrusted_item_created",
+        entity_type="user",
+        entity_code=str(user.id),
+        detail=item.title,
+        icon="folder_open",
+    )
+    user = User.objects.select_related("department", "manager").prefetch_related("entrusted_items").get(pk=user.pk)
+    return json_response({"item": serialize_entrusted_item(item), "user": serialize_user(user)}, status=201)
+
+
+@require_auth
+@csrf_exempt
+@methods("DELETE")
+def user_entrusted_item_detail_view(request: HttpRequest, user_id: int, item_id: int):
+    if not can_manage_users(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+    allowed_ids = set(visible_users(request.current_user).values_list("id", flat=True))
+    if user_id not in allowed_ids:
+        return json_error("کاربر مورد نظر یافت نشد.", status=404)
+    item = UserEntrustedItem.objects.filter(pk=item_id, user_id=user_id).first()
+    if not item:
+        return json_error("امانت مورد نظر یافت نشد.", status=404)
+    title = item.title
+    item.delete()
+    AuditLog.objects.create(
+        actor=request.current_user,
+        actor_name=request.current_user.full_name,
+        action="user_entrusted_item_deleted",
+        entity_type="user",
+        entity_code=str(user_id),
+        detail=title,
+        icon="folder_open",
+    )
+    user = User.objects.select_related("department", "manager").prefetch_related("entrusted_items").get(pk=user_id)
+    return json_response({"user": serialize_user(user)})
 
 
 @require_auth

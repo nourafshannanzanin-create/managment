@@ -123,6 +123,9 @@ function createUserForm() {
     jobTitle: '',
     avatarFile: null,
     avatarPreview: '',
+    bonusAmount: '',
+    penaltyAmount: '',
+    entrustedItems: [],
     sectionAccess: {
       approvals: false,
       expenses: false,
@@ -556,6 +559,17 @@ function normalizeUser(item = {}) {
     financeUpdatedAt: item?.financeUpdatedAt || '',
     financeUpdatedAtIso: item?.financeUpdatedAtIso || '',
     currentPassword: String(item?.currentPassword || item?.current_password || ''),
+    entrustedItems: Array.isArray(item?.entrustedItems || item?.entrusted_items)
+      ? (item.entrustedItems || item.entrusted_items).map((entry) => ({
+          ...entry,
+          title: cleanDisplayText(entry?.title || entry?.name),
+          description: cleanDisplayText(entry?.description),
+          amount: entry?.amount || '0',
+          amountRaw: Number(entry?.amountRaw || entry?.amount_raw || 0),
+          entrustedAt: entry?.entrustedAt || entry?.entrusted_at || '',
+          entrustedAtIso: entry?.entrustedAtIso || entry?.entrusted_at_iso || entry?.entrustedAt || '',
+        }))
+      : [],
   }
 }
 
@@ -2613,6 +2627,9 @@ export function useWorkflowHub() {
       formData.append('managerId', state.userForm.managerId ? String(state.userForm.managerId) : '')
       formData.append('jobTitle', String(state.userForm.jobTitle || '').trim())
       formData.append('sectionAccess', JSON.stringify(state.userForm.sectionAccess || {}))
+      formData.append('entrustedItems', JSON.stringify(state.userForm.entrustedItems || []))
+      formData.append('bonusAmount', String(state.userForm.bonusAmount || '0'))
+      formData.append('penaltyAmount', String(state.userForm.penaltyAmount || '0'))
       if (state.userForm.avatarFile) formData.append('avatar', state.userForm.avatarFile)
 
       const response = await authorizedFetch('/users', { method: 'POST', body: formData })
@@ -2926,6 +2943,40 @@ async function updateUser(userId, payload) {
     return updatedUser
   } catch (error) {
     setLastError(error, 'ذخیره تغییرات کاربر ناموفق بود.')
+    throw error
+  }
+}
+
+async function addUserEntrustedItem(userId, payload) {
+  clearLastError()
+  try {
+    const response = await authorizedFetch(`/users/${userId}/entrusted-items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const data = repairPayload(await response.json())
+    const updatedUser = normalizeUser(data.user || data)
+    syncUserAcrossState(updatedUser)
+    return { item: data.item, user: updatedUser }
+  } catch (error) {
+    setLastError(error, 'افزودن امانت ناموفق بود.')
+    throw error
+  }
+}
+
+async function removeUserEntrustedItem(userId, itemId) {
+  clearLastError()
+  try {
+    const response = await authorizedFetch(`/users/${userId}/entrusted-items/${itemId}`, {
+      method: 'DELETE',
+    })
+    const data = repairPayload(await response.json())
+    const updatedUser = normalizeUser(data.user || data)
+    syncUserAcrossState(updatedUser)
+    return updatedUser
+  } catch (error) {
+    setLastError(error, 'حذف امانت ناموفق بود.')
     throw error
   }
 }
@@ -3380,6 +3431,8 @@ async function updateUser(userId, payload) {
     rejectSelectedExpense,
     referSelectedExpense,
     updateUser,
+    addUserEntrustedItem,
+    removeUserEntrustedItem,
     formatMoneyInputValue,
     approveSelectedDocument,
     rejectSelectedDocument,

@@ -185,6 +185,18 @@ class User(TimeStampedModel):
         db_table = "users"
 
 
+class UserEntrustedItem(TimeStampedModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="entrusted_items")
+    title = models.CharField(max_length=180)
+    amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    entrusted_at = models.DateField(default=timezone.localdate)
+    description = models.TextField(blank=True, default="")
+
+    class Meta:
+        db_table = "user_entrusted_items"
+        ordering = ["-entrusted_at", "-id"]
+
+
 class OrganizationMembership(TimeStampedModel):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="memberships")
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="organization_membership")
