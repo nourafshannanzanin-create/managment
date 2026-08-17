@@ -51,8 +51,16 @@ def _handle_tasking_error(exc: Exception):
 @methods("GET")
 def tasking_dashboard_view(request: HttpRequest):
     focus = parse_iso_date(request.GET.get("date"))
+    owner_raw = (request.GET.get("ownerId") or request.GET.get("owner_id") or "").strip()
+    supervise_owner_id = int(owner_raw) if owner_raw.isdigit() else None
     try:
-        return json_response(dashboard_payload(request.current_user, focus_date=focus))
+        return json_response(
+            dashboard_payload(
+                request.current_user,
+                focus_date=focus,
+                supervise_owner_id=supervise_owner_id,
+            )
+        )
     except Exception as exc:
         return _handle_tasking_error(exc)
 

@@ -23,6 +23,13 @@ const loadingList = ref(false)
 const loadingThread = ref(false)
 const sending = ref(false)
 const showNewChat = ref(false)
+const newChatMode = ref('direct')
+const groupTitle = ref('')
+const groupMemberIds = ref([])
+const showGroupInfo = ref(false)
+const groupEditTitle = ref('')
+const groupSaving = ref(false)
+const creatingGroup = ref(false)
 const lastError = ref('')
 const threadRef = ref(null)
 const mobileShowThread = ref(false)
@@ -71,28 +78,77 @@ async function chatFetch(path, options = {}) {
 }
 
 const selectedConversation = computed(() => conversations.value.find((item) => item.id === selectedId.value) || null)
+const selectedIsGroup = computed(() => isGroupConversation(selectedConversation.value))
+
+function isGroupConversation(item) {
+  return Boolean(item?.isGroup || item?.type === 'group')
+}
+
+function conversationName(item) {
+  if (!item) return 'همکار'
+  return item.displayName || item.title || item.peer?.name || item.peer?.fullName || 'همکار'
+}
+
+function conversationSubtitle(item) {
+  if (!item) return ''
+  if (isGroupConversation(item)) {
+    const count = Number(item.memberCount || item.members?.length || 0)
+    return `${count.toLocaleString('fa-IR')} عضو`
+  }
+  return item.peer?.role || item.peer?.department || ''
+}
+
+function groupInitials(title) {
+  const parts = String(title || 'گ').trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return 'گ'
+  if (parts.length === 1) return parts[0].slice(0, 2)
+  return `${parts[0][0] || ''}${parts[1][0] || ''}`
+}
 
 const filteredConversations = computed(() => {
   const q = listSearch.value.trim().toLowerCase()
   if (!q) return conversations.value
   return conversations.value.filter((item) => {
-    const name = String(item.peer?.name || item.peer?.fullName || '').toLowerCase()
-    const preview = String(item.lastMessage?.body || '').toLowerCase()
-    return name.includes(q) || preview.includes(q)
+    const name = conversationName(item).toLowerCase()
+    const preview = String(item.lastMessage?.body || item.lastPreview || '').toLowerCase()
+    const members = (item.members || []).map((member) => `${member.name || ''} ${member.role || ''} ${member.department || ''}`.toLowerCase()).join(' ')
+    return name.includes(q) || preview.includes(q) || members.includes(q)
   })
 })
 
 const filteredUsers = computed(() => {
   const q = listSearch.value.trim().toLowerCase()
   const existingPeerIds = new Set(
-    conversations.value.map((item) => Number(item.peer?.id)).filter(Boolean),
+    conversations.value
+      .filter((item) => !isGroupConversation(item))
+      .map((item) => Number(item.peer?.id))
+      .filter(Boolean),
   )
   return users.value.filter((user) => {
-    if (existingPeerIds.has(Number(user.id))) return true
+    if (newChatMode.value === 'direct' && existingPeerIds.has(Number(user.id))) return true
     if (!q) return true
     const hay = `${user.name || ''} ${user.role || ''} ${user.department || ''}`.toLowerCase()
     return hay.includes(q)
   })
+})
+
+const groupPickerUsers = computed(() => {
+  const q = listSearch.value.trim().toLowerCase()
+  return users.value.filter((user) => {
+    if (!q) return true
+    const hay = `${user.name || ''} ${user.role || ''} ${user.department || ''}`.toLowerCase()
+    return hay.includes(q)
+  })
+})
+
+const canCreateGroup = computed(() =>
+  groupTitle.value.trim().length >= 2 && groupMemberIds.value.length >= 1,
+)
+
+const groupCreateHint = computed(() => {
+  if (groupTitle.value.trim().length < 2) return 'نام گروه را وارد کنید (حداقل ۲ کاراکتر).'
+  if (groupMemberIds.value.length < 1) return 'حداقل یک عضو انتخاب کنید.'
+  return ''
 })
 
 function formatTime(value) {
@@ -159,7 +215,124 @@ async function openConversation(conversationId) {
   selectedId.value = conversationId
   mobileShowThread.value = true
   showNewChat.value = false
+  showGroupInfo.value = false
   await loadMessages(conversationId)
+}
+
+function resetGroupComposer() {
+  groupTitle.value = ''
+  groupMemberIds.value = []
+}
+
+function toggleGroupMember(userId) {
+  const id = Number(userId)
+  if (!id) return
+  if (groupMemberIds.value.includes(id)) {
+    groupMemberIds.value = groupMemberIds.value.filter((item) => item !== id)
+  } else {
+    groupMemberIds.value = [...groupMemberIds.value, id]
+  }
+}
+
+const selectedGroupMembers = computed(() =>
+  users.value.filter((user) => groupMemberIds.value.includes(Number(user.id))),
+)
+
+async function createGroupChat() {
+  if (creatingGroup.value) return
+  const title = groupTitle.value.trim()
+  if (title.length < 2) {
+    lastError.value = 'نام گروه باید حداقل ۲ کاراکتر باشد.'
+    return
+  }
+  if (groupMemberIds.value.length < 1) {
+    lastError.value = 'حداقل یک عضو دیگر انتخاب کنید.'
+    return
+  }
+  creatingGroup.value = true
+  lastError.value = ''
+  try {
+    const conversation = await chatFetch('/chat/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        title,
+        memberIds: groupMemberIds.value.map(Number),
+      }),
+    })
+    resetGroupComposer()
+    newChatMode.value = 'direct'
+    await loadConversations(true)
+    if (conversation?.id) await openConversation(conversation.id)
+    showNewChat.value = false
+  } catch (error) {
+    lastError.value = error.message || 'ساخت گروه ناموفق بود.'
+  } finally {
+    creatingGroup.value = false
+  }
+}
+
+async function refreshSelectedConversation() {
+  if (!selectedId.value) return
+  try {
+    const conversation = await chatFetch(`/chat/conversations/${selectedId.value}`)
+    conversations.value = conversations.value.map((item) => (item.id === conversation.id ? conversation : item))
+    if (isGroupConversation(conversation)) {
+      groupEditTitle.value = conversation.title || conversation.displayName || ''
+    }
+  } catch {
+    await loadConversations(true)
+  }
+}
+
+async function saveGroupSettings() {
+  if (!selectedId.value || !selectedIsGroup.value || groupSaving.value) return
+  groupSaving.value = true
+  try {
+    const conversation = await chatFetch(`/chat/conversations/${selectedId.value}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ title: groupEditTitle.value.trim() }),
+    })
+    conversations.value = conversations.value.map((item) => (item.id === conversation.id ? conversation : item))
+    lastError.value = ''
+  } catch (error) {
+    lastError.value = error.message || 'ذخیره گروه ناموفق بود.'
+  } finally {
+    groupSaving.value = false
+  }
+}
+
+async function addGroupMember(userId) {
+  if (!selectedId.value || !selectedIsGroup.value) return
+  try {
+    const conversation = await chatFetch(`/chat/conversations/${selectedId.value}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ addMemberIds: [Number(userId)] }),
+    })
+    conversations.value = conversations.value.map((item) => (item.id === conversation.id ? conversation : item))
+    await loadUsers()
+  } catch (error) {
+    lastError.value = error.message || 'افزودن عضو ناموفق بود.'
+  }
+}
+
+async function removeGroupMember(userId) {
+  if (!selectedId.value || !selectedIsGroup.value) return
+  try {
+    const conversation = await chatFetch(`/chat/conversations/${selectedId.value}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ removeMemberIds: [Number(userId)] }),
+    })
+    conversations.value = conversations.value.map((item) => (item.id === conversation.id ? conversation : item))
+  } catch (error) {
+    lastError.value = error.message || 'حذف عضو ناموفق بود.'
+  }
+}
+
+function openGroupInfo() {
+  if (!selectedIsGroup.value) return
+  groupEditTitle.value = selectedConversation.value?.title || selectedConversation.value?.displayName || ''
+  showGroupInfo.value = true
+  void loadUsers()
 }
 
 async function startChatWith(userId) {
@@ -232,6 +405,7 @@ async function refreshQuietly() {
     }
     if (selectedId.value && !composer.value.trim() && !pendingFile.value) {
       await loadMessages(selectedId.value, true)
+      if (selectedIsGroup.value) await refreshSelectedConversation()
     }
   } catch {
     // keep UI
@@ -243,12 +417,20 @@ async function refreshQuietly() {
 function backToList() {
   mobileShowThread.value = false
   showNewChat.value = false
+  showGroupInfo.value = false
   composer.value = ''
   clearPendingFile()
 }
 
 watch(showNewChat, async (open) => {
-  if (open) await loadUsers()
+  if (open) {
+    await loadUsers()
+    if (newChatMode.value === 'group') resetGroupComposer()
+  }
+})
+
+watch(newChatMode, (mode) => {
+  if (mode === 'group') resetGroupComposer()
 })
 
 onMounted(async () => {
@@ -271,19 +453,84 @@ onBeforeUnmount(() => {
           <h2>پیام‌ها</h2>
         </div>
         <button class="action-btn tone-primary chat-new-btn" type="button" @click="showNewChat = !showNewChat">
-          <IconlyIcon name="chat" decorative />
-          <span>{{ showNewChat ? 'بازگشت' : 'چت جدید' }}</span>
+          <IconlyIcon :name="showNewChat ? 'arrow_back' : 'chat'" decorative />
+          <span>{{ showNewChat ? 'بازگشت' : 'گفتگوی جدید' }}</span>
         </button>
       </header>
+
+      <div v-if="showNewChat" class="chat-mode-tabs">
+        <button type="button" :class="['chat-mode-tab', newChatMode === 'direct' && 'is-active']" @click="newChatMode = 'direct'">
+          <IconlyIcon name="chat" decorative />
+          <span>خصوصی</span>
+        </button>
+        <button type="button" :class="['chat-mode-tab', newChatMode === 'group' && 'is-active']" @click="newChatMode = 'group'">
+          <IconlyIcon name="groups" decorative />
+          <span>گروه</span>
+        </button>
+      </div>
 
       <label class="search-shell chat-search">
         <IconlyIcon name="search" decorative />
         <input v-model="listSearch" :placeholder="showNewChat ? 'جستجوی کاربر...' : 'جستجوی گفتگو...'" />
       </label>
 
-      <p v-if="lastError" class="inline-error">{{ lastError }}</p>
+      <p v-if="lastError && showNewChat" class="inline-error">{{ lastError }}</p>
 
-      <div v-if="showNewChat" class="chat-list">
+      <div v-if="showNewChat && newChatMode === 'group'" class="chat-sidebar-body chat-group-compose">
+        <label class="field-shell">
+          <span>نام گروه</span>
+          <input v-model.trim="groupTitle" type="text" placeholder="مثلاً تیم مالی، پروژه X..." maxlength="120" />
+        </label>
+
+        <div v-if="selectedGroupMembers.length" class="chat-member-chips">
+          <button
+            v-for="member in selectedGroupMembers"
+            :key="member.id"
+            class="chat-member-chip"
+            type="button"
+            @click="toggleGroupMember(member.id)"
+          >
+            <UserAvatar :person="member" :name="member.name" size="sm" />
+            <span>{{ member.name }}</span>
+            <small>×</small>
+          </button>
+        </div>
+
+        <div class="chat-picker-list">
+          <button
+            v-for="user in groupPickerUsers"
+            :key="`pick-${user.id}`"
+            class="chat-picker-item"
+            type="button"
+            @click="toggleGroupMember(user.id)"
+          >
+            <UserAvatar :person="user" :name="user.name" size="md" />
+            <div class="chat-list-copy">
+              <strong>{{ user.name }}</strong>
+              <small>{{ user.role || user.department || 'همکار' }}</small>
+            </div>
+            <span class="chat-picker-check" :class="{ 'is-on': groupMemberIds.includes(Number(user.id)) }">
+              {{ groupMemberIds.includes(Number(user.id)) ? '✓' : '+' }}
+            </span>
+          </button>
+          <div v-if="!groupPickerUsers.length" class="chat-empty">کاربری برای افزودن به گروه پیدا نشد.</div>
+        </div>
+
+        <div class="chat-group-compose-footer">
+          <small v-if="groupCreateHint" class="chat-create-hint">{{ groupCreateHint }}</small>
+          <button
+            class="action-btn tone-primary chat-create-group-btn"
+            type="button"
+            :disabled="creatingGroup"
+            @click="createGroupChat"
+          >
+            <IconlyIcon name="group_add" decorative />
+            <span>{{ creatingGroup ? 'در حال ساخت...' : `ساخت گروه (${groupMemberIds.length.toLocaleString('fa-IR')} عضو)` }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div v-else-if="showNewChat" class="chat-sidebar-body chat-list">
         <button
           v-for="user in filteredUsers"
           :key="user.id"
@@ -300,7 +547,7 @@ onBeforeUnmount(() => {
         <div v-if="!filteredUsers.length" class="chat-empty">کاربری برای شروع گفتگو پیدا نشد.</div>
       </div>
 
-      <div v-else class="chat-list">
+      <div v-else class="chat-sidebar-body chat-list">
         <div v-if="loadingList && !conversations.length" class="chat-empty">در حال بارگذاری...</div>
         <button
           v-for="item in filteredConversations"
@@ -309,17 +556,22 @@ onBeforeUnmount(() => {
           type="button"
           @click="openConversation(item.id)"
         >
+          <div v-if="isGroupConversation(item)" class="chat-group-avatar" :title="conversationName(item)">
+            <span>{{ groupInitials(conversationName(item)) }}</span>
+          </div>
           <UserAvatar
+            v-else
             :person="item.peer"
             :name="item.peer?.name || 'همکار'"
             size="md"
           />
           <div class="chat-list-copy">
             <div class="chat-list-top">
-              <strong>{{ item.peer?.name || 'همکار' }}</strong>
+              <strong>{{ conversationName(item) }}</strong>
               <small>{{ formatTime(item.lastMessage?.createdAt || item.updatedAt) }}</small>
             </div>
-            <p>{{ item.lastMessage?.body || item.lastPreview || (item.lastMessage?.attachment ? 'پیوست' : 'گفتگو را شروع کنید') }}</p>
+            <p>{{ item.lastPreview || item.lastMessage?.body || (item.lastMessage?.attachment ? 'پیوست' : 'گفتگو را شروع کنید') }}</p>
+            <small v-if="isGroupConversation(item)" class="chat-group-meta">{{ conversationSubtitle(item) }}</small>
           </div>
           <span v-if="item.unreadCount" class="chat-unread">{{ item.unreadCount }}</span>
         </button>
@@ -336,16 +588,76 @@ onBeforeUnmount(() => {
             <IconlyIcon name="arrow_back" decorative />
             <span class="chat-back-label">بازگشت</span>
           </button>
+          <div v-if="selectedIsGroup" class="chat-group-avatar chat-group-avatar-lg" @click="openGroupInfo">
+            <span>{{ groupInitials(conversationName(selectedConversation)) }}</span>
+          </div>
           <UserAvatar
+            v-else
             :person="selectedConversation.peer"
             :name="selectedConversation.peer?.name || 'همکار'"
             size="md"
           />
-          <div>
-            <strong>{{ selectedConversation.peer?.name || 'همکار' }}</strong>
-            <small>{{ selectedConversation.peer?.role || selectedConversation.peer?.department || '' }}</small>
+          <div class="chat-thread-heading" @click="selectedIsGroup ? openGroupInfo() : null">
+            <strong>{{ conversationName(selectedConversation) }}</strong>
+            <small>{{ conversationSubtitle(selectedConversation) }}</small>
           </div>
+          <button
+            v-if="selectedIsGroup"
+            class="chat-info-btn"
+            type="button"
+            aria-label="اطلاعات گروه"
+            @click="openGroupInfo"
+          >
+            <IconlyIcon name="group" decorative />
+          </button>
         </header>
+
+        <aside v-if="showGroupInfo && selectedIsGroup" class="chat-group-panel">
+          <div class="chat-group-panel-head">
+            <strong>اطلاعات گروه</strong>
+            <button type="button" class="chat-panel-close" @click="showGroupInfo = false">×</button>
+          </div>
+          <label class="field-shell">
+            <span>نام گروه</span>
+            <input v-model.trim="groupEditTitle" type="text" maxlength="120" />
+          </label>
+          <button class="action-btn tone-soft" type="button" :disabled="groupSaving" @click="saveGroupSettings">ذخیره نام</button>
+          <div class="chat-group-members">
+            <small>اعضا ({{ (selectedConversation.members || []).length.toLocaleString('fa-IR') }})</small>
+            <article v-for="member in selectedConversation.members || []" :key="member.id" class="chat-group-member-row">
+              <UserAvatar :person="member" :name="member.name" size="sm" />
+              <div>
+                <strong>{{ member.name }}</strong>
+                <small>{{ member.role || member.department || 'عضو' }}</small>
+              </div>
+              <button
+                v-if="Number(member.id) !== Number(state.currentUser.id) && (selectedConversation.members || []).length > 2"
+                class="chat-member-remove"
+                type="button"
+                @click="removeGroupMember(member.id)"
+              >
+                حذف
+              </button>
+            </article>
+          </div>
+          <div class="chat-group-add">
+            <small>افزودن عضو</small>
+            <button
+              v-for="user in users.filter((item) => !(selectedConversation.members || []).some((member) => Number(member.id) === Number(item.id)))"
+              :key="`add-${user.id}`"
+              class="chat-list-item chat-picker-item"
+              type="button"
+              @click="addGroupMember(user.id)"
+            >
+              <UserAvatar :person="user" :name="user.name" size="sm" />
+              <div class="chat-list-copy">
+                <strong>{{ user.name }}</strong>
+                <small>{{ user.role || user.department || 'همکار' }}</small>
+              </div>
+              <span class="chat-picker-check">+</span>
+            </button>
+          </div>
+        </aside>
 
         <div ref="threadRef" class="chat-messages">
           <div v-if="loadingThread && !messages.length" class="chat-empty">در حال بارگذاری پیام‌ها...</div>
@@ -357,11 +669,12 @@ onBeforeUnmount(() => {
             <UserAvatar
               v-if="!message.mine"
               class="chat-bubble-avatar"
-              :person="selectedConversation?.peer"
-              :name="selectedConversation?.peer?.name || 'همکار'"
+              :person="selectedIsGroup ? { name: message.senderName } : selectedConversation?.peer"
+              :name="message.senderName || selectedConversation?.peer?.name || 'همکار'"
               size="sm"
             />
             <article :class="['chat-bubble', message.mine ? 'is-mine' : 'is-peer']">
+            <small v-if="selectedIsGroup && !message.mine" class="chat-sender-name">{{ message.senderName }}</small>
             <a
               v-if="message.attachment?.isImage && message.attachment?.fileUrl"
               class="chat-attach-image"
@@ -459,9 +772,137 @@ onBeforeUnmount(() => {
 }
 
 .chat-sidebar {
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   border-left: 1px solid rgba(52, 144, 139, 0.12);
   background: rgba(255, 255, 255, 0.72);
+}
+
+.chat-sidebar-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-group-compose {
+  gap: 12px;
+  padding: 0 12px 12px;
+}
+
+.chat-group-compose-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.96) 24%, #fff 100%);
+}
+
+.chat-create-hint {
+  color: #b45309;
+  font-size: 12px;
+}
+
+.chat-picker-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.chat-picker-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 12px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  text-align: right;
+  cursor: pointer;
+  color: inherit;
+}
+
+.chat-picker-item:hover {
+  background: rgba(45, 122, 110, 0.1);
+}
+
+.chat-member-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chat-member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 999px;
+  padding: 4px 10px 4px 4px;
+  background: rgba(45, 122, 110, 0.12);
+  color: #1f5c59;
+  cursor: pointer;
+  font: inherit;
+}
+
+.chat-member-chip small {
+  opacity: 0.7;
+}
+
+.chat-picker-check {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: rgba(52, 144, 139, 0.12);
+  color: #2d7a6e;
+  font-weight: 800;
+}
+
+.chat-picker-check.is-on {
+  background: #2d7a6e;
+  color: #fff;
+}
+
+.chat-create-group-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.chat-create-group-btn:disabled {
+  opacity: 0.72;
+}
+
+.field-shell {
+  display: grid;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.field-shell span {
+  font-size: 12px;
+  color: #5f7a76;
+}
+
+.field-shell input {
+  width: 100%;
+  border: 1px solid rgba(52, 144, 139, 0.16);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  background: #fff;
+  color: #1d3f3b;
+  box-sizing: border-box;
 }
 
 .chat-sidebar-head,
@@ -494,7 +935,6 @@ onBeforeUnmount(() => {
 }
 
 .chat-list {
-  grid-row: 4;
   min-height: 0;
   overflow: auto;
   padding: 0 10px 16px;
@@ -583,6 +1023,136 @@ onBeforeUnmount(() => {
 .chat-thread {
   grid-template-rows: auto minmax(0, 1fr) auto;
   background: transparent;
+  position: relative;
+}
+
+.chat-mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 16px 10px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(52, 144, 139, 0.08);
+}
+
+.chat-mode-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  color: #5f7a76;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chat-mode-tab.is-active {
+  background: #fff;
+  color: #1f5c59;
+  box-shadow: 0 4px 14px rgba(31, 92, 89, 0.08);
+}
+
+.chat-group-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #34908b, #1f5c59);
+  flex: 0 0 auto;
+}
+
+.chat-group-avatar-lg {
+  width: 46px;
+  height: 46px;
+  cursor: pointer;
+}
+
+.chat-group-meta {
+  color: #6a8581;
+}
+
+.chat-thread-heading {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.chat-info-btn {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(52, 144, 139, 0.12);
+  color: #1f5c59;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.chat-group-panel {
+  position: absolute;
+  inset: 64px 0 56px 0;
+  z-index: 4;
+  background: rgba(255, 255, 255, 0.98);
+  border-top: 1px solid rgba(52, 144, 139, 0.1);
+  padding: 16px;
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.chat-group-panel-head,
+.chat-group-member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.chat-group-member-row {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(52, 144, 139, 0.08);
+}
+
+.chat-group-member-row > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.chat-member-remove,
+.chat-panel-close {
+  border: 0;
+  background: transparent;
+  color: #b42318;
+  cursor: pointer;
+  font: inherit;
+}
+
+.chat-panel-close {
+  color: #5f7a76;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.chat-sender-name {
+  display: block;
+  margin-bottom: 2px;
+  color: #2d7a6e;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .chat-thread-head {
@@ -902,8 +1472,8 @@ onBeforeUnmount(() => {
   }
 
   .chat-page:not(.show-thread) .chat-sidebar {
-    display: grid;
-    grid-template-rows: auto auto auto minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
   }
 
   .chat-back-btn {

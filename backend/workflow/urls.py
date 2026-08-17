@@ -73,6 +73,7 @@ urlpatterns = [
     path("settings/profile", views.settings_profile_view),
     path("chat/users", views.chat_users_view),
     path("chat/conversations", views.chat_conversations_view),
+    path("chat/conversations/<int:conversation_id>", views.chat_conversation_detail_view),
     path("chat/conversations/<int:conversation_id>/messages", views.chat_conversation_messages_view),
     path("chat/conversations/<int:conversation_id>/read", views.chat_conversation_read_view),
     path("tasking/dashboard", tasking_views.tasking_dashboard_view),

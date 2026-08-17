@@ -4,6 +4,7 @@ import json
 import math
 import mimetypes
 import os
+import uuid
 from collections import defaultdict
 from urllib import error as urllib_error
 from urllib import request as urllib_request
@@ -2726,13 +2727,25 @@ def tenant_can_access_support(user: User) -> bool:
     return user.role == UserRole.ADMIN
 
 
+def tenant_can_create_support_ticket(user: User, category: str = "") -> bool:
+    if tenant_can_access_support(user):
+        return True
+    if category == SupportTicketCategory.FINANCIAL and user_can_access_wallet(user):
+        return True
+    return False
+
+
 @require_auth
 @methods("GET", "POST")
 @csrf_exempt
 def support_tickets_view(request: HttpRequest):
     close_stale_support_tickets()
-    # Tenant support desk is CEO-only (مدیرعامل)
-    if not tenant_can_access_support(request.current_user):
+    if request.method == "POST":
+        category = (request.POST.get("category") or SupportTicketCategory.TECHNICAL).strip()
+        if not tenant_can_create_support_ticket(request.current_user, category):
+            return json_error("دسترسی ثبت تیکت پشتیبانی برای شما فعال نیست.", status=403)
+    elif not tenant_can_access_support(request.current_user):
+        # Tenant support desk is CEO-only (مدیرعامل)
         return json_error("دسترسی پشتیبانی فقط برای مدیرعامل مجموعه است.", status=403)
     organization = scoped_support_organization(request)
     if user_is_hq_user(request.current_user) and organization is None and request.method == "GET":
@@ -5240,6 +5253,34 @@ def direct_conversation_pair_key(user_a_id: int, user_b_id: int) -> str:
     return f"{lo}:{hi}"
 
 
+def group_conversation_pair_key() -> str:
+    return f"group:{uuid.uuid4().hex}"
+
+
+def conversation_is_group(conversation: DirectConversation) -> bool:
+    conversation_type = getattr(conversation, "conversation_type", DirectConversation.ConversationType.DIRECT)
+    return conversation_type == DirectConversation.ConversationType.GROUP
+
+
+def conversation_memberships(conversation: DirectConversation) -> list[DirectConversationMember]:
+    if hasattr(conversation, "_prefetched_objects_cache") and "memberships" in conversation._prefetched_objects_cache:
+        return list(conversation.memberships.all())
+    return list(
+        DirectConversationMember.objects.filter(conversation=conversation)
+        .select_related("user", "user__department")
+        .order_by("joined_at", "id")
+    )
+
+
+def message_read_by_recipients(message: DirectMessage, memberships: list[DirectConversationMember], current_user_id: int) -> bool:
+    if not message.created_at:
+        return False
+    recipients = [item for item in memberships if item.user_id != current_user_id]
+    if not recipients:
+        return True
+    return all(item.last_read_at and item.last_read_at >= message.created_at for item in recipients)
+
+
 def direct_chat_schema_state() -> tuple[bool, bool]:
     required_tables = {"direct_conversations", "direct_conversation_members", "direct_messages"}
     attachment_columns = {
@@ -5285,11 +5326,16 @@ def serialize_direct_message(
     peer_last_read_at=None,
     *,
     include_attachment: bool = True,
+    memberships: list[DirectConversationMember] | None = None,
+    is_group: bool = False,
 ) -> dict:
     mine = int(message.sender_id or 0) == int(current_user_id)
     read = False
-    if mine and peer_last_read_at is not None and message.created_at is not None:
-        read = peer_last_read_at >= message.created_at
+    if mine:
+        if is_group and memberships is not None:
+            read = message_read_by_recipients(message, memberships, current_user_id)
+        elif peer_last_read_at is not None and message.created_at is not None:
+            read = peer_last_read_at >= message.created_at
     attachment = None
     attachment_stored_name = getattr(message, "attachment_stored_name", "") if include_attachment else ""
     if attachment_stored_name:
@@ -5326,11 +5372,14 @@ def serialize_direct_conversation(
     *,
     include_attachment: bool = True,
 ) -> dict:
-    peer = conversation_peer(conversation, current_user)
-    membership = next((item for item in conversation.memberships.all() if item.user_id == current_user.id), None)
-    peer_membership = next((item for item in conversation.memberships.all() if item.user_id != current_user.id), None)
+    memberships = conversation_memberships(conversation)
+    is_group = conversation_is_group(conversation)
+    peer = None if is_group else conversation_peer(conversation, current_user)
+    membership = next((item for item in memberships if item.user_id == current_user.id), None)
+    peer_membership = None if is_group else next((item for item in memberships if item.user_id != current_user.id), None)
     last_read_at = membership.last_read_at if membership else None
     peer_last_read_at = peer_membership.last_read_at if peer_membership else None
+    members = [serialize_chat_user(item.user) for item in memberships if item.user_id]
     messages_qs = conversation.messages.select_related("sender")
     if not include_attachment:
         messages_qs = messages_qs.only("id", "conversation_id", "sender_id", "sender__full_name", "body", "created_at")
@@ -5341,25 +5390,34 @@ def serialize_direct_conversation(
     unread_count = unread_qs.count()
     last_preview = "گفتگو را شروع کنید"
     if last_message is not None:
-        last_preview = (
-            (last_message.body or "").strip()
-            or (
-                "پیوست"
-                if include_attachment and getattr(last_message, "attachment_stored_name", "")
-                else ""
-            )
-            or "گفتگو را شروع کنید"
-        )
+        preview_body = (last_message.body or "").strip()
+        if not preview_body and include_attachment and getattr(last_message, "attachment_stored_name", ""):
+            preview_body = "پیوست"
+        if preview_body and is_group and last_message.sender_id != current_user.id:
+            sender_name = last_message.sender.full_name if last_message.sender_id else "عضو"
+            last_preview = f"{sender_name}: {preview_body}"
+        else:
+            last_preview = preview_body or "گفتگو را شروع کنید"
+    display_name = (conversation.title or "").strip() if is_group else (peer.full_name if peer else "همکار")
     return {
         "id": conversation.id,
+        "type": DirectConversation.ConversationType.GROUP if is_group else DirectConversation.ConversationType.DIRECT,
+        "isGroup": is_group,
+        "title": conversation.title or "",
+        "displayName": display_name,
         "updatedAt": conversation.updated_at.isoformat() if conversation.updated_at else "",
         "peer": serialize_chat_user(peer) if peer else None,
+        "members": members,
+        "memberCount": len(members),
+        "createdById": conversation.created_by_id,
         "lastMessage": (
             serialize_direct_message(
                 last_message,
                 current_user.id,
                 peer_last_read_at,
                 include_attachment=include_attachment,
+                memberships=memberships,
+                is_group=is_group,
             )
             if last_message
             else None
@@ -5433,6 +5491,51 @@ def chat_conversations_view(request: HttpRequest):
         )
 
     payload = parse_json(request)
+    member_ids_raw = payload.get("memberIds") or payload.get("member_ids") or []
+    title = (payload.get("title") or "").strip()
+    if member_ids_raw or title:
+        if not title or len(title) < 2:
+            return json_error("نام گروه باید حداقل ۲ کاراکتر باشد.", status=422)
+        try:
+            member_ids = sorted({int(item) for item in member_ids_raw if int(item) != request.current_user.id})
+        except (TypeError, ValueError):
+            return json_error("اعضای گروه معتبر نیست.", status=422)
+        if len(member_ids) < 1:
+            return json_error("حداقل یک عضو دیگر برای گروه انتخاب کنید.", status=422)
+        if len(member_ids) > 49:
+            return json_error("حداکثر ۵۰ عضو برای هر گروه مجاز است.", status=422)
+        members = list(
+            organization_users(request.current_user)
+            .filter(pk__in=member_ids, is_active=True, is_deleted=False)
+            .select_related("department")
+        )
+        if len(members) != len(member_ids):
+            return json_error("برخی از اعضای انتخاب‌شده در این مجموعه پیدا نشدند.", status=404)
+        now_value = timezone.now()
+        with transaction.atomic():
+            conversation = DirectConversation.objects.create(
+                organization=organization,
+                pair_key=group_conversation_pair_key(),
+                conversation_type=DirectConversation.ConversationType.GROUP,
+                title=title[:120],
+                created_by=request.current_user,
+                updated_at=now_value,
+            )
+            DirectConversationMember.objects.create(conversation=conversation, user=request.current_user, joined_at=now_value)
+            DirectConversationMember.objects.bulk_create(
+                [
+                    DirectConversationMember(conversation=conversation, user=member, joined_at=now_value)
+                    for member in members
+                ]
+            )
+        conversation = get_user_direct_conversation(request, conversation.id)
+        if conversation is None:
+            return json_error("گروه ساخته شد اما بازیابی آن ناموفق بود.", status=500)
+        return json_response(
+            serialize_direct_conversation(conversation, request.current_user, include_attachment=attachments_ready),
+            status=201,
+        )
+
     try:
         peer_id = int(payload.get("userId") or payload.get("user_id") or 0)
     except (TypeError, ValueError):
@@ -5465,6 +5568,7 @@ def chat_conversations_view(request: HttpRequest):
             conversation = DirectConversation.objects.create(
                 organization=organization,
                 pair_key=pair_key,
+                conversation_type=DirectConversation.ConversationType.DIRECT,
                 updated_at=timezone.now(),
             )
             DirectConversationMember.objects.create(conversation=conversation, user=request.current_user)
@@ -5488,6 +5592,78 @@ def chat_conversations_view(request: HttpRequest):
 
 @require_auth
 @csrf_exempt
+@methods("GET", "PATCH")
+def chat_conversation_detail_view(request: HttpRequest, conversation_id: int):
+    schema_ready, attachments_ready = direct_chat_schema_state()
+    if not schema_ready:
+        if request.method == "GET":
+            return json_error("زیرساخت گفتگوی سازمانی هنوز آماده نیست.", status=503)
+        return json_error("زیرساخت گفتگوی سازمانی هنوز آماده نیست.", status=503)
+
+    conversation = get_user_direct_conversation(request, conversation_id)
+    if conversation is None:
+        return json_error("گفتگو پیدا نشد.", status=404)
+
+    if request.method == "GET":
+        return json_response(
+            serialize_direct_conversation(conversation, request.current_user, include_attachment=attachments_ready)
+        )
+
+    if not conversation_is_group(conversation):
+        return json_error("فقط گروه‌ها قابل ویرایش هستند.", status=409)
+
+    payload = parse_json(request)
+    title = payload.get("title")
+    add_member_ids = payload.get("addMemberIds") or payload.get("add_member_ids") or []
+    remove_member_ids = payload.get("removeMemberIds") or payload.get("remove_member_ids") or []
+    now_value = timezone.now()
+    with transaction.atomic():
+        if title is not None:
+            clean_title = str(title).strip()
+            if len(clean_title) < 2:
+                return json_error("نام گروه باید حداقل ۲ کاراکتر باشد.", status=422)
+            conversation.title = clean_title[:120]
+        if add_member_ids:
+            try:
+                parsed_add_ids = sorted({int(item) for item in add_member_ids if int(item) != request.current_user.id})
+            except (TypeError, ValueError):
+                return json_error("اعضای جدید معتبر نیست.", status=422)
+            existing_ids = set(conversation.memberships.values_list("user_id", flat=True))
+            parsed_add_ids = [item for item in parsed_add_ids if item not in existing_ids]
+            if parsed_add_ids:
+                members = list(
+                    organization_users(request.current_user)
+                    .filter(pk__in=parsed_add_ids, is_active=True, is_deleted=False)
+                )
+                if len(members) != len(parsed_add_ids):
+                    return json_error("برخی از اعضای جدید پیدا نشدند.", status=404)
+                if conversation.memberships.count() + len(members) > 50:
+                    return json_error("حداکثر ۵۰ عضو برای هر گروه مجاز است.", status=409)
+                DirectConversationMember.objects.bulk_create(
+                    [
+                        DirectConversationMember(conversation=conversation, user=member, joined_at=now_value)
+                        for member in members
+                    ]
+                )
+        if remove_member_ids:
+            try:
+                parsed_remove_ids = {int(item) for item in remove_member_ids}
+            except (TypeError, ValueError):
+                return json_error("اعضای حذفی معتبر نیست.", status=422)
+            remaining_count = conversation.memberships.exclude(user_id__in=parsed_remove_ids).count()
+            if remaining_count < 2:
+                return json_error("گروه باید حداقل ۲ عضو داشته باشد.", status=409)
+            conversation.memberships.filter(user_id__in=parsed_remove_ids).delete()
+        conversation.updated_at = now_value
+        conversation.save(update_fields=["title", "updated_at"])
+    conversation = get_user_direct_conversation(request, conversation_id)
+    return json_response(
+        serialize_direct_conversation(conversation, request.current_user, include_attachment=attachments_ready)
+    )
+
+
+@require_auth
+@csrf_exempt
 @methods("GET", "POST")
 def chat_conversation_messages_view(request: HttpRequest, conversation_id: int):
     schema_ready, attachments_ready = direct_chat_schema_state()
@@ -5501,8 +5677,10 @@ def chat_conversation_messages_view(request: HttpRequest, conversation_id: int):
         return json_error("گفتگو پیدا نشد.", status=404)
 
     if request.method == "GET":
+        memberships = conversation_memberships(conversation)
+        is_group = conversation_is_group(conversation)
         peer_membership = next(
-            (item for item in conversation.memberships.all() if item.user_id != request.current_user.id),
+            (item for item in memberships if item.user_id != request.current_user.id),
             None,
         )
         peer_last_read_at = peer_membership.last_read_at if peer_membership else None
@@ -5517,6 +5695,8 @@ def chat_conversation_messages_view(request: HttpRequest, conversation_id: int):
                     request.current_user.id,
                     peer_last_read_at,
                     include_attachment=attachments_ready,
+                    memberships=memberships,
+                    is_group=is_group,
                 )
                 for item in messages
             ],
@@ -5565,12 +5745,18 @@ def chat_conversation_messages_view(request: HttpRequest, conversation_id: int):
             last_read_at=now_value
         )
     message = DirectMessage.objects.select_related("sender").get(pk=message.pk)
-    peer_membership = DirectConversationMember.objects.filter(conversation=conversation).exclude(
-        user=request.current_user
-    ).first()
+    memberships = conversation_memberships(conversation)
+    is_group = conversation_is_group(conversation)
+    peer_membership = next((item for item in memberships if item.user_id != request.current_user.id), None)
     peer_last_read_at = peer_membership.last_read_at if peer_membership else None
     return json_response(
-        serialize_direct_message(message, request.current_user.id, peer_last_read_at),
+        serialize_direct_message(
+            message,
+            request.current_user.id,
+            peer_last_read_at,
+            memberships=memberships,
+            is_group=is_group,
+        ),
         status=201,
     )
 

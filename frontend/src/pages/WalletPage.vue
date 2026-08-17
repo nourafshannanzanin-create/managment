@@ -316,17 +316,20 @@ async function submitPaymentTicket() {
       : []),
   ].join('\n')
 
-  await createSupportTicket({
-    subject: PAYMENT_SUBJECT,
-    message,
-    category: 'financial',
-    priority: 'urgent',
-    attachments: paymentForm.receipt ? [paymentForm.receipt] : [],
-  })
-
-  state.wallet.message = 'درخواست واریز برای HQ ارسال شد.'
   state.wallet.error = ''
-  closePaymentForm()
+  try {
+    await createSupportTicket({
+      subject: PAYMENT_SUBJECT,
+      message,
+      category: 'financial',
+      priority: 'urgent',
+      attachments: paymentForm.receipt ? [paymentForm.receipt] : [],
+    })
+    state.wallet.message = 'درخواست واریز برای HQ ارسال شد.'
+    closePaymentForm()
+  } catch {
+    state.wallet.error = state.support.error || 'ارسال درخواست واریز ناموفق بود.'
+  }
 }
 
 const ledgerItems = computed(() => [...transactions.value].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
@@ -817,6 +820,10 @@ watch(
           <span>تصویر رسید</span>
           <input type="file" accept="image/*,.pdf" @change="setReceipt" />
         </label>
+
+        <div v-if="state.wallet.error" class="wallet-alert danger in-modal">
+          {{ state.wallet.error }}
+        </div>
 
         <div class="modal-actions">
           <button class="action-btn tone-soft" type="button" @click="closePaymentForm">بستن</button>

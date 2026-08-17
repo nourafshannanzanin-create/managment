@@ -205,6 +205,11 @@ async function refreshRouteData(path, { soft = false } = {}) {
     return
   }
 
+  if (path === '/expenses') {
+    await loadBootstrapData(true, { soft: true })
+    return
+  }
+
   if (path === '/hq') {
     unlockTicketAlerts()
     await loadHqPanel(true, { soft: true })

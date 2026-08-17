@@ -785,6 +785,12 @@ def serialize_activity(item: TaskActivity) -> dict:
     }
 
 
+def task_approved_at(task: Task):
+    if task.review_status != TaskReviewStatus.APPROVED:
+        return None
+    return task.closed_at or task.completed_at
+
+
 def serialize_task(task: Task, current_user: User, *, include_detail: bool = False, focus_date: date | None = None) -> dict:
     settings_obj = get_or_create_tasking_settings(task.organization)
     today = focus_date or local_today(settings_obj)
@@ -801,6 +807,7 @@ def serialize_task(task: Task, current_user: User, *, include_detail: bool = Fal
     )
     unread_count = TaskMention.objects.filter(mentioned_user=current_user, read_at__isnull=True, comment__task=task).count()
     overdue = bool(task.due_at and task.due_at < timezone.now() and task.status not in {TaskStatus.COMPLETED, TaskStatus.CANCELLED})
+    approved_at = task_approved_at(task)
     payload = {
         "id": task.id,
         "code": task.code,
@@ -828,6 +835,8 @@ def serialize_task(task: Task, current_user: User, *, include_detail: bool = Fal
         "scheduledStartAt": task.scheduled_start_at.isoformat() if task.scheduled_start_at else "",
         "scheduledEndAt": task.scheduled_end_at.isoformat() if task.scheduled_end_at else "",
         "completedAt": task.completed_at.isoformat() if task.completed_at else "",
+        "approvedAt": approved_at.isoformat() if approved_at else "",
+        "closedAt": task.closed_at.isoformat() if task.closed_at else "",
         "reviewRequired": task.review_required,
         "reviewStatus": task.review_status,
         "reviewIteration": task.review_iteration,
@@ -1440,7 +1449,7 @@ def mark_task_mentions_read(actor: User, task: Task) -> int:
     return int(updated)
 
 
-def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
+def dashboard_payload(user: User, focus_date: date | None = None, supervise_owner_id: int | None = None) -> dict:
     organization = get_user_organization(user)
     settings_obj = get_or_create_tasking_settings(organization)
     today = focus_date or local_today(settings_obj)
@@ -1455,6 +1464,8 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
     supervised = qs.exclude(owner=user).filter(
         Q(observers__user=user) | Q(owner__manager=user) | Q(reviews__reviewer=user) | Q(creator=user)
     ).distinct()
+    if supervise_owner_id:
+        supervised = supervised.filter(owner_id=supervise_owner_id)
 
     capacity = capacity_for_day(user, settings_obj, today)
     closed_statuses = {
@@ -1616,6 +1627,36 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
         "all": supervised.count(),
     }
 
+    supervise_focus = None
+    if supervise_owner_id:
+        focus_owner = organization_users(user).filter(pk=supervise_owner_id, is_active=True, is_deleted=False).first()
+        if focus_owner is not None:
+            owner_capacity = capacity_for_day(focus_owner, settings_obj, today)
+            owner_supervised = qs.exclude(owner=user).filter(
+                Q(observers__user=user) | Q(owner__manager=user) | Q(reviews__reviewer=user) | Q(creator=user),
+                owner=focus_owner,
+            ).distinct()
+            supervise_focus = {
+                "user": serialize_user_brief(focus_owner),
+                "capacity": owner_capacity,
+                "stats": {
+                    "todayCount": owner_supervised.filter(allocations__work_date=today).distinct().count(),
+                    "remainingMinutes": owner_capacity["remainingTargetMinutes"],
+                    "needsAction": (
+                        owner_supervised.filter(status=TaskStatus.PENDING_REVIEW).count()
+                        + owner_supervised.filter(status=TaskStatus.CHANGES_REQUESTED).count()
+                        + owner_supervised.filter(due_at__lt=timezone.now())
+                        .exclude(status__in=[TaskStatus.COMPLETED, TaskStatus.CANCELLED])
+                        .count()
+                    ),
+                    "completedToday": owner_supervised.filter(
+                        status=TaskStatus.COMPLETED,
+                        completed_at__gte=day_start,
+                        completed_at__lte=day_end,
+                    ).count(),
+                },
+            }
+
     return {
         "date": today.isoformat(),
         "settings": serialize_tasking_settings(settings_obj),
@@ -1697,6 +1738,7 @@ def dashboard_payload(user: User, focus_date: date | None = None) -> dict:
             }
             for item in organization_users(user).filter(is_active=True, is_deleted=False).select_related("department")[:300]
         ],
+        "superviseFocus": supervise_focus,
     }
 
 

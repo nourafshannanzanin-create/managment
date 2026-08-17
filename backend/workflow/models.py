@@ -570,8 +570,26 @@ class AuditLog(TimeStampedModel):
 
 
 class DirectConversation(TimeStampedModel):
+    class ConversationType(models.TextChoices):
+        DIRECT = "direct", "خصوصی"
+        GROUP = "group", "گروهی"
+
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="direct_conversations")
     participants = models.ManyToManyField(User, through="DirectConversationMember", related_name="direct_conversations")
+    conversation_type = models.CharField(
+        max_length=16,
+        choices=ConversationType.choices,
+        default=ConversationType.DIRECT,
+        db_index=True,
+    )
+    title = models.CharField(max_length=120, blank=True, default="")
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="created_chat_conversations",
+    )
     pair_key = models.CharField(max_length=64, db_index=True)
     updated_at = models.DateTimeField(default=timezone.now)
 
@@ -582,6 +600,7 @@ class DirectConversation(TimeStampedModel):
         ]
         indexes = [
             models.Index(fields=["organization", "-updated_at"], name="idx_direct_conv_org_updated"),
+            models.Index(fields=["organization", "conversation_type"], name="idx_direct_conv_org_type"),
         ]
 
 

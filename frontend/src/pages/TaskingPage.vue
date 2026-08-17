@@ -3,12 +3,13 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import IconlyIcon from '../components/base/IconlyIcon.vue'
 import PageHeader from '../components/PageHeader.vue'
+import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
 import TaskComposerModal from '../components/TaskComposerModal.vue'
 import TaskDetailModal from '../components/TaskDetailModal.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatDurationFa, formatDurationRatioFa } from '../utils/duration'
-import { isoToJalali } from '../utils/jalali'
+import { formatJalali, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
 import { toneForStatus } from '../utils/status'
 
 const {
@@ -30,9 +31,30 @@ const mainTab = ref('mine')
 const subTab = ref('upcoming')
 const query = ref('')
 const superviseOwnerId = ref('')
+const superviseDateJalali = ref(formatJalali(getTodayJalali()))
 const timerTick = ref(0)
 let timerHandle = null
 let pollHandle = null
+let superviseReloadTimer = null
+
+function syncSuperviseDateFromState() {
+  const iso = String(state.tasking.date || '').slice(0, 10)
+  superviseDateJalali.value = iso ? (isoToJalali(iso) || formatJalali(getTodayJalali())) : formatJalali(getTodayJalali())
+}
+
+async function reloadSuperviseDashboard() {
+  if (mainTab.value !== 'supervise') return
+  const iso = jalaliToIso(superviseDateJalali.value) || ''
+  if (iso) state.tasking.date = iso
+  await loadTaskingDashboard(true, iso, { superviseOwnerId: superviseOwnerId.value })
+}
+
+function scheduleSuperviseReload() {
+  if (superviseReloadTimer) window.clearTimeout(superviseReloadTimer)
+  superviseReloadTimer = window.setTimeout(() => {
+    void reloadSuperviseDashboard()
+  }, 220)
+}
 
 onMounted(async () => {
   await loadTaskingDashboard(true)
@@ -42,13 +64,20 @@ onMounted(async () => {
   // Soft poll only — sidebar already refreshes badges; avoid double hard reloads.
   pollHandle = window.setInterval(() => {
     if (document.visibilityState === 'hidden') return
-    void loadTaskingDashboard(true, '', { soft: true }).catch(() => {})
+    const iso =
+      mainTab.value === 'supervise'
+        ? (jalaliToIso(superviseDateJalali.value) || state.tasking.date || '')
+        : (state.tasking.date || '')
+    const options = { soft: true }
+    if (mainTab.value === 'supervise') options.superviseOwnerId = superviseOwnerId.value
+    void loadTaskingDashboard(true, iso, options).catch(() => {})
   }, 60000)
 })
 
 onUnmounted(() => {
   if (timerHandle) window.clearInterval(timerHandle)
   if (pollHandle) window.clearInterval(pollHandle)
+  if (superviseReloadTimer) window.clearTimeout(superviseReloadTimer)
 })
 
 watch(mainTab, (tab) => {
@@ -56,12 +85,142 @@ watch(mainTab, (tab) => {
   if (tab === 'assignments') subTab.value = 'pending'
   if (tab === 'supervise') {
     subTab.value = 'all'
-    superviseOwnerId.value = ''
+    syncSuperviseDateFromState()
+    scheduleSuperviseReload()
   }
   if (tab === 'mentions') subTab.value = 'unread'
 })
 
-const capacity = computed(() => state.tasking.capacity || {})
+watch(superviseOwnerId, () => {
+  if (mainTab.value !== 'supervise') return
+  scheduleSuperviseReload()
+})
+
+watch(superviseDateJalali, () => {
+  if (mainTab.value !== 'supervise') return
+  const iso = jalaliToIso(superviseDateJalali.value) || ''
+  if (iso) state.tasking.date = iso
+  scheduleSuperviseReload()
+})
+
+const isSuperviseView = computed(() => mainTab.value === 'supervise')
+
+function minutesLabel(value) {
+  return formatDurationFa(value)
+}
+
+function shamsiDateLabel(iso) {
+  if (!iso) return 'امروز'
+  return isoToJalali(String(iso).slice(0, 10)) || iso
+}
+
+function taskOwnerId(task) {
+  return Number(task?.assignee?.id || task?.owner?.id || 0)
+}
+
+function taskMatchesSuperviseDate(task, isoDate) {
+  if (!isoDate) return true
+  const allocations = Array.isArray(task?.allocations) ? task.allocations : []
+  if (allocations.some((row) => String(row.workDate || row.work_date || '').slice(0, 10) === isoDate)) return true
+  if (Number(task.todayPlannedMinutes || 0) > 0) return true
+  const due = String(task.dueAt || '').slice(0, 10)
+  if (due === isoDate) return true
+  if (task.overdue) return true
+  const completed = String(task.completedAt || '').slice(0, 10)
+  if (completed === isoDate) return true
+  const status = String(task.status || '').toLowerCase()
+  if (status === 'pending_review' || status === 'changes_requested') return true
+  if (['in_progress', 'paused', 'scheduled', 'upcoming'].includes(status)) {
+    return allocations.some((row) => String(row.workDate || row.work_date || '').slice(0, 10) >= isoDate) || !allocations.length
+  }
+  return false
+}
+
+function applySuperviseFilters(tasks) {
+  let rows = Array.isArray(tasks) ? [...tasks] : []
+  const ownerId = Number(superviseOwnerId.value || 0)
+  const isoDate = String(jalaliToIso(superviseDateJalali.value) || state.tasking.date || '').slice(0, 10)
+  if (ownerId) rows = rows.filter((item) => taskOwnerId(item) === ownerId)
+  if (isoDate) rows = rows.filter((item) => taskMatchesSuperviseDate(item, isoDate))
+  const q = query.value.trim().toLowerCase()
+  if (q) {
+    rows = rows.filter((item) =>
+      `${item.title} ${item.code} ${item.assignee?.name || ''}`.toLowerCase().includes(q),
+    )
+  }
+  return rows
+}
+
+function bucketSuperviseTasks(tasks) {
+  const rows = Array.isArray(tasks) ? tasks : []
+  return {
+    all: rows,
+    pendingReview: rows.filter((item) => String(item.status || '').toLowerCase() === 'pending_review'),
+    inProgress: rows.filter((item) =>
+      ['in_progress', 'paused', 'scheduled', 'upcoming'].includes(String(item.status || '').toLowerCase()),
+    ),
+    overdue: rows.filter((item) => Boolean(item.overdue)),
+    completed: rows.filter((item) => String(item.status || '').toLowerCase() === 'completed'),
+  }
+}
+
+const allSuperviseTasks = computed(() => {
+  const buckets = state.tasking.supervise || {}
+  const map = new Map()
+  Object.values(buckets).forEach((list) => {
+    if (!Array.isArray(list)) return
+    list.forEach((task) => {
+      if (task?.id) map.set(task.id, task)
+    })
+  })
+  return [...map.values()]
+})
+
+const filteredSuperviseBuckets = computed(() => bucketSuperviseTasks(applySuperviseFilters(allSuperviseTasks.value)))
+
+const viewTeamCapacity = computed(() => {
+  const tasks = filteredSuperviseBuckets.value.all || []
+  const planned = tasks.reduce((sum, item) => sum + Number(item.todayPlannedMinutes || 0), 0)
+  const actual = tasks.reduce((sum, item) => sum + Number(item.actualMinutes || 0), 0)
+  const progressBase = Math.max(planned, actual, 1)
+  const donePercent = Math.min(100, Math.round((actual / progressBase) * 100))
+  return {
+    bandLabel: superviseOwnerId.value ? 'ظرفیت کارمند انتخاب‌شده' : 'خلاصه تیم (فیلتر فعال)',
+    plannedMinutes: planned,
+    actualMinutes: actual,
+    targetMinutes: planned,
+    effectiveWorkMinutes: planned,
+    progressBaseMinutes: progressBase,
+    remainingTargetMinutes: Math.max(0, planned - actual),
+    timerClosedMinutes: actual,
+    timerActiveSeconds: 0,
+    donePercent,
+  }
+})
+
+const capacity = computed(() => {
+  if (!isSuperviseView.value) return state.tasking.capacity || {}
+
+  const teamCap = viewTeamCapacity.value
+  const apiCap = state.tasking.superviseFocus?.capacity
+  if (superviseOwnerId.value && apiCap) {
+    const planned = teamCap.plannedMinutes
+    const actual = Number(apiCap.actualMinutes || 0)
+    const target = Number(apiCap.targetMinutes || 0)
+    const progressBase = Math.max(Number(apiCap.progressBaseMinutes || 0), target, planned, actual, 1)
+    const donePercent = Math.min(100, Math.round((actual / progressBase) * 100))
+    return {
+      ...apiCap,
+      plannedMinutes: planned,
+      targetMinutes: target || planned,
+      progressBaseMinutes: progressBase,
+      remainingTargetMinutes: Math.max(0, (target || planned) - planned),
+      donePercent,
+      bandLabel: apiCap.bandLabel || teamCap.bandLabel,
+    }
+  }
+  return teamCap
+})
 const progressBaseMinutes = computed(() => {
   const fromApi = Number(capacity.value.progressBaseMinutes || 0)
   if (fromApi > 0) return fromApi
@@ -73,6 +232,13 @@ const progressBaseMinutes = computed(() => {
 })
 const liveActualMinutes = computed(() => {
   void timerTick.value
+  if (isSuperviseView.value) {
+    const cap = capacity.value
+    let seconds = Number(cap.timerClosedMinutes || 0) * 60
+    seconds += Math.max(0, Number(cap.timerActiveSeconds || 0))
+    if (seconds > 0) return Math.max(0, Math.floor(seconds / 60))
+    return Math.max(0, Number(cap.actualMinutes || 0))
+  }
   const closed = Number(capacity.value.timerClosedMinutes)
   const hasClosed = Number.isFinite(closed) && closed >= 0 && capacity.value.timerClosedMinutes != null
   const active = state.tasking.activeTimer
@@ -86,7 +252,6 @@ const liveActualMinutes = computed(() => {
     }
     return Math.max(0, Math.floor(seconds / 60))
   }
-  // Fallback while older payloads lack timerClosedMinutes
   let mins = Number(capacity.value.actualMinutes || 0)
   if (active?.startedAt) {
     const started = new Date(active.startedAt).getTime()
@@ -97,6 +262,9 @@ const liveActualMinutes = computed(() => {
   return Math.max(0, mins)
 })
 const donePercent = computed(() => {
+  if (isSuperviseView.value && Number.isFinite(Number(capacity.value.donePercent))) {
+    return Math.min(100, Math.max(0, Number(capacity.value.donePercent)))
+  }
   const actual = liveActualMinutes.value
   const base = progressBaseMinutes.value
   if (base <= 0) return actual > 0 ? 100 : 0
@@ -126,54 +294,114 @@ const capacityRingStyle = computed(() => {
   }
 })
 
-function minutesLabel(value) {
-  return formatDurationFa(value)
-}
+const displayDate = computed(() => {
+  if (isSuperviseView.value) return shamsiDateLabel(jalaliToIso(superviseDateJalali.value) || state.tasking.date)
+  return shamsiDateLabel(state.tasking.date)
+})
 
-function shamsiDateLabel(iso) {
-  if (!iso) return 'امروز'
-  return isoToJalali(String(iso).slice(0, 10)) || iso
-}
+const superviseStats = computed(() => {
+  const buckets = filteredSuperviseBuckets.value
+  return {
+    todayCount: buckets.all.filter((item) => Number(item.todayPlannedMinutes || 0) > 0).length,
+    remainingMinutes: capacity.value.remainingTargetMinutes ?? viewTeamCapacity.value.remainingTargetMinutes,
+    needsAction: buckets.pendingReview.length + buckets.overdue.length,
+    completedToday: buckets.completed.length,
+  }
+})
 
-const displayDate = computed(() => shamsiDateLabel(state.tasking.date))
+const selectedSuperviseUser = computed(() => {
+  const ownerId = Number(superviseOwnerId.value || 0)
+  if (!ownerId) return null
+  return (
+    state.tasking.superviseFocus?.user
+    || superviseEmployeeOptions.value.find((item) => Number(item.id) === ownerId)
+    || null
+  )
+})
+
+const superviseFilterLabel = computed(() => {
+  const dateLabel = shamsiDateLabel(jalaliToIso(superviseDateJalali.value) || state.tasking.date)
+  const userLabel = selectedSuperviseUser.value?.name || 'همه کارمندان'
+  return `${userLabel} · ${dateLabel}`
+})
 
 const remainingTargetMinutes = computed(() =>
   Math.max(0, Number(capacity.value.targetMinutes || 0) - Number(capacity.value.plannedMinutes || 0)),
 )
-const metricCards = computed(() => [
-  {
-    key: 'today',
-    label: 'کارهای امروز',
-    value: String(state.tasking.stats.todayCount || 0),
-    hint: 'برنامه روز جاری',
-    icon: 'assignment',
-    tone: 'is-info',
-  },
-  {
-    key: 'remaining',
-    label: 'باقی‌مانده هدف',
-    value: minutesLabel(state.tasking.stats.remainingMinutes ?? remainingTargetMinutes.value),
-    hint: 'تا رسیدن به ظرفیت هدف',
-    icon: 'schedule',
-    tone: capacityTone.value === 'is-danger' ? 'is-danger' : 'is-warning',
-  },
-  {
-    key: 'action',
-    label: 'نیازمند اقدام',
-    value: String(state.tasking.stats.needsAction || 0),
-    hint: 'پذیرش، بررسی یا پیگیری',
-    icon: 'pending_actions',
-    tone: Number(state.tasking.stats.needsAction || 0) > 0 ? 'is-warning' : 'is-idle',
-  },
-  {
-    key: 'done',
-    label: 'تکمیل امروز',
-    value: String(state.tasking.stats.completedToday || 0),
-    hint: 'بسته و تأییدشده',
-    icon: 'verified',
-    tone: 'is-success',
-  },
-])
+const metricCards = computed(() => {
+  if (isSuperviseView.value) {
+    const stats = superviseStats.value
+    const cap = capacity.value
+    return [
+      {
+        key: 'today',
+        label: 'کارهای روز',
+        value: String(stats.todayCount || 0),
+        hint: selectedSuperviseUser.value ? `برنامه ${selectedSuperviseUser.value.name}` : 'برنامه روز فیلترشده',
+        icon: 'assignment',
+        tone: 'is-info',
+      },
+      {
+        key: 'remaining',
+        label: 'باقی‌مانده هدف',
+        value: minutesLabel(stats.remainingMinutes ?? cap.remainingTargetMinutes ?? remainingTargetMinutes.value),
+        hint: 'تا رسیدن به ظرفیت هدف',
+        icon: 'schedule',
+        tone: capacityTone.value === 'is-danger' ? 'is-danger' : 'is-warning',
+      },
+      {
+        key: 'action',
+        label: 'نیازمند اقدام',
+        value: String(stats.needsAction || 0),
+        hint: 'بررسی، تأخیر یا پیگیری',
+        icon: 'pending_actions',
+        tone: Number(stats.needsAction || 0) > 0 ? 'is-warning' : 'is-idle',
+      },
+      {
+        key: 'done',
+        label: 'تکمیل‌شده',
+        value: String(stats.completedToday || 0),
+        hint: 'بسته و تأییدشده',
+        icon: 'verified',
+        tone: 'is-success',
+      },
+    ]
+  }
+  return [
+    {
+      key: 'today',
+      label: 'کارهای امروز',
+      value: String(state.tasking.stats.todayCount || 0),
+      hint: 'برنامه روز جاری',
+      icon: 'assignment',
+      tone: 'is-info',
+    },
+    {
+      key: 'remaining',
+      label: 'باقی‌مانده هدف',
+      value: minutesLabel(state.tasking.stats.remainingMinutes ?? remainingTargetMinutes.value),
+      hint: 'تا رسیدن به ظرفیت هدف',
+      icon: 'schedule',
+      tone: capacityTone.value === 'is-danger' ? 'is-danger' : 'is-warning',
+    },
+    {
+      key: 'action',
+      label: 'نیازمند اقدام',
+      value: String(state.tasking.stats.needsAction || 0),
+      hint: 'پذیرش، بررسی یا پیگیری',
+      icon: 'pending_actions',
+      tone: Number(state.tasking.stats.needsAction || 0) > 0 ? 'is-warning' : 'is-idle',
+    },
+    {
+      key: 'done',
+      label: 'تکمیل امروز',
+      value: String(state.tasking.stats.completedToday || 0),
+      hint: 'بسته و تأییدشده',
+      icon: 'verified',
+      tone: 'is-success',
+    },
+  ]
+})
 
 const counts = computed(() => state.tasking.counts || {})
 
@@ -229,26 +457,29 @@ const mineSubTabs = computed(() => [
   { key: 'upcoming', label: 'پیش‌رو', count: upcomingPool.value.length },
   { key: 'pendingReview', label: 'در انتظار بررسی', count: counts.value.mine?.pendingReview },
   { key: 'changesRequested', label: 'برگشتی', count: counts.value.mine?.changesRequested },
-  { key: 'closed', label: 'بسته شده', count: counts.value.mine?.closed },
+  { key: 'closed', label: 'بسته شده', count: counts.value.mine?.closed, hideBadge: true },
 ])
 
 const assignmentSubTabs = computed(() => [
   { key: 'pending', label: 'ارجاع به من', count: counts.value.assignments?.pending },
   { key: 'outboundReview', label: 'نیازمند تایید من', count: counts.value.assignments?.outboundReview },
-  { key: 'outbound', label: 'ارجاع داده‌شده', count: counts.value.assignments?.outbound },
+  { key: 'outbound', label: 'ارجاع داده‌شده', count: counts.value.assignments?.outbound, hideBadge: true },
 ])
 
-const superviseSubTabs = computed(() => [
-  { key: 'all', label: 'همه تیم', count: counts.value.supervise?.all },
-  { key: 'pendingReview', label: 'نیازمند بررسی', count: counts.value.supervise?.pendingReview },
-  { key: 'inProgress', label: 'در حال انجام', count: counts.value.supervise?.inProgress },
-  { key: 'overdue', label: 'تأخیرها', count: counts.value.supervise?.overdue },
-  { key: 'completed', label: 'تکمیل‌شده', count: counts.value.supervise?.completed },
-])
+const superviseSubTabs = computed(() => {
+  const buckets = isSuperviseView.value ? filteredSuperviseBuckets.value : bucketSuperviseTasks(allSuperviseTasks.value)
+  return [
+    { key: 'all', label: 'همه تیم', count: buckets.all.length },
+    { key: 'pendingReview', label: 'نیازمند بررسی', count: buckets.pendingReview.length },
+    { key: 'inProgress', label: 'در حال انجام', count: buckets.inProgress.length },
+    { key: 'overdue', label: 'تأخیرها', count: buckets.overdue.length },
+    { key: 'completed', label: 'تکمیل‌شده', count: buckets.completed.length, hideBadge: true },
+  ]
+})
 
 const mentionSubTabs = computed(() => [
   { key: 'unread', label: 'خوانده‌نشده', count: counts.value.mentions || state.tasking.stats?.unreadMentions },
-  { key: 'all', label: 'همه منشن‌ها', count: counts.value.mentionsAll || counts.value.mentions },
+  { key: 'all', label: 'همه منشن‌ها', count: counts.value.mentionsAll || counts.value.mentions, hideBadge: true },
 ])
 
 const currentSubTabs = computed(() => {
@@ -282,19 +513,16 @@ const superviseEmployeeOptions = computed(() => {
 
 const currentTasks = computed(() => {
   if (mainTab.value === 'mine' && subTab.value === 'upcoming') return upcomingPool.value
+  if (mainTab.value === 'supervise') {
+    return filteredSuperviseBuckets.value[subTab.value] || filteredSuperviseBuckets.value.all || []
+  }
   const source =
     mainTab.value === 'assignments'
       ? state.tasking.assignments
-      : mainTab.value === 'supervise'
-        ? state.tasking.supervise
-        : mainTab.value === 'mentions'
-          ? state.tasking.mentions
-          : state.tasking.mine
+      : mainTab.value === 'mentions'
+        ? state.tasking.mentions
+        : state.tasking.mine
   let rows = source?.[subTab.value] || []
-  if (mainTab.value === 'supervise' && superviseOwnerId.value) {
-    const ownerId = Number(superviseOwnerId.value)
-    rows = rows.filter((item) => Number(item?.assignee?.id || item?.owner?.id || 0) === ownerId)
-  }
   const q = query.value.trim().toLowerCase()
   if (!q) return rows
   return rows.filter((item) =>
@@ -328,18 +556,22 @@ function tabBadge(value) {
   return n > 0 ? n.toLocaleString('fa-IR') : ''
 }
 
+function shouldShowSubTabBadge(item) {
+  if (item?.hideBadge) return false
+  return Boolean(tabBadge(item?.count))
+}
+
 const mainTabBadges = computed(() => {
   const counts = state.tasking.counts || {}
   const stats = state.tasking.stats || {}
+  const superviseCount = isSuperviseView.value
+    ? filteredSuperviseBuckets.value.all.length
+    : (counts.supervise?.all ?? stats.superviseCount)
   return {
     mine: tabBadge(counts.mine?.all ?? stats.mineCount),
     assignments: tabBadge(counts.assignments?.all ?? stats.assignmentCount),
-    supervise: tabBadge(counts.supervise?.all ?? stats.superviseCount),
-    mentions: tabBadge(
-      counts.mentionsAll
-      || counts.mentions
-      || stats.unreadMentions,
-    ),
+    supervise: tabBadge(superviseCount),
+    mentions: tabBadge(counts.mentions || stats.unreadMentions),
   }
 })
 
@@ -364,6 +596,13 @@ function taskTimerMinutes(task) {
 }
 
 async function shiftDate(delta) {
+  if (isSuperviseView.value) {
+    const baseIso = jalaliToIso(superviseDateJalali.value) || state.tasking.date
+    const base = baseIso ? new Date(`${baseIso}T12:00:00`) : new Date()
+    base.setDate(base.getDate() + delta)
+    superviseDateJalali.value = isoToJalali(base.toISOString().slice(0, 10)) || formatJalali(getTodayJalali())
+    return
+  }
   const base = state.tasking.date ? new Date(`${state.tasking.date}T12:00:00`) : new Date()
   base.setDate(base.getDate() + delta)
   const iso = base.toISOString().slice(0, 10)
@@ -372,8 +611,18 @@ async function shiftDate(delta) {
 }
 
 async function goToday() {
+  if (isSuperviseView.value) {
+    superviseDateJalali.value = formatJalali(getTodayJalali())
+    return
+  }
   state.tasking.date = ''
   await loadTaskingDashboard(true)
+}
+
+async function resetSuperviseFilters() {
+  superviseOwnerId.value = ''
+  superviseDateJalali.value = formatJalali(getTodayJalali())
+  await reloadSuperviseDashboard()
 }
 
 async function openTask(task) {
@@ -397,7 +646,7 @@ function quickStart(task, stopOther = false) {
   <section class="page-shell enterprise-page tasking-page">
     <PageHeader
       title="تسکینگ"
-      description="برنامه روزانه، زمان اجرا و وضعیت کارهای شما"
+      :description="isSuperviseView ? 'نظارت بر کار تیم با فیلتر کارمند و تاریخ' : 'برنامه روزانه، زمان اجرا و وضعیت کارهای شما'"
     >
       <template #actions>
         <div class="tasking-header-actions">
@@ -410,6 +659,7 @@ function quickStart(task, stopOther = false) {
               &gt;
             </button>
             <strong>{{ displayDate }}</strong>
+            <span v-if="isSuperviseView" class="supervise-filter-pill">{{ superviseFilterLabel }}</span>
           </div>
           <button class="action-btn tone-primary" type="button" @click="openTaskComposer">
             <IconlyIcon name="plus" decorative />
@@ -419,7 +669,7 @@ function quickStart(task, stopOther = false) {
       </template>
     </PageHeader>
 
-    <section v-if="state.tasking.activeTimer" class="active-timer-banner">
+    <section v-if="state.tasking.activeTimer && !isSuperviseView" class="active-timer-banner">
       <IconlyIcon name="timer" decorative />
       <div>
         <strong>{{ state.tasking.activeTimer.taskTitle }}</strong>
@@ -439,9 +689,29 @@ function quickStart(task, stopOther = false) {
           </div>
         </div>
         <div class="capacity-copy">
-          <p class="capacity-eyebrow">ظرفیت امروز</p>
-          <h3>{{ capacity.bandLabel || 'بدون برنامه' }}</h3>
-          <p class="capacity-lede">درصد و نوار پیشرفت فقط از مجموع تایمرهای امروز نسبت به برنامهٔ روز ساخته می‌شود.</p>
+          <p class="capacity-eyebrow">
+            <span>{{ isSuperviseView ? 'ظرفیت نظارت' : 'ظرفیت امروز' }}</span>
+            <span v-if="isSuperviseView" class="supervise-filter-pill is-inline">{{ superviseFilterLabel }}</span>
+          </p>
+          <h3>
+            <template v-if="isSuperviseView && selectedSuperviseUser">
+              {{ selectedSuperviseUser.name }}
+            </template>
+            <template v-else-if="isSuperviseView">
+              {{ capacity.bandLabel || 'نمای کلی تیم' }}
+            </template>
+            <template v-else>
+              {{ capacity.bandLabel || 'بدون برنامه' }}
+            </template>
+          </h3>
+          <p class="capacity-lede">
+            <template v-if="isSuperviseView">
+              نمایش داینامیک اطلاعات بر اساس کارمند و تاریخ انتخاب‌شده در تب نظارت.
+            </template>
+            <template v-else>
+              درصد و نوار پیشرفت فقط از مجموع تایمرهای امروز نسبت به برنامهٔ روز ساخته می‌شود.
+            </template>
+          </p>
           <div class="capacity-bars">
             <div class="capacity-bar-row">
               <div class="capacity-bar-meta">
@@ -503,32 +773,46 @@ function quickStart(task, stopOther = false) {
       <div class="tasking-toolbar">
         <div class="chip-row tab-strip main-tab-strip">
           <button type="button" :class="['chip-btn', mainTab === 'mine' && 'is-active']" @click="mainTab = 'mine'">
-            <span>کارهای من</span>
-            <span v-if="mainTabBadges.mine" class="tasking-tab-badge">{{ mainTabBadges.mine }}</span>
+            <span class="chip-btn-label">کارهای من</span>
+            <span v-if="mainTabBadges.mine" class="tasking-tab-badge is-main">{{ mainTabBadges.mine }}</span>
           </button>
           <button type="button" :class="['chip-btn', mainTab === 'assignments' && 'is-active']" @click="mainTab = 'assignments'">
-            <span>ارجاع‌ها</span>
-            <span v-if="mainTabBadges.assignments" class="tasking-tab-badge">{{ mainTabBadges.assignments }}</span>
+            <span class="chip-btn-label">ارجاع‌ها</span>
+            <span v-if="mainTabBadges.assignments" class="tasking-tab-badge is-main">{{ mainTabBadges.assignments }}</span>
           </button>
           <button type="button" :class="['chip-btn', mainTab === 'supervise' && 'is-active']" @click="mainTab = 'supervise'">
-            <span>نظارت</span>
-            <span v-if="mainTabBadges.supervise" class="tasking-tab-badge">{{ mainTabBadges.supervise }}</span>
+            <span class="chip-btn-label">نظارت</span>
+            <span v-if="mainTabBadges.supervise" class="tasking-tab-badge is-main">{{ mainTabBadges.supervise }}</span>
           </button>
           <button type="button" :class="['chip-btn', mainTab === 'mentions' && 'is-active']" @click="mainTab = 'mentions'">
-            <span>منشن</span>
-            <span v-if="mainTabBadges.mentions" class="tasking-tab-badge">{{ mainTabBadges.mentions }}</span>
+            <span class="chip-btn-label">منشن</span>
+            <span v-if="mainTabBadges.mentions" class="tasking-tab-badge is-main">{{ mainTabBadges.mentions }}</span>
           </button>
         </div>
         <div class="tasking-filter-row">
-          <label v-if="mainTab === 'supervise'" class="field-shell supervise-owner-filter">
-            <span>کارمند</span>
-            <select v-model="superviseOwnerId">
-              <option value="">همه کارمندان</option>
-              <option v-for="person in superviseEmployeeOptions" :key="person.id" :value="String(person.id)">
-                {{ person.name }}
-              </option>
-            </select>
-          </label>
+          <template v-if="mainTab === 'supervise'">
+            <label class="field-shell supervise-owner-filter">
+              <span>کارمند</span>
+              <select v-model="superviseOwnerId">
+                <option value="">همه کارمندان</option>
+                <option v-for="person in superviseEmployeeOptions" :key="person.id" :value="String(person.id)">
+                  {{ person.name }}
+                </option>
+              </select>
+            </label>
+            <label class="field-shell supervise-date-filter">
+              <span>تاریخ</span>
+              <ShamsiDatePicker
+                v-model="superviseDateJalali"
+                model-type="jalali"
+                placeholder="انتخاب تاریخ"
+              />
+            </label>
+            <button class="action-btn tone-soft supervise-reset-btn" type="button" @click="resetSuperviseFilters">
+              <IconlyIcon name="refresh" decorative />
+              <span>پاک‌سازی فیلتر</span>
+            </button>
+          </template>
           <label class="search-shell compact-search">
             <IconlyIcon name="search" decorative />
             <input v-model="query" type="search" placeholder="جستجوی عنوان، کد یا مسئول" />
@@ -544,8 +828,8 @@ function quickStart(task, stopOther = false) {
           :class="['chip-btn', subTab === item.key && 'is-active']"
           @click="subTab = item.key"
         >
-          {{ item.label }}
-          <span v-if="tabBadge(item.count)" class="tasking-tab-badge is-sub">{{ tabBadge(item.count) }}</span>
+          <span class="chip-btn-label">{{ item.label }}</span>
+          <span v-if="shouldShowSubTabBadge(item)" class="tasking-tab-badge is-sub">{{ tabBadge(item.count) }}</span>
         </button>
       </div>
 
@@ -555,6 +839,7 @@ function quickStart(task, stopOther = false) {
         <strong>موردی برای نمایش نیست</strong>
         <p v-if="mainTab === 'mine' && subTab === 'upcoming'">هنوز تسکی برای پیش‌رو ندارید.</p>
         <p v-else-if="mainTab === 'assignments'">ارجاع جدیدی برای نمایش نیست.</p>
+        <p v-else-if="mainTab === 'supervise'">با فیلتر کارمند یا تاریخ، موردی یافت نشد.</p>
         <p v-else>در این فیلتر تسکی وجود ندارد.</p>
         <button v-if="mainTab === 'mine'" class="action-btn tone-primary" type="button" @click="openTaskComposer">افزودن تسک</button>
       </div>
@@ -590,6 +875,7 @@ function quickStart(task, stopOther = false) {
                   {{ isCompletedTask(task) ? 'پایان تایمر' : 'تایمر' }} {{ minutesLabel(taskTimerMinutes(task)) }}
                 </span>
                 <span v-if="task.todayPlannedMinutes && !isCompletedTask(task)" class="task-time-chip is-today">امروز {{ minutesLabel(task.todayPlannedMinutes) }}</span>
+                <span v-if="task.approvedAt" class="task-time-chip is-approved">تأیید {{ shamsiDateLabel(String(task.approvedAt).slice(0, 10)) }}</span>
                 <span v-if="task.assignee?.name">{{ task.assignee.name }}</span>
               </div>
               <div class="task-card-footer" @click.stop>
@@ -638,6 +924,7 @@ function quickStart(task, stopOther = false) {
             </span>
             <span v-if="task.todayPlannedMinutes && !isCompletedTask(task)" class="task-time-chip is-today">امروز {{ minutesLabel(task.todayPlannedMinutes) }}</span>
             <span v-if="task.spillover" class="spill-badge">ادامه فردا</span>
+            <span v-if="task.approvedAt" class="task-time-chip is-approved">تأیید {{ shamsiDateLabel(String(task.approvedAt).slice(0, 10)) }}</span>
             <span v-if="task.dueAt">ددلاین دارد</span>
           </div>
 
@@ -680,6 +967,22 @@ function quickStart(task, stopOther = false) {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+.supervise-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(52, 144, 139, 0.12);
+  color: #1f5c59;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.supervise-filter-pill.is-inline {
+  margin-inline-start: 8px;
 }
 .date-nav-btn {
   width: 38px;
@@ -772,6 +1075,10 @@ function quickStart(task, stopOther = false) {
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .capacity-copy h3 {
   margin: 0;
@@ -931,11 +1238,13 @@ function quickStart(task, stopOther = false) {
   align-items: end;
   margin-inline-start: auto;
 }
-.supervise-owner-filter {
+.supervise-owner-filter,
+.supervise-date-filter {
   min-width: 190px;
   margin: 0;
 }
-.supervise-owner-filter span {
+.supervise-owner-filter span,
+.supervise-date-filter span {
   display: block;
   margin-bottom: 4px;
   font-size: 12px;
@@ -946,12 +1255,19 @@ function quickStart(task, stopOther = false) {
   min-height: 42px;
   width: 100%;
 }
+.supervise-reset-btn {
+  min-height: 42px;
+  align-self: end;
+}
 .chip-row, .tab-strip, .subtab-strip {
   display: flex;
   gap: 8px;
   flex-wrap: nowrap;
   overflow-x: auto;
   padding-bottom: 4px;
+}
+.subtab-strip {
+  margin-top: 4px;
 }
 .chip-btn {
   border: 1px solid rgba(52, 144, 139, 0.16);
@@ -963,8 +1279,16 @@ function quickStart(task, stopOther = false) {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 8px;
   position: relative;
+  min-width: 0;
+  isolation: isolate;
+}
+.chip-btn-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .chip-btn.is-active {
   background: #dcefec;
@@ -984,12 +1308,27 @@ function quickStart(task, stopOther = false) {
   font-weight: 800;
   line-height: 1;
   flex: 0 0 auto;
+  box-shadow: 0 0 0 2px #f7fbfa;
+}
+.chip-btn.is-active .tasking-tab-badge {
+  box-shadow: 0 0 0 2px #dcefec;
+}
+.tasking-tab-badge.is-main {
+  position: absolute;
+  top: 4px;
+  inset-inline-end: 4px;
+  z-index: 2;
+  pointer-events: none;
+}
+.main-tab-strip .chip-btn {
+  padding-inline: 12px 30px;
 }
 .tasking-tab-badge.is-sub {
   background: #1f7a72;
   min-width: 16px;
   height: 16px;
   font-size: 10px;
+  position: static;
 }
 .nav-link-badge.is-mini {
   min-width: 15px;
@@ -1065,6 +1404,10 @@ function quickStart(task, stopOther = false) {
 .task-time-chip.is-today {
   background: rgba(2, 132, 199, 0.1);
   color: #0369a1;
+}
+.task-time-chip.is-approved {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
 }
 .task-card-footer { justify-content: space-between; }
 .priority-dot {
@@ -1149,30 +1492,72 @@ function quickStart(task, stopOther = false) {
   .main-tab-strip.tab-strip {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: 12px;
     overflow: visible;
+    padding: 6px 2px 4px;
   }
   .main-tab-strip .chip-btn {
-    justify-content: space-between;
+    justify-content: center;
     width: 100%;
-    min-height: 44px;
-    padding: 10px 12px;
+    min-height: 48px;
+    padding: 10px 28px 10px 10px;
     border-radius: 14px;
-    overflow: visible;
+    overflow: hidden;
   }
-  .main-tab-strip .tasking-tab-badge {
-    min-width: 20px;
-    height: 20px;
-    font-size: 12px;
+  .main-tab-strip .chip-btn-label {
+    white-space: normal;
+    text-align: center;
+    line-height: 1.35;
+    font-size: 13px;
+    padding-inline: 2px;
+  }
+  .main-tab-strip .tasking-tab-badge.is-main {
+    top: 5px;
+    inset-inline-end: 5px;
+    min-width: 17px;
+    height: 17px;
+    font-size: 10px;
+    padding: 0 4px;
   }
   .tab-strip:not(.main-tab-strip) {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: 10px;
+    overflow: visible;
+    padding-bottom: 2px;
   }
   .tab-strip:not(.main-tab-strip) .chip-btn {
-    justify-content: center;
+    justify-content: space-between;
+    align-items: center;
     width: 100%;
+    min-height: 44px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    gap: 8px;
+    overflow: hidden;
+  }
+  .tab-strip:not(.main-tab-strip) .chip-btn-label {
+    white-space: nowrap;
+    text-align: start;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .tab-strip:not(.main-tab-strip) .tasking-tab-badge.is-sub {
+    flex: 0 0 auto;
+    min-width: 15px;
+    height: 15px;
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 420px) {
+  .tab-strip:not(.main-tab-strip) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tab-strip:not(.main-tab-strip) .chip-btn {
+    min-height: 40px;
   }
 }
 </style>

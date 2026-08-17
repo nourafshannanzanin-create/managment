@@ -205,3 +205,27 @@ export const notifyInboxGrowth = ({ title, message, isHq = false, tag = 'workflo
     })
   }
 }
+
+export const notifyNewExpenses = (expenses = []) => {
+  const items = (Array.isArray(expenses) ? expenses : []).filter((item) => item && item.id)
+  if (!items.length) return
+
+  playOrgAlertSound()
+
+  const first = items[0]
+  const count = items.length
+  const title = count === 1 ? 'هزینه جدید' : `${count.toLocaleString('fa-IR')} هزینه جدید`
+  const message = count === 1
+    ? `${first.title || first.description || 'هزینه جدید'} — ${first.owner || ''}`.trim()
+    : `آخرین مورد: ${first.title || first.description || 'هزینه جدید'} — ${first.owner || ''}`.trim()
+
+  notifyInfo(message, { title, duration: 7000, route: 'expenses' })
+
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    showBrowserNotification({
+      title: `کارنومند | ${title}`,
+      body: message,
+      tag: `workflow-expense-${first.id}`,
+    })
+  }
+}

@@ -443,6 +443,14 @@ async function sendComment() {
               <small>ددلاین</small>
               <strong>{{ formatDate(task.dueAt) }}</strong>
             </article>
+            <article v-if="task.completedAt">
+              <small>تاریخ تکمیل</small>
+              <strong>{{ formatDateTime(task.completedAt) }}</strong>
+            </article>
+            <article v-if="task.approvedAt">
+              <small>تاریخ تأیید</small>
+              <strong>{{ formatDateTime(task.approvedAt) }}</strong>
+            </article>
           </div>
           <div class="field-shell">
             <span>توضیحات</span>

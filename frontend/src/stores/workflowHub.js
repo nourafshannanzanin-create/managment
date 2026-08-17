@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { AppError, appErrorFromResponse, createValidationError, hasFieldError, normalizeError } from '../utils/errors'
 import { formatJalali, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
-import { notifyNewChatMessages, notifyNewSupportTickets, notifyInboxGrowth, playInboxAlertSound, playTicketAlertSound } from '../utils/ticketAlert'
+import { notifyNewChatMessages, notifyNewExpenses, notifyNewSupportTickets, notifyInboxGrowth, playInboxAlertSound, playTicketAlertSound } from '../utils/ticketAlert'
 import { notifyInfo, notifySuccess, notifyWarning } from '../utils/notify'
 import { repairPayload } from '../utils/stitch'
 import { cleanDisplayText } from '../utils/text'
@@ -322,6 +322,7 @@ function createTaskingState() {
     },
     departments: [],
     assigneeOptions: [],
+    superviseFocus: null,
     selectedTask: null,
     detailLoading: false,
     schedulePreview: null,
@@ -357,6 +358,7 @@ const state = reactive({
     inFlight: false,
     lastSnapshot: null,
     tick: 0,
+    knownExpenseInboxIds: [],
   },
   appLoading: false,
   lastError: '',
@@ -870,6 +872,8 @@ function clearSessionState() {
   state.authToken = ''
   state.bootstrapLoaded = false
   state.sessionReady = true
+  state.liveSync.initialized = false
+  state.liveSync.knownExpenseInboxIds = []
   clearLastError()
   resetCurrentUser()
   replaceItems(state.stats, [])
@@ -1364,6 +1368,16 @@ function scopedApiPath(path) {
   return `${path}${separator}organizationId=${encodeURIComponent(state.hq.selectedOrganizationId)}`
 }
 
+function trackExpenseInboxNotifications(previousIds = []) {
+  const current = (state.expenses || []).filter((item) => item.canApprove)
+  const known = new Set((previousIds.length ? previousIds : state.liveSync.knownExpenseInboxIds || []).map(String))
+  const fresh = current.filter((item) => !known.has(String(item.id)))
+  state.liveSync.knownExpenseInboxIds = current.map((item) => String(item.id))
+  if (fresh.length && state.liveSync.initialized) {
+    notifyNewExpenses(fresh)
+  }
+}
+
 async function loadBootstrapData(force = false, options = {}) {
   if (!state.authToken) {
     state.sessionReady = true
@@ -1372,6 +1386,7 @@ async function loadBootstrapData(force = false, options = {}) {
   if (state.bootstrapLoaded && !force) return
 
   const soft = Boolean(options.soft)
+  const previousExpenseInboxIds = soft ? [...(state.liveSync.knownExpenseInboxIds || [])] : []
   if (!soft) {
     state.appLoading = true
     clearLastError()
@@ -1383,6 +1398,13 @@ async function loadBootstrapData(force = false, options = {}) {
     const response = await authorizedFetch(`/bootstrap${organizationQuery}`)
     const payload = repairPayload(await response.json())
     hydrateBootstrap(payload)
+    if (soft) {
+      trackExpenseInboxNotifications(previousExpenseInboxIds)
+    } else {
+      state.liveSync.knownExpenseInboxIds = (state.expenses || [])
+        .filter((item) => item.canApprove)
+        .map((item) => String(item.id))
+    }
     state.bootstrapLoaded = true
     void loadChatUnreadConversations()
   } catch (error) {
@@ -3026,7 +3048,12 @@ async function removeUserEntrustedItem(userId, itemId) {
     const previousMentions = Number(state.tasking.stats?.unreadMentions || 0)
     const hadLoaded = Boolean(state.tasking.loaded)
     try {
-      const query = dateIso ? `?date=${encodeURIComponent(dateIso)}` : (state.tasking.date ? `?date=${encodeURIComponent(state.tasking.date)}` : '')
+      const params = new URLSearchParams()
+      const resolvedDate = dateIso || state.tasking.date || ''
+      if (resolvedDate) params.set('date', resolvedDate)
+      const ownerId = String(options.superviseOwnerId || '').trim()
+      if (ownerId) params.set('ownerId', ownerId)
+      const query = params.toString() ? `?${params.toString()}` : ''
       const response = await authorizedFetch(`/tasking/dashboard${query}`)
       const payload = repairPayload(await response.json())
       state.tasking.loaded = true
@@ -3043,6 +3070,7 @@ async function removeUserEntrustedItem(userId, itemId) {
       state.tasking.mentions = payload.mentions || createTaskingState().mentions
       state.tasking.departments = payload.departments || []
       state.tasking.assigneeOptions = payload.assigneeOptions || []
+      state.tasking.superviseFocus = payload.superviseFocus || null
       if (hadLoaded && soft && !options.quiet) {
         const badgeDelta = Number(state.tasking.badgeCount) - previousBadge
         const mentionDelta = Number(state.tasking.stats.unreadMentions || 0) - previousMentions
