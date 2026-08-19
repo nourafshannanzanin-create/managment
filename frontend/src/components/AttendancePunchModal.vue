@@ -7,7 +7,7 @@ import LocationMapPicker from './LocationMapPicker.vue'
 import UserAvatar from './UserAvatar.vue'
 import { haversineDistanceMeters, readDeviceLocation } from '../lib/geolocation'
 import { useWorkflowHub } from '../stores/workflowHub'
-import { getJalaliMonthLabel, getTodayJalali, shiftJalaliMonth } from '../utils/jalali'
+import { formatTehranDateTime, getJalaliMonthLabel, getTodayJalali, shiftJalaliMonth } from '../utils/jalali'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -43,10 +43,7 @@ const statusLabel = (type) => (type === 'in' ? 'حاضر' : 'خارج از شی�
 const eventTone = (type) => (type === 'in' ? 'is-success' : 'is-warning')
 const dateTime = (value) => {
   if (!value) return '-'
-  return new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
+  return formatTehranDateTime(value)
 }
 
 const publicUser = computed(() => publicPayload.value.user || {})

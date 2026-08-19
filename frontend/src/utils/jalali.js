@@ -144,16 +144,119 @@ export function jalaliToIso(value) {
   return formatGregorianIso(jalaliToGregorian(parsed.jy, parsed.jm, parsed.jd))
 }
 
+export function calendarPartsFromDate(value = new Date(), timeZone = 'Asia/Tehran') {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  const formatted = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+  const [gy, gm, gd] = formatted.split('-').map(Number)
+  if (!gy || !gm || !gd) return null
+  return { gy, gm, gd }
+}
+
+export function getTodayIso(timeZone = 'Asia/Tehran') {
+  const parts = calendarPartsFromDate(new Date(), timeZone)
+  return parts ? formatGregorianIso(parts) : ''
+}
+
+export function shiftIsoDate(value, deltaDays = 0) {
+  const text = String(value || '').slice(0, 10)
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return getTodayIso()
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + Number(deltaDays || 0)))
+  return formatGregorianIso({
+    gy: date.getUTCFullYear(),
+    gm: date.getUTCMonth() + 1,
+    gd: date.getUTCDate(),
+  })
+}
+
+function toFaDigits(value) {
+  return String(value ?? '').replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit] || digit)
+}
+
+export function formatJalaliLong({ jy, jm, jd }) {
+  return `${toFaDigits(jd)} ${PERSIAN_MONTHS[jm - 1]} ${toFaDigits(jy)}`
+}
+
+export function jalaliFromJsDate(value = new Date()) {
+  const parts = calendarPartsFromDate(value)
+  if (!parts) return getTodayJalali()
+  return gregorianToJalali(parts.gy, parts.gm, parts.gd)
+}
+
+function tehranDateTimeParts(value, timeZone = 'Asia/Tehran') {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  const formatted = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+  const read = (type) => Number(formatted.find((part) => part.type === type)?.value)
+  const gy = read('year')
+  const gm = read('month')
+  const gd = read('day')
+  if (!gy || !gm || !gd) return null
+  return { gy, gm, gd, hour: read('hour') || 0, minute: read('minute') || 0 }
+}
+
+export function formatTehranDate(value) {
+  const text = normalizeDigits(value).trim()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return isoToJalali(text) || '-'
+  const parts = tehranDateTimeParts(value)
+  if (!parts) return '-'
+  return formatJalaliLong(gregorianToJalali(parts.gy, parts.gm, parts.gd))
+}
+
+export function formatTehranTime(value) {
+  const text = normalizeDigits(value).trim()
+  if (/^\d{1,2}:\d{2}/.test(text) && text.length <= 8) return toFaDigits(text.slice(0, 5))
+  const parts = tehranDateTimeParts(value)
+  if (!parts) return '-'
+  return toFaDigits(`${pad(parts.hour)}:${pad(parts.minute)}`)
+}
+
+export function formatTehranDateTime(value) {
+  const parts = tehranDateTimeParts(value)
+  if (!parts) return '-'
+  return `${formatJalaliLong(gregorianToJalali(parts.gy, parts.gm, parts.gd))} ${toFaDigits(`${pad(parts.hour)}:${pad(parts.minute)}`)}`
+}
+
+export function getTehranClock() {
+  const parts = tehranDateTimeParts(new Date())
+  if (!parts) return '09:00'
+  return `${pad(parts.hour)}:${pad(parts.minute)}`
+}
+
 export function isoToJalali(value) {
   const normalized = normalizeDigits(value).trim()
-  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})/)
   if (!match) return ''
+  const hasTime = normalized.length > 10 && (normalized[10] === 'T' || normalized[10] === ' ')
+  if (hasTime) {
+    const instant = normalized[10] === ' ' ? `${normalized.slice(0, 10)}T${normalized.slice(11)}` : normalized
+    const parts = calendarPartsFromDate(instant)
+    if (parts) return formatJalali(gregorianToJalali(parts.gy, parts.gm, parts.gd))
+  }
   return formatJalali(gregorianToJalali(Number(match[1]), Number(match[2]), Number(match[3])))
 }
 
 export function getTodayJalali() {
-  const now = new Date()
-  return gregorianToJalali(now.getFullYear(), now.getMonth() + 1, now.getDate())
+  const parts = calendarPartsFromDate(new Date())
+  if (!parts) {
+    const now = new Date()
+    return gregorianToJalali(now.getFullYear(), now.getMonth() + 1, now.getDate())
+  }
+  return gregorianToJalali(parts.gy, parts.gm, parts.gd)
 }
 
 export function getJalaliMonthLength(jy, jm) {

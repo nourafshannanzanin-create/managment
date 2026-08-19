@@ -4,11 +4,10 @@ import { computed, reactive, ref, watch } from 'vue'
 import BaseModal from './BaseModal.vue'
 import DurationPicker from './DurationPicker.vue'
 import ErrorNotice from './ErrorNotice.vue'
-import ShamsiDatePicker from './ShamsiDatePicker.vue'
 import UserAvatar from './UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatDurationFa } from '../utils/duration'
-import { isoToJalali, jalaliToIso } from '../utils/jalali'
+import { formatTehranDate, formatTehranDateTime } from '../utils/jalali'
 import { toneForStatus } from '../utils/status'
 
 const props = defineProps({
@@ -54,7 +53,6 @@ const editForm = reactive({
   category: '',
   departmentId: '',
   estimatedMinutes: 60,
-  dueDate: '',
 })
 
 watch(
@@ -127,25 +125,12 @@ function minutesLabel(value) {
 
 function formatDate(value) {
   if (!value) return '-'
-  try {
-    return new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
-      dateStyle: 'medium',
-    }).format(new Date(value))
-  } catch {
-    return value
-  }
+  return formatTehranDate(value)
 }
 
 function formatDateTime(value) {
   if (!value) return '-'
-  try {
-    return new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(value))
-  } catch {
-    return value
-  }
+  return formatTehranDateTime(value)
 }
 
 function beginEdit() {
@@ -156,7 +141,6 @@ function beginEdit() {
   editForm.category = task.value.category || ''
   editForm.departmentId = String(task.value.departmentId || '')
   editForm.estimatedMinutes = Number(task.value.estimatedMinutes || 60)
-  editForm.dueDate = task.value.dueAt ? isoToJalali(String(task.value.dueAt).slice(0, 10)) : ''
   editing.value = true
 }
 
@@ -170,7 +154,6 @@ async function saveEdit() {
       category: editForm.category,
       departmentId: editForm.departmentId || null,
       estimatedMinutes: Number(editForm.estimatedMinutes || 0),
-      dueAt: editForm.dueDate ? jalaliToIso(editForm.dueDate) : '',
       reason: 'ویرایش مشخصات تسک',
     })
     editing.value = false
@@ -393,10 +376,6 @@ async function sendComment() {
               <span>تخمین</span>
               <DurationPicker v-model="editForm.estimatedMinutes" />
             </div>
-            <div class="field-shell">
-              <span>ددلاین (روز)</span>
-              <ShamsiDatePicker v-model="editForm.dueDate" model-type="jalali" picker-only placeholder="انتخاب تاریخ" />
-            </div>
             <label class="field-shell">
               <span>دسته‌بندی</span>
               <input v-model="editForm.category" type="text" />
@@ -438,10 +417,6 @@ async function sendComment() {
             <article>
               <small>باقی‌مانده</small>
               <strong>{{ minutesLabel(task.remainingMinutes) }}</strong>
-            </article>
-            <article>
-              <small>ددلاین</small>
-              <strong>{{ formatDate(task.dueAt) }}</strong>
             </article>
             <article v-if="task.completedAt">
               <small>تاریخ تکمیل</small>

@@ -37,6 +37,7 @@ const locationDraft = ref({
 const { clearOwnAvatar, loadSettings, saveSettings, setLastError, state, uploadOwnAvatar, loadTaskingSettings, saveTaskingSettings } = useWorkflowHub()
 const taskingMessage = ref('')
 const taskingDraft = ref(null)
+const canEditTimes = computed(() => Boolean(state.settings.canEdit || state.settings.canEditWorkTimes || state.currentUser.isManager))
 
 const selectedSection = computed(() => state.settings.sections.find((item) => item.key === selectedSectionKey.value) || null)
 const hasOwnProfilePhoto = computed(() => Boolean(state.currentUser.avatarUrl))
@@ -250,7 +251,7 @@ async function clearAttendanceLocation() {
 }
 
 async function persistWorkSchedule() {
-  if (!state.settings.canEdit || saving.value) return
+  if (!canEditTimes.value || saving.value) return
   saving.value = true
   scheduleMessage.value = ''
   try {
@@ -271,7 +272,7 @@ async function persistWorkSchedule() {
 }
 
 async function persistTaskingSettings() {
-  if (!state.settings.canEdit || saving.value || !taskingDraft.value) return
+  if (!canEditTimes.value || saving.value || !taskingDraft.value) return
   saving.value = true
   taskingMessage.value = ''
   try {
@@ -446,11 +447,11 @@ onMounted(async () => {
         <div class="modal-grid two-col">
           <label class="field-shell">
             <span>شروع شیفت</span>
-            <input v-model="state.settings.workSchedule.workDayStart" type="time" :readonly="!state.settings.canEdit" />
+            <input v-model="state.settings.workSchedule.workDayStart" type="time" :readonly="!canEditTimes" />
           </label>
           <label class="field-shell">
             <span>پایان شیفت</span>
-            <input v-model="state.settings.workSchedule.workDayEnd" type="time" :readonly="!state.settings.canEdit" />
+            <input v-model="state.settings.workSchedule.workDayEnd" type="time" :readonly="!canEditTimes" />
           </label>
           <label class="field-shell">
             <span>سهمیه مرخصی ماهانه (ساعت)</span>
@@ -459,13 +460,13 @@ onMounted(async () => {
               type="number"
               min="0"
               max="320"
-              :readonly="!state.settings.canEdit"
+              :readonly="!canEditTimes"
             />
           </label>
         </div>
         <p v-if="scheduleMessage" class="settings-avatar-note">{{ scheduleMessage }}</p>
         <button
-          v-if="state.settings.canEdit"
+          v-if="canEditTimes"
           class="action-btn tone-primary"
           type="button"
           :disabled="saving"
@@ -489,56 +490,56 @@ onMounted(async () => {
         <div class="modal-grid two-col">
           <label class="field-shell">
             <span>فعال بودن تسکینگ</span>
-            <select v-model="taskingDraft.enabled" :disabled="!state.settings.canEdit">
+            <select v-model="taskingDraft.enabled" :disabled="!canEditTimes">
               <option :value="true">فعال</option>
               <option :value="false">غیرفعال</option>
             </select>
           </label>
           <label class="field-shell">
             <span>هدف ظرفیت (%)</span>
-            <input v-model.number="taskingDraft.targetUtilizationPercent" type="number" min="50" max="95" :readonly="!state.settings.canEdit" />
+            <input v-model.number="taskingDraft.targetUtilizationPercent" type="number" min="50" max="95" :readonly="!canEditTimes" />
           </label>
           <label class="field-shell">
             <span>سقف برنامه‌ریزی (%)</span>
-            <input v-model.number="taskingDraft.maxUtilizationPercent" type="number" min="50" max="100" :readonly="!state.settings.canEdit" />
+            <input v-model.number="taskingDraft.maxUtilizationPercent" type="number" min="50" max="100" :readonly="!canEditTimes" />
           </label>
           <label class="field-shell">
             <span>حداقل قطعه زمانی (دقیقه)</span>
-            <input v-model.number="taskingDraft.minimumSegmentMinutes" type="number" min="5" max="120" :readonly="!state.settings.canEdit" />
+            <input v-model.number="taskingDraft.minimumSegmentMinutes" type="number" min="5" max="120" :readonly="!canEditTimes" />
           </label>
           <label class="field-shell">
             <span>ارجاع نیازمند پذیرش</span>
-            <select v-model="taskingDraft.assignmentRequiresAcceptance" :disabled="!state.settings.canEdit">
+            <select v-model="taskingDraft.assignmentRequiresAcceptance" :disabled="!canEditTimes">
               <option :value="true">بله</option>
               <option :value="false">خیر</option>
             </select>
           </label>
           <label class="field-shell">
             <span>پایان کار نیازمند بررسی</span>
-            <select v-model="taskingDraft.completionRequiresReview" :disabled="!state.settings.canEdit">
+            <select v-model="taskingDraft.completionRequiresReview" :disabled="!canEditTimes">
               <option :value="true">بله</option>
               <option :value="false">خیر</option>
             </select>
           </label>
           <label class="field-shell">
             <span>تقسیم تسک بین روزها</span>
-            <select v-model="taskingDraft.allowTaskSplitting" :disabled="!state.settings.canEdit">
+            <select v-model="taskingDraft.allowTaskSplitting" :disabled="!canEditTimes">
               <option :value="true">فعال</option>
               <option :value="false">غیرفعال</option>
             </select>
           </label>
           <label class="field-shell">
             <span>شروع شیفت تسکینگ</span>
-            <input v-model="taskingDraft.workDayStart" type="time" :readonly="!state.settings.canEdit" />
+            <input v-model="taskingDraft.workDayStart" type="time" :readonly="!canEditTimes" />
           </label>
           <label class="field-shell">
             <span>پایان شیفت تسکینگ</span>
-            <input v-model="taskingDraft.workDayEnd" type="time" :readonly="!state.settings.canEdit" />
+            <input v-model="taskingDraft.workDayEnd" type="time" :readonly="!canEditTimes" />
           </label>
         </div>
         <p v-if="taskingMessage" class="settings-avatar-note">{{ taskingMessage }}</p>
         <button
-          v-if="state.settings.canEdit"
+          v-if="canEditTimes"
           class="action-btn tone-primary"
           type="button"
           :disabled="saving"

@@ -521,6 +521,21 @@ class ExpenseApprovalAssignment(TimeStampedModel):
         ]
 
 
+class ExpenseNote(TimeStampedModel):
+    expense = models.ForeignKey(Expense, on_delete=models.CASCADE, related_name="user_notes")
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="expense_notes")
+    parent = models.ForeignKey("self", on_delete=models.CASCADE, blank=True, null=True, related_name="replies")
+    body = models.TextField()
+    edited_at = models.DateTimeField(blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = "expense_notes"
+        indexes = [
+            models.Index(fields=["expense", "created_at"], name="idx_expense_note_date"),
+        ]
+
+
 class Document(models.Model):
     code = models.CharField(max_length=40, unique=True, db_index=True)
     title = models.CharField(max_length=180)

@@ -2,7 +2,7 @@
 import IconlyIcon from '../base/IconlyIcon.vue'
 import ShamsiDatePicker from '../ShamsiDatePicker.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { formatJalali, getTodayJalali, gregorianToJalali, jalaliToIso } from '../../utils/jalali'
+import { formatJalali, formatTehranDateTime, getTodayIso, getTodayJalali, isoToJalali, jalaliToIso, shiftIsoDate } from '../../utils/jalali'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 const TOKEN_KEY = 'workflow-hub-token'
@@ -80,26 +80,19 @@ const kpiCards = computed(() => [
   { label: 'تراکنش', value: fa(summary.value.transactionsCount), hint: 'کیف پول' },
 ])
 
-function jalaliFromDate(date) {
-  return formatJalali(gregorianToJalali(date.getFullYear(), date.getMonth() + 1, date.getDate()))
-}
-
 function applyQuickRange(key) {
   filters.rangeKey = key
-  const today = new Date()
+  const todayIso = getTodayIso()
+  const todayJalali = formatJalali(getTodayJalali())
   if (key === 'all') {
     filters.start = ''
     filters.end = ''
   } else if (key === 'week') {
-    const start = new Date(today)
-    start.setDate(start.getDate() - 6)
-    filters.start = jalaliFromDate(start)
-    filters.end = jalaliFromDate(today)
+    filters.start = isoToJalali(shiftIsoDate(todayIso, -6))
+    filters.end = todayJalali
   } else {
-    const start = new Date(today)
-    start.setDate(start.getDate() - 29)
-    filters.start = jalaliFromDate(start)
-    filters.end = jalaliFromDate(today)
+    filters.start = isoToJalali(shiftIsoDate(todayIso, -29))
+    filters.end = todayJalali
   }
   void loadReports()
 }
@@ -315,7 +308,7 @@ onMounted(() => applyQuickRange('month'))
               <td>{{ money(row.amountRaw ?? row.amount) }}</td>
               <td>{{ money(row.balanceAfter) }}</td>
               <td>{{ row.actorName }}</td>
-              <td>{{ row.transactedAt ? new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(row.transactedAt)) : '-' }}</td>
+              <td>{{ row.transactedAt ? formatTehranDateTime(row.transactedAt) : '-' }}</td>
               <td>{{ row.note || '-' }}</td>
             </tr>
             <tr v-if="!transactionRows.length && !loading"><td colspan="9">تراکنشی یافت نشد.</td></tr>

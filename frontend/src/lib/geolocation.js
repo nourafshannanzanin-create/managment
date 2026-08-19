@@ -63,17 +63,9 @@ export async function readDeviceLocation(options = {}) {
     allowQuickFallback = true,
   } = options
 
-  if (typeof navigator !== 'undefined' && navigator.permissions?.query) {
-    try {
-      const status = await navigator.permissions.query({ name: 'geolocation' })
-      if (status.state === 'denied') {
-        throw mapGeolocationError({ code: 1 })
-      }
-    } catch (error) {
-      // Safari may not support Permissions API for geolocation; ignore query failures.
-      if (error?.code === 1) throw error
-    }
-  }
+  // Always call getCurrentPosition — the browser will re-prompt the user
+  // if permission was previously denied or revoked. Do NOT short-circuit
+  // with a "denied" check; that prevents the re-prompt dialog from appearing.
 
   if (enableHighAccuracy === true || enableHighAccuracy === false) {
     return getCurrentPositionOnce({ enableHighAccuracy, timeout, maximumAge })
@@ -84,7 +76,6 @@ export async function readDeviceLocation(options = {}) {
   }
 
   try {
-    // Fast path that usually triggers the iOS prompt reliably.
     return await getCurrentPositionOnce({
       enableHighAccuracy: false,
       timeout: Math.min(timeout, 12000),

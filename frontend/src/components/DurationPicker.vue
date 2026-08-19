@@ -248,7 +248,7 @@ watch(
   gap: 10px;
   padding: 8px 10px;
   border-radius: 12px;
-  border: 1px solid rgba(52, 144, 139, 0.16);
+  border: 1px solid var(--border, rgba(52, 144, 139, 0.16));
   background: #fff;
   cursor: pointer;
   color: #134e4a;

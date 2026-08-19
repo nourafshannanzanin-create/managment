@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue'
 import BaseModal from './BaseModal.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
+import TimePicker from './TimePicker.vue'
 import UserAvatar from './UserAvatar.vue'
 import { formatFileSize } from '../utils/uploads'
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -180,11 +181,11 @@ watch(
           <template v-if="isLeaveHourly">
             <label class="field-shell">
               <span>از ساعت</span>
-              <input v-model="form.leaveStartTime" type="time" />
+              <TimePicker v-model="form.leaveStartTime" :clearable="false" placeholder="انتخاب ساعت شروع" />
             </label>
             <label class="field-shell">
               <span>تا ساعت</span>
-              <input v-model="form.leaveEndTime" type="time" />
+              <TimePicker v-model="form.leaveEndTime" :clearable="false" placeholder="انتخاب ساعت پایان" />
             </label>
             <div class="field-shell">
               <span>جمع ساعات</span>

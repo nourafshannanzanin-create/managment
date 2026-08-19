@@ -58,6 +58,7 @@ from workflow.models import (
     Expense,
     ExpenseApprovalAssignment,
     ExpenseCategory,
+    ExpenseNote,
     ExpenseStatus,
     FeaturePurchase,
     LeaveRequest,
@@ -86,6 +87,7 @@ from workflow.models import (
     Wallet,
     WalletTransaction,
     Organization,
+    TaskTimeEntry,
 )
 from workflow.security import create_access_token, decode_token, get_password_hash, verify_password
 from workflow.seed import ensure_required_login_users, seed_demo_data
@@ -123,6 +125,7 @@ from workflow.services import (
     serialize_approval,
     serialize_current_user,
     serialize_expense,
+    serialize_expense_note,
     serialize_hq_team_member,
     serialize_request,
     serialize_support_ticket,
@@ -852,6 +855,7 @@ def build_settings_profile_payload(user: User, organization_id: int | None = Non
             for item in visible_department_catalog()
         ],
         "canEdit": can_manage_users(user),
+        "canEditWorkTimes": is_manager(user),
     }
 
 
@@ -901,6 +905,29 @@ def serialize_attendance_event(event: AttendanceEvent) -> dict:
         "eventAt": event.event_at.isoformat(),
         "event_at": event.event_at.isoformat(),
     }
+
+
+def parse_manager_event_at(payload: dict, *, base_date: date | None = None):
+    raw = payload.get("eventAt") or payload.get("event_at") or payload.get("time")
+    if raw in (None, ""):
+        return timezone.now()
+    text = str(raw).strip()
+    parsed = parse_datetime(text)
+    if parsed is None and "T" not in text and " " not in text and ":" in text:
+        bits = text.replace(".", ":").split(":")
+        try:
+            hour = int(bits[0])
+            minute = int(bits[1]) if len(bits) > 1 else 0
+        except (TypeError, ValueError):
+            return None
+        if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+            return None
+        parsed = datetime.combine(base_date or timezone.localdate(), time(hour, minute))
+    if parsed is None:
+        return None
+    if timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
+    return parsed
 
 
 DEFAULT_ATTENDANCE_RADIUS_METERS = 20
@@ -1914,7 +1941,13 @@ def scoped_expenses(request: HttpRequest):
     return (
         Expense.objects.filter(owner_id__in=user_ids)
         .select_related("owner", "department")
-        .prefetch_related("approval_assignments__approver")
+        .prefetch_related(
+            "approval_assignments__approver",
+            Prefetch(
+                "user_notes",
+                queryset=ExpenseNote.objects.filter(deleted_at__isnull=True).select_related("author").order_by("created_at"),
+            ),
+        )
         .order_by("-expense_date", "-created_at")
     )
 
@@ -2155,7 +2188,8 @@ def create_leave_for_request(request_obj: Request, payload: dict, preference: Or
         starts_at = timezone.make_aware(datetime.combine(start_date, work_start))
         ends_at = timezone.make_aware(datetime.combine(end_date, work_end))
         day_count = (end_date - start_date).days + 1
-        scheduled = max(0.0, (datetime.combine(date.today(), work_end) - datetime.combine(date.today(), work_start)).total_seconds() / 3600.0)
+        local_day = timezone.localdate()
+        scheduled = max(0.0, (datetime.combine(local_day, work_end) - datetime.combine(local_day, work_start)).total_seconds() / 3600.0)
         if scheduled <= 0:
             scheduled = 8.0
         hours = Decimal(str(round(day_count * scheduled, 2)))
@@ -2413,7 +2447,7 @@ def wallet_purchase_view(request: HttpRequest):
             remaining_amount = max(total_amount - paid_amount, Decimal("0"))
             annual_amount = normalize_money(config.get("annual_subscription_amount", 0))
             annual_installment_months = int(config.get("annual_subscription_installment_months", 0) or 0)
-            renewal_due_at = date.today() + timedelta(days=365) if remaining_amount <= 0 and annual_amount > 0 else None
+            renewal_due_at = timezone.localdate() + timedelta(days=365) if remaining_amount <= 0 and annual_amount > 0 else None
             purchase, _ = FeaturePurchase.objects.update_or_create(
                 organization=organization,
                 feature_key=key,
@@ -2423,7 +2457,7 @@ def wallet_purchase_view(request: HttpRequest):
                     "total_amount": total_amount,
                     "paid_amount": paid_amount,
                     "remaining_amount": remaining_amount,
-                    "next_installment_due_at": date.today() + timedelta(days=30) if payment_plan == "installment" and remaining_amount > 0 else None,
+                    "next_installment_due_at": timezone.localdate() + timedelta(days=30) if payment_plan == "installment" and remaining_amount > 0 else None,
                     "renewal_due_at": renewal_due_at,
                     "annual_subscription_amount": annual_amount,
                     "annual_subscription_installment_months": annual_installment_months,
@@ -2548,12 +2582,18 @@ def attendance_event_view(request: HttpRequest):
     target_user = attendance_user_queryset(organization).filter(pk=user_id).first()
     if target_user is None:
         return json_error("کاربر پیدا نشد.", status=404)
+    if event_type == AttendanceEvent.EVENT_OUT and TaskTimeEntry.objects.filter(user=target_user, is_active=True).exists():
+        return json_error("ابتدا تایمر تسک فعال را متوقف کنید.", status=422)
+    event_at = parse_manager_event_at(payload)
+    if event_at is None:
+        return json_error("زمان ورود/خروج معتبر نیست.", status=422)
     event = AttendanceEvent.objects.create(
         organization=organization,
         user=target_user,
         event_type=event_type,
         source=AttendanceEvent.SOURCE_MANAGER,
         note=(payload.get("note") or "").strip(),
+        event_at=event_at,
     )
     AuditLog.objects.create(
         actor=request.current_user,
@@ -2565,6 +2605,48 @@ def attendance_event_view(request: HttpRequest):
         icon="badge",
     )
     return json_response({"event": serialize_attendance_event(event), **build_attendance_dashboard_payload(request.current_user)}, status=201)
+
+
+@require_auth
+@methods("PATCH")
+@csrf_exempt
+def attendance_event_detail_view(request: HttpRequest, event_id: int):
+    if not user_can_access_attendance(request.current_user):
+        return json_error("برای استفاده از ماژول ورود و خروج باید این گزینه از کیف پول خریداری و فعال شود.", status=402)
+    if not is_manager(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+    organization = attendance_organization_for_user(request.current_user)
+    event = (
+        AttendanceEvent.objects.select_related("user")
+        .filter(pk=event_id, organization=organization)
+        .first()
+    )
+    if event is None:
+        return json_error("رویداد پیدا نشد.", status=404)
+    payload = parse_json(request)
+    changed = []
+    if "eventAt" in payload or "event_at" in payload or "time" in payload:
+        event_at = parse_manager_event_at(payload, base_date=timezone.localtime(event.event_at).date())
+        if event_at is None:
+            return json_error("زمان ورود/خروج معتبر نیست.", status=422)
+        event.event_at = event_at
+        changed.append("event_at")
+    if "note" in payload:
+        event.note = str(payload.get("note") or "").strip()
+        changed.append("note")
+    if not changed:
+        return json_error("تغییری ارسال نشده است.", status=422)
+    event.save(update_fields=changed)
+    AuditLog.objects.create(
+        actor=request.current_user,
+        actor_name=request.current_user.full_name,
+        action="attendance_event_update",
+        entity_type="attendance",
+        entity_code=str(event.user_id),
+        detail=f"ویرایش زمان {event.user.full_name}",
+        icon="schedule",
+    )
+    return json_response({"event": serialize_attendance_event(event)})
 
 
 @require_auth
@@ -2683,6 +2765,8 @@ def public_attendance_view(request: HttpRequest, token: str):
         event_type = payload.get("eventType") or payload.get("event_type")
         if event_type not in {AttendanceEvent.EVENT_IN, AttendanceEvent.EVENT_OUT}:
             return json_error("نوع رویداد معتبر نیست.", status=422)
+        if event_type == AttendanceEvent.EVENT_OUT and TaskTimeEntry.objects.filter(user=target_user, is_active=True).exists():
+            return json_error("ابتدا تایمر تسک فعال را متوقف کنید.", status=422)
         location_result = validate_public_attendance_location(organization, payload)
         if isinstance(location_result, JsonResponse):
             return location_result
@@ -3766,7 +3850,7 @@ def requests_view(request: HttpRequest):
         request_action = "refer"
     if request_action not in {"approve", "reject", "refer"}:
         return json_error("اقدام درخواست معتبر نیست.", status=422)
-    if deadline and deadline > date.today():
+    if deadline and deadline > timezone.localdate():
         return json_error("انتخاب تاریخ های آینده مجاز نیست.", status=422)
     department = Department.objects.filter(code=department_code).first()
     manager = User.objects.filter(slug=manager_slug).first() if manager_slug else None
@@ -4037,7 +4121,7 @@ def expenses_view(request: HttpRequest):
     if not expense_date_raw:
         return json_error("تاریخ هزینه الزامی است.", status=422)
     expense_date = date.fromisoformat(expense_date_raw)
-    if expense_date > date.today():
+    if expense_date > timezone.localdate():
         return json_error("انتخاب تاریخ آینده مجاز نیست.", status=422)
     if not description:
         return json_error("شرح هزینه الزامی است.", status=422)
@@ -4112,6 +4196,39 @@ def expense_detail_view(request: HttpRequest, expense_code: str):
         return json_error("هزینه پیدا نشد.", status=404)
     expense._current_user = request.current_user
     return json_response(serialize_expense(expense))
+
+
+@require_auth
+@methods("GET", "POST")
+@csrf_exempt
+def expense_notes_view(request: HttpRequest, expense_code: str):
+    if not can_access_expenses(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+    expense = scoped_expenses(request).filter(code=expense_code).first()
+    if expense is None:
+        return json_error("هزینه پیدا نشد.", status=404)
+    if request.method == "GET":
+        notes = [
+            serialize_expense_note(item)
+            for item in expense.user_notes.filter(deleted_at__isnull=True).select_related("author").order_by("created_at")
+        ]
+        return json_response({"notes": notes})
+    payload = parse_json(request)
+    body = (payload.get("body") or "").strip()
+    if not body:
+        return json_error("متن یادداشت الزامی است.", status=422)
+    parent = None
+    parent_id = payload.get("parentId") or payload.get("parent_id")
+    if parent_id:
+        parent = expense.user_notes.filter(pk=parent_id, deleted_at__isnull=True).select_related("author").first()
+    note = ExpenseNote.objects.create(
+        expense=expense,
+        author=request.current_user,
+        parent=parent,
+        body=body,
+    )
+    note = ExpenseNote.objects.select_related("author").get(pk=note.pk)
+    return json_response(serialize_expense_note(note), status=201)
 
 
 @require_auth
@@ -4232,7 +4349,7 @@ def expenses_summary_view(request: HttpRequest):
     if not can_access_expenses(request.current_user):
         return json_error("دسترسی کافی ندارید.", status=403)
     items = list(visible_expenses(request.current_user))
-    today = date.today()
+    today = timezone.localdate()
     week_start = today - timedelta(days=today.weekday())
     return json_response(
         [
@@ -4951,10 +5068,18 @@ def settings_profile_view(request: HttpRequest):
     if request.method == "GET":
         return json_response(build_settings_profile_payload(request.current_user, organization_id))
 
-    if not can_manage_users(request.current_user):
-        return json_error("دسترسی کافی ندارید.", status=403)
-
     payload = parse_json(request)
+    is_work_schedule = (
+        "workSchedule" in payload
+        or "work_schedule" in payload
+        or "workDayStart" in payload
+        or "monthlyLeaveHours" in payload
+    )
+    if is_work_schedule:
+        if not (can_manage_users(request.current_user) or is_manager(request.current_user)):
+            return json_error("دسترسی کافی ندارید.", status=403)
+    elif not can_manage_users(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
     if organization_id is None:
         payload_organization_id = payload.get("organizationId")
         organization_id = int(payload_organization_id) if payload_organization_id and str(payload_organization_id).isdigit() else None

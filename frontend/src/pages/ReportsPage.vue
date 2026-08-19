@@ -6,7 +6,7 @@ import BaseModal from '../components/BaseModal.vue'
 import PageHeader from '../components/PageHeader.vue'
 import SectionHeading from '../components/SectionHeading.vue'
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
-import { formatJalali, getTodayJalali, gregorianToJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
+import { formatJalali, formatTehranDateTime, getTodayIso, getTodayJalali, isoToJalali, jalaliToIso, shiftIsoDate } from '../utils/jalali'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { joinDisplayParts } from '../utils/text'
 import { rowToneForStatus, toneForStatus } from '../utils/status'
@@ -82,33 +82,24 @@ const periods = [
 
 const reportUsers = computed(() => state.users || [])
 
-function jalaliFromDate(date) {
-  return formatJalali(gregorianToJalali(date.getFullYear(), date.getMonth() + 1, date.getDate()))
-}
-
 function periodIsoRange() {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  let start = new Date(today)
-  let end = new Date(today)
-  if (filters.period === 'today') {
-    // keep today
-  } else if (filters.period === 'week') {
-    start.setDate(today.getDate() - ((today.getDay() + 6) % 7))
-  } else if (filters.period === 'month') {
-    start = new Date(today.getFullYear(), today.getMonth(), 1)
-  } else if (filters.period === 'year') {
-    start = new Date(today.getFullYear(), 0, 1)
-  } else if (filters.period === 'custom') {
+  const todayIso = getTodayIso()
+  if (filters.period === 'today') return { start: todayIso, end: todayIso }
+  if (filters.period === 'week') {
+    const [year, month, day] = todayIso.split('-').map(Number)
+    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+    const mondayOffset = (weekday + 6) % 7
+    return { start: shiftIsoDate(todayIso, -mondayOffset), end: todayIso }
+  }
+  if (filters.period === 'month') return { start: `${todayIso.slice(0, 8)}01`, end: todayIso }
+  if (filters.period === 'year') return { start: `${todayIso.slice(0, 4)}-01-01`, end: todayIso }
+  if (filters.period === 'custom') {
     return {
       start: filters.startDate ? jalaliToIso(filters.startDate) : '',
       end: filters.endDate ? jalaliToIso(filters.endDate) : '',
     }
   }
-  return {
-    start: jalaliToIso(jalaliFromDate(start)),
-    end: jalaliToIso(jalaliFromDate(end)),
-  }
+  return { start: todayIso, end: todayIso }
 }
 
 function rowDate(item) {
@@ -121,21 +112,10 @@ function rowDate(item) {
 
 function inPeriod(isoDate) {
   if (!isoDate) return activeTab.value === 'users'
-  const date = new Date(`${isoDate}T00:00:00`)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  if (filters.period === 'today') return date.getTime() === today.getTime()
-  if (filters.period === 'week') {
-    const start = new Date(today)
-    start.setDate(today.getDate() - ((today.getDay() + 6) % 7))
-    return date >= start && date <= today
-  }
-  if (filters.period === 'month') return date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth()
-  if (filters.period === 'year') return date.getFullYear() === today.getFullYear()
-  const startIso = filters.startDate ? jalaliToIso(filters.startDate) : ''
-  const endIso = filters.endDate ? jalaliToIso(filters.endDate) : ''
-  if (startIso && isoDate < startIso) return false
-  if (endIso && isoDate > endIso) return false
+  const day = String(isoDate).slice(0, 10)
+  const { start, end } = periodIsoRange()
+  if (start && day < start) return false
+  if (end && day > end) return false
   return true
 }
 
@@ -149,10 +129,7 @@ function sourceLabel(source) {
 
 function dateTime(value) {
   if (!value) return '-'
-  return new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
+  return formatTehranDateTime(value)
 }
 
 function attendanceStatus(row) {

@@ -30,8 +30,8 @@ const items = computed(() => {
   if (isLicenseLocked.value) {
     return [
       { to: '/dashboard', label: 'خانه', icon: 'home' },
-      { to: '/wallet', label: 'کیف پول', icon: 'account_balance_wallet' },
-      { to: '/support', label: 'پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value },
+      { to: '/wallet', label: 'کیف', icon: 'account_balance_wallet' },
+      { to: '/support', label: 'پشتیبان', icon: 'support_agent', badge: supportUnreadCount.value },
     ]
   }
 
@@ -41,7 +41,7 @@ const items = computed(() => {
       { to: '/dashboard', label: 'خانه', icon: 'home' },
       { to: '/chat', label: 'گفتگو', icon: 'forum', badge: chatUnreadCount.value },
       { to: '/tasking', label: 'تسک', icon: 'task_alt', badge: taskingBadgeCount.value },
-      { to: '/wallet', label: 'کیف پول', icon: 'account_balance_wallet' },
+      { to: '/wallet', label: 'کیف', icon: 'account_balance_wallet' },
     ]
   }
 
@@ -49,8 +49,8 @@ const items = computed(() => {
     { to: '/dashboard', label: 'خانه', icon: 'home' },
     { to: '/tasking', label: 'تسک', icon: 'task_alt', badge: taskingBadgeCount.value },
     { to: '/chat', label: 'گفتگو', icon: 'forum', badge: chatUnreadCount.value },
-    { to: '/requests', label: 'درخواست', icon: 'list_alt', badge: requestInboxCount.value },
-    { to: '/approvals', label: 'تایید', icon: 'verified', badge: approvalInboxCount.value },
+    { to: '/requests', label: 'درخواست‌ها', icon: 'list_alt', badge: requestInboxCount.value },
+    { to: '/approvals', label: 'تأیید', icon: 'verified', badge: approvalInboxCount.value },
   ]
 
   if (state.currentUser.canAccessExpenses !== false && Number(expenseInboxCount.value || 0) > 0) {
@@ -59,7 +59,7 @@ const items = computed(() => {
   }
 
   if (state.currentUser.accessRole === 'admin' && Number(supportUnreadCount.value || 0) > 0) {
-    navItems.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
+    navItems.push({ to: '/support', label: 'پشتیبان', icon: 'support_agent', badge: supportUnreadCount.value })
   }
 
   return navItems.slice(0, 5).map((item) => ({
@@ -178,6 +178,23 @@ const items = computed(() => {
     color: #34908B;
     background: #dcefec;
     box-shadow: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .mobile-bottom-link small {
+    font-size: 8.5px;
+  }
+  .mobile-bottom-link {
+    padding: 5px 2px;
+    min-height: 48px;
+  }
+  .mobile-bottom-link :deep(.iconly-shell) {
+    font-size: 16px;
+  }
+  .mobile-bottom-icon-wrap {
+    width: 24px;
+    height: 20px;
   }
 }
 </style>

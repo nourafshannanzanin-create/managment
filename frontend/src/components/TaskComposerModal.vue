@@ -5,10 +5,8 @@ import BaseModal from './BaseModal.vue'
 import DurationPicker from './DurationPicker.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import IconlyIcon from './base/IconlyIcon.vue'
-import ShamsiDatePicker from './ShamsiDatePicker.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatDurationFa } from '../utils/duration'
-import { jalaliToIso } from '../utils/jalali'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -31,7 +29,6 @@ const form = reactive({
   estimatedMinutes: 60,
   category: '',
   departmentId: '',
-  dueDate: '',
   observerIds: [],
   reviewRequired: true,
 })
@@ -49,14 +46,6 @@ const departmentOptions = computed(() =>
 )
 const estimatedMinutes = computed(() => Number(form.estimatedMinutes || 0))
 
-function buildDueAt() {
-  if (!form.dueDate) return ''
-  const isoDate = jalaliToIso(form.dueDate)
-  if (!isoDate) return ''
-  // Day-only deadline → backend stores end of that day
-  return isoDate
-}
-
 watch(
   () => props.open,
   (open) => {
@@ -68,7 +57,6 @@ watch(
     form.estimatedMinutes = 60
     form.category = ''
     form.departmentId = String(state.currentUser.departmentId || state.currentUser.department_id || '')
-    form.dueDate = ''
     form.observerIds = []
     form.reviewRequired = true
     files.value = []
@@ -119,7 +107,6 @@ async function submit() {
         estimatedMinutes: estimatedMinutes.value,
         category: form.category,
         departmentId: form.departmentId || undefined,
-        dueAt: buildDueAt() || undefined,
         observerIds: form.observerIds,
         reviewRequired: form.reviewRequired,
       },
@@ -191,17 +178,6 @@ async function submit() {
       <div class="field-shell">
         <span>زمان تخمینی *</span>
         <DurationPicker v-model="form.estimatedMinutes" />
-      </div>
-
-      <div class="field-shell">
-        <span>ددلاین (فقط روز)</span>
-        <ShamsiDatePicker
-          v-model="form.dueDate"
-          model-type="jalali"
-          picker-only
-          placeholder="انتخاب تاریخ"
-        />
-        <small class="field-hint">مهلت تا پایان همان روز شمسی لحاظ می‌شود.</small>
       </div>
 
       <label class="field-shell">

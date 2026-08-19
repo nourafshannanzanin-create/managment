@@ -110,7 +110,13 @@ def can_access_expenses(user: User) -> bool:
 
 
 def can_access_settings(user: User) -> bool:
+    if is_manager(user):
+        return True
     return has_section_access(user, SECTION_SETTINGS)
+
+
+def can_edit_work_times(user: User) -> bool:
+    return is_manager(user)
 
 
 def attach_user(request: HttpRequest, user: User) -> None:

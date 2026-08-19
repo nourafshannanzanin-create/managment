@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import IconlyIcon from './base/IconlyIcon.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { markCenterRead, toastState } from '../utils/notify'
+import { formatTehranDateTime } from '../utils/jalali'
 
 const router = useRouter()
 const {
@@ -198,16 +199,7 @@ const badgeLabel = computed(() => {
 
 function formatWhen(value) {
   if (!value) return ''
-  try {
-    return new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(value))
-  } catch {
-    return ''
-  }
+  return formatTehranDateTime(value)
 }
 
 async function updatePanelPosition() {

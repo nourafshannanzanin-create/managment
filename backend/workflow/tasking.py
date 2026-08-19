@@ -401,7 +401,8 @@ def capacity_for_day(user: User, settings_obj: TaskingSettings, work_date: date)
     actual_seconds = closed_seconds + active_seconds
     actual_minutes = max(0, int(actual_seconds // 60))
     progress_base = int(planned) if int(planned) > 0 else int(target) if int(target) > 0 else int(effective)
-    done_percent = int((actual_minutes / progress_base) * 100) if progress_base else (100 if actual_minutes else 0)
+    progress_denominator = int(target) if int(target) > 0 else int(effective)
+    done_percent = int((actual_minutes / progress_denominator) * 100) if progress_denominator else (100 if actual_minutes else 0)
     done_percent = min(100, done_percent)
 
     load_minutes = max(int(planned), actual_minutes)
@@ -1449,10 +1450,53 @@ def mark_task_mentions_read(actor: User, task: Task) -> int:
     return int(updated)
 
 
+def _carry_forward_overdue_tasks(user: User, today: date) -> None:
+    """Create today-allocations for incomplete tasks that only have past-day allocations."""
+    active_statuses = [
+        TaskStatus.SCHEDULED, TaskStatus.UPCOMING, TaskStatus.IN_PROGRESS,
+        TaskStatus.PAUSED, TaskStatus.BLOCKED, TaskStatus.CHANGES_REQUESTED,
+    ]
+    past_task_ids = list(
+        TaskAllocation.objects.filter(
+            user=user,
+            work_date__lt=today,
+            task__status__in=active_statuses,
+            task__deleted_at__isnull=True,
+        ).values_list("task_id", flat=True).distinct()
+    )
+    if not past_task_ids:
+        return
+    already_today = set(
+        TaskAllocation.objects.filter(user=user, work_date=today, task_id__in=past_task_ids)
+        .values_list("task_id", flat=True)
+    )
+    need_carry = [tid for tid in past_task_ids if tid not in already_today]
+    if not need_carry:
+        return
+    latest_allocs = {}
+    for alloc in TaskAllocation.objects.filter(user=user, task_id__in=need_carry).order_by("task_id", "-work_date"):
+        if alloc.task_id not in latest_allocs:
+            latest_allocs[alloc.task_id] = alloc
+    for alloc in latest_allocs.values():
+        TaskAllocation.objects.create(
+            task_id=alloc.task_id,
+            user=user,
+            work_date=today,
+            planned_minutes=alloc.planned_minutes,
+            sequence=0,
+            segment_status="planned",
+            created_by_scheduler=True,
+        )
+
+
 def dashboard_payload(user: User, focus_date: date | None = None, supervise_owner_id: int | None = None) -> dict:
     organization = get_user_organization(user)
     settings_obj = get_or_create_tasking_settings(organization)
     today = focus_date or local_today(settings_obj)
+
+    if focus_date is None or focus_date == local_today(settings_obj):
+        _carry_forward_overdue_tasks(user, today)
+
     qs = visible_tasks_queryset(user)
     my_tasks = qs.filter(owner=user).exclude(status__in=[TaskStatus.CANCELLED])
     pending_assignments = TaskAssignment.objects.filter(

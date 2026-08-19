@@ -30,8 +30,8 @@ function typeClass(type) {
 .toast-host {
   position: fixed;
   top: 1rem;
-  left: 1rem;
-  z-index: 5000;
+  inset-inline-start: 1rem;
+  z-index: 99999;
   display: grid;
   gap: 0.55rem;
   width: min(22rem, calc(100vw - 2rem));

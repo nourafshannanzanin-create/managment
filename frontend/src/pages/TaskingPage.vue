@@ -9,7 +9,7 @@ import TaskDetailModal from '../components/TaskDetailModal.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatDurationFa, formatDurationRatioFa } from '../utils/duration'
-import { formatJalali, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
+import { formatJalali, getTodayJalali, getTodayIso, isoToJalali, jalaliToIso, shiftIsoDate } from '../utils/jalali'
 import { toneForStatus } from '../utils/status'
 
 const {
@@ -208,7 +208,8 @@ const capacity = computed(() => {
     const actual = Number(apiCap.actualMinutes || 0)
     const target = Number(apiCap.targetMinutes || 0)
     const progressBase = Math.max(Number(apiCap.progressBaseMinutes || 0), target, planned, actual, 1)
-    const donePercent = Math.min(100, Math.round((actual / progressBase) * 100))
+    const progressDenominator = target > 0 ? target : progressBase
+    const donePercent = Math.min(100, Math.round((actual / progressDenominator) * 100))
     return {
       ...apiCap,
       plannedMinutes: planned,
@@ -221,77 +222,93 @@ const capacity = computed(() => {
   }
   return teamCap
 })
-const progressBaseMinutes = computed(() => {
-  const fromApi = Number(capacity.value.progressBaseMinutes || 0)
-  if (fromApi > 0) return fromApi
-  const planned = Number(capacity.value.plannedMinutes || 0)
-  if (planned > 0) return planned
-  const target = Number(capacity.value.targetMinutes || 0)
+const targetDurationMinutes = computed(() => {
+  const cap = capacity.value
+  const target = Number(cap.targetMinutes || 0)
   if (target > 0) return target
-  return Number(capacity.value.effectiveWorkMinutes || 0)
+  return Number(cap.effectiveWorkMinutes || 0)
 })
-const liveActualMinutes = computed(() => {
+
+function resolveWorkedDurationSeconds(cap, activeTimer, nowMs = Date.now()) {
+  if (!cap) return 0
+  const closedMinutesRaw = cap.timerClosedMinutes
+  const hasClosedBaseline = closedMinutesRaw != null && closedMinutesRaw !== '' && Number.isFinite(Number(closedMinutesRaw))
+
+  if (activeTimer?.startedAt) {
+    const started = new Date(activeTimer.startedAt).getTime()
+    if (Number.isFinite(started)) {
+      const activeElapsed = Math.max(0, Math.floor((nowMs - started) / 1000))
+      if (hasClosedBaseline) {
+        return Math.max(0, Number(closedMinutesRaw) * 60 + activeElapsed)
+      }
+      const baselineSeconds = Math.max(0, Number(cap.actualMinutes || 0) * 60)
+      const apiActiveSeconds = Math.max(0, Number(cap.timerActiveSeconds || 0))
+      return Math.max(0, baselineSeconds + Math.max(0, activeElapsed - apiActiveSeconds))
+    }
+  }
+
+  if (hasClosedBaseline) {
+    return Math.max(0, Number(closedMinutesRaw) * 60 + Number(cap.timerActiveSeconds || 0))
+  }
+  return Math.max(0, Number(cap.actualMinutes || 0) * 60)
+}
+
+const workedDurationSeconds = computed(() => {
   void timerTick.value
   if (isSuperviseView.value) {
-    const cap = capacity.value
-    let seconds = Number(cap.timerClosedMinutes || 0) * 60
-    seconds += Math.max(0, Number(cap.timerActiveSeconds || 0))
-    if (seconds > 0) return Math.max(0, Math.floor(seconds / 60))
-    return Math.max(0, Number(cap.actualMinutes || 0))
+    return Math.max(0, Number(capacity.value.actualMinutes || 0) * 60)
   }
-  const closed = Number(capacity.value.timerClosedMinutes)
-  const hasClosed = Number.isFinite(closed) && closed >= 0 && capacity.value.timerClosedMinutes != null
-  const active = state.tasking.activeTimer
-  if (hasClosed) {
-    let seconds = closed * 60
-    if (active?.startedAt) {
-      const started = new Date(active.startedAt).getTime()
-      if (Number.isFinite(started)) {
-        seconds += Math.max(0, Math.floor((Date.now() - started) / 1000))
-      }
-    }
-    return Math.max(0, Math.floor(seconds / 60))
-  }
-  let mins = Number(capacity.value.actualMinutes || 0)
-  if (active?.startedAt) {
-    const started = new Date(active.startedAt).getTime()
-    const liveSec = Number.isFinite(started) ? Math.max(0, Math.floor((Date.now() - started) / 1000)) : 0
-    const apiActive = Number(capacity.value.timerActiveSeconds || 0)
-    if (liveSec > apiActive) mins += Math.floor((liveSec - apiActive) / 60)
-  }
-  return Math.max(0, mins)
+  return resolveWorkedDurationSeconds(capacity.value, state.tasking.activeTimer)
 })
-const donePercent = computed(() => {
-  if (isSuperviseView.value && Number.isFinite(Number(capacity.value.donePercent))) {
-    return Math.min(100, Math.max(0, Number(capacity.value.donePercent)))
-  }
-  const actual = liveActualMinutes.value
-  const base = progressBaseMinutes.value
-  if (base <= 0) return actual > 0 ? 100 : 0
-  return Math.min(100, Math.round((actual / base) * 100))
+
+const targetDurationSeconds = computed(() => Math.max(0, targetDurationMinutes.value * 60))
+
+const progressPercent = computed(() => {
+  const target = targetDurationSeconds.value
+  const worked = workedDurationSeconds.value
+  if (target <= 0) return worked > 0 ? 100 : 0
+  return Math.min(100, Math.max(0, (worked / target) * 100))
 })
-const doneBarWidth = computed(() => `${donePercent.value}%`)
-const capacityPercent = computed(() => donePercent.value)
-const capacityTone = computed(() => {
-  const pct = donePercent.value
-  if (pct >= 100) return 'is-success'
-  if (pct >= 70) return 'is-success'
-  if (pct >= 40) return 'is-warning'
+
+const progressPercentDisplay = computed(() => Math.round(progressPercent.value))
+const workedDurationMinutes = computed(() => Math.floor(workedDurationSeconds.value / 60))
+const progressBarWidth = computed(() => `${progressPercent.value}%`)
+
+const plannedProgressPercent = computed(() => {
+  const target = Number(capacity.value.targetMinutes || 0)
+  const planned = Number(capacity.value.plannedMinutes || 0)
+  if (target <= 0) return planned > 0 ? 100 : 0
+  return Math.min(100, Math.max(0, (planned / target) * 100))
+})
+const plannedBarWidth = computed(() => `${plannedProgressPercent.value}%`)
+
+const capacityAccent = computed(() => {
+  const pct = progressPercentDisplay.value
+  if (pct >= 100) return 'is-complete'
+  if (pct >= 70) return 'is-good'
+  if (pct >= 40) return 'is-mid'
+  if (pct > 0) return 'is-started'
   return 'is-idle'
 })
 const capacityRingStyle = computed(() => {
-  const pct = capacityPercent.value
-  const color =
-    capacityTone.value === 'is-danger'
-      ? '#dc2626'
-      : capacityTone.value === 'is-warning'
-        ? '#d97706'
-        : capacityTone.value === 'is-success'
-          ? '#16a34a'
-          : '#34908b'
-  return {
-    background: `conic-gradient(${color} ${pct * 3.6}deg, rgba(52, 144, 139, 0.12) 0deg)`,
+  const pct = Math.min(100, Math.max(0, progressPercent.value))
+  const fill = '#16a34a'
+  const track = '#e2e8f0'
+  if (pct <= 0) {
+    return { background: track }
   }
+  return {
+    background: `conic-gradient(from -90deg, ${fill} 0%, ${fill} ${pct}%, ${track} ${pct}%, ${track} 100%)`,
+  }
+})
+const capacityHeadline = computed(() => {
+  if (isSuperviseView.value && selectedSuperviseUser.value) return selectedSuperviseUser.value.name
+  if (isSuperviseView.value) return capacity.value.bandLabel || 'نمای کلی تیم'
+  return capacity.value.bandLabel || 'بدون برنامه'
+})
+const capacitySubtitle = computed(() => {
+  if (isSuperviseView.value) return 'پیشرفت بر اساس کارمند و تاریخ انتخاب‌شده'
+  return `${minutesLabel(workedDurationMinutes.value)} از ${minutesLabel(targetDurationMinutes.value)} کارکرد ثبت شده`
 })
 
 const displayDate = computed(() => {
@@ -347,7 +364,7 @@ const metricCards = computed(() => {
         value: minutesLabel(stats.remainingMinutes ?? cap.remainingTargetMinutes ?? remainingTargetMinutes.value),
         hint: 'تا رسیدن به ظرفیت هدف',
         icon: 'schedule',
-        tone: capacityTone.value === 'is-danger' ? 'is-danger' : 'is-warning',
+        tone: ['is-complete', 'is-good'].includes(capacityAccent.value) ? 'is-success' : 'is-warning',
       },
       {
         key: 'action',
@@ -382,7 +399,7 @@ const metricCards = computed(() => {
       value: minutesLabel(state.tasking.stats.remainingMinutes ?? remainingTargetMinutes.value),
       hint: 'تا رسیدن به ظرفیت هدف',
       icon: 'schedule',
-      tone: capacityTone.value === 'is-danger' ? 'is-danger' : 'is-warning',
+      tone: ['is-complete', 'is-good'].includes(capacityAccent.value) ? 'is-success' : 'is-warning',
     },
     {
       key: 'action',
@@ -597,15 +614,12 @@ function taskTimerMinutes(task) {
 
 async function shiftDate(delta) {
   if (isSuperviseView.value) {
-    const baseIso = jalaliToIso(superviseDateJalali.value) || state.tasking.date
-    const base = baseIso ? new Date(`${baseIso}T12:00:00`) : new Date()
-    base.setDate(base.getDate() + delta)
-    superviseDateJalali.value = isoToJalali(base.toISOString().slice(0, 10)) || formatJalali(getTodayJalali())
+    const baseIso = jalaliToIso(superviseDateJalali.value) || state.tasking.date || getTodayIso()
+    superviseDateJalali.value = isoToJalali(shiftIsoDate(baseIso, delta)) || formatJalali(getTodayJalali())
     return
   }
-  const base = state.tasking.date ? new Date(`${state.tasking.date}T12:00:00`) : new Date()
-  base.setDate(base.getDate() + delta)
-  const iso = base.toISOString().slice(0, 10)
+  const baseIso = state.tasking.date || getTodayIso()
+  const iso = shiftIsoDate(baseIso, delta)
   state.tasking.date = iso
   await loadTaskingDashboard(true, iso)
 }
@@ -678,68 +692,62 @@ function quickStart(task, stopOther = false) {
       <span>{{ formatElapsed({ activeTimer: state.tasking.activeTimer }) }}</span>
     </section>
 
-    <section class="capacity-hero" :class="capacityTone">
-      <div class="capacity-hero-main">
-        <div class="capacity-ring-wrap">
+    <section class="capacity-hero">
+      <div class="capacity-hero-grid">
+        <div class="capacity-ring-block">
           <div class="capacity-ring" :style="capacityRingStyle">
             <div class="capacity-ring-core">
-              <strong>{{ donePercent }}٪</strong>
-              <small>انجام‌شده</small>
+              <strong>{{ progressPercentDisplay }}</strong>
+              <small>درصد</small>
             </div>
           </div>
+          <span class="capacity-ring-caption">پیشرفت امروز</span>
         </div>
-        <div class="capacity-copy">
-          <p class="capacity-eyebrow">
-            <span>{{ isSuperviseView ? 'ظرفیت نظارت' : 'ظرفیت امروز' }}</span>
-            <span v-if="isSuperviseView" class="supervise-filter-pill is-inline">{{ superviseFilterLabel }}</span>
-          </p>
-          <h3>
-            <template v-if="isSuperviseView && selectedSuperviseUser">
-              {{ selectedSuperviseUser.name }}
-            </template>
-            <template v-else-if="isSuperviseView">
-              {{ capacity.bandLabel || 'نمای کلی تیم' }}
-            </template>
-            <template v-else>
-              {{ capacity.bandLabel || 'بدون برنامه' }}
-            </template>
-          </h3>
-          <p class="capacity-lede">
-            <template v-if="isSuperviseView">
-              نمایش داینامیک اطلاعات بر اساس کارمند و تاریخ انتخاب‌شده در تب نظارت.
-            </template>
-            <template v-else>
-              درصد و نوار پیشرفت فقط از مجموع تایمرهای امروز نسبت به برنامهٔ روز ساخته می‌شود.
-            </template>
-          </p>
-          <div class="capacity-bars">
-            <div class="capacity-bar-row">
-              <div class="capacity-bar-meta">
-                <span>برنامه‌ریزی‌شده</span>
-                <strong>{{ formatDurationRatioFa(capacity.plannedMinutes, capacity.targetMinutes) }}</strong>
+
+        <div class="capacity-body">
+          <div class="capacity-head">
+            <div>
+              <p class="capacity-eyebrow">
+                {{ isSuperviseView ? 'ظرفیت نظارت' : 'ظرفیت امروز' }}
+                <span v-if="isSuperviseView" class="supervise-filter-pill is-inline">{{ superviseFilterLabel }}</span>
+              </p>
+              <h3>{{ capacityHeadline }}</h3>
+              <p class="capacity-subtitle">{{ capacitySubtitle }}</p>
+            </div>
+          </div>
+
+          <div class="capacity-progress-list">
+            <div class="capacity-progress-item">
+              <div class="capacity-progress-head">
+                <span class="capacity-progress-label">
+                  <i class="capacity-dot is-planned"></i>
+                  برنامه‌ریزی‌شده
+                </span>
+                <strong>{{ formatDurationRatioFa(capacity.plannedMinutes, capacity.targetMinutes) }} · {{ Math.round(plannedProgressPercent) }}٪</strong>
               </div>
-              <div class="capacity-track is-animated">
-                <span
-                  class="is-planned"
-                  :style="{ width: `${Math.min(100, capacity.targetMinutes ? (Number(capacity.plannedMinutes || 0) / Number(capacity.targetMinutes)) * 100 : 0)}%` }"
-                ></span>
+              <div class="capacity-track">
+                <span class="capacity-fill is-planned" :style="{ width: plannedBarWidth }"></span>
               </div>
             </div>
-            <div class="capacity-bar-row">
-              <div class="capacity-bar-meta">
-                <span>کارکرد تایمر</span>
-                <strong>{{ formatDurationRatioFa(liveActualMinutes, progressBaseMinutes) }}</strong>
+            <div class="capacity-progress-item">
+              <div class="capacity-progress-head">
+                <span class="capacity-progress-label">
+                  <i class="capacity-dot is-actual"></i>
+                  کارکرد تایمر
+                </span>
+                <strong>{{ formatDurationRatioFa(workedDurationMinutes, targetDurationMinutes) }} · {{ progressPercentDisplay }}٪</strong>
               </div>
-              <div class="capacity-track is-animated">
-                <span class="is-actual" :style="{ width: doneBarWidth }"></span>
+              <div class="capacity-track">
+                <span class="capacity-fill is-actual" :style="{ width: progressBarWidth }"></span>
               </div>
             </div>
           </div>
         </div>
       </div>
-      <div class="capacity-stat-strip">
+
+      <div class="capacity-stats">
         <article>
-          <small>ساعت کاری مؤثر</small>
+          <small>ساعت مؤثر</small>
           <strong>{{ minutesLabel(capacity.effectiveWorkMinutes) }}</strong>
         </article>
         <article>
@@ -747,12 +755,12 @@ function quickStart(task, stopOther = false) {
           <strong>{{ minutesLabel(capacity.targetMinutes) }}</strong>
         </article>
         <article>
-          <small>برنامه‌ریزی‌شده</small>
+          <small>برنامه‌ریزی</small>
           <strong>{{ minutesLabel(capacity.plannedMinutes) }}</strong>
         </article>
-        <article>
-          <small>کارکرد تایمر</small>
-          <strong>{{ minutesLabel(liveActualMinutes) }}</strong>
+        <article :class="capacityAccent">
+          <small>کارکرد</small>
+          <strong>{{ minutesLabel(workedDurationMinutes) }}</strong>
         </article>
       </div>
     </section>
@@ -995,142 +1003,191 @@ function quickStart(task, stopOther = false) {
 }
 .active-timer-banner,
 .capacity-hero {
-  display: grid;
-  gap: 18px;
-  padding: 18px 20px;
-  border-radius: 22px;
-  background:
-    radial-gradient(120% 140% at 100% 0%, rgba(52, 144, 139, 0.14), transparent 55%),
-    linear-gradient(180deg, #ffffff 0%, #f7fbfa 100%);
-  border: 1px solid rgba(52, 144, 139, 0.14);
-  box-shadow: 0 14px 36px rgba(31, 92, 89, 0.06);
+  border-radius: 20px;
+  border: 1px solid rgba(52, 144, 139, 0.12);
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(31, 92, 89, 0.06);
 }
 .active-timer-banner {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  padding: 14px 18px;
   background: #eef7f6;
 }
-.capacity-hero.is-success {
-  border-color: rgba(22, 163, 74, 0.28);
-  background:
-    radial-gradient(120% 140% at 100% 0%, rgba(22, 163, 74, 0.14), transparent 55%),
-    linear-gradient(180deg, #ffffff 0%, #f4fbf6 100%);
+.capacity-hero {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
 }
-.capacity-hero.is-warning {
-  border-color: rgba(217, 119, 6, 0.28);
-  background:
-    radial-gradient(120% 140% at 100% 0%, rgba(217, 119, 6, 0.14), transparent 55%),
-    linear-gradient(180deg, #ffffff 0%, #fffaf3 100%);
-}
-.capacity-hero.is-danger {
-  border-color: rgba(220, 38, 38, 0.28);
-  background:
-    radial-gradient(120% 140% at 100% 0%, rgba(220, 38, 38, 0.12), transparent 55%),
-    linear-gradient(180deg, #ffffff 0%, #fff7f7 100%);
-}
-.capacity-hero-main {
+.capacity-hero-grid {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 20px;
+  gap: 24px;
   align-items: center;
 }
-.capacity-ring-wrap { flex: 0 0 auto; }
+.capacity-ring-block {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  flex-shrink: 0;
+}
 .capacity-ring {
-  width: 124px;
-  height: 124px;
+  width: 112px;
+  height: 112px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  animation: capacity-pulse 2.8s ease-in-out infinite;
+  transition: background 0.35s ease;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.04);
 }
 .capacity-ring-core {
-  width: 92px;
-  height: 92px;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
   background: #fff;
   display: grid;
   place-items: center;
-  gap: 2px;
-  box-shadow: inset 0 0 0 1px rgba(52, 144, 139, 0.08);
+  gap: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 .capacity-ring-core strong {
-  font-size: 1.55rem;
+  font-size: 1.75rem;
   line-height: 1;
   color: #134e4a;
   font-variant-numeric: tabular-nums;
+  font-weight: 900;
 }
-.capacity-ring-core small,
-.capacity-eyebrow,
-.capacity-lede,
-.capacity-stat-strip small,
-.tasking-metric-label,
-.tasking-metric-card small {
-  color: var(--muted, #64748b);
+.capacity-ring-core small {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  margin-top: 2px;
 }
-.capacity-copy { display: grid; gap: 8px; min-width: 0; }
+.capacity-ring-caption {
+  font-size: 12px;
+  font-weight: 800;
+  color: #64748b;
+}
+.capacity-body {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.capacity-head h3 {
+  margin: 4px 0 0;
+  font-size: 1.25rem;
+  color: #134e4a;
+  font-weight: 900;
+}
 .capacity-eyebrow {
   margin: 0;
   font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.02em;
+  color: #64748b;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
 }
-.capacity-copy h3 {
-  margin: 0;
-  font-size: 1.35rem;
-  color: #134e4a;
+.capacity-subtitle {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #64748b;
 }
-.capacity-lede { margin: 0; font-size: 13px; line-height: 1.7; max-width: 42ch; }
-.capacity-bars { display: grid; gap: 12px; margin-top: 8px; }
-.capacity-bar-row { display: grid; gap: 6px; }
-.capacity-bar-meta {
+.capacity-progress-list {
+  display: grid;
+  gap: 14px;
+}
+.capacity-progress-item {
+  display: grid;
+  gap: 8px;
+}
+.capacity-progress-head {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
-  align-items: baseline;
-  font-size: 12px;
-  font-weight: 700;
+  align-items: center;
+  gap: 12px;
 }
-.capacity-bar-meta strong {
-  text-align: end;
-  font-size: 12.5px;
-  letter-spacing: -0.01em;
+.capacity-progress-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+}
+.capacity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.capacity-dot.is-planned { background: #34908b; }
+.capacity-dot.is-actual { background: #16a34a; }
+.capacity-progress-head strong {
+  font-size: 13px;
+  font-weight: 800;
   color: #134e4a;
   font-variant-numeric: tabular-nums;
 }
 .capacity-track {
-  height: 10px;
+  height: 12px;
   border-radius: 999px;
-  background: rgba(52, 144, 139, 0.12);
+  background: #eef2f1;
   overflow: hidden;
+  position: relative;
 }
-.capacity-track span {
+.capacity-fill {
   display: block;
   height: 100%;
   border-radius: inherit;
   min-width: 0;
-  transition: width 0.85s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.capacity-track.is-animated span {
+  transition: width 0.25s ease;
   will-change: width;
+  background: #34908b !important;
 }
-.capacity-track .is-planned { background: linear-gradient(90deg, #34908b, #5bb8b2); }
-.capacity-track .is-actual { background: linear-gradient(90deg, #0f766e, #14b8a6); }
-.capacity-ring {
-  position: relative;
+.capacity-fill.is-planned {
+  background: linear-gradient(90deg, #16a34a, #86efac);
 }
-.capacity-ring::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35);
-  pointer-events: none;
+.capacity-fill.is-actual {
+  background: linear-gradient(90deg, #16a34a, #4ade80);
+}
+.capacity-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(52, 144, 139, 0.08);
+}
+.capacity-stats article {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafb;
+}
+.capacity-stats article small {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+}
+.capacity-stats article strong {
+  font-size: 1rem;
+  font-weight: 900;
+  color: #134e4a;
+  font-variant-numeric: tabular-nums;
+}
+.capacity-stats article.is-started strong { color: #34908b; }
+.capacity-stats article.is-mid strong { color: #d97706; }
+.capacity-stats article.is-good strong,
+.capacity-stats article.is-complete strong { color: #16a34a; }
+.capacity-stat-strip small,
+.tasking-metric-label,
+.tasking-metric-card small {
+  color: var(--muted, #64748b);
 }
 .task-day-groups {
   display: grid;
@@ -1161,19 +1218,6 @@ function quickStart(task, stopOther = false) {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
-}
-.capacity-stat-strip article {
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.78);
-  border: 1px solid rgba(52, 144, 139, 0.1);
-  padding: 12px 14px;
-  display: grid;
-  gap: 6px;
-}
-.capacity-stat-strip strong {
-  font-size: 1.05rem;
-  color: #134e4a;
-  font-variant-numeric: tabular-nums;
 }
 .tasking-metric-grid {
   display: grid;
@@ -1220,10 +1264,6 @@ function quickStart(task, stopOther = false) {
   font-variant-numeric: tabular-nums;
 }
 .tasking-metric-card small { font-size: 12px; }
-@keyframes capacity-pulse {
-  0%, 100% { filter: saturate(1); transform: scale(1); }
-  50% { filter: saturate(1.08); transform: scale(1.015); }
-}
 .tasking-toolbar {
   display: flex;
   justify-content: space-between;
@@ -1442,10 +1482,10 @@ function quickStart(task, stopOther = false) {
   justify-items: center;
 }
 @media (max-width: 920px) {
-  .capacity-hero-main,
+  .capacity-hero-grid,
   .active-timer-banner { grid-template-columns: 1fr; }
   .active-timer-banner { flex-direction: column; align-items: stretch; }
-  .capacity-stat-strip,
+  .capacity-stats,
   .tasking-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .task-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -1454,29 +1494,27 @@ function quickStart(task, stopOther = false) {
     padding: 14px;
     gap: 12px;
   }
-  .capacity-hero-main {
-    display: grid;
+  .capacity-hero-grid {
     grid-template-columns: auto minmax(0, 1fr);
-    gap: 12px;
-    align-items: center;
+    gap: 14px;
   }
-  .capacity-lede { display: none; }
-  .capacity-stat-strip,
+  .capacity-ring { width: 88px; height: 88px; }
+  .capacity-ring-core { width: 66px; height: 66px; }
+  .capacity-ring-core strong { font-size: 1.35rem; }
+  .capacity-subtitle { display: none; }
+  .capacity-stats,
   .tasking-metric-grid,
   .task-card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 10px;
   }
-  .capacity-stat-strip article,
+  .capacity-stats article,
   .tasking-metric-card {
     min-width: 0;
     padding: 12px;
   }
   .task-card-footer { flex-direction: column; align-items: stretch; }
   .task-card-actions { flex-wrap: wrap; }
-  .capacity-ring { width: 92px; height: 92px; }
-  .capacity-ring-core { width: 68px; height: 68px; }
-  .capacity-ring-core strong { font-size: 18px; }
   .date-nav-btn {
     width: 36px;
     height: 36px;

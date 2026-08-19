@@ -3,6 +3,7 @@ import IconlyIcon from '../components/base/IconlyIcon.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+import { formatTehranDateTime } from '../utils/jalali'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
@@ -16,6 +17,7 @@ const users = ref([])
 const messages = ref([])
 const selectedId = ref(null)
 const listSearch = ref('')
+const userSearch = ref('')
 const composer = ref('')
 const pendingFile = ref(null)
 const fileInputRef = ref(null)
@@ -25,6 +27,7 @@ const sending = ref(false)
 const showNewChat = ref(false)
 const newChatMode = ref('direct')
 const groupTitle = ref('')
+const groupMemberSearch = ref('')
 const groupMemberIds = ref([])
 const showGroupInfo = ref(false)
 const groupEditTitle = ref('')
@@ -117,15 +120,8 @@ const filteredConversations = computed(() => {
 })
 
 const filteredUsers = computed(() => {
-  const q = listSearch.value.trim().toLowerCase()
-  const existingPeerIds = new Set(
-    conversations.value
-      .filter((item) => !isGroupConversation(item))
-      .map((item) => Number(item.peer?.id))
-      .filter(Boolean),
-  )
+  const q = userSearch.value.trim().toLowerCase()
   return users.value.filter((user) => {
-    if (newChatMode.value === 'direct' && existingPeerIds.has(Number(user.id))) return true
     if (!q) return true
     const hay = `${user.name || ''} ${user.role || ''} ${user.department || ''}`.toLowerCase()
     return hay.includes(q)
@@ -133,7 +129,7 @@ const filteredUsers = computed(() => {
 })
 
 const groupPickerUsers = computed(() => {
-  const q = listSearch.value.trim().toLowerCase()
+  const q = groupMemberSearch.value.trim().toLowerCase()
   return users.value.filter((user) => {
     if (!q) return true
     const hay = `${user.name || ''} ${user.role || ''} ${user.department || ''}`.toLowerCase()
@@ -153,14 +149,7 @@ const groupCreateHint = computed(() => {
 
 function formatTime(value) {
   if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString('fa-IR', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatTehranDateTime(value)
 }
 
 async function scrollToBottom() {
@@ -221,6 +210,7 @@ async function openConversation(conversationId) {
 
 function resetGroupComposer() {
   groupTitle.value = ''
+  groupMemberSearch.value = ''
   groupMemberIds.value = []
 }
 
@@ -424,12 +414,14 @@ function backToList() {
 
 watch(showNewChat, async (open) => {
   if (open) {
+    userSearch.value = ''
     await loadUsers()
     if (newChatMode.value === 'group') resetGroupComposer()
   }
 })
 
 watch(newChatMode, (mode) => {
+  userSearch.value = ''
   if (mode === 'group') resetGroupComposer()
 })
 
@@ -469,18 +461,35 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <label class="search-shell chat-search">
-        <IconlyIcon name="search" decorative />
-        <input v-model="listSearch" :placeholder="showNewChat ? 'جستجوی کاربر...' : 'جستجوی گفتگو...'" />
-      </label>
-
       <p v-if="lastError && showNewChat" class="inline-error">{{ lastError }}</p>
 
       <div v-if="showNewChat && newChatMode === 'group'" class="chat-sidebar-body chat-group-compose">
-        <label class="field-shell">
-          <span>نام گروه</span>
-          <input v-model.trim="groupTitle" type="text" placeholder="مثلاً تیم مالی، پروژه X..." maxlength="120" />
-        </label>
+        <div class="chat-group-field">
+          <label class="chat-group-label" for="chat-group-title">نام گروه</label>
+          <input
+            id="chat-group-title"
+            v-model.trim="groupTitle"
+            class="chat-group-input"
+            type="text"
+            placeholder="مثلاً تیم مالی"
+            maxlength="80"
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="chat-group-field">
+          <label class="chat-group-label" for="chat-group-member-search">جستجوی اعضا</label>
+          <div class="chat-group-search">
+            <IconlyIcon name="search" decorative />
+            <input
+              id="chat-group-member-search"
+              v-model="groupMemberSearch"
+              type="search"
+              placeholder="نام همکار را بنویسید"
+              autocomplete="off"
+            />
+          </div>
+        </div>
 
         <div v-if="selectedGroupMembers.length" class="chat-member-chips">
           <button
@@ -488,6 +497,7 @@ onBeforeUnmount(() => {
             :key="member.id"
             class="chat-member-chip"
             type="button"
+            :title="member.name"
             @click="toggleGroupMember(member.id)"
           >
             <UserAvatar :person="member" :name="member.name" size="sm" />
@@ -496,6 +506,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
+        <p class="chat-group-section-title">انتخاب اعضا</p>
         <div class="chat-picker-list">
           <button
             v-for="user in groupPickerUsers"
@@ -530,24 +541,54 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div v-else-if="showNewChat" class="chat-sidebar-body chat-list">
-        <button
-          v-for="user in filteredUsers"
-          :key="user.id"
-          class="chat-list-item"
-          type="button"
-          @click="startChatWith(user.id)"
-        >
-          <UserAvatar :person="user" :name="user.name" size="md" />
-          <div class="chat-list-copy">
-            <strong>{{ user.name }}</strong>
-            <small>{{ user.role || user.department || 'همکار' }}</small>
+      <div v-else-if="showNewChat" class="chat-sidebar-body chat-direct-compose">
+        <div class="chat-group-field chat-search-field">
+          <label class="chat-group-label" for="chat-direct-search">جستجوی کاربر</label>
+          <div class="chat-group-search">
+            <IconlyIcon name="search" decorative />
+            <input
+              id="chat-direct-search"
+              v-model="userSearch"
+              type="search"
+              placeholder="نام، سمت یا بخش همکار"
+              autocomplete="off"
+            />
           </div>
-        </button>
-        <div v-if="!filteredUsers.length" class="chat-empty">کاربری برای شروع گفتگو پیدا نشد.</div>
+        </div>
+        <p class="chat-group-section-title">انتخاب کاربر</p>
+        <div class="chat-picker-list">
+          <button
+            v-for="user in filteredUsers"
+            :key="user.id"
+            class="chat-picker-item"
+            type="button"
+            @click="startChatWith(user.id)"
+          >
+            <UserAvatar :person="user" :name="user.name" size="md" />
+            <div class="chat-list-copy">
+              <strong>{{ user.name }}</strong>
+              <small>{{ user.role || user.department || 'همکار' }}</small>
+            </div>
+          </button>
+          <div v-if="!filteredUsers.length" class="chat-empty">کاربری برای شروع گفتگو پیدا نشد.</div>
+        </div>
       </div>
 
-      <div v-else class="chat-sidebar-body chat-list">
+      <div v-else class="chat-sidebar-body chat-direct-compose">
+        <div class="chat-group-field chat-search-field">
+          <label class="chat-group-label" for="chat-list-search">جستجوی گفتگو</label>
+          <div class="chat-group-search">
+            <IconlyIcon name="search" decorative />
+            <input
+              id="chat-list-search"
+              v-model="listSearch"
+              type="search"
+              placeholder="نام گفتگو را بنویسید"
+              autocomplete="off"
+            />
+          </div>
+        </div>
+        <div class="chat-list">
         <div v-if="loadingList && !conversations.length" class="chat-empty">در حال بارگذاری...</div>
         <button
           v-for="item in filteredConversations"
@@ -577,6 +618,7 @@ onBeforeUnmount(() => {
         </button>
         <div v-if="!loadingList && !filteredConversations.length" class="chat-empty">
           هنوز گفتگویی ندارید. با «چت جدید» شروع کنید.
+        </div>
         </div>
       </div>
     </aside>
@@ -782,29 +824,144 @@ onBeforeUnmount(() => {
 .chat-sidebar-body {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-.chat-group-compose {
-  gap: 12px;
-  padding: 0 12px 12px;
+.chat-group-compose,
+.chat-direct-compose {
+  gap: 10px;
+  padding: 0 16px 12px;
+  overflow: hidden;
+}
+
+.chat-direct-compose .chat-search-field {
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+}
+
+.chat-group-field.chat-search-field {
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+}
+
+.chat-group-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #5f7a76;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.chat-group-input {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  box-sizing: border-box;
+  border: 1px solid rgba(52, 144, 139, 0.18);
+  border-radius: 12px;
+  background: #fff;
+  color: #1d3f3b;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.chat-group-search {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  min-height: 32px;
+  max-height: 32px;
+  box-sizing: border-box;
+  border: 1px solid rgba(52, 144, 139, 0.18);
+  border-radius: 10px;
+  background: #fff;
+  color: #1d3f3b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  overflow: hidden;
+}
+
+.chat-group-search :deep(.iconly-shell) {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  font-size: 14px;
+  line-height: 1;
+  color: #5f7a76;
+}
+
+.chat-group-search input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  color: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.chat-group-search input::-webkit-search-decoration,
+.chat-group-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.chat-group-section-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  color: #5f7a76;
+  line-height: 1.2;
+}
+
+.chat-direct-compose .chat-search-field,
+.chat-direct-compose .chat-group-field,
+.chat-direct-compose .chat-group-section-title {
+  flex: 0 0 auto;
+}
+
+.chat-direct-compose .chat-list,
+.chat-direct-compose .chat-picker-list {
+  flex: 1;
+  min-height: 0;
+}
+
+.chat-group-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
 }
 
 .chat-group-compose-footer {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
+  flex: 0 0 auto;
   display: grid;
   gap: 8px;
-  padding-top: 8px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.96) 24%, #fff 100%);
+  padding-top: 4px;
 }
 
 .chat-create-hint {
   color: #b45309;
   font-size: 12px;
+  line-height: 1.5;
 }
 
 .chat-picker-list {
@@ -814,6 +971,10 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 6px;
   align-content: start;
+  padding: 6px;
+  border: 1px solid rgba(52, 144, 139, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.86);
 }
 
 .chat-picker-item {
@@ -822,9 +983,9 @@ onBeforeUnmount(() => {
   gap: 10px;
   align-items: center;
   width: 100%;
-  padding: 12px;
+  padding: 10px;
   border: 0;
-  border-radius: 14px;
+  border-radius: 12px;
   background: transparent;
   text-align: right;
   cursor: pointer;
@@ -845,6 +1006,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
   border: 0;
   border-radius: 999px;
   padding: 4px 10px 4px 4px;
@@ -854,8 +1016,17 @@ onBeforeUnmount(() => {
   font: inherit;
 }
 
+.chat-member-chip span {
+  min-width: 0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chat-member-chip small {
   opacity: 0.7;
+  flex: 0 0 auto;
 }
 
 .chat-picker-check {
@@ -883,26 +1054,10 @@ onBeforeUnmount(() => {
   opacity: 0.72;
 }
 
-.field-shell {
-  display: grid;
-  gap: 6px;
-  padding: 0 4px;
-}
-
-.field-shell span {
-  font-size: 12px;
-  color: #5f7a76;
-}
-
-.field-shell input {
-  width: 100%;
-  border: 1px solid rgba(52, 144, 139, 0.16);
-  border-radius: 12px;
-  padding: 10px 12px;
-  font: inherit;
-  background: #fff;
-  color: #1d3f3b;
-  box-sizing: border-box;
+.chat-create-group-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat-sidebar-head,
@@ -928,10 +1083,71 @@ onBeforeUnmount(() => {
 
 .chat-new-btn {
   flex: 0 0 auto;
+  max-width: 46%;
 }
 
-.chat-search {
-  margin: 0 16px 12px;
+.chat-new-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-search-wrap {
+  flex: 0 0 auto;
+  padding: 0 16px 12px;
+  min-width: 0;
+}
+
+.chat-search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  min-height: 32px;
+  max-height: 32px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  border: 1px solid rgba(52, 144, 139, 0.18);
+  border-radius: 10px;
+  background: #fff;
+  color: #1d3f3b;
+  overflow: hidden;
+}
+
+.chat-search-box :deep(.iconly-shell) {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  font-size: 14px;
+  line-height: 1;
+  color: #5f7a76;
+}
+
+.chat-search-box input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0 !important;
+  outline: none;
+  background: transparent !important;
+  box-shadow: none !important;
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  color: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.chat-search-box input::placeholder {
+  color: #7a9490;
+  opacity: 1;
 }
 
 .chat-list {
@@ -988,7 +1204,8 @@ onBeforeUnmount(() => {
 }
 
 .chat-list-copy strong,
-.chat-list-copy p {
+.chat-list-copy p,
+.chat-list-copy small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1479,5 +1696,77 @@ onBeforeUnmount(() => {
   .chat-back-btn {
     display: inline-flex;
   }
+}
+</style>
+
+<style>
+#app .app-shell:not(.is-auth-route) .chat-page .chat-search-box,
+#app .app-shell:not(.is-auth-route) .chat-page .chat-group-search {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  height: 32px !important;
+  padding: 0 8px !important;
+  margin: 0 !important;
+  border: 1px solid rgba(52, 144, 139, 0.18) !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-page .chat-search-box input,
+#app .app-shell:not(.is-auth-route) .chat-page .chat-group-search input {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 0.82rem !important;
+  line-height: 1.2 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-page .chat-search-box input:focus,
+#app .app-shell:not(.is-auth-route) .chat-page .chat-group-search input:focus {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-page .chat-group-search .iconly-shell,
+#app .app-shell:not(.is-auth-route) .chat-page .chat-search-box .iconly-shell {
+  width: 16px !important;
+  height: 16px !important;
+  min-height: 0 !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-page .chat-group-field.chat-search-field {
+  gap: 4px !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-page .chat-group-input {
+  min-height: 0 !important;
+  height: 40px !important;
+  padding-inline: 12px !important;
+  border: 1px solid rgba(52, 144, 139, 0.18) !important;
+  background: #fff !important;
+  box-shadow: none !important;
 }
 </style>

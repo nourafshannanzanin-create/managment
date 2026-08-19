@@ -271,11 +271,13 @@ function setReceipt(event) {
 }
 
 async function submitTransaction() {
-  if (transactionForm.direction === 'out' && usesManagerPaymentFlow.value) {
+  if (usesManagerPaymentFlow.value) {
     const sourceWallet = wallets.value.find((item) => String(item.id) === String(transactionForm.walletId))
     const targetWallet = wallets.value.find((item) => String(item.id) === String(transactionForm.targetWalletId))
+    const actionType = transactionForm.direction === 'in' ? 'wallet_deposit' : 'wallet_withdrawal'
+    const actionLabel = transactionForm.direction === 'in' ? 'واریز' : 'برداشت'
     const message = [
-      'ACTION_TYPE: wallet_withdrawal',
+      `ACTION_TYPE: ${actionType}`,
       `SOURCE_WALLET_ID: ${sourceWallet?.id || ''}`,
       `SOURCE_WALLET_NAME: ${sourceWallet?.name || '-'}`,
       `DESTINATION_TYPE: ${transactionForm.destinationType}`,
@@ -286,7 +288,7 @@ async function submitTransaction() {
       `NOTE: ${transactionForm.note || '-'}`,
     ].join('\n')
     await createSupportTicket({ subject: PAYMENT_SUBJECT, message, category: 'financial', priority: 'urgent', attachments: [] })
-    state.wallet.message = 'درخواست برداشت برای پشتیبانی ارسال شد.'
+    state.wallet.message = `درخواست ${actionLabel} برای پشتیبانی ارسال شد.`
     closeTransaction()
     return
   }
@@ -580,7 +582,7 @@ watch(
         <div class="modal-handle"></div>
         <div class="modal-title">
           <IconlyIcon :name="transactionForm.direction === 'in' ? 'add_card' : 'payments'" decorative />
-          <strong>{{ transactionForm.direction === 'in' ? 'واریز به کیف پول' : 'برداشت از کیف پول' }}</strong>
+          <strong>{{ transactionForm.direction === 'in' ? 'واریز به حساب بانکی' : 'برداشت از حساب بانکی' }}</strong>
         </div>
 
         <label>
@@ -604,7 +606,7 @@ watch(
           {{ state.wallet.error }}
         </div>
 
-        <template v-if="transactionForm.direction === 'out' && usesManagerPaymentFlow">
+        <template v-if="usesManagerPaymentFlow">
           <label>
             <span>مقصد</span>
             <select v-model="transactionForm.destinationType">

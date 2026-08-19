@@ -7423,3 +7423,136 @@ body:has(.app-shell.is-public-attendance),
 #app .app-shell.is-public-attendance .attendance-public {
   overflow: visible !important;
 }
+
+/* Teleported date/time pickers render on body (outside #app). Global .tone-primary is white-on-white there. */
+.picker-panel,
+.shamsi-picker-panel-teleport {
+  position: fixed;
+  z-index: 1300;
+  display: grid;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(52, 144, 139, 0.2);
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18);
+}
+
+.picker-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.picker-panel-head small {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.picker-panel-actions,
+.shamsi-picker-panel-teleport .shamsi-picker-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.picker-panel .picker-panel-actions .action-btn,
+.shamsi-picker-panel-teleport .shamsi-picker-actions .action-btn {
+  min-width: 96px;
+  min-height: 38px;
+  border-radius: 10px;
+  font-weight: 800;
+}
+
+.picker-panel .picker-panel-actions .action-btn.tone-primary,
+.shamsi-picker-panel-teleport .shamsi-picker-actions .action-btn.tone-primary {
+  border: 1px solid #2f9d89 !important;
+  background: #2f9d89 !important;
+  background-image: none !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.picker-panel .picker-panel-actions .action-btn.tone-primary:hover:not(:disabled),
+.shamsi-picker-panel-teleport .shamsi-picker-actions .action-btn.tone-primary:hover:not(:disabled) {
+  border-color: #278f7c !important;
+  background: #278f7c !important;
+  color: #ffffff !important;
+}
+
+.picker-panel .picker-panel-actions .action-btn.tone-soft,
+.shamsi-picker-panel-teleport .shamsi-picker-actions .action-btn.tone-soft {
+  border: 1px solid rgba(52, 144, 139, 0.22) !important;
+  background: #ffffff !important;
+  background-image: none !important;
+  color: #134e4a !important;
+}
+
+.picker-panel .picker-panel-actions .action-btn:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.time-picker-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.time-picker-column {
+  display: grid;
+  gap: 6px;
+}
+
+.time-picker-column small {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.time-picker-scroll {
+  max-height: 132px;
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid rgba(52, 144, 139, 0.14);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.time-picker-option {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: #fff;
+  color: #134e4a;
+  font-weight: 700;
+  min-height: 30px;
+  cursor: pointer;
+}
+
+.time-picker-option.is-selected {
+  border-color: #2f9d89;
+  background: rgba(47, 157, 137, 0.14);
+}
+
+.duration-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.duration-preset {
+  border: 1px solid rgba(52, 144, 139, 0.2);
+  border-radius: 999px;
+  background: #fff;
+  color: #134e4a;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.duration-preset.is-selected {
+  border-color: #2f9d89;
+  background: rgba(47, 157, 137, 0.12);
+}

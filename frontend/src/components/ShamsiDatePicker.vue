@@ -261,6 +261,7 @@ watch(open, async (isOpen) => {
 
       <div class="shamsi-picker-actions">
         <button type="button" class="action-btn tone-soft" @click="clearValue">پاک کردن</button>
+        <button type="button" class="action-btn tone-primary" @click="close">تأیید</button>
       </div>
     </div>
   </Teleport>

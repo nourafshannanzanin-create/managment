@@ -49,6 +49,7 @@ function createCurrentUser() {
     canAccessUsers: false,
     canAccessExpenses: false,
     canAccessSettings: false,
+    canEditWorkTimes: false,
     canViewReports: false,
     canAccessApprovals: false,
     canApproveDocuments: false,
@@ -183,6 +184,7 @@ function createSettingsState() {
     organizationUsers: [],
     departments: [],
     canEdit: false,
+    canEditWorkTimes: false,
   }
 }
 
@@ -697,6 +699,29 @@ function normalizeExpense(item) {
     amount: formatNumber(item?.amountRaw ?? item?.amount),
     submittedAt: normalizeDisplayDate(item?.submittedAt),
     invoiceUrl: resolveAssetUrl(item?.invoiceUrl),
+    notes: (item?.notes || []).map((note) => ({
+      ...note,
+      body: cleanDisplayText(note?.body),
+      author: note?.author
+        ? {
+            ...note.author,
+            name: cleanDisplayText(note.author.name),
+            role: cleanDisplayText(note.author.role),
+            avatarUrl: resolveAssetUrl(note.author.avatarUrl),
+          }
+        : null,
+      parent: note?.parent
+        ? {
+            ...note.parent,
+            body: cleanDisplayText(note.parent.body),
+            author: note.parent.author
+              ? { ...note.parent.author, name: cleanDisplayText(note.parent.author.name) }
+              : null,
+          }
+        : null,
+      createdAt: normalizeDisplayDate(note?.createdAt) || note?.createdAt,
+    })),
+    noteCount: Number(item?.noteCount ?? item?.notes?.length ?? 0),
   }
 }
 
@@ -2906,6 +2931,25 @@ export function useWorkflowHub() {
     closeExpenseDetail()
   }
 
+  async function addExpenseNote(expenseId, body, parentId = null) {
+    state.lastError = ''
+    const response = await authorizedFetch(hqScopedPath(`/expenses/${expenseId}/notes`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body, parentId }),
+    })
+    const note = normalizeExpense({ notes: [repairPayload(await response.json())] }).notes[0]
+    if (expenseDetailState.item?.id === expenseId) {
+      const current = expenseDetailState.item.notes || []
+      expenseDetailState.item = {
+        ...expenseDetailState.item,
+        notes: [...current, note],
+        noteCount: current.length + 1,
+      }
+    }
+    return note
+  }
+
 async function updateUser(userId, payload) {
   clearLastError()
   try {
@@ -3458,6 +3502,7 @@ async function removeUserEntrustedItem(userId, itemId) {
     approveSelectedExpense,
     rejectSelectedExpense,
     referSelectedExpense,
+    addExpenseNote,
     updateUser,
     addUserEntrustedItem,
     removeUserEntrustedItem,

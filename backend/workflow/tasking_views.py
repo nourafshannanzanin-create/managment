@@ -430,7 +430,7 @@ def tasking_settings_view(request: HttpRequest):
     if request.method == "GET":
         settings_obj = get_or_create_tasking_settings(organization)
         return json_response(serialize_tasking_settings(settings_obj))
-    if not can_access_settings(request.current_user) and not can_manage_users(request.current_user):
+    if not can_access_settings(request.current_user) and not can_manage_users(request.current_user) and not is_manager(request.current_user):
         return json_error("دسترسی کافی ندارید.", status=403)
     payload = parse_json(request)
     try:

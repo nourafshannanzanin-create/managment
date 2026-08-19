@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import os
 from collections import Counter, defaultdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from io import StringIO
 from pathlib import Path
@@ -12,6 +12,7 @@ from uuid import uuid4
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Prefetch, Q
+from django.utils import timezone
 
 from workflow.access import can_access_approvals, can_access_expenses, can_access_settings, can_access_users, can_approve_documents, can_manage_users, can_view_reports, get_user_organization, is_manager, organization_users, visible_users
 from workflow.models import (
@@ -25,6 +26,7 @@ from workflow.models import (
     Expense,
     ExpenseApprovalAssignment,
     ExpenseCategory,
+    ExpenseNote,
     ExpenseStatus,
     FeaturePurchase,
     LeaveRequest,
@@ -159,7 +161,17 @@ def normalize_money(value) -> Decimal:
 def format_date(value):
     if not value:
         return ""
-    return value.isoformat()
+    return as_local_date(value).isoformat()
+
+
+def as_local_date(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if timezone.is_naive(value):
+            value = timezone.make_aware(value, timezone.get_current_timezone())
+        return timezone.localtime(value).date()
+    return value
 
 
 def relative_time(value: datetime) -> str:
@@ -173,7 +185,7 @@ def relative_time(value: datetime) -> str:
     days = hours // 24
     if days < 7:
         return f"{days} روز قبل"
-    return value.date().isoformat()
+    return as_local_date(value).isoformat()
 
 
 def access_role_label(role: str) -> str:
@@ -442,10 +454,10 @@ def operational_retention_start(organization: Organization | None) -> date:
         purchase = organization_feature_purchase(organization, CLOUD_STORAGE_FEATURE_KEY)
         if purchase and purchase.is_active and purchase.renewal_due_at:
             subscription_start = purchase.renewal_due_at - timedelta(days=365)
-            rolling_start = date.today() - timedelta(days=CLOUD_OPERATIONAL_RETENTION_DAYS)
+            rolling_start = timezone.localdate() - timedelta(days=CLOUD_OPERATIONAL_RETENTION_DAYS)
             return min(subscription_start, rolling_start)
-        return date.today() - timedelta(days=CLOUD_OPERATIONAL_RETENTION_DAYS)
-    return date.today() - timedelta(days=DEFAULT_OPERATIONAL_RETENTION_DAYS)
+        return timezone.localdate() - timedelta(days=CLOUD_OPERATIONAL_RETENTION_DAYS)
+    return timezone.localdate() - timedelta(days=DEFAULT_OPERATIONAL_RETENTION_DAYS)
 
 
 def feature_installment_amount(config: dict, purchase: FeaturePurchase | None = None) -> Decimal:
@@ -475,7 +487,7 @@ def feature_installment_status(purchase: FeaturePurchase | None, config: dict | 
             "grace_days": LICENSE_GRACE_DAYS,
             "notice": "",
         }
-    today = date.today()
+    today = timezone.localdate()
     next_due_at = purchase.next_installment_due_at
     if next_due_at > today:
         return {
@@ -547,8 +559,8 @@ def pay_feature_installment(organization: Organization, purchase: FeaturePurchas
     if purchase.remaining_amount <= 0:
         purchase.next_installment_due_at = None
     else:
-        base_due = purchase.next_installment_due_at or date.today()
-        purchase.next_installment_due_at = max(base_due, date.today()) + timedelta(days=30)
+        base_due = purchase.next_installment_due_at or timezone.localdate()
+        purchase.next_installment_due_at = max(base_due, timezone.localdate()) + timedelta(days=30)
     purchase.updated_at = timezone.now()
     purchase.save(
         update_fields=["paid_amount", "remaining_amount", "next_installment_due_at", "updated_at"],
@@ -596,7 +608,7 @@ def license_status_payload(organization: Organization | None) -> dict:
             **trial,
         }
     if Decimal(core_purchase.remaining_amount or 0) <= 0 and core_purchase.renewal_due_at:
-        renewal_overdue_days = max((date.today() - core_purchase.renewal_due_at).days, 0)
+        renewal_overdue_days = max((timezone.localdate() - core_purchase.renewal_due_at).days, 0)
         if renewal_overdue_days > 0:
             is_locked = renewal_overdue_days > 7
             annual_due = normalize_money(core_purchase.annual_subscription_amount or 0)
@@ -615,7 +627,7 @@ def license_status_payload(organization: Organization | None) -> dict:
             }
     overdue_days = 0
     if core_purchase.next_installment_due_at and core_purchase.remaining_amount > 0:
-        overdue_days = max((date.today() - core_purchase.next_installment_due_at).days, 0)
+        overdue_days = max((timezone.localdate() - core_purchase.next_installment_due_at).days, 0)
     is_locked = overdue_days > 7
     return {
         "isLocked": is_locked,
@@ -799,6 +811,7 @@ def serialize_current_user(user: User) -> dict:
         "canAccessUsers": can_access_users(user),
         "canAccessExpenses": can_access_expenses(user),
         "canAccessSettings": can_access_settings(user),
+        "canEditWorkTimes": is_manager(user),
         "canViewReports": can_view_reports(user),
         "canAccessApprovals": can_access_approvals(user),
         "canApproveDocuments": can_approve_documents(user),
@@ -857,7 +870,7 @@ def parse_entrusted_item_payload(raw: dict) -> dict:
         raise ValueError("مبلغ امانت نمی‌تواند منفی باشد.")
 
     date_raw = str(raw.get("entrustedAt") or raw.get("entrustedAtIso") or raw.get("date") or "").strip()
-    entrusted_at = date.today()
+    entrusted_at = timezone.localdate()
     if date_raw:
         parsed = None
         if len(date_raw) >= 10 and date_raw[4] == "-":
@@ -945,10 +958,10 @@ def serialize_user(user: User) -> dict:
         "kpi": user.job_title or "",
         "organization": membership.organization.name if membership else "",
         "organizationId": membership.organization_id if membership else None,
-        "joinedAt": format_date(created_at.date()) if created_at else "",
-        "joinedAtIso": format_date(created_at.date()) if created_at else "",
+        "joinedAt": format_date(created_at) if created_at else "",
+        "joinedAtIso": format_date(created_at) if created_at else "",
         "financeUpdatedAt": finance_updated_at.isoformat() if finance_updated_at else "",
-        "financeUpdatedAtIso": format_date(finance_updated_at.date()) if finance_updated_at else "",
+        "financeUpdatedAtIso": format_date(finance_updated_at) if finance_updated_at else "",
         "isActive": user.is_active,
         "status": "فعال" if user.is_active else "غیرفعال",
         "bonusAmount": format_money(bonus_amount),
@@ -1067,8 +1080,8 @@ def serialize_request(request_obj: Request) -> dict:
         "departmentCode": request_obj.department.code if request_obj.department else "",
         "deadline": format_date(request_obj.deadline),
         "deadlineIso": format_date(request_obj.deadline),
-        "createdAt": format_date(request_obj.created_at.date()),
-        "createdAtIso": format_date(request_obj.created_at.date()),
+        "createdAt": format_date(request_obj.created_at),
+        "createdAtIso": format_date(request_obj.created_at),
         "description": request_obj.description or "",
         "attachments": [
             {
@@ -1102,6 +1115,38 @@ def serialize_request(request_obj: Request) -> dict:
     }
 
 
+def serialize_expense_note(note: ExpenseNote) -> dict:
+    parent_payload = None
+    if note.parent_id:
+        parent = note.parent
+        if parent is None:
+            parent = ExpenseNote.objects.filter(pk=note.parent_id).select_related("author").first()
+        if parent:
+            parent_payload = {
+                "id": parent.id,
+                "body": (parent.body or "")[:180],
+                "author": {
+                    "id": parent.author_id,
+                    "name": normalize_person_name(parent.author.full_name) if parent.author else "نامشخص",
+                },
+            }
+    author = note.author
+    return {
+        "id": note.id,
+        "body": note.body or "",
+        "createdAt": note.created_at.isoformat() if note.created_at else "",
+        "editedAt": note.edited_at.isoformat() if note.edited_at else "",
+        "author": {
+            "id": author.id if author else None,
+            "name": normalize_person_name(author.full_name) if author else "نامشخص",
+            "avatarUrl": user_avatar_url(author) if author else "",
+            "role": access_role_label(author.role) if author else "",
+        },
+        "parentId": note.parent_id,
+        "parent": parent_payload,
+    }
+
+
 def serialize_expense(expense: Expense) -> dict:
     current_user = getattr(expense, "_current_user", None)
     assignments = list(getattr(expense, "_prefetched_objects_cache", {}).get("approval_assignments", []))
@@ -1113,6 +1158,13 @@ def serialize_expense(expense: Expense) -> dict:
         and current_assignment.status == ApprovalAssignmentStatus.PENDING
         and expense.status in {ExpenseStatus.PENDING, ExpenseStatus.UNDER_REVIEW}
     )
+    notes = list(getattr(expense, "_prefetched_objects_cache", {}).get("user_notes", []))
+    if not notes and expense.pk:
+        notes = list(
+            expense.user_notes.filter(deleted_at__isnull=True)
+            .select_related("author")
+            .order_by("created_at")
+        )
     return {
         "id": expense.code,
         "title": expense.title,
@@ -1146,6 +1198,8 @@ def serialize_expense(expense: Expense) -> dict:
             }
             for item in assignments
         ],
+        "notes": [serialize_expense_note(item) for item in notes],
+        "noteCount": len(notes),
         "bucket": current_assignment.status if current_assignment else expense.status,
         "canApprove": can_approve,
         "currentApproverId": current_assignment.approver_id if current_assignment else None,
@@ -1207,7 +1261,7 @@ def serialize_wallet_transaction(transaction: WalletTransaction) -> dict:
         "note": transaction.note,
         "referenceId": transaction.reference_id,
         "createdAt": transaction.transacted_at.isoformat(),
-        "createdAtIso": format_date(transaction.transacted_at.date()),
+        "createdAtIso": format_date(transaction.transacted_at),
         "time": relative_time(transaction.transacted_at),
     }
 
@@ -1306,7 +1360,7 @@ def serialize_support_message(message: SupportMessage, *, include_internal: bool
         "body": message.body,
         "isInternal": bool(getattr(message, "is_internal", False)),
         "createdAt": message.created_at.isoformat(),
-        "createdAtIso": format_date(message.created_at.date()),
+        "createdAtIso": format_date(message.created_at),
         "time": relative_time(message.created_at),
     }
 
@@ -1376,9 +1430,9 @@ def serialize_support_ticket(ticket: SupportTicket, include_detail: bool = False
         "messagesCount": ticket.messages.count() if include_internal else ticket.messages.filter(is_internal=False).count(),
         "lastMessagePreview": (last_message.body if last_message else ticket.message)[:180],
         "createdAt": ticket.created_at.isoformat(),
-        "createdAtIso": format_date(ticket.created_at.date()),
+        "createdAtIso": format_date(ticket.created_at),
         "updatedAt": ticket.updated_at.isoformat(),
-        "updatedAtIso": format_date(ticket.updated_at.date()),
+        "updatedAtIso": format_date(ticket.updated_at),
         "time": relative_time(ticket.updated_at),
         "actionMeta": parse_support_ticket_meta(ticket),
     }
@@ -1404,8 +1458,8 @@ def serialize_approval(document: Document, current_user: User | None = None) -> 
         "statusValue": document.status,
         "department": document.department.name if document.department else "بدون واحد",
         "departmentCode": document.department.code if document.department else "",
-        "uploadedAt": format_date(document.uploaded_at.date()),
-        "uploadedAtIso": format_date(document.uploaded_at.date()),
+        "uploadedAt": format_date(document.uploaded_at),
+        "uploadedAtIso": format_date(document.uploaded_at),
         "risk": document_risk_label(document.risk),
         "riskValue": document.risk,
         "summary": document.description or "",
@@ -1447,7 +1501,13 @@ def visible_expenses(user: User):
         Expense.objects.filter(Q(owner=user) | Q(approval_assignments__approver=user))
         .filter(expense_date__gte=retention_start)
         .select_related("owner", "department")
-        .prefetch_related(Prefetch("approval_assignments", queryset=ExpenseApprovalAssignment.objects.select_related("approver").order_by("created_at")))
+        .prefetch_related(
+            Prefetch("approval_assignments", queryset=ExpenseApprovalAssignment.objects.select_related("approver").order_by("created_at")),
+            Prefetch(
+                "user_notes",
+                queryset=ExpenseNote.objects.filter(deleted_at__isnull=True).select_related("author").order_by("created_at"),
+            ),
+        )
         .distinct()
         .order_by("-expense_date", "-created_at")
     )
@@ -1472,7 +1532,7 @@ def visible_approvals(user: User):
 
 def report_catalog(user: User) -> list[dict]:
     owner = normalize_person_name(user.full_name) or "مدیرعامل"
-    today = date.today().isoformat()
+    today = timezone.localdate().isoformat()
     return [
         {
             "id": "requests",
@@ -1591,8 +1651,8 @@ def serialize_hq_organization(organization: Organization) -> dict:
         "id": organization.id,
         "code": organization.code,
         "name": organization.name,
-        "createdAt": format_date(organization.created_at.date()),
-        "createdAtIso": format_date(organization.created_at.date()),
+        "createdAt": format_date(organization.created_at),
+        "createdAtIso": format_date(organization.created_at),
         "users": len(users),
         "activeUsers": active_users,
         "requests": requests.count(),
@@ -1807,8 +1867,8 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
         AuditLog.objects.filter(actor_id__in=[item.id for item in users_qs]).select_related("actor").order_by("-created_at")[:6]
     )
 
-    month_total = sum(Decimal(item.amount) for item in expenses_qs if item.expense_date.month == date.today().month)
-    year_total = sum(Decimal(item.amount) for item in expenses_qs if item.expense_date.year == date.today().year)
+    month_total = sum(Decimal(item.amount) for item in expenses_qs if item.expense_date.month == timezone.localdate().month)
+    year_total = sum(Decimal(item.amount) for item in expenses_qs if item.expense_date.year == timezone.localdate().year)
     active_requests = sum(1 for item in requests_qs if item.status in {RequestStatus.SUBMITTED, RequestStatus.UNDER_REVIEW})
     if hq_selected_organization is not None:
         metrics = {
@@ -1820,7 +1880,7 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
         metrics = approval_metrics(user)
 
     expense_by_day: dict[date, Decimal] = defaultdict(lambda: Decimal("0"))
-    start_day = date.today() - timedelta(days=6)
+    start_day = timezone.localdate() - timedelta(days=6)
     for expense in expenses_qs:
         if expense.expense_date >= start_day:
             expense_by_day[expense.expense_date] += Decimal(expense.amount)
@@ -1842,15 +1902,15 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
     reports = []
     if can_view_reports(user):
         reports = [
-            {"title": "گزارش درخواست ها", "description": "نمای کلی جریان درخواست ها", "export": "CSV / Excel", "owner": "مدیرعامل", "generatedAt": date.today().isoformat(), "generatedAtIso": date.today().isoformat()},
-            {"title": "گزارش هزینه ها", "description": "تحلیل هزینه های سازمان", "export": "CSV / Excel", "owner": "مدیرعامل", "generatedAt": date.today().isoformat(), "generatedAtIso": date.today().isoformat()},
-            {"title": "گزارش تاییدها", "description": "عملکرد مدیران در تایید اسناد", "export": "CSV / Excel", "owner": "مدیرعامل", "generatedAt": date.today().isoformat(), "generatedAtIso": date.today().isoformat()},
+            {"title": "گزارش درخواست ها", "description": "نمای کلی جریان درخواست ها", "export": "CSV / Excel", "owner": "مدیرعامل", "generatedAt": timezone.localdate().isoformat(), "generatedAtIso": timezone.localdate().isoformat()},
+            {"title": "گزارش هزینه ها", "description": "تحلیل هزینه های سازمان", "export": "CSV / Excel", "owner": "مدیرعامل", "generatedAt": timezone.localdate().isoformat(), "generatedAtIso": timezone.localdate().isoformat()},
+            {"title": "گزارش تاییدها", "description": "عملکرد مدیران در تایید اسناد", "export": "CSV / Excel", "owner": "مدیرعامل", "generatedAt": timezone.localdate().isoformat(), "generatedAtIso": timezone.localdate().isoformat()},
         ]
 
     reports = report_catalog(user) if can_view_reports(user) else []
 
-    today_total = sum(Decimal(item.amount) for item in expenses_qs if item.expense_date == date.today())
-    week_start = date.today() - timedelta(days=date.today().weekday())
+    today_total = sum(Decimal(item.amount) for item in expenses_qs if item.expense_date == timezone.localdate())
+    week_start = timezone.localdate() - timedelta(days=timezone.localdate().weekday())
     week_total = sum(Decimal(item.amount) for item in expenses_qs if item.expense_date >= week_start)
     wallet_organization = hq_selected_organization
     if wallet_organization is None and user.slug != HQ_USERNAME:
@@ -1952,7 +2012,7 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
 
 def _report_date_bounds(filters: dict | None = None) -> tuple[date | None, date | None]:
     filters = filters or {}
-    today_value = date.today()
+    today_value = timezone.localdate()
     period = (filters.get("period") or "").strip()
     if period == "today":
         return today_value, today_value
@@ -2005,7 +2065,7 @@ def _report_organization(user: User, organization_id: int | None) -> Organizatio
 def render_report_export(report_key: str, user: User, organization_id: int | None = None, filters: dict | None = None) -> tuple[str, str]:
     buffer = StringIO()
     writer = csv.writer(buffer)
-    today = date.today().isoformat()
+    today = timezone.localdate().isoformat()
     filters = filters or {}
     start_date, end_date = _report_date_bounds(filters)
     retention_start = operational_retention_start(_report_organization(user, organization_id))
@@ -2025,7 +2085,7 @@ def render_report_export(report_key: str, user: User, organization_id: int | Non
             .order_by("-created_at")
         )
         for item in request_items:
-            if not _in_report_bounds(item.created_at.date(), start_date, end_date):
+            if not _in_report_bounds(as_local_date(item.created_at), start_date, end_date):
                 continue
             assignees = [normalize_person_name(manager.full_name) for manager in item.assigned_managers.all()]
             assignees += [normalize_person_name(employee.full_name) for employee in item.assigned_employees.all()]
@@ -2042,7 +2102,7 @@ def render_report_export(report_key: str, user: User, organization_id: int | Non
                 request_status_label(item.status),
                 priority_label(item.priority),
                 item.department.name if item.department else "",
-                format_date(item.created_at.date()),
+                format_date(item.created_at),
                 format_date(item.deadline),
                 decisions,
             ])
@@ -2081,7 +2141,7 @@ def render_report_export(report_key: str, user: User, organization_id: int | Non
             .order_by("-uploaded_at")
         )
         for item in approval_items:
-            if not _in_report_bounds(item.uploaded_at.date(), start_date, end_date):
+            if not _in_report_bounds(as_local_date(item.uploaded_at), start_date, end_date):
                 continue
             approvers = "، ".join(normalize_person_name(assignment.approver.full_name) for assignment in item.approval_assignments.all())
             decisions = " | ".join(
@@ -2096,7 +2156,7 @@ def render_report_export(report_key: str, user: User, organization_id: int | Non
                 document_status_label(item.status),
                 document_risk_label(item.risk),
                 item.department.name if item.department else "",
-                format_date(item.uploaded_at.date()),
+                format_date(item.uploaded_at),
                 approvers,
                 decisions,
             ])
@@ -2108,7 +2168,7 @@ def render_report_export(report_key: str, user: User, organization_id: int | Non
             .order_by("-created_at")
         )
         for item in user_items:
-            if not _in_report_bounds(item.created_at.date(), start_date, end_date):
+            if not _in_report_bounds(as_local_date(item.created_at), start_date, end_date):
                 continue
             bonus_amount = Decimal(item.bonus_amount or 0)
             penalty_amount = Decimal(item.penalty_amount or 0)
@@ -2121,7 +2181,7 @@ def render_report_export(report_key: str, user: User, organization_id: int | Non
                 item.department.name if item.department else "",
                 normalize_person_name(item.manager.full_name) if item.manager else "",
                 "فعال" if item.is_active else "غیرفعال",
-                format_date(item.created_at.date()),
+                format_date(item.created_at),
                 format_money(bonus_amount),
                 format_money(penalty_amount),
                 format_money(bonus_amount - penalty_amount),
@@ -2216,8 +2276,8 @@ def serialize_hq_service_row(purchase: FeaturePurchase) -> dict:
         "next_installment_due_at": format_date(purchase.next_installment_due_at),
         "renewalDueAt": format_date(purchase.renewal_due_at),
         "renewal_due_at": format_date(purchase.renewal_due_at),
-        "purchasedAt": format_date(purchase.created_at.date()),
-        "purchased_at": format_date(purchase.created_at.date()),
+        "purchasedAt": format_date(purchase.created_at),
+        "purchased_at": format_date(purchase.created_at),
         "updatedAt": purchase.updated_at.isoformat(),
         "updated_at": purchase.updated_at.isoformat(),
     }
@@ -2562,7 +2622,7 @@ def build_hq_reports_payload(params) -> dict:
             "activeFeatures": active_features,
             "subscriptionsCount": len(org_purchases),
             "health": health,
-            "createdAt": format_date(organization.created_at.date()),
+            "createdAt": format_date(organization.created_at),
         })
 
     org_rows.sort(key=lambda item: (-item["salesTotalRaw"], item["organizationName"]))

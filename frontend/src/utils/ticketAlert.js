@@ -91,22 +91,18 @@ function playAudio(kind = 'hq') {
   if (typeof window === 'undefined') return
   const key = kind === 'org' ? 'org' : 'hq'
   try {
-    // Prefer a fresh instance so rapid consecutive alerts are not dropped.
-    const base = ensureAudio(key)
-    if (!base) return
-    const audio = base.cloneNode?.(true) || base
-    audio.muted = false
-    audio.volume = 0.95
-    audio.currentTime = 0
-    const playPromise = audio.play()
+    const url = key === 'org' ? ORG_ALERT_SOUND_URL : HQ_ALERT_SOUND_URL
+    const fresh = new Audio(url)
+    fresh.volume = 0.95
+    const playPromise = fresh.play()
     if (playPromise?.then) {
       playPromise
         .then(() => {
           unlockedByKind[key] = true
         })
         .catch(() => {
-          // Fallback: retry original element after unlock attempt.
-          unlockOne(key)
+          const base = ensureAudio(key)
+          if (!base) return
           base.muted = false
           base.currentTime = 0
           void base.play().then(() => {

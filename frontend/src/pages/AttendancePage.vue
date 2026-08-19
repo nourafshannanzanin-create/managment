@@ -8,7 +8,7 @@ import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
 import SectionHeading from '../components/SectionHeading.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import { haversineDistanceMeters, readDeviceLocation } from '../lib/geolocation'
-import { formatJalali, getTodayJalali, gregorianToJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
+import { formatJalali, formatTehranDate, formatTehranDateTime, formatTehranTime, getTehranClock, getTodayIso, getTodayJalali, isoToJalali, jalaliToIso, shiftIsoDate } from '../utils/jalali'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 const TOKEN_KEY = 'workflow-hub-token'
@@ -42,6 +42,8 @@ const locationBusy = ref(false)
 const locationHint = ref('')
 const liveUserLocation = ref(null)
 const liveDistanceMeters = ref(null)
+const punchTime = ref(getTehranClock())
+const eventTimeDrafts = ref({})
 
 const fa = (value) => Number(value || 0).toLocaleString('fa-IR')
 const eventLabel = (type) => (type === 'in' ? 'ورود' : 'خروج')
@@ -49,20 +51,17 @@ const statusLabel = (type) => (type === 'in' ? 'حاضر' : 'خارج از شی�
 const eventTone = (type) => (type === 'in' ? 'is-success' : 'is-warning')
 const dateTime = (value) => {
   if (!value) return '-'
-  return new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
+  return formatTehranDateTime(value)
 }
 const dateOnly = (value) => {
   if (!value) return '-'
   if (String(value).length === 10 && value.includes('-')) return isoToJalali(value) || value
-  return new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'medium' }).format(new Date(value))
+  return formatTehranDate(value)
 }
 const timeOnly = (value) => {
   if (!value) return '-'
   if (String(value).length <= 5 && value.includes(':')) return toFaTime(value)
-  return new Intl.DateTimeFormat('fa-IR-u-ca-persian', { timeStyle: 'short' }).format(new Date(value))
+  return formatTehranTime(value)
 }
 const toFaTime = (value) => String(value || '').replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit] || digit)
 const sourceLabel = (source) => (source === 'manager' ? 'ثبت مدیر' : 'لینک پرسنل')
@@ -211,35 +210,28 @@ async function switchTab(tab) {
   if (tab === 'reports' && !reportRows.value.length) await loadReports()
 }
 
-function jalaliFromDate(date) {
-  return formatJalali(gregorianToJalali(date.getFullYear(), date.getMonth() + 1, date.getDate()))
-}
-
 function applyQuickRange(key) {
-  const today = new Date()
-  const end = jalaliFromDate(today)
-  let startDate = new Date(today)
+  const todayIso = getTodayIso()
+  const todayJalali = formatJalali(getTodayJalali())
   if (key === 'today') {
     reportFilters.value.rangeKey = key
-    reportFilters.value.start = end
-    reportFilters.value.end = end
+    reportFilters.value.start = todayJalali
+    reportFilters.value.end = todayJalali
     void loadReports()
     return
   }
   if (key === 'yesterday') {
-    startDate.setDate(startDate.getDate() - 1)
-    const day = jalaliFromDate(startDate)
+    const day = isoToJalali(shiftIsoDate(todayIso, -1))
     reportFilters.value.rangeKey = key
     reportFilters.value.start = day
     reportFilters.value.end = day
     void loadReports()
     return
   }
-  if (key === 'week') startDate.setDate(startDate.getDate() - 6)
-  if (key === 'month') startDate.setDate(startDate.getDate() - 29)
+  const delta = key === 'week' ? -6 : -29
   reportFilters.value.rangeKey = key
-  reportFilters.value.start = jalaliFromDate(startDate)
-  reportFilters.value.end = end
+  reportFilters.value.start = isoToJalali(shiftIsoDate(todayIso, delta))
+  reportFilters.value.end = todayJalali
   void loadReports()
 }
 
@@ -333,12 +325,46 @@ async function loadPublic() {
 async function submitManagerEvent(user, eventType) {
   submitting.value = true
   errorMessage.value = ''
+  successMessage.value = ''
   try {
     dashboard.value = await apiFetch('/attendance/events', {
       method: 'POST',
-      body: JSON.stringify({ userId: user.id, eventType }),
+      body: JSON.stringify({
+        userId: user.id,
+        eventType,
+        eventAt: `${getTodayIso()}T${punchTime.value || getTehranClock()}:00`,
+      }),
     })
+    successMessage.value = eventType === 'in' ? 'ورود ثبت شد.' : 'خروج ثبت شد.'
     if (activeTab.value === 'reports') await loadReports()
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    submitting.value = false
+  }
+}
+
+function eventTimeDraft(row) {
+  if (eventTimeDrafts.value[row.id]) return eventTimeDrafts.value[row.id]
+  return String(row.eventTime || '').slice(0, 5) || getTehranClock()
+}
+
+function setEventTimeDraft(rowId, value) {
+  eventTimeDrafts.value = { ...eventTimeDrafts.value, [rowId]: value }
+}
+
+async function saveEventTime(row) {
+  submitting.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+  try {
+    const timeValue = eventTimeDraft(row)
+    await apiFetch(`/attendance/events/${row.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ time: timeValue }),
+    })
+    await loadReports()
+    successMessage.value = 'زمان رویداد به‌روز شد.'
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -487,6 +513,10 @@ onMounted(() => {
             <span>ساعت امروز <b>{{ fa(user.todayWorkedHours) }}</b></span>
           </div>
           <code class="attendance-link">{{ attendanceLink(user) }}</code>
+          <label class="field-shell attendance-time-field">
+            <span>ساعت ورود / خروج</span>
+            <input v-model="punchTime" type="time" />
+          </label>
           <div class="attendance-actions">
             <button class="action-btn tone-primary" type="button" :disabled="submitting || user.status === 'in'" @click="submitManagerEvent(user, 'in')">
               <IconlyIcon name="login" decorative />
@@ -686,6 +716,13 @@ onMounted(() => {
                         <article><span>موبایل</span><strong>{{ row.userPhone || '-' }}</strong></article>
                         <article><span>ثبت سیستم</span><strong>{{ dateTime(row.createdAt) }}</strong></article>
                         <article><span>زمان کامل</span><strong>{{ dateTime(row.eventAt) }}</strong></article>
+                        <article>
+                          <span>ویرایش ساعت</span>
+                          <div class="report-time-edit">
+                            <input :value="eventTimeDraft(row)" type="time" @input="setEventTimeDraft(row.id, $event.target.value)" />
+                            <button class="action-btn tone-primary" type="button" :disabled="submitting" @click="saveEventTime(row)">ذخیره</button>
+                          </div>
+                        </article>
                         <article><span>منبع</span><strong>{{ sourceLabel(row.source) }}</strong></article>
                         <article><span>مدت شیفت</span><strong>{{ formatShift(row) }}</strong></article>
                         <article><span>فاصله</span><strong>{{ row.distanceMeters != null ? `${fa(Math.round(row.distanceMeters))} متر` : '-' }}</strong></article>
@@ -1627,6 +1664,21 @@ onMounted(() => {
 .attendance-actions .action-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.attendance-time-field {
+  margin: 0;
+}
+
+.report-time-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.report-time-edit input {
+  min-width: 0;
+  flex: 1;
 }
 
 .attendance-feed { display: grid; gap: 10px; min-width: 0; }
