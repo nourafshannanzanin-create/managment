@@ -5,6 +5,7 @@ import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, reactive, ref,
 import { useRoute, useRouter } from 'vue-router'
 
 import { getTodayJalali } from '../utils/jalali'
+import { createLiveEventSource, parseLiveEvent } from '../utils/live'
 import { formatFileSize, prepareUploadFile, UPLOAD_LIMITS } from '../utils/uploads'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -30,6 +31,8 @@ const replyBody = ref('')
 const sendingReply = ref(false)
 
 let supportPollingTimer = null
+let supportLiveStream = null
+let supportLiveRefreshTimer = null
 let supportPollingInFlight = false
 
 const getEmptyContext = () => ({
@@ -394,7 +397,7 @@ const submitTicketFeedback = async () => {
 }
 
 const refreshTicketsQuietly = async () => {
-  if (supportPollingInFlight || ticketModal.open || sendingReply.value || state.support.submitting) return
+  if (supportPollingInFlight || ticketModal.open || sendingReply.value || state.support.submitting || document.visibilityState === 'hidden') return
   supportPollingInFlight = true
   try {
     const previousId = selectedTicket.value?.id
@@ -407,6 +410,32 @@ const refreshTicketsQuietly = async () => {
   } finally {
     supportPollingInFlight = false
   }
+}
+
+const stopSupportLive = () => {
+  if (supportPollingTimer) {
+    window.clearInterval(supportPollingTimer)
+    supportPollingTimer = null
+  }
+  if (supportLiveRefreshTimer) {
+    window.clearTimeout(supportLiveRefreshTimer)
+    supportLiveRefreshTimer = null
+  }
+  supportLiveStream?.close()
+  supportLiveStream = null
+}
+
+const startSupportLive = () => {
+  stopSupportLive()
+  supportLiveStream = createLiveEventSource(state.authToken)
+  supportLiveStream?.addEventListener('open', refreshTicketsQuietly)
+  supportLiveStream?.addEventListener('message', (event) => {
+    const payload = parseLiveEvent(event.data)
+    if (!payload?.type || !String(payload.type).startsWith('support.')) return
+    if (supportLiveRefreshTimer) window.clearTimeout(supportLiveRefreshTimer)
+    supportLiveRefreshTimer = window.setTimeout(refreshTicketsQuietly, 350)
+  })
+  supportPollingTimer = window.setInterval(refreshTicketsQuietly, 60000)
 }
 
 watch(activeStatusTab, async () => {
@@ -448,11 +477,11 @@ onMounted(async () => {
     router.replace({ path: route.path, query: {} })
   }
 
-  supportPollingTimer = window.setInterval(refreshTicketsQuietly, 10000)
+  startSupportLive()
 })
 
 onBeforeUnmount(() => {
-  if (supportPollingTimer) window.clearInterval(supportPollingTimer)
+  stopSupportLive()
 })
 </script>
 

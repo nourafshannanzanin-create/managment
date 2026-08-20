@@ -17,6 +17,7 @@ import SignatureComposerModal from './components/SignatureComposerModal.vue'
 import UserComposerModal from './components/UserComposerModal.vue'
 import ToastHost from './components/ToastHost.vue'
 import { unlockTicketAlerts } from './utils/ticketAlert'
+import { createLiveEventSource, parseLiveEvent } from './utils/live'
 import { useWorkflowHub } from './stores/workflowHub'
 
 const route = useRoute()
@@ -26,6 +27,8 @@ const nowTick = ref(Date.now())
 let trialCountdownTimer = null
 let trialExpiryHandled = false
 let liveSyncTimer = null
+let liveStream = null
+let liveRefreshTimer = null
 
 const {
   state,
@@ -138,6 +141,64 @@ function startTrialCountdown() {
   }, 1000)
 }
 
+function stopLiveSync() {
+  if (liveSyncTimer) {
+    window.clearInterval(liveSyncTimer)
+    liveSyncTimer = null
+  }
+  if (liveRefreshTimer) {
+    window.clearTimeout(liveRefreshTimer)
+    liveRefreshTimer = null
+  }
+  if (liveStream) {
+    liveStream.close()
+    liveStream = null
+  }
+}
+
+const workflowLiveTypes = new Set([
+  'request.created',
+  'request.updated',
+  'expense.created',
+  'expense.updated',
+  'document.created',
+  'document.updated',
+  'support.ticket.created',
+  'support.ticket.updated',
+  'support.message.created',
+  'chat.message.created',
+  'task.created',
+  'task.updated',
+  'task.comment.created',
+  'attendance.created',
+  'wallet.transaction.created',
+  'wallet.transaction.updated',
+])
+
+function scheduleLiveSync() {
+  if (!state.authToken || state.liveSync.inFlight) return
+  if (liveRefreshTimer) window.clearTimeout(liveRefreshTimer)
+  liveRefreshTimer = window.setTimeout(() => {
+    void softLiveSync({ includeSupport: true })
+  }, 500)
+}
+
+function startLiveSync() {
+  stopLiveSync()
+  if (!state.authToken) return
+  liveStream = createLiveEventSource(state.authToken)
+  liveStream?.addEventListener('open', scheduleLiveSync)
+  liveStream?.addEventListener('message', (event) => {
+    const payload = parseLiveEvent(event.data)
+    if (!payload?.type || !workflowLiveTypes.has(payload.type)) return
+    scheduleLiveSync()
+  })
+  liveSyncTimer = window.setInterval(() => {
+    if (!state.authToken || state.liveSync.inFlight || document.visibilityState !== 'visible') return
+    void softLiveSync({ includeSupport: true })
+  }, 60000)
+}
+
 async function handleTrialExpiry() {
   if (trialExpiryHandled) return
   trialExpiryHandled = true
@@ -243,6 +304,17 @@ watch(
   },
 )
 
+watch(
+  () => state.authToken,
+  (token) => {
+    if (token) {
+      startLiveSync()
+      return
+    }
+    stopLiveSync()
+  },
+)
+
 onMounted(async () => {
   window.addEventListener('pointerdown', unlockTicketAlerts, { once: true })
   window.addEventListener('keydown', unlockTicketAlerts, { once: true })
@@ -253,17 +325,11 @@ onMounted(async () => {
     unlockTicketAlerts()
   }
   await softLiveSync({ includeSupport: true })
-
-  liveSyncTimer = window.setInterval(() => {
-    if (!state.authToken || state.liveSync.inFlight) return
-    void softLiveSync({ includeSupport: true })
-  }, 45000)
+  startLiveSync()
 })
 
 onUnmounted(() => {
-  if (liveSyncTimer) {
-    window.clearInterval(liveSyncTimer)
-  }
+  stopLiveSync()
   stopTrialCountdown()
   window.removeEventListener('pointerdown', unlockTicketAlerts)
   window.removeEventListener('keydown', unlockTicketAlerts)

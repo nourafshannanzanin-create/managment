@@ -10,6 +10,7 @@ import UserAvatar from '../components/UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatDurationFa, formatDurationRatioFa } from '../utils/duration'
 import { formatJalali, getTodayJalali, getTodayIso, isoToJalali, jalaliToIso, shiftIsoDate } from '../utils/jalali'
+import { createLiveEventSource, parseLiveEvent } from '../utils/live'
 import { toneForStatus } from '../utils/status'
 
 const {
@@ -35,6 +36,8 @@ const superviseDateJalali = ref(formatJalali(getTodayJalali()))
 const timerTick = ref(0)
 let timerHandle = null
 let pollHandle = null
+let taskingLiveStream = null
+let taskingLiveRefreshTimer = null
 let superviseReloadTimer = null
 
 function syncSuperviseDateFromState() {
@@ -56,27 +59,59 @@ function scheduleSuperviseReload() {
   }, 220)
 }
 
+function currentDashboardRefreshOptions() {
+  const iso =
+    mainTab.value === 'supervise'
+      ? (jalaliToIso(superviseDateJalali.value) || state.tasking.date || '')
+      : (state.tasking.date || '')
+  const options = { soft: true }
+  if (mainTab.value === 'supervise') options.superviseOwnerId = superviseOwnerId.value
+  return { iso, options }
+}
+
+function refreshCurrentTaskingDashboard() {
+  if (document.visibilityState === 'hidden') return
+  const { iso, options } = currentDashboardRefreshOptions()
+  void loadTaskingDashboard(true, iso, options).catch(() => {})
+}
+
+function stopTaskingLive() {
+  if (pollHandle) {
+    window.clearInterval(pollHandle)
+    pollHandle = null
+  }
+  if (taskingLiveRefreshTimer) {
+    window.clearTimeout(taskingLiveRefreshTimer)
+    taskingLiveRefreshTimer = null
+  }
+  taskingLiveStream?.close()
+  taskingLiveStream = null
+}
+
+function startTaskingLive() {
+  stopTaskingLive()
+  taskingLiveStream = createLiveEventSource(state.authToken)
+  taskingLiveStream?.addEventListener('open', refreshCurrentTaskingDashboard)
+  taskingLiveStream?.addEventListener('message', (event) => {
+    const payload = parseLiveEvent(event.data)
+    if (!payload?.type || !String(payload.type).startsWith('task.')) return
+    if (taskingLiveRefreshTimer) window.clearTimeout(taskingLiveRefreshTimer)
+    taskingLiveRefreshTimer = window.setTimeout(refreshCurrentTaskingDashboard, 350)
+  })
+  pollHandle = window.setInterval(refreshCurrentTaskingDashboard, 60000)
+}
+
 onMounted(async () => {
   await loadTaskingDashboard(true)
   timerHandle = window.setInterval(() => {
     timerTick.value += 1
   }, 1000)
-  // Soft poll only — sidebar already refreshes badges; avoid double hard reloads.
-  pollHandle = window.setInterval(() => {
-    if (document.visibilityState === 'hidden') return
-    const iso =
-      mainTab.value === 'supervise'
-        ? (jalaliToIso(superviseDateJalali.value) || state.tasking.date || '')
-        : (state.tasking.date || '')
-    const options = { soft: true }
-    if (mainTab.value === 'supervise') options.superviseOwnerId = superviseOwnerId.value
-    void loadTaskingDashboard(true, iso, options).catch(() => {})
-  }, 60000)
+  startTaskingLive()
 })
 
 onUnmounted(() => {
   if (timerHandle) window.clearInterval(timerHandle)
-  if (pollHandle) window.clearInterval(pollHandle)
+  stopTaskingLive()
   if (superviseReloadTimer) window.clearTimeout(superviseReloadTimer)
 })
 

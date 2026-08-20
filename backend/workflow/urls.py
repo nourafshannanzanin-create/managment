@@ -1,10 +1,12 @@
 from django.urls import path
 
+from workflow import live
 from workflow import views
 from workflow import tasking_views
 
 urlpatterns = [
     path("health", views.health_view),
+    path("live/events", live.live_events_view),
     path("auth/login", views.login_view),
     path("auth/logout", views.logout_view),
     path("auth/register", views.register_view),

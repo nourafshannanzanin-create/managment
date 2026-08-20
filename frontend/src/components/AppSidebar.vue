@@ -1,6 +1,6 @@
 <script setup>
 import IconlyIcon from './base/IconlyIcon.vue'
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import UserAvatar from './UserAvatar.vue'
@@ -29,21 +29,9 @@ const {
 const organizationTitle = computed(() => state.hq.selectedOrganization?.name || state.currentUser.organization || 'مجموعه')
 const isLicenseLocked = computed(() => Boolean(state.currentUser.licenseStatus?.isLocked || state.currentUser.licenseStatus?.is_locked))
 
-let chatPollTimer = null
-let taskingPollTimer = null
 onMounted(() => {
   void loadChatUnreadConversations()
   void loadTaskingDashboard(false).catch(() => {})
-  chatPollTimer = window.setInterval(() => {
-    void loadChatUnreadConversations()
-  }, 15000)
-  taskingPollTimer = window.setInterval(() => {
-    void loadTaskingDashboard(true, '', { soft: true }).catch(() => {})
-  }, 60000)
-})
-onBeforeUnmount(() => {
-  if (chatPollTimer) window.clearInterval(chatPollTimer)
-  if (taskingPollTimer) window.clearInterval(taskingPollTimer)
 })
 
 const navItems = computed(() => {

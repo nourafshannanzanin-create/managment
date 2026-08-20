@@ -70,7 +70,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
     "corsheaders",
-    "workflow",
+    "workflow.apps.WorkflowConfig",
 ]
 
 MIDDLEWARE = [

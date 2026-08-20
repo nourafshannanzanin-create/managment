@@ -4,11 +4,12 @@ import UserAvatar from '../components/UserAvatar.vue'
 import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { formatTehranDateTime } from '../utils/jalali'
+import { createLiveEventSource, parseLiveEvent } from '../utils/live'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 const API_ORIGIN = API_BASE_URL.replace(/\/api\/v1\/?$/, '')
-const POLL_MS = 6000
+const FALLBACK_POLL_MS = 30000
 
 const { state, loadChatUnreadConversations } = useWorkflowHub()
 
@@ -38,6 +39,8 @@ const threadRef = ref(null)
 const mobileShowThread = ref(false)
 
 let pollTimer = null
+let liveStream = null
+let liveRefreshTimer = null
 let pollInFlight = false
 
 function resolveMediaUrl(rawUrl) {
@@ -384,7 +387,7 @@ function clearPendingFile() {
 }
 
 async function refreshQuietly() {
-  if (pollInFlight || sending.value) return
+  if (pollInFlight || sending.value || document.visibilityState === 'hidden') return
   pollInFlight = true
   try {
     const beforeUnread = conversations.value.reduce((sum, item) => sum + Number(item.unreadCount || 0), 0)
@@ -402,6 +405,38 @@ async function refreshQuietly() {
   } finally {
     pollInFlight = false
   }
+}
+
+function scheduleLiveRefresh() {
+  if (liveRefreshTimer) window.clearTimeout(liveRefreshTimer)
+  liveRefreshTimer = window.setTimeout(refreshQuietly, 350)
+}
+
+function stopLiveRefresh() {
+  if (pollTimer) {
+    window.clearInterval(pollTimer)
+    pollTimer = null
+  }
+  if (liveRefreshTimer) {
+    window.clearTimeout(liveRefreshTimer)
+    liveRefreshTimer = null
+  }
+  if (liveStream) {
+    liveStream.close()
+    liveStream = null
+  }
+}
+
+function startLiveRefresh() {
+  stopLiveRefresh()
+  liveStream = createLiveEventSource(state.authToken)
+  liveStream?.addEventListener('open', scheduleLiveRefresh)
+  liveStream?.addEventListener('message', (event) => {
+    const payload = parseLiveEvent(event.data)
+    if (payload?.type !== 'chat.message.created') return
+    scheduleLiveRefresh()
+  })
+  pollTimer = window.setInterval(refreshQuietly, FALLBACK_POLL_MS)
 }
 
 function backToList() {
@@ -428,11 +463,11 @@ watch(newChatMode, (mode) => {
 onMounted(async () => {
   await loadConversations()
   await loadUsers()
-  pollTimer = window.setInterval(refreshQuietly, POLL_MS)
+  startLiveRefresh()
 })
 
 onBeforeUnmount(() => {
-  if (pollTimer) window.clearInterval(pollTimer)
+  stopLiveRefresh()
 })
 </script>
 

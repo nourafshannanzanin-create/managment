@@ -6,6 +6,7 @@ import UserAvatar from '../components/UserAvatar.vue'
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 
 import { formatAmountInput } from '../utils/amount'
+import { createLiveEventSource, parseLiveEvent } from '../utils/live'
 import { unlockTicketAlerts } from '../utils/ticketAlert'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -47,6 +48,8 @@ const replyAssignTo = ref(0)
 const replyInternal = ref(false)
 const threadRef = ref(null)
 const pollTimer = ref(null)
+const liveRefreshTimer = ref(null)
+let liveStream = null
 
 const walletDepositModalOpen = ref(false)
 const bankWithdrawModalOpen = ref(false)
@@ -527,6 +530,52 @@ watch(activeTab, async (tab) => {
   if (tab === 'overview' && isHqAdmin.value) await loadHqPanel(true)
 })
 
+const hqLiveTypes = new Set([
+  'support.ticket.created',
+  'support.ticket.updated',
+  'support.message.created',
+  'request.created',
+  'request.updated',
+  'expense.created',
+  'expense.updated',
+  'document.created',
+  'document.updated',
+  'wallet.transaction.created',
+  'wallet.transaction.updated',
+])
+
+const refreshHqQuietly = () => {
+  if (document.visibilityState === 'hidden') return
+  void loadSupportTickets(true, { soft: true, notifyNew: true })
+  void loadHqPanel(true, { soft: true })
+}
+
+const stopHqLive = () => {
+  if (pollTimer.value) {
+    window.clearInterval(pollTimer.value)
+    pollTimer.value = null
+  }
+  if (liveRefreshTimer.value) {
+    window.clearTimeout(liveRefreshTimer.value)
+    liveRefreshTimer.value = null
+  }
+  liveStream?.close()
+  liveStream = null
+}
+
+const startHqLive = () => {
+  stopHqLive()
+  liveStream = createLiveEventSource(state.authToken)
+  liveStream?.addEventListener('open', refreshHqQuietly)
+  liveStream?.addEventListener('message', (event) => {
+    const payload = parseLiveEvent(event.data)
+    if (!payload?.type || !hqLiveTypes.has(payload.type)) return
+    if (liveRefreshTimer.value) window.clearTimeout(liveRefreshTimer.value)
+    liveRefreshTimer.value = window.setTimeout(refreshHqQuietly, 500)
+  })
+  pollTimer.value = window.setInterval(refreshHqQuietly, 60000)
+}
+
 onMounted(async () => {
   window.addEventListener('pointerdown', unlockTicketAlerts, { once: true })
   window.addEventListener('keydown', unlockTicketAlerts, { once: true })
@@ -539,14 +588,11 @@ onMounted(async () => {
     isHqAdmin.value ? loadHqTeam(true).catch(() => {}) : Promise.resolve(),
   ])
 
-  pollTimer.value = window.setInterval(() => {
-    void loadSupportTickets(true, { soft: true, notifyNew: true })
-    void loadHqPanel(true, { soft: true })
-  }, 10000)
+  startHqLive()
 })
 
 onUnmounted(() => {
-  if (pollTimer.value) window.clearInterval(pollTimer.value)
+  stopHqLive()
   window.removeEventListener('pointerdown', unlockTicketAlerts)
   window.removeEventListener('keydown', unlockTicketAlerts)
 })
