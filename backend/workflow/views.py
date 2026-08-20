@@ -1278,8 +1278,55 @@ def build_attendance_daily_stats(events: list[AttendanceEvent], *, include_open:
     return stats
 
 
+def build_attendance_daily_user_rows(events: list[AttendanceEvent], *, include_open: bool = False) -> list[dict]:
+    by_key: dict[tuple[int, date], list[AttendanceEvent]] = defaultdict(list)
+    for event in events:
+        local_date = timezone.localtime(event.event_at).date()
+        by_key[(event.user_id, local_date)].append(event)
+
+    rows: list[dict] = []
+    for (user_id, day), day_events in sorted(by_key.items(), key=lambda item: (item[0][1], item[0][0]), reverse=True):
+        day_events.sort(key=lambda item: (item.event_at, item.id))
+        user = day_events[0].user
+        worked_seconds = compute_attendance_worked_seconds(day_events, include_open=include_open)
+        checkins = [item for item in day_events if item.event_type == AttendanceEvent.EVENT_IN]
+        checkouts = [item for item in day_events if item.event_type == AttendanceEvent.EVENT_OUT]
+        first_in = checkins[0] if checkins else None
+        last_out = checkouts[-1] if checkouts else None
+        serialized_events = []
+        for event in day_events:
+            local_dt = timezone.localtime(event.event_at)
+            serialized_events.append({
+                **serialize_attendance_event(event),
+                "eventDate": local_dt.date().isoformat(),
+                "eventTime": local_dt.strftime("%H:%M"),
+            })
+        rows.append({
+            "id": f"{user_id}-{day.isoformat()}",
+            "userId": user_id,
+            "userName": user.full_name,
+            "userRole": user.job_title or "",
+            "userDepartment": user.department.name if user.department else "بدون واحد",
+            "userPhone": user.phone or "",
+            "date": day.isoformat(),
+            "firstCheckIn": timezone.localtime(first_in.event_at).strftime("%H:%M") if first_in else "",
+            "lastCheckOut": timezone.localtime(last_out.event_at).strftime("%H:%M") if last_out else "",
+            "checkinCount": len(checkins),
+            "checkoutCount": len(checkouts),
+            "eventCount": len(day_events),
+            "workedMinutes": round(worked_seconds / 60, 1),
+            "workedHours": round(worked_seconds / 3600, 2),
+            "hasOpenShift": bool(day_events and day_events[-1].event_type == AttendanceEvent.EVENT_IN),
+            "events": serialized_events,
+        })
+    return rows
+
+
 def build_attendance_report_payload(user: User, params) -> dict:
     organization = attendance_organization_for_user(user)
+    from workflow.attendance_auto_checkout import auto_checkout_open_shifts
+
+    auto_checkout_open_shifts(organization=organization)
     preference, _ = OrganizationPreference.objects.get_or_create(organization=organization)
     radius_meters = float(preference.attendance_radius_meters or DEFAULT_ATTENDANCE_RADIUS_METERS)
     events = AttendanceEvent.objects.filter(organization=organization).select_related("user", "user__department")
@@ -1334,6 +1381,7 @@ def build_attendance_report_payload(user: User, params) -> dict:
     total_worked_seconds = compute_attendance_worked_seconds(stats_events, include_open=True)
     personnel_stats = build_attendance_personnel_stats(stats_events, include_open=True)
     daily_stats = build_attendance_daily_stats(stats_events, include_open=True)
+    daily_user_rows = build_attendance_daily_user_rows(stats_events, include_open=True)
 
     return {
         "summary": {
@@ -1391,6 +1439,8 @@ def build_attendance_report_payload(user: User, params) -> dict:
         "personnel_stats": personnel_stats,
         "dailyStats": daily_stats,
         "daily_stats": daily_stats,
+        "dailyUserRows": daily_user_rows,
+        "daily_user_rows": daily_user_rows,
         "users": [
             {
                 "id": item.id,
@@ -1995,6 +2045,7 @@ def create_request_referrals(request_obj: Request, actor: User, manager: User | 
     if assigned_employees:
         request_obj.assigned_employees.add(*assigned_employees)
     created_assignments = []
+    made_pending = False
     for approver in unique_users([manager] if manager else [], assigned_managers, assigned_employees):
         assignment, created = RequestApprovalAssignment.objects.get_or_create(
             request=request_obj,
@@ -2006,8 +2057,11 @@ def create_request_referrals(request_obj: Request, actor: User, manager: User | 
             assignment.decision_note = ""
             assignment.acted_at = None
             assignment.save(update_fields=["status", "decision_note", "acted_at"])
+            made_pending = True
+        if created:
+            made_pending = True
         created_assignments.append((assignment, created))
-    if any(created for _, created in created_assignments):
+    if made_pending or request_obj.status in {RequestStatus.APPROVED, RequestStatus.REJECTED}:
         request_obj.status = RequestStatus.UNDER_REVIEW
         request_obj.updated_at = timezone.now()
         request_obj.save(update_fields=["status", "updated_at"])
@@ -2053,8 +2107,9 @@ def create_expense_referrals(expense: Expense, actor: User, manager_assignee_ids
             assignment.decision_note = ""
             assignment.acted_at = None
             assignment.save(update_fields=["status", "decision_note", "acted_at"])
+            new_assignment_created = True
         new_assignment_created = new_assignment_created or created
-    if new_assignment_created:
+    if new_assignment_created or expense.status in {ExpenseStatus.APPROVED, ExpenseStatus.REJECTED}:
         expense.status = ExpenseStatus.UNDER_REVIEW
         expense.save(update_fields=["status"])
     AuditLog.objects.create(actor=actor, actor_name=actor.full_name, action="expense_referred", entity_type="expense", entity_code=expense.code, detail=expense.title, icon="forward_to_inbox")
@@ -3967,12 +4022,77 @@ def requests_view(request: HttpRequest):
 
 
 @require_auth
-@methods("GET")
+@csrf_exempt
+@methods("GET", "PATCH", "DELETE")
 def request_detail_view(request: HttpRequest, request_code: str):
-    request_obj = scoped_requests(request).filter(code=request_code).first()
+    request_obj = (
+        scoped_requests(request)
+        .select_related("requester", "manager", "department", "leave_request")
+        .prefetch_related("assigned_managers", "assigned_employees", "attachments", "approval_assignments__approver")
+        .filter(code=request_code)
+        .first()
+    )
     if request_obj is None:
         return json_error("درخواست پیدا نشد.", status=404)
     request_obj._current_user = request.current_user
+
+    if request.method == "DELETE":
+        if request_obj.requester_id != request.current_user.id and not is_manager(request.current_user):
+            return json_error("اجازه حذف این درخواست را ندارید.", status=403)
+        code = request_obj.code
+        title = request_obj.title
+        request_obj.delete()
+        AuditLog.objects.create(
+            actor=request.current_user,
+            actor_name=request.current_user.full_name,
+            action="request_deleted",
+            entity_type="request",
+            entity_code=code,
+            detail=title,
+            icon="delete",
+        )
+        return json_response({"ok": True, "id": code})
+
+    if request.method == "PATCH":
+        is_requester = request_obj.requester_id == request.current_user.id
+        is_assignee = request_obj.approval_assignments.filter(approver=request.current_user).exists()
+        if not (is_requester or is_assignee or is_manager(request.current_user)):
+            return json_error("اجازه ویرایش این درخواست را ندارید.", status=403)
+        payload = parse_json(request)
+        changed = []
+        if "title" in payload:
+            title = str(payload.get("title") or "").strip()
+            if title:
+                request_obj.title = title
+                changed.append("title")
+        if "description" in payload:
+            request_obj.description = str(payload.get("description") or "").strip()
+            changed.append("description")
+        if "priority" in payload and payload.get("priority") in dict(RequestPriority.choices):
+            request_obj.priority = payload.get("priority")
+            changed.append("priority")
+        if "deadline" in payload:
+            deadline_raw = str(payload.get("deadline") or "").strip()
+            request_obj.deadline = date.fromisoformat(deadline_raw) if deadline_raw else None
+            changed.append("deadline")
+        if changed:
+            request_obj.updated_at = timezone.now()
+            request_obj.save(update_fields=[*changed, "updated_at"])
+            RequestTimeline.objects.create(
+                request=request_obj,
+                action="updated",
+                note="ویرایش درخواست",
+                actor_name=request.current_user.full_name,
+            )
+        request_obj = (
+            scoped_requests(request)
+            .select_related("requester", "manager", "department", "leave_request")
+            .prefetch_related("assigned_managers", "assigned_employees", "attachments", "approval_assignments__approver")
+            .get(pk=request_obj.pk)
+        )
+        request_obj._current_user = request.current_user
+        return json_response({"request": serialize_request(request_obj), "timeline": []})
+
     return json_response({"request": serialize_request(request_obj), "timeline": []})
 
 
@@ -4082,9 +4202,10 @@ def request_refer_view(request: HttpRequest, request_code: str):
     request_obj = scoped_requests(request).filter(code=request_code).first()
     if request_obj is None:
         return json_error("درخواست پیدا نشد.", status=404)
-    assignment = request_obj.approval_assignments.filter(approver=request.current_user, status=ApprovalAssignmentStatus.PENDING).first()
-    if assignment is None:
-        return json_error("فقط ارجاع گیرنده فعلی می‌تواند درخواست را ارجاع مجدد کند.", status=403)
+    is_requester = request_obj.requester_id == request.current_user.id
+    is_assignee = request_obj.approval_assignments.filter(approver=request.current_user).exists()
+    if not (is_requester or is_assignee or is_manager(request.current_user)):
+        return json_error("فقط ثبت‌کننده یا ارجاع‌گیرنده می‌تواند درخواست را ارجاع دهد.", status=403)
     payload = parse_json(request)
     try:
         manager, assigned_managers, assigned_employees = request_referral_users(
@@ -4187,13 +4308,56 @@ def expenses_view(request: HttpRequest):
 
 
 @require_auth
-@methods("GET")
+@csrf_exempt
+@methods("GET", "PATCH", "DELETE")
 def expense_detail_view(request: HttpRequest, expense_code: str):
     if not can_access_expenses(request.current_user):
         return json_error("دسترسی کافی ندارید.", status=403)
     expense = scoped_expenses(request).filter(code=expense_code).first()
     if expense is None:
         return json_error("هزینه پیدا نشد.", status=404)
+    expense._current_user = request.current_user
+
+    if request.method == "GET":
+        return json_response(serialize_expense(expense))
+
+    is_owner = expense.owner_id == request.current_user.id
+    is_assignee = expense.approval_assignments.filter(approver=request.current_user).exists()
+    if not (is_owner or is_assignee or is_manager(request.current_user)):
+        return json_error("اجازه این عملیات را ندارید.", status=403)
+
+    if request.method == "DELETE":
+        if not (is_owner or is_manager(request.current_user)):
+            return json_error("اجازه حذف این هزینه را ندارید.", status=403)
+        code = expense.code
+        title = expense.title
+        expense.delete()
+        AuditLog.objects.create(
+            actor=request.current_user,
+            actor_name=request.current_user.full_name,
+            action="expense_deleted",
+            entity_type="expense",
+            entity_code=code,
+            detail=title,
+            icon="delete",
+        )
+        return json_response({"ok": True, "id": code})
+
+    payload = parse_json(request)
+    changed = []
+    if "description" in payload or "notes" in payload:
+        expense.notes = str(payload.get("description") or payload.get("notes") or "").strip()
+        expense.title = (expense.notes or expense.title)[:180]
+        changed.extend(["notes", "title"])
+    if "amount" in payload and payload.get("amount") not in (None, ""):
+        try:
+            expense.amount = Decimal(str(payload.get("amount")))
+            changed.append("amount")
+        except Exception:
+            return json_error("مبلغ معتبر نیست.", status=422)
+    if changed:
+        expense.save(update_fields=list(dict.fromkeys(changed)))
+    expense = scoped_expenses(request).filter(code=expense_code).first()
     expense._current_user = request.current_user
     return json_response(serialize_expense(expense))
 
@@ -4325,9 +4489,10 @@ def expense_refer_view(request: HttpRequest, expense_code: str):
     expense = scoped_expenses(request).filter(code=expense_code).first()
     if expense is None:
         return json_error("هزینه پیدا نشد.", status=404)
-    assignment = expense.approval_assignments.filter(approver=request.current_user, status=ApprovalAssignmentStatus.PENDING).first()
-    if assignment is None:
-        return json_error("فقط ارجاع گیرنده فعلی می‌تواند هزینه را ارجاع مجدد کند.", status=403)
+    is_owner = expense.owner_id == request.current_user.id
+    is_assignee = expense.approval_assignments.filter(approver=request.current_user).exists()
+    if not (is_owner or is_assignee or is_manager(request.current_user)):
+        return json_error("فقط ثبت‌کننده یا ارجاع‌گیرنده می‌تواند هزینه را ارجاع دهد.", status=403)
     payload = parse_json(request)
     try:
         create_expense_referrals(
@@ -4832,14 +4997,35 @@ def documents_create_view(request: HttpRequest):
 
 
 @require_auth
-@methods("GET")
+@csrf_exempt
+@methods("GET", "DELETE")
 def approval_detail_view(request: HttpRequest, document_code: str):
     if not can_access_approvals(request.current_user):
         return json_error("دسترسی کافی ندارید.", status=403)
     document = scoped_documents(request).filter(code=document_code).first()
     if document is None:
         return json_error("سند پیدا نشد.", status=404)
-    return json_response(serialize_approval(document, request.current_user))
+    if request.method == "GET":
+        return json_response(serialize_approval(document, request.current_user))
+    if not (
+        document.owner_id == request.current_user.id
+        or is_manager(request.current_user)
+        or request.current_user.slug == HQ_USERNAME
+    ):
+        return json_error("اجازه حذف این تاییدیه را ندارید.", status=403)
+    code = document.code
+    title = document.title
+    document.delete()
+    AuditLog.objects.create(
+        actor=request.current_user,
+        actor_name=request.current_user.full_name,
+        action="document_deleted",
+        entity_type="document",
+        entity_code=code,
+        detail=title,
+        icon="delete",
+    )
+    return json_response({"ok": True, "id": code})
 
 
 @require_auth

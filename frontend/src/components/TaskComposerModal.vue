@@ -5,6 +5,7 @@ import BaseModal from './BaseModal.vue'
 import DurationPicker from './DurationPicker.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import IconlyIcon from './base/IconlyIcon.vue'
+import UserAvatar from './UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatDurationFa } from '../utils/duration'
 
@@ -37,8 +38,36 @@ const files = ref([])
 const preview = ref(null)
 const busyPreview = ref(false)
 const localError = ref('')
+const observerPickerOpen = ref(false)
+const selectedObservers = ref([])
 
 const assigneeOptions = computed(() => state.tasking.assigneeOptions || [])
+const observerMembers = computed(() => {
+  const me = Number(state.currentUser.id)
+  const assignee = Number(form.assigneeId || 0)
+  const picked = new Set(selectedObservers.value.map((u) => Number(u.id)))
+  const source = [
+    ...(state.tasking.assigneeOptions || []),
+    ...(state.users || []),
+    ...(state.directories?.users || []),
+  ]
+  const seen = new Set()
+  return source
+    .map((u) => ({
+      id: u.id,
+      name: u.name || u.fullName || u.full_name || '',
+      jobTitle: u.jobTitle || u.job_title || '',
+      department: typeof u.department === 'string' ? u.department : (u.department?.name || ''),
+      avatarUrl: u.avatarUrl || u.avatar_url || '',
+    }))
+    .filter((u) => {
+      const id = Number(u.id)
+      if (!id || id === me || id === assignee || seen.has(id) || picked.has(id) || !u.name) return false
+      seen.add(id)
+      return true
+    })
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'fa'))
+})
 const departmentOptions = computed(() =>
   state.tasking.departments?.length
     ? state.tasking.departments
@@ -58,6 +87,8 @@ watch(
     form.category = ''
     form.departmentId = String(state.currentUser.departmentId || state.currentUser.department_id || '')
     form.observerIds = []
+    selectedObservers.value = []
+    observerPickerOpen.value = false
     form.reviewRequired = true
     files.value = []
     preview.value = null
@@ -66,7 +97,19 @@ watch(
 )
 
 watch(
-  () => [props.open, form.assigneeId, estimatedMinutes.value],
+  () => form.assigneeId,
+  (assigneeId) => {
+    const id = Number(assigneeId || 0)
+    if (!id) return
+    const next = selectedObservers.value.filter((item) => Number(item.id) !== id)
+    if (next.length !== selectedObservers.value.length) {
+      selectedObservers.value = next
+      form.observerIds = next.map((item) => Number(item.id))
+    }
+  },
+)
+
+watch(
   async () => {
     if (!props.open || estimatedMinutes.value <= 0 || !form.assigneeId) return
     busyPreview.value = true
@@ -85,6 +128,23 @@ watch(
 
 function onFiles(event) {
   files.value = Array.from(event.target.files || [])
+}
+
+function addObserver(user) {
+  const id = Number(user.id)
+  if (!id || selectedObservers.value.some((item) => Number(item.id) === id)) {
+    observerPickerOpen.value = false
+    return
+  }
+  selectedObservers.value = [...selectedObservers.value, user]
+  form.observerIds = selectedObservers.value.map((item) => Number(item.id))
+  observerPickerOpen.value = false
+}
+
+function removeObserver(userId) {
+  const id = Number(userId)
+  selectedObservers.value = selectedObservers.value.filter((item) => Number(item.id) !== id)
+  form.observerIds = selectedObservers.value.map((item) => Number(item.id))
 }
 
 async function submit() {
@@ -193,6 +253,49 @@ async function submit() {
         </select>
       </label>
 
+      <div class="field-shell full-span observer-field">
+        <span>ناظران (منشن)</span>
+        <small class="field-hint">افرادی که فقط باید تسک را ببینند و در بخش منشن برایشان نمایش داده شود.</small>
+        <div class="observer-picker">
+          <div class="mention-trigger-wrap">
+            <button
+              class="mention-at-btn"
+              type="button"
+              title="افزودن ناظر"
+              aria-label="افزودن ناظر"
+              :class="{ 'is-open': observerPickerOpen }"
+              @click.stop="observerPickerOpen = !observerPickerOpen"
+            >
+              @
+            </button>
+            <div v-if="observerPickerOpen" class="mention-dropdown" @click.stop>
+              <p class="mention-dropdown-title">اعضای مجموعه</p>
+              <button
+                v-for="user in observerMembers"
+                :key="user.id"
+                type="button"
+                class="mention-option"
+                @click="addObserver(user)"
+              >
+                <UserAvatar :person="user" :name="user.name" size="sm" />
+                <span>
+                  <strong>{{ user.name }}</strong>
+                  <small>{{ user.jobTitle || user.department || 'عضو مجموعه' }}</small>
+                </span>
+              </button>
+              <p v-if="!observerMembers.length" class="mention-empty">عضوی برای انتخاب نیست.</p>
+            </div>
+          </div>
+          <div class="mention-selected">
+            <span v-for="user in selectedObservers" :key="user.id" class="mention-pill">
+              @{{ user.name }}
+              <button type="button" aria-label="حذف ناظر" @click="removeObserver(user.id)">×</button>
+            </span>
+            <span v-if="!selectedObservers.length" class="mention-placeholder">برای افزودن ناظر روی @ بزنید</span>
+          </div>
+        </div>
+      </div>
+
       <label class="field-shell full-span">
         <span>پیوست‌ها</span>
         <input type="file" multiple @change="onFiles" />
@@ -256,5 +359,116 @@ async function submit() {
   padding-inline-start: 18px;
   display: grid;
   gap: 4px;
+}
+.observer-field {
+  display: grid;
+  gap: 8px;
+}
+.observer-picker {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 144, 139, 0.16);
+  background: #fff;
+}
+.mention-trigger-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.mention-at-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(52, 144, 139, 0.2);
+  background: #f8fafc;
+  color: #134e4a;
+  font-weight: 900;
+  cursor: pointer;
+}
+.mention-at-btn.is-open,
+.mention-at-btn:hover {
+  background: rgba(47, 157, 137, 0.12);
+  border-color: #2f9d89;
+}
+.mention-dropdown {
+  position: absolute;
+  inset-inline-start: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  width: min(320px, 88vw);
+  max-height: 240px;
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 144, 139, 0.18);
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+.mention-dropdown-title {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #64748b;
+}
+.mention-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: start;
+  cursor: pointer;
+}
+.mention-option:hover {
+  background: rgba(47, 157, 137, 0.08);
+}
+.mention-option strong,
+.mention-option small {
+  display: block;
+}
+.mention-option small {
+  color: #64748b;
+  font-size: 11px;
+}
+.mention-empty {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 12px;
+}
+.mention-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-height: 28px;
+}
+.mention-placeholder {
+  color: #94a3b8;
+  font-size: 12px;
+}
+.mention-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(47, 157, 137, 0.12);
+  color: #134e4a;
+  font-size: 12px;
+  font-weight: 700;
+}
+.mention-pill button {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
 }
 </style>

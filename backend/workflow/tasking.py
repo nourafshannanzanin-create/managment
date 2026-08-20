@@ -857,6 +857,7 @@ def serialize_task(task: Task, current_user: User, *, include_detail: bool = Fal
         "canComplete": task.owner_id == current_user.id and task.status in {TaskStatus.IN_PROGRESS, TaskStatus.PAUSED, TaskStatus.SCHEDULED, TaskStatus.UPCOMING, TaskStatus.CHANGES_REQUESTED},
         "canReview": can_review_task(current_user, task) and task.status == TaskStatus.PENDING_REVIEW,
         "canEdit": current_user.id in {task.owner_id, task.creator_id} or is_manager(current_user) or can_review_task(current_user, task),
+        "canDelete": current_user.id in {task.owner_id, task.creator_id} or is_manager(current_user),
         "version": task.version,
         "createdAt": task.created_at.isoformat() if task.created_at else "",
         "updatedAt": task.updated_at.isoformat() if task.updated_at else "",
@@ -1037,6 +1038,7 @@ def create_task(actor: User, payload: dict, files=None) -> Task:
     observer_ids = payload.get("observerIds") or payload.get("observer_ids") or []
     if not isinstance(observer_ids, list):
         observer_ids = []
+    added_observer_ids: list[int] = []
     for oid in observer_ids:
         try:
             oid_int = int(oid)
@@ -1051,6 +1053,9 @@ def create_task(actor: User, payload: dict, files=None) -> Task:
                 user=user,
                 defaults={"observer_type": "explicit", "can_review": bool(payload.get("observersCanReview")), "can_comment": True},
             )
+            added_observer_ids.append(oid_int)
+    if added_observer_ids:
+        _notify_observers_on_create(task, actor, added_observer_ids)
 
     if assignee.manager_id and assignee.manager_id not in {assignee.id}:
         TaskObserver.objects.get_or_create(
@@ -1405,6 +1410,17 @@ def update_estimate(actor: User, task: Task, estimated_minutes: int, reason: str
     return task
 
 
+def _notify_observers_on_create(task: Task, actor: User, observer_ids: list[int]) -> None:
+    if not observer_ids:
+        return
+    body = f"شما به عنوان ناظر تسک «{task.title}» اضافه شدید."
+    comment = TaskComment.objects.create(task=task, author=actor, body=body)
+    org_user_ids = set(organization_users(actor).values_list("id", flat=True))
+    for mid_int in observer_ids:
+        if mid_int in org_user_ids and mid_int != actor.id:
+            TaskMention.objects.get_or_create(comment=comment, mentioned_user_id=mid_int)
+
+
 @transaction.atomic
 def add_comment(actor: User, task: Task, body: str, parent_id: int | None = None, mention_ids: list[int] | None = None) -> TaskComment:
     if not can_view_task(actor, task):
@@ -1648,6 +1664,7 @@ def dashboard_payload(user: User, focus_date: date | None = None, supervise_owne
         + supervised.filter(status=TaskStatus.PENDING_REVIEW).count()
         + unread_mention_count
     )
+    mine_open_count = my_tasks.exclude(status=TaskStatus.COMPLETED).count()
     mine_counts = {
         "today": len(today_tasks),
         "upcoming": len(upcoming),
@@ -1655,20 +1672,21 @@ def dashboard_payload(user: User, focus_date: date | None = None, supervise_owne
         "pendingReview": len(pending_review),
         "changesRequested": len(changes),
         "closed": len(closed),
-        "all": my_tasks.count(),
+        "all": mine_open_count,
     }
     assignment_counts = {
         "pending": len(assignments),
-        "outbound": len(outbound_all),
+        "outbound": len(outbound_active),
         "outboundReview": len(outbound_pending_review),
-        "all": len(assignments) + len(outbound_all),
+        "all": len(assignments) + len(outbound_active) + len(outbound_pending_review),
     }
+    supervise_open_count = len(supervise_pending) + len(supervise_active) + len(supervise_overdue)
     supervise_counts = {
         "pendingReview": len(supervise_pending),
         "inProgress": len(supervise_active),
         "overdue": len(supervise_overdue),
         "completed": len(supervise_done),
-        "all": supervised.count(),
+        "all": supervise_open_count,
     }
 
     supervise_focus = None
@@ -1715,9 +1733,9 @@ def dashboard_payload(user: User, focus_date: date | None = None, supervise_owne
                 completed_at__lte=day_end,
             ).count(),
             "unreadMentions": unread_mention_count,
-            "mineCount": mine_counts["all"],
-            "assignmentCount": assignment_counts["pending"] + assignment_counts["outboundReview"],
-            "superviseCount": supervise_counts["pendingReview"],
+            "mineCount": mine_open_count,
+            "assignmentCount": assignment_counts["all"],
+            "superviseCount": supervise_open_count,
         },
         "counts": {
             "mine": mine_counts,
@@ -1747,12 +1765,12 @@ def dashboard_payload(user: User, focus_date: date | None = None, supervise_owne
         },
         "assignments": {
             "pending": assignments,
-            "outbound": outbound_all,
+            "outbound": outbound_active,
             "outboundReview": outbound_pending_review,
             "outboundActive": outbound_active,
             "accepted": [],
             "rejected": [],
-            "all": assignments + outbound_all,
+            "all": assignments + outbound_active + outbound_pending_review,
         },
         "supervise": {
             "pendingReview": supervise_pending,

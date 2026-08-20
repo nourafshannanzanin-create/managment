@@ -1053,6 +1053,19 @@ def serialize_request(request_obj: Request) -> dict:
         and current_assignment.status == ApprovalAssignmentStatus.PENDING
         and request_obj.status in {RequestStatus.SUBMITTED, RequestStatus.UNDER_REVIEW}
     )
+    is_requester = bool(current_user and request_obj.requester_id == current_user.id)
+    is_assignee = bool(current_assignment is not None)
+    can_edit = bool(current_user and (is_requester or is_assignee or is_manager(current_user)))
+    can_refer = bool(
+        current_user
+        and (
+            is_requester
+            or is_assignee
+            or is_manager(current_user)
+            or can_approve
+        )
+    )
+    can_delete = bool(current_user and (is_requester or is_manager(current_user)))
     attachments = list(getattr(request_obj, "_prefetched_objects_cache", {}).get("attachments", []))
     leave = None
     try:
@@ -1063,6 +1076,7 @@ def serialize_request(request_obj: Request) -> dict:
     return {
         "id": request_obj.code,
         "title": request_obj.title,
+        "requesterId": request_obj.requester_id,
         "owner": normalize_person_name(request_obj.requester.full_name) if request_obj.requester else "نامشخص",
         "manager": normalize_person_name(request_obj.manager.full_name) if request_obj.manager else "تعیین نشده",
         "managerAssignees": [normalize_person_name(item.full_name) for item in request_obj.assigned_managers.all()],
@@ -1111,6 +1125,9 @@ def serialize_request(request_obj: Request) -> dict:
         ],
         "bucket": current_assignment.status if current_assignment else request_obj.status,
         "canApprove": can_approve,
+        "canEdit": can_edit,
+        "canRefer": can_refer,
+        "canDelete": can_delete,
         "currentApproverId": current_assignment.approver_id if current_assignment else None,
     }
 
@@ -1158,6 +1175,10 @@ def serialize_expense(expense: Expense) -> dict:
         and current_assignment.status == ApprovalAssignmentStatus.PENDING
         and expense.status in {ExpenseStatus.PENDING, ExpenseStatus.UNDER_REVIEW}
     )
+    is_owner = bool(current_user and expense.owner_id == current_user.id)
+    can_edit = bool(current_user and (is_owner or current_assignment is not None or is_manager(current_user)))
+    can_refer = can_edit
+    can_delete = bool(current_user and (is_owner or is_manager(current_user)))
     notes = list(getattr(expense, "_prefetched_objects_cache", {}).get("user_notes", []))
     if not notes and expense.pk:
         notes = list(
@@ -1202,6 +1223,9 @@ def serialize_expense(expense: Expense) -> dict:
         "noteCount": len(notes),
         "bucket": current_assignment.status if current_assignment else expense.status,
         "canApprove": can_approve,
+        "canEdit": can_edit,
+        "canRefer": can_refer,
+        "canDelete": can_delete,
         "currentApproverId": current_assignment.approver_id if current_assignment else None,
     }
 
@@ -1474,6 +1498,23 @@ def serialize_approval(document: Document, current_user: User | None = None) -> 
             (current_assignment is not None and current_assignment.status == ApprovalAssignmentStatus.PENDING)
             or (current_user is not None and current_user.slug == HQ_USERNAME and document.status in {DocumentStatus.PENDING, DocumentStatus.WAITING_SIGNATURE})
         ),
+        "canDelete": bool(
+            current_user
+            and (
+                document.owner_id == current_user.id
+                or is_manager(current_user)
+                or current_user.slug == HQ_USERNAME
+            )
+        ),
+        "canRefer": bool(
+            current_user
+            and (
+                document.owner_id == current_user.id
+                or (current_assignment is not None)
+                or is_manager(current_user)
+                or current_user.slug == HQ_USERNAME
+            )
+        ),
         "currentApproverId": current_assignment.approver_id if current_assignment else None,
     }
 
@@ -1483,7 +1524,7 @@ def visible_requests(user: User):
     return (
         Request.objects.filter(Q(requester=user) | Q(approval_assignments__approver=user))
         .filter(created_at__date__gte=retention_start)
-        .select_related("requester", "manager", "department")
+        .select_related("requester", "manager", "department", "leave_request")
         .prefetch_related(
             "assigned_managers",
             "assigned_employees",

@@ -30,6 +30,7 @@ const {
   addTaskComment,
   markTaskMentionsRead,
   updateTaskingTask,
+  deleteTaskingTask,
   closeTaskDetail,
 } = useWorkflowHub()
 
@@ -309,14 +310,25 @@ async function sendComment() {
             <small v-if="task.overdue" class="is-danger-text">عقب‌افتاده</small>
           </div>
         </div>
-        <button
-          v-if="task.canEdit && !editing"
-          class="action-btn tone-soft task-edit-btn"
-          type="button"
-          @click="beginEdit"
-        >
-          ویرایش
-        </button>
+        <div class="task-header-actions">
+          <button
+            v-if="task.canEdit && !editing"
+            class="action-btn tone-soft task-edit-btn"
+            type="button"
+            @click="beginEdit"
+          >
+            ویرایش
+          </button>
+          <button
+            v-if="task.canDelete && !editing"
+            class="action-btn tone-danger task-edit-btn"
+            type="button"
+            :disabled="state.tasking.submitting"
+            @click="run(() => deleteTaskingTask(task.id), { close: true })"
+          >
+            حذف
+          </button>
+        </div>
       </div>
 
       <ErrorNotice v-if="state.lastErrorDetails" :error="state.lastErrorDetails" />
@@ -613,6 +625,12 @@ async function sendComment() {
   /* جا برای دکمه بستن مودال (absolute left) */
   padding-left: 52px;
   min-width: 0;
+}
+.task-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 0 auto;
 }
 .task-detail-heading {
   min-width: 0;

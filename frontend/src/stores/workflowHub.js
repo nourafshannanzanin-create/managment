@@ -954,9 +954,18 @@ function matchesPerson(item, fields, person) {
   return fields.some((field) => String(item[field] || '') === person)
 }
 
-const selectedRequest = computed(
-  () => state.requests.find((item) => item.id === selectedState.requestId) ?? state.requests[0] ?? null,
-)
+const selectedRequest = computed(() => {
+  const requestId = selectedState.requestId
+  const fromList = requestId
+    ? state.requests.find((item) => item.id === requestId)
+    : state.requests[0] ?? null
+  const detailPayload = requestId ? requestDetailState.items[requestId] : null
+  const detailRequest = detailPayload?.request ?? null
+  if (detailRequest) {
+    return fromList ? { ...fromList, ...detailRequest } : detailRequest
+  }
+  return fromList ?? null
+})
 
 const selectedApproval = computed(
   () => approvalDetailState.item ?? state.approvals.find((item) => item.id === selectedState.approvalId) ?? null,
@@ -2331,11 +2340,18 @@ export function useWorkflowHub() {
 
   async function loadRequestDetail(requestId) {
     if (!requestId) return
-    if (requestDetailState.items[requestId]) return
     requestDetailState.loading = true
     try {
       const response = await authorizedFetch(hqScopedPath(`/requests/${requestId}`))
-      requestDetailState.items[requestId] = repairPayload(await response.json())
+      const payload = repairPayload(await response.json())
+      requestDetailState.items[requestId] = payload
+      const detailRequest = payload?.request ?? null
+      if (detailRequest?.id) {
+        const index = state.requests.findIndex((item) => item.id === detailRequest.id)
+        if (index >= 0) {
+          state.requests[index] = { ...state.requests[index], ...detailRequest }
+        }
+      }
     } finally {
       requestDetailState.loading = false
     }
@@ -2885,6 +2901,103 @@ export function useWorkflowHub() {
     })
     await loadBootstrapData(true)
     closeRequestDetail()
+  }
+
+  async function updateSelectedRequest(payload = {}) {
+    if (!selectedRequest.value) return
+    state.lastError = ''
+    try {
+      const response = await authorizedFetch(hqScopedPath(`/requests/${selectedRequest.value.id}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = repairPayload(await response.json())
+      const detailRequest = data?.request ?? data
+      if (detailRequest?.id) {
+        requestDetailState.items[detailRequest.id] = data?.request ? data : { request: detailRequest, timeline: [] }
+        const index = state.requests.findIndex((item) => item.id === detailRequest.id)
+        if (index >= 0) state.requests[index] = { ...state.requests[index], ...detailRequest }
+      }
+      notifyInfo('درخواست به‌روز شد.')
+      return detailRequest
+    } catch (error) {
+      state.lastError = error.message || 'ویرایش درخواست ناموفق بود.'
+      throw error
+    }
+  }
+
+  async function deleteSelectedRequest() {
+    if (!selectedRequest.value) return
+    if (!window.confirm('این درخواست حذف شود؟')) return
+    state.lastError = ''
+    try {
+      const id = selectedRequest.value.id
+      await authorizedFetch(hqScopedPath(`/requests/${id}`), { method: 'DELETE' })
+      state.requests = state.requests.filter((item) => item.id !== id)
+      delete requestDetailState.items[id]
+      closeRequestDetail()
+      notifyInfo('درخواست حذف شد.')
+      await loadBootstrapData(true, { soft: true })
+    } catch (error) {
+      state.lastError = error.message || 'حذف درخواست ناموفق بود.'
+      throw error
+    }
+  }
+
+  async function deleteSelectedExpense() {
+    if (!selectedExpense.value) return
+    if (!window.confirm('این هزینه حذف شود؟')) return
+    state.lastError = ''
+    try {
+      const id = selectedExpense.value.id
+      await authorizedFetch(hqScopedPath(`/expenses/${id}`), { method: 'DELETE' })
+      state.expenses = state.expenses.filter((item) => item.id !== id)
+      closeExpenseDetail()
+      notifyInfo('هزینه حذف شد.')
+      await loadBootstrapData(true, { soft: true })
+    } catch (error) {
+      state.lastError = error.message || 'حذف هزینه ناموفق بود.'
+      throw error
+    }
+  }
+
+  async function deleteSelectedApproval() {
+    if (!selectedApproval.value) return
+    if (!window.confirm('این تاییدیه حذف شود؟')) return
+    state.lastError = ''
+    try {
+      const id = selectedApproval.value.id
+      await authorizedFetch(hqScopedPath(`/approvals/${id}`), { method: 'DELETE' })
+      state.approvals = state.approvals.filter((item) => item.id !== id)
+      closeApprovalDetail()
+      notifyInfo('تاییدیه حذف شد.')
+      await loadBootstrapData(true, { soft: true })
+    } catch (error) {
+      state.lastError = error.message || 'حذف تاییدیه ناموفق بود.'
+      throw error
+    }
+  }
+
+  async function deleteTaskingTask(taskId) {
+    if (!taskId) return
+    if (!window.confirm('این تسک حذف شود؟')) return
+    clearLastError()
+    state.tasking.submitting = true
+    try {
+      await authorizedFetch(`/tasking/tasks/${taskId}`, { method: 'DELETE' })
+      if (state.tasking.selectedTask?.id === Number(taskId)) {
+        state.tasking.selectedTask = null
+        closeTaskDetail()
+      }
+      notifyInfo('تسک حذف شد.')
+      await loadTaskingDashboard(true)
+    } catch (error) {
+      setLastError(error, 'حذف تسک ناموفق بود.')
+      throw error
+    } finally {
+      state.tasking.submitting = false
+    }
   }
 
   async function approveSelectedExpense() {
@@ -3452,6 +3565,7 @@ async function removeUserEntrustedItem(userId, itemId) {
     addTaskComment,
     markTaskMentionsRead,
     updateTaskingTask,
+    deleteTaskingTask,
     loadTaskingSettings,
     saveTaskingSettings,
     loadTaskingReports,
@@ -3499,6 +3613,11 @@ async function removeUserEntrustedItem(userId, itemId) {
     approveSelectedRequest,
     rejectSelectedRequest,
     referSelectedRequest,
+    updateSelectedRequest,
+    deleteSelectedRequest,
+    deleteSelectedExpense,
+    deleteSelectedApproval,
+    deleteTaskingTask,
     approveSelectedExpense,
     rejectSelectedExpense,
     referSelectedExpense,

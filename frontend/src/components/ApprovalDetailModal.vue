@@ -28,6 +28,7 @@ const {
   availableRecipientUsers,
   rejectSelectedDocument,
   referSelectedDocument,
+  deleteSelectedApproval,
   loadSignature,
   openSignatureComposer,
   signatureState,
@@ -46,6 +47,8 @@ const hasStandalonePreview = computed(() => Boolean(previewUrl.value) && preview
 const isApproved = computed(() => String(props.approval?.status || '').includes('تایید'))
 const isRejected = computed(() => String(props.approval?.status || '').includes('رد'))
 const canSubmitApproval = computed(() => Boolean(props.approval?.canApprove) && signatureState.hasSignature)
+const canRefer = computed(() => Boolean(props.approval?.canRefer || props.approval?.canApprove))
+const canDelete = computed(() => Boolean(props.approval?.canDelete))
 
 const statusTone = computed(() => {
   if (isApproved.value) return 'is-approved'
@@ -323,7 +326,17 @@ watch(
                 <span>بستن</span>
               </button>
               <button
-                v-if="approval.canApprove"
+                v-if="canDelete"
+                class="action-btn tone-danger"
+                type="button"
+                :disabled="loading"
+                @click="deleteSelectedApproval"
+              >
+                <IconlyIcon name="delete" decorative />
+                <span>حذف</span>
+              </button>
+              <button
+                v-if="canRefer"
                 class="action-btn tone-soft"
                 type="button"
                 :disabled="loading"

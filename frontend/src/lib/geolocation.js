@@ -39,6 +39,7 @@ function getCurrentPositionOnce(options) {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           accuracy: position.coords.accuracy,
+          capturedAt: Date.now(),
         })
       },
       (error) => {
@@ -51,44 +52,35 @@ function getCurrentPositionOnce(options) {
   })
 }
 
+let cachedLocation = null
+
 /**
- * iOS Safari: high-accuracy first requests often hang or never prompt unless
- * triggered by a user gesture. Prefer a quick low-accuracy/cached read, then refine.
+ * Prefer a quick cached/low-accuracy read. Avoid double high-accuracy prompts.
  */
 export async function readDeviceLocation(options = {}) {
   const {
-    enableHighAccuracy = null,
-    timeout = 18000,
-    maximumAge = 60000,
-    allowQuickFallback = true,
+    enableHighAccuracy = false,
+    timeout = 10000,
+    maximumAge = 120000,
+    allowCached = true,
+    forceRefresh = false,
   } = options
 
-  // Always call getCurrentPosition — the browser will re-prompt the user
-  // if permission was previously denied or revoked. Do NOT short-circuit
-  // with a "denied" check; that prevents the re-prompt dialog from appearing.
-
-  if (enableHighAccuracy === true || enableHighAccuracy === false) {
-    return getCurrentPositionOnce({ enableHighAccuracy, timeout, maximumAge })
+  if (allowCached && !forceRefresh && cachedLocation?.capturedAt && Date.now() - cachedLocation.capturedAt < maximumAge) {
+    return cachedLocation
   }
 
-  if (!allowQuickFallback) {
-    return getCurrentPositionOnce({ enableHighAccuracy: true, timeout, maximumAge: 0 })
-  }
+  const coords = await getCurrentPositionOnce({
+    enableHighAccuracy,
+    timeout,
+    maximumAge,
+  })
+  cachedLocation = coords
+  return coords
+}
 
-  try {
-    return await getCurrentPositionOnce({
-      enableHighAccuracy: false,
-      timeout: Math.min(timeout, 12000),
-      maximumAge,
-    })
-  } catch (error) {
-    if (Number(error?.code) === 1) throw error
-    return getCurrentPositionOnce({
-      enableHighAccuracy: true,
-      timeout: Math.max(timeout, 20000),
-      maximumAge: 0,
-    })
-  }
+export function clearCachedLocation() {
+  cachedLocation = null
 }
 
 export function haversineDistanceMeters(lat1, lon1, lat2, lon2) {

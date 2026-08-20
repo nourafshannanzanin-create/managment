@@ -582,10 +582,18 @@ const mainTabBadges = computed(() => {
   const counts = state.tasking.counts || {}
   const stats = state.tasking.stats || {}
   const superviseCount = isSuperviseView.value
-    ? filteredSuperviseBuckets.value.all.length
+    ? filteredSuperviseBuckets.value.pendingReview.length
+      + filteredSuperviseBuckets.value.inProgress.length
+      + filteredSuperviseBuckets.value.overdue.length
     : (counts.supervise?.all ?? stats.superviseCount)
+  const openMineCount =
+    (counts.mine?.today ?? 0)
+    + (counts.mine?.upcoming ?? 0)
+    + (counts.mine?.inProgress ?? 0)
+    + (counts.mine?.pendingReview ?? 0)
+    + (counts.mine?.changesRequested ?? 0)
   return {
-    mine: tabBadge(counts.mine?.all ?? stats.mineCount),
+    mine: tabBadge(counts.mine?.all ?? openMineCount ?? stats.mineCount),
     assignments: tabBadge(counts.assignments?.all ?? stats.assignmentCount),
     supervise: tabBadge(superviseCount),
     mentions: tabBadge(counts.mentions || stats.unreadMentions),
@@ -778,7 +786,7 @@ function quickStart(task, stopOther = false) {
     </section>
 
     <section class="surface-block">
-      <div class="tasking-toolbar">
+      <div class="tasking-toolbar" :class="{ 'is-supervise': mainTab === 'supervise' }">
         <div class="chip-row tab-strip main-tab-strip">
           <button type="button" :class="['chip-btn', mainTab === 'mine' && 'is-active']" @click="mainTab = 'mine'">
             <span class="chip-btn-label">کارهای من</span>
@@ -797,36 +805,52 @@ function quickStart(task, stopOther = false) {
             <span v-if="mainTabBadges.mentions" class="tasking-tab-badge is-main">{{ mainTabBadges.mentions }}</span>
           </button>
         </div>
-        <div class="tasking-filter-row">
-          <template v-if="mainTab === 'supervise'">
-            <label class="field-shell supervise-owner-filter">
-              <span>کارمند</span>
-              <select v-model="superviseOwnerId">
-                <option value="">همه کارمندان</option>
-                <option v-for="person in superviseEmployeeOptions" :key="person.id" :value="String(person.id)">
-                  {{ person.name }}
-                </option>
-              </select>
-            </label>
-            <label class="field-shell supervise-date-filter">
-              <span>تاریخ</span>
-              <ShamsiDatePicker
-                v-model="superviseDateJalali"
-                model-type="jalali"
-                placeholder="انتخاب تاریخ"
-              />
-            </label>
-            <button class="action-btn tone-soft supervise-reset-btn" type="button" @click="resetSuperviseFilters">
-              <IconlyIcon name="refresh" decorative />
-              <span>پاک‌سازی فیلتر</span>
-            </button>
-          </template>
+
+        <div v-if="mainTab !== 'supervise'" class="tasking-filter-row">
           <label class="search-shell compact-search">
             <IconlyIcon name="search" decorative />
             <input v-model="query" type="search" placeholder="جستجوی عنوان، کد یا مسئول" />
           </label>
         </div>
       </div>
+
+      <section v-if="mainTab === 'supervise'" class="supervise-filters">
+        <div class="supervise-filters-grid">
+          <label class="supervise-field">
+            <span class="supervise-field-label">کارمند</span>
+            <select v-model="superviseOwnerId" class="supervise-control">
+              <option value="">همه کارمندان</option>
+              <option v-for="person in superviseEmployeeOptions" :key="person.id" :value="String(person.id)">
+                {{ person.name }}
+              </option>
+            </select>
+          </label>
+          <label class="supervise-field">
+            <span class="supervise-field-label">تاریخ</span>
+            <div class="supervise-control-wrap">
+              <ShamsiDatePicker
+                v-model="superviseDateJalali"
+                model-type="jalali"
+                placeholder="انتخاب تاریخ"
+              />
+            </div>
+          </label>
+          <label class="supervise-field">
+            <span class="supervise-field-label">جستجو</span>
+            <span class="search-shell supervise-control supervise-search">
+              <IconlyIcon name="search" decorative />
+              <input v-model="query" type="search" placeholder="عنوان، کد یا مسئول" />
+            </span>
+          </label>
+          <div class="supervise-field supervise-field-action">
+            <span class="supervise-field-label" aria-hidden="true">&nbsp;</span>
+            <button class="action-btn tone-soft supervise-control supervise-reset-btn" type="button" @click="resetSuperviseFilters">
+              <IconlyIcon name="refresh" decorative />
+              <span>پاک‌سازی</span>
+            </button>
+          </div>
+        </div>
+      </section>
 
       <div class="chip-row tab-strip subtab-strip">
         <button
@@ -1271,6 +1295,9 @@ function quickStart(task, stopOther = false) {
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
+.tasking-toolbar.is-supervise {
+  margin-bottom: 10px;
+}
 .tasking-filter-row {
   display: flex;
   flex-wrap: wrap;
@@ -1278,26 +1305,100 @@ function quickStart(task, stopOther = false) {
   align-items: end;
   margin-inline-start: auto;
 }
-.supervise-owner-filter,
-.supervise-date-filter {
-  min-width: 190px;
+.supervise-filters {
+  margin: 0 0 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #f7fbfa;
+  border: 1px solid rgba(52, 144, 139, 0.14);
+}
+.supervise-filters-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.1fr) minmax(170px, 0.95fr) minmax(220px, 1.4fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+.supervise-field {
+  display: grid;
+  grid-template-rows: 18px 44px;
+  gap: 6px;
+  margin: 0;
+  min-width: 0;
+  align-content: start;
+}
+.supervise-field-label {
+  display: block;
+  height: 18px;
+  line-height: 18px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted, #5f7a76);
+  white-space: nowrap;
+}
+.supervise-control,
+.supervise-control-wrap,
+.supervise-search,
+.supervise-reset-btn {
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0;
 }
-.supervise-owner-filter span,
-.supervise-date-filter span {
+.supervise-field select.supervise-control {
   display: block;
-  margin-bottom: 4px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--muted, #5f7a76);
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 144, 139, 0.18);
+  background: #fff;
+  color: inherit;
+  font: inherit;
 }
-.supervise-owner-filter select {
-  min-height: 42px;
+.supervise-control-wrap {
+  display: flex;
+  align-items: stretch;
+}
+.supervise-control-wrap :deep(.shamsi-picker),
+.supervise-control-wrap :deep(.shamsi-picker-input-wrap) {
   width: 100%;
+  height: 44px;
+  min-height: 44px;
+}
+.supervise-control-wrap :deep(.shamsi-picker-input) {
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  box-sizing: border-box;
+}
+.supervise-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 144, 139, 0.18);
+  background: #fff;
+}
+.supervise-search input {
+  min-width: 0;
+  flex: 1;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+}
+.supervise-field-action {
+  min-width: 120px;
 }
 .supervise-reset-btn {
-  min-height: 42px;
-  align-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  padding-inline: 14px;
 }
 .chip-row, .tab-strip, .subtab-strip {
   display: flex;
@@ -1326,9 +1427,10 @@ function quickStart(task, stopOther = false) {
   isolation: isolate;
 }
 .chip-btn-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
 }
 .chip-btn.is-active {
   background: #dcefec;
@@ -1527,59 +1629,67 @@ function quickStart(task, stopOther = false) {
     display: grid;
     gap: 10px;
   }
-  .main-tab-strip.tab-strip {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+  .supervise-filters {
+    padding: 12px;
+    border-radius: 14px;
+  }
+  .supervise-filters-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    align-items: start;
+  }
+  .supervise-field:nth-child(3),
+  .supervise-field-action {
+    grid-column: 1 / -1;
+  }
+  .supervise-reset-btn {
+    width: 100%;
+  }
+  .main-tab-strip.tab-strip,
+  .tab-strip:not(.main-tab-strip) {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding: 4px 2px 8px;
+  }
+  .main-tab-strip .chip-btn,
+  .tab-strip:not(.main-tab-strip) .chip-btn {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: max-content;
+    min-height: 42px;
+    padding: 8px 14px;
+    border-radius: 999px;
     overflow: visible;
-    padding: 6px 2px 4px;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
   }
   .main-tab-strip .chip-btn {
-    justify-content: center;
-    width: 100%;
-    min-height: 48px;
-    padding: 10px 28px 10px 10px;
-    border-radius: 14px;
-    overflow: hidden;
+    padding-inline: 14px 28px;
   }
-  .main-tab-strip .chip-btn-label {
-    white-space: normal;
+  .main-tab-strip .chip-btn-label,
+  .tab-strip:not(.main-tab-strip) .chip-btn-label {
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+    flex: 0 0 auto;
+    min-width: auto;
     text-align: center;
-    line-height: 1.35;
+    line-height: 1.3;
     font-size: 13px;
-    padding-inline: 2px;
   }
   .main-tab-strip .tasking-tab-badge.is-main {
-    top: 5px;
-    inset-inline-end: 5px;
+    top: 4px;
+    inset-inline-end: 4px;
     min-width: 17px;
     height: 17px;
     font-size: 10px;
     padding: 0 4px;
-  }
-  .tab-strip:not(.main-tab-strip) {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    overflow: visible;
-    padding-bottom: 2px;
-  }
-  .tab-strip:not(.main-tab-strip) .chip-btn {
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    min-height: 44px;
-    padding: 8px 10px;
-    border-radius: 12px;
-    font-size: 12px;
-    gap: 8px;
-    overflow: hidden;
-  }
-  .tab-strip:not(.main-tab-strip) .chip-btn-label {
-    white-space: nowrap;
-    text-align: start;
-    flex: 1 1 auto;
-    min-width: 0;
   }
   .tab-strip:not(.main-tab-strip) .tasking-tab-badge.is-sub {
     flex: 0 0 auto;
@@ -1590,12 +1700,13 @@ function quickStart(task, stopOther = false) {
 }
 
 @media (max-width: 420px) {
-  .tab-strip:not(.main-tab-strip) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
+  .main-tab-strip .chip-btn,
   .tab-strip:not(.main-tab-strip) .chip-btn {
     min-height: 40px;
+    font-size: 12px;
+  }
+  .supervise-filters-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

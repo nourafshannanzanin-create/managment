@@ -68,6 +68,25 @@ const computedLeaveHours = computed(() => {
   return Math.max(0, Math.round((((eh * 60 + em) - (sh * 60 + sm)) / 60) * 100) / 100)
 })
 
+const leaveSummaryRows = computed(() => {
+  if (!isLeave.value) return []
+  const rows = [
+    { label: 'نوع', value: isLeaveDaily.value ? 'مرخصی روزانه' : 'مرخصی ساعتی' },
+    { label: isLeaveDaily.value ? 'از تاریخ' : 'تاریخ', value: props.form.leaveStartDate || '—' },
+  ]
+  if (isLeaveDaily.value) {
+    rows.push({ label: 'تا تاریخ', value: props.form.leaveEndDate || props.form.leaveStartDate || '—' })
+  }
+  if (isLeaveHourly.value) {
+    rows.push(
+      { label: 'از ساعت', value: props.form.leaveStartTime || '—' },
+      { label: 'تا ساعت', value: props.form.leaveEndTime || '—' },
+      { label: 'جمع ساعات', value: `${computedLeaveHours.value} ساعت` },
+    )
+  }
+  return rows
+})
+
 const managerChoices = computed(() => state.directories.managers || [])
 const employeeChoices = computed(() => availableRecipientUsers().filter((item) => item.accessRole === 'employee'))
 
@@ -193,6 +212,16 @@ watch(
             </div>
           </template>
         </template>
+
+        <section v-if="isLeave && leaveSummaryRows.length" class="leave-summary-card full-width-field">
+          <div class="section-label-row"><div><h3>خلاصه مرخصی</h3></div></div>
+          <div class="leave-summary-grid">
+            <article v-for="row in leaveSummaryRows" :key="row.label">
+              <span>{{ row.label }}</span>
+              <strong>{{ row.value }}</strong>
+            </article>
+          </div>
+        </section>
 
         <label class="field-shell priority-field">
           <span>اولویت</span>
@@ -364,5 +393,41 @@ watch(
   border-radius: 12px;
   background: color-mix(in srgb, var(--surface-soft, #f3f6f4) 88%, white);
   font-size: 0.95rem;
+}
+
+.leave-summary-card {
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(72, 103, 183, 0.07);
+  border: 1px solid rgba(52, 144, 139, 0.12);
+}
+
+.leave-summary-card h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.leave-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.leave-summary-grid article {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.leave-summary-grid span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.leave-summary-grid strong {
+  color: #203255;
 }
 </style>

@@ -28,6 +28,7 @@ const {
   approveSelectedExpense,
   rejectSelectedExpense,
   referSelectedExpense,
+  deleteSelectedExpense,
   addExpenseNote,
   openProtectedFile,
   state,
@@ -35,6 +36,8 @@ const {
 
 const decisions = computed(() => props.expense?.decisions || [])
 const expenseNotes = computed(() => props.expense?.notes || [])
+const canRefer = computed(() => Boolean(props.expense?.canRefer || canApproveSelectedExpense.value))
+const canDelete = computed(() => Boolean(props.expense?.canDelete))
 const managerChoices = computed(() => availableManagerDirectory())
 const employeeChoices = computed(() => availableRecipientUsers().filter((item) => item.accessRole === 'employee'))
 const filteredManagers = computed(() => managerChoices.value.filter((item) => !referSearch.value || `${item.name} ${item.role}`.toLowerCase().includes(referSearch.value.toLowerCase())))
@@ -223,7 +226,8 @@ watch(
 
       <div class="modal-actions">
         <button class="action-btn tone-soft" type="button" @click="$emit('close')">بستن</button>
-        <button v-if="canApproveSelectedExpense" class="action-btn tone-soft" type="button" @click="referOpen = true">ارجاع</button>
+        <button v-if="canDelete" class="action-btn tone-danger" type="button" @click="deleteSelectedExpense">حذف</button>
+        <button v-if="canRefer" class="action-btn tone-soft" type="button" @click="referOpen = true">ارجاع</button>
         <button v-if="canApproveSelectedExpense" class="action-btn tone-danger" type="button" @click="rejectOpen = true">رد</button>
         <button v-if="canApproveSelectedExpense" class="action-btn tone-primary" type="button" @click="approveSelectedExpense">تایید</button>
       </div>

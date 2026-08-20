@@ -5,6 +5,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.http import FileResponse, HttpRequest
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
 from workflow.access import can_access_settings, can_manage_users, can_view_reports, get_user_organization, is_manager
@@ -109,7 +110,7 @@ def tasking_tasks_view(request: HttpRequest):
 
 
 @require_auth
-@methods("GET", "PATCH")
+@methods("GET", "PATCH", "DELETE")
 @csrf_exempt
 def tasking_task_detail_view(request: HttpRequest, task_id: int):
     task = visible_tasks_queryset(request.current_user).filter(pk=task_id).first()
@@ -117,6 +118,14 @@ def tasking_task_detail_view(request: HttpRequest, task_id: int):
         return json_error("تسک پیدا نشد.", status=404)
     if request.method == "GET":
         return json_response(serialize_task(task, request.current_user, include_detail=True))
+
+    if request.method == "DELETE":
+        if request.current_user.id not in {task.creator_id, task.owner_id} and not is_manager(request.current_user):
+            return json_error("اجازه حذف این تسک را ندارید.", status=403)
+        task.deleted_at = timezone.now()
+        task.status = TaskStatus.CANCELLED
+        task.save(update_fields=["deleted_at", "status", "updated_at", "version"])
+        return json_response({"ok": True, "id": task_id})
 
     payload = parse_json(request)
     try:

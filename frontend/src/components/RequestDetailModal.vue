@@ -6,6 +6,7 @@ import BaseModal from './BaseModal.vue'
 import DecisionAssigneesList from './DecisionAssigneesList.vue'
 import UserAvatar from './UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
+import { formatTehranDateTime } from '../utils/jalali'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -20,10 +21,17 @@ const rejectReason = ref('')
 const referOpen = ref(false)
 const referTab = ref('managers')
 const referSearch = ref('')
+const editing = ref(false)
+const saving = ref(false)
 const referForm = reactive({
   manager: '',
   managerAssigneeIds: [],
   employeeAssigneeIds: [],
+})
+const editForm = reactive({
+  title: '',
+  description: '',
+  priority: 'medium',
 })
 
 const {
@@ -33,12 +41,17 @@ const {
   approveSelectedRequest,
   referSelectedRequest,
   rejectSelectedRequest,
+  updateSelectedRequest,
+  deleteSelectedRequest,
   openProtectedFile,
   state,
 } = useWorkflowHub()
 
 const decisions = computed(() => props.request?.decisions || [])
 const attachments = computed(() => props.request?.attachments || [])
+const canEdit = computed(() => Boolean(props.request?.canEdit))
+const canRefer = computed(() => Boolean(props.request?.canRefer || canApproveSelectedRequest.value))
+const canDelete = computed(() => Boolean(props.request?.canDelete))
 const managerChoices = computed(() => availableManagerDirectory())
 const employeeChoices = computed(() => availableRecipientUsers().filter((item) => item.accessRole === 'employee'))
 const filteredManagers = computed(() => {
@@ -58,9 +71,32 @@ watch(
     referForm.employeeAssigneeIds = []
     referSearch.value = ''
     referTab.value = 'managers'
+    editing.value = false
+    syncEditForm()
   },
   { immediate: true },
 )
+
+watch(
+  () => props.open,
+  (open) => {
+    if (open) {
+      editing.value = false
+      syncEditForm()
+    }
+  },
+)
+
+function syncEditForm() {
+  editForm.title = props.request?.title || ''
+  editForm.description = props.request?.description || ''
+  editForm.priority = props.request?.priorityValue || 'medium'
+}
+
+function beginEdit() {
+  syncEditForm()
+  editing.value = true
+}
 
 function toggle(listKey, id) {
   const current = new Set((referForm[listKey] || []).map(Number))
@@ -88,6 +124,29 @@ async function submitRefer() {
   })
   referOpen.value = false
 }
+
+async function saveEdit() {
+  saving.value = true
+  try {
+    await updateSelectedRequest({
+      title: editForm.title,
+      description: editForm.description,
+      priority: editForm.priority,
+    })
+    editing.value = false
+  } finally {
+    saving.value = false
+  }
+}
+
+function formatLeaveDateTime(value) {
+  if (!value) return '-'
+  return formatTehranDateTime(value)
+}
+
+function leaveModeLabel(mode) {
+  return mode === 'daily' ? 'روزانه' : mode === 'hourly' ? 'ساعتی' : mode || '-'
+}
 </script>
 
 <template>
@@ -107,9 +166,32 @@ async function submitRefer() {
         <article><span>تاریخ</span><strong>{{ request.deadline || request.createdAt || '-' }}</strong></article>
       </section>
 
+      <section v-if="request.leave" class="surface-inline detail-section">
+        <div class="section-label-row"><div><h3>جزئیات مرخصی</h3></div></div>
+        <div class="detail-summary-grid">
+          <article><span>نوع مرخصی</span><strong>{{ leaveModeLabel(request.leave.mode) }}</strong></article>
+          <article><span>شروع</span><strong>{{ formatLeaveDateTime(request.leave.startsAt) }}</strong></article>
+          <article><span>پایان</span><strong>{{ formatLeaveDateTime(request.leave.endsAt) }}</strong></article>
+          <article><span>مدت</span><strong>{{ request.leave.hours }} ساعت</strong></article>
+          <article><span>وضعیت مرخصی</span><strong>{{ request.leave.statusLabel || request.leave.status || '-' }}</strong></article>
+        </div>
+      </section>
+
       <section class="surface-inline detail-section">
         <div class="section-label-row"><div><h3>شرح درخواست</h3></div></div>
-        <p class="long-text">{{ request.description || 'توضیحی ثبت نشده است.' }}</p>
+        <template v-if="editing">
+          <label class="field-shell"><span>عنوان</span><input v-model="editForm.title" type="text" /></label>
+          <label class="field-shell"><span>اولویت</span>
+            <select v-model="editForm.priority">
+              <option value="low">پایین</option>
+              <option value="medium">متوسط</option>
+              <option value="high">بالا</option>
+              <option value="critical">بحرانی</option>
+            </select>
+          </label>
+          <label class="field-shell"><span>توضیحات</span><textarea v-model="editForm.description" rows="5" /></label>
+        </template>
+        <p v-else class="long-text">{{ request.description || 'توضیحی ثبت نشده است.' }}</p>
       </section>
 
       <section class="surface-inline detail-section">
@@ -132,9 +214,13 @@ async function submitRefer() {
 
       <div class="modal-actions">
         <button class="action-btn tone-soft" type="button" @click="$emit('close')"><IconlyIcon name="close" decorative /><span>بستن</span></button>
-        <button v-if="canApproveSelectedRequest" class="action-btn tone-soft" type="button" @click="referOpen = true"><IconlyIcon name="forward" decorative /><span>ارجاع</span></button>
-        <button v-if="canApproveSelectedRequest" class="action-btn tone-danger" type="button" @click="rejectOpen = true"><IconlyIcon name="cancel" decorative /><span>رد</span></button>
-        <button v-if="canApproveSelectedRequest" class="action-btn tone-primary" type="button" @click="approveSelectedRequest"><IconlyIcon name="check_circle" decorative /><span>تایید</span></button>
+        <button v-if="canDelete" class="action-btn tone-danger" type="button" @click="deleteSelectedRequest"><IconlyIcon name="delete" decorative /><span>حذف</span></button>
+        <button v-if="canEdit && !editing" class="action-btn tone-soft" type="button" @click="beginEdit"><IconlyIcon name="edit" decorative /><span>ویرایش</span></button>
+        <button v-if="editing" class="action-btn tone-soft" type="button" @click="editing = false">انصراف</button>
+        <button v-if="editing" class="action-btn tone-primary" type="button" :disabled="saving" @click="saveEdit">{{ saving ? 'در حال ذخیره...' : 'ذخیره' }}</button>
+        <button v-if="canRefer && !editing" class="action-btn tone-soft" type="button" @click="referOpen = true"><IconlyIcon name="forward" decorative /><span>ارجاع</span></button>
+        <button v-if="canApproveSelectedRequest && !editing" class="action-btn tone-danger" type="button" @click="rejectOpen = true"><IconlyIcon name="cancel" decorative /><span>رد</span></button>
+        <button v-if="canApproveSelectedRequest && !editing" class="action-btn tone-primary" type="button" @click="approveSelectedRequest"><IconlyIcon name="check_circle" decorative /><span>تایید</span></button>
       </div>
     </div>
   </BaseModal>
@@ -179,5 +265,4 @@ async function submitRefer() {
 .file-button { width: 100%; border: 0; text-align: right; cursor: pointer; }
 .inline-error { margin: 0; color: #b42318; }
 @media (max-width: 760px) { .detail-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 420px) { .detail-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

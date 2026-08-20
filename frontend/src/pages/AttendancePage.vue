@@ -23,7 +23,7 @@ const statusFilter = ref('all')
 const activeTab = ref('dashboard')
 const note = ref('')
 const dashboard = ref({ summary: {}, users: [], recentEvents: [], organization: {} })
-const reportPayload = ref({ summary: {}, rows: [], users: [], personnelStats: [], dailyStats: [], departments: [] })
+const reportPayload = ref({ summary: {}, rows: [], dailyUserRows: [], users: [], personnelStats: [], dailyStats: [], departments: [] })
 const reportFilters = ref({
   q: '',
   start: '',
@@ -34,7 +34,7 @@ const reportFilters = ref({
   department: '',
   rangeKey: '',
 })
-const reportViewMode = ref('table')
+const reportViewMode = ref('daily')
 const expandedReportRowId = ref(null)
 const publicPayload = ref({ user: {}, events: [], organization: {}, location: {} })
 const isPublic = computed(() => Boolean(route.params.token))
@@ -148,6 +148,7 @@ const reportHighlightStats = computed(() => {
   ]
 })
 const reportRows = computed(() => reportPayload.value.rows || [])
+const reportDailyUserRows = computed(() => reportPayload.value.dailyUserRows || reportPayload.value.daily_user_rows || [])
 const reportUsers = computed(() => reportPayload.value.users || dashboard.value.users || [])
 const reportPersonnelStats = computed(() => reportPayload.value.personnelStats || reportPayload.value.personnel_stats || [])
 const reportDailyStats = computed(() => reportPayload.value.dailyStats || reportPayload.value.daily_stats || [])
@@ -281,7 +282,7 @@ async function refreshLiveLocation() {
   if (!workplaceConfigured.value) return
   locationBusy.value = true
   try {
-    const coords = await readDeviceLocation()
+    const coords = await readDeviceLocation({ forceRefresh: true, maximumAge: 0 })
     liveUserLocation.value = coords
     if (publicLocation.value.latitude != null && publicLocation.value.longitude != null) {
       liveDistanceMeters.value = haversineDistanceMeters(
@@ -374,15 +375,20 @@ async function saveEventTime(row) {
 
 async function submitPublicEvent(eventType) {
   submitting.value = true
-  locationBusy.value = true
   errorMessage.value = ''
   successMessage.value = ''
   try {
     if (!workplaceConfigured.value) {
       throw new Error('لوکیشن محل کار توسط مدیر مجموعه تنظیم نشده است.')
     }
-    const coords = await readDeviceLocation()
-    liveUserLocation.value = coords
+    // Reuse recent location when possible to avoid repeated GPS prompts.
+    let coords = liveUserLocation.value
+    const ageMs = coords?.capturedAt ? Date.now() - coords.capturedAt : Infinity
+    if (!coords || ageMs > 120000) {
+      locationBusy.value = true
+      coords = await readDeviceLocation({ maximumAge: 120000, enableHighAccuracy: false })
+      liveUserLocation.value = coords
+    }
     if (publicLocation.value.latitude != null && publicLocation.value.longitude != null) {
       liveDistanceMeters.value = haversineDistanceMeters(
         publicLocation.value.latitude,
@@ -648,13 +654,92 @@ onMounted(() => {
         </div>
 
         <div class="report-view-tabs">
-          <button :class="['report-view-tab', reportViewMode === 'table' && 'is-active']" type="button" @click="reportViewMode = 'table'">جدول جزئیات</button>
+          <button :class="['report-view-tab', reportViewMode === 'daily' && 'is-active']" type="button" @click="reportViewMode = 'daily'">گزارش روزانه</button>
+          <button :class="['report-view-tab', reportViewMode === 'table' && 'is-active']" type="button" @click="reportViewMode = 'table'">رویدادها</button>
           <button :class="['report-view-tab', reportViewMode === 'cards' && 'is-active']" type="button" @click="reportViewMode = 'cards'">کارت موبایل</button>
           <button :class="['report-view-tab', reportViewMode === 'personnel' && 'is-active']" type="button" @click="reportViewMode = 'personnel'">آمار پرسنل</button>
-          <button :class="['report-view-tab', reportViewMode === 'daily' && 'is-active']" type="button" @click="reportViewMode = 'daily'">آمار روزانه</button>
+          <button :class="['report-view-tab', reportViewMode === 'dailyStats' && 'is-active']" type="button" @click="reportViewMode = 'dailyStats'">آمار تجمیعی</button>
         </div>
 
-        <section v-if="reportViewMode === 'table'" class="surface-block report-table-card">
+        <section v-if="reportViewMode === 'daily'" class="surface-block report-table-card">
+          <div class="section-label-row report-table-head">
+            <div>
+              <h3>گزارش روزانه ورود و خروج</h3>
+              <p class="report-table-subtitle">هر ردیف = یک نفر در یک روز · جزئیات همه ورود/خروج‌ها در همان ردیف</p>
+            </div>
+            <span class="table-count">{{ fa(reportDailyUserRows.length) }} ردیف</span>
+          </div>
+
+          <div class="attendance-table-wrap">
+            <table class="attendance-report-table attendance-report-table-detailed">
+              <thead>
+                <tr>
+                  <th>تاریخ</th>
+                  <th>پرسنل</th>
+                  <th>بخش</th>
+                  <th>اولین ورود</th>
+                  <th>آخرین خروج</th>
+                  <th>تعداد رویداد</th>
+                  <th>کارکرد</th>
+                  <th>وضعیت</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template v-for="row in reportDailyUserRows" :key="row.id">
+                  <tr :class="['report-row', expandedReportRowId === row.id && 'is-expanded']">
+                    <td>{{ dateOnly(row.date) }}</td>
+                    <td>
+                      <strong>{{ row.userName }}</strong>
+                      <small v-if="row.userPhone" class="report-cell-sub">{{ row.userPhone }}</small>
+                    </td>
+                    <td>{{ row.userDepartment || '-' }}</td>
+                    <td>{{ row.firstCheckIn || '—' }}</td>
+                    <td>{{ row.lastCheckOut || '—' }}</td>
+                    <td>{{ fa(row.eventCount) }} <small class="report-cell-sub">({{ fa(row.checkinCount) }} ورود / {{ fa(row.checkoutCount) }} خروج)</small></td>
+                    <td>{{ row.workedHours != null ? `${fa(row.workedHours)} ساعت` : '—' }}</td>
+                    <td>
+                      <span :class="['status-badge', row.hasOpenShift ? 'tone-warning' : 'tone-success']">
+                        {{ row.hasOpenShift ? 'شیفت باز' : 'بسته' }}
+                      </span>
+                    </td>
+                    <td>
+                      <button class="icon-btn report-expand-btn" type="button" :title="expandedReportRowId === row.id ? 'بستن' : 'جزئیات'" @click="toggleReportRow(row.id)">
+                        <IconlyIcon :name="expandedReportRowId === row.id ? 'expand_less' : 'expand_more'" decorative />
+                      </button>
+                    </td>
+                  </tr>
+                  <tr v-if="expandedReportRowId === row.id" class="report-row-detail">
+                    <td colspan="9">
+                      <div class="daily-events-list">
+                        <article v-for="event in row.events" :key="event.id" class="daily-event-item">
+                          <div class="daily-event-head">
+                            <span :class="['status-badge', eventTone(event.eventType)]">{{ eventLabel(event.eventType) }}</span>
+                            <strong>{{ timeOnly(event.eventTime || event.eventAt) }}</strong>
+                            <small>{{ sourceLabel(event.source) }}</small>
+                            <span v-if="event.note" class="report-cell-sub">{{ event.note }}</span>
+                          </div>
+                          <div class="report-time-edit">
+                            <input :value="eventTimeDraft(event)" type="time" @input="setEventTimeDraft(event.id, $event.target.value)" />
+                            <button class="action-btn tone-primary" type="button" :disabled="submitting" @click="saveEventTime(event)">ذخیره</button>
+                          </div>
+                        </article>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
+                <tr v-if="!reportDailyUserRows.length && !loading">
+                  <td colspan="9">گزارشی برای این فیلترها پیدا نشد.</td>
+                </tr>
+                <tr v-if="loading">
+                  <td colspan="9">در حال بارگذاری گزارش…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section v-else-if="reportViewMode === 'table'" class="surface-block report-table-card">
           <div class="section-label-row report-table-head">
             <div>
               <h3>جدول جزئیات رویدادها</h3>
@@ -835,7 +920,7 @@ onMounted(() => {
           </div>
         </section>
 
-        <section v-else class="surface-block report-table-card">
+        <section v-else-if="reportViewMode === 'dailyStats'" class="surface-block report-table-card">
           <div class="section-label-row report-table-head">
             <div>
               <h3>آمار روزانه</h3>
@@ -970,21 +1055,21 @@ onMounted(() => {
               <button
                 class="attendance-punch-btn is-in"
                 type="button"
-                :disabled="submitting || locationBusy || !workplaceConfigured || publicUser.status === 'in'"
+                :disabled="submitting || !workplaceConfigured || publicUser.status === 'in'"
                 @click="submitPublicEvent('in')"
               >
                 <IconlyIcon name="login" size="xl" decorative />
-                <strong>{{ locationBusy && publicUser.status !== 'in' ? 'در حال بررسی...' : 'ثبت ورود' }}</strong>
+                <strong>{{ submitting && publicUser.status !== 'in' ? 'در حال ثبت...' : 'ثبت ورود' }}</strong>
                 <small>{{ publicUser.status === 'in' ? 'الان حاضر هستید' : 'شروع شیفت' }}</small>
               </button>
               <button
                 class="attendance-punch-btn is-out"
                 type="button"
-                :disabled="submitting || locationBusy || !workplaceConfigured || publicUser.status !== 'in'"
+                :disabled="submitting || !workplaceConfigured || publicUser.status !== 'in'"
                 @click="submitPublicEvent('out')"
               >
                 <IconlyIcon name="logout" size="xl" decorative />
-                <strong>{{ locationBusy && publicUser.status === 'in' ? 'در حال بررسی...' : 'ثبت خروج' }}</strong>
+                <strong>{{ submitting && publicUser.status === 'in' ? 'در حال ثبت...' : 'ثبت خروج' }}</strong>
                 <small>{{ publicUser.status === 'in' ? 'پایان شیفت' : 'ابتدا ورود ثبت کنید' }}</small>
               </button>
             </div>
@@ -1679,6 +1764,34 @@ onMounted(() => {
 .report-time-edit input {
   min-width: 0;
   flex: 1;
+  min-height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(52, 144, 139, 0.18);
+  padding: 0 10px;
+}
+
+.daily-events-list {
+  display: grid;
+  gap: 10px;
+}
+
+.daily-event-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid rgba(52, 144, 139, 0.1);
+}
+
+.daily-event-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .attendance-feed { display: grid; gap: 10px; min-width: 0; }
