@@ -1,19 +1,22 @@
 <script setup>
 import IconlyIcon from '../components/base/IconlyIcon.vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import LocationMapPicker from '../components/LocationMapPicker.vue'
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
 import SectionHeading from '../components/SectionHeading.vue'
+import AttendancePeriodBoard from '../components/AttendancePeriodBoard.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import { haversineDistanceMeters, readDeviceLocation } from '../lib/geolocation'
-import { formatJalali, formatTehranDate, formatTehranDateTime, formatTehranTime, getTehranClock, getTodayIso, getTodayJalali, isoToJalali, jalaliToIso, shiftIsoDate } from '../utils/jalali'
+import { useWorkflowHub } from '../stores/workflowHub'
+import { formatJalali, formatTehranDate, formatTehranDateTime, formatTehranTime, getTehranClock, getTodayIso, getTodayJalali, isoToJalali, jalaliMonthStartIso, jalaliToIso, jalaliWeekStartIso } from '../utils/jalali'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 const TOKEN_KEY = 'workflow-hub-token'
 
 const route = useRoute()
+const { state } = useWorkflowHub()
 const loading = ref(false)
 const submitting = ref(false)
 const errorMessage = ref('')
@@ -34,8 +37,6 @@ const reportFilters = ref({
   department: '',
   rangeKey: '',
 })
-const reportViewMode = ref('daily')
-const expandedReportRowId = ref(null)
 const publicPayload = ref({ user: {}, events: [], organization: {}, location: {} })
 const isPublic = computed(() => Boolean(route.params.token))
 const locationBusy = ref(false)
@@ -43,7 +44,6 @@ const locationHint = ref('')
 const liveUserLocation = ref(null)
 const liveDistanceMeters = ref(null)
 const punchTime = ref(getTehranClock())
-const eventTimeDrafts = ref({})
 
 const fa = (value) => Number(value || 0).toLocaleString('fa-IR')
 const eventLabel = (type) => (type === 'in' ? 'ورود' : 'خروج')
@@ -65,12 +65,6 @@ const timeOnly = (value) => {
 }
 const toFaTime = (value) => String(value || '').replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit] || digit)
 const sourceLabel = (source) => (source === 'manager' ? 'ثبت مدیر' : 'لینک پرسنل')
-const gpsLabel = (row) => {
-  if (!row.hasGps) return 'بدون GPS'
-  if (row.withinRadius === true) return `داخل محدوده · ${fa(Math.round(row.distanceMeters ?? row.distance_meters ?? 0))}m`
-  if (row.withinRadius === false) return `خارج محدوده · ${fa(Math.round(row.distanceMeters ?? row.distance_meters ?? 0))}m`
-  return row.coordinatesLabel || 'دارای GPS'
-}
 const formatHours = (value) => {
   const hours = Number(value || 0)
   if (!hours) return '۰'
@@ -91,9 +85,8 @@ const formatShift = (row) => {
 
 const quickRanges = [
   { key: 'today', label: 'امروز' },
-  { key: 'yesterday', label: 'دیروز' },
-  { key: 'week', label: '۷ روز اخیر' },
-  { key: 'month', label: '۳۰ روز اخیر' },
+  { key: 'week', label: 'این هفته' },
+  { key: 'month', label: 'این ماه' },
 ]
 
 const publicLocation = computed(() => publicPayload.value.location || {})
@@ -148,11 +141,15 @@ const reportHighlightStats = computed(() => {
   ]
 })
 const reportRows = computed(() => reportPayload.value.rows || [])
-const reportDailyUserRows = computed(() => reportPayload.value.dailyUserRows || reportPayload.value.daily_user_rows || [])
 const reportUsers = computed(() => reportPayload.value.users || dashboard.value.users || [])
-const reportPersonnelStats = computed(() => reportPayload.value.personnelStats || reportPayload.value.personnel_stats || [])
-const reportDailyStats = computed(() => reportPayload.value.dailyStats || reportPayload.value.daily_stats || [])
 const reportDepartments = computed(() => reportPayload.value.departments || [])
+const reportBoardMode = computed(() => {
+  const todayIso = getTodayIso()
+  const startIso = reportFilters.value.start ? jalaliToIso(reportFilters.value.start) : ''
+  const endIso = reportFilters.value.end ? jalaliToIso(reportFilters.value.end) : ''
+  if (reportFilters.value.rangeKey === 'today' || (startIso === todayIso && endIso === todayIso)) return 'today'
+  return 'period'
+})
 const reportFilterLabel = computed(() => {
   const parts = []
   if (reportFilters.value.start || reportFilters.value.end) {
@@ -185,7 +182,6 @@ async function loadDashboard() {
 async function loadReports() {
   loading.value = true
   errorMessage.value = ''
-  expandedReportRowId.value = null
   try {
     const params = new URLSearchParams()
     if (reportFilters.value.q) params.set('q', reportFilters.value.q)
@@ -198,7 +194,14 @@ async function loadReports() {
     if (reportFilters.value.source !== 'all') params.set('source', reportFilters.value.source)
     if (reportFilters.value.department) params.set('department', reportFilters.value.department)
     const query = params.toString()
-    reportPayload.value = await apiFetch(`/attendance/reports${query ? `?${query}` : ''}`)
+    const payload = await apiFetch(`/attendance/reports${query ? `?${query}` : ''}`)
+    const rows = payload.rows || []
+    reportPayload.value = {
+      ...payload,
+      rows: rows.length
+        ? rows
+        : (payload.dailyUserRows || payload.daily_user_rows || []).flatMap((day) => day.events || []),
+    }
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -208,41 +211,35 @@ async function loadReports() {
 
 async function switchTab(tab) {
   activeTab.value = tab
-  if (tab === 'reports' && !reportRows.value.length) await loadReports()
+  if (tab === 'reports') {
+    if (!reportFilters.value.rangeKey) {
+      applyQuickRange('today')
+      return
+    }
+    await loadReports()
+  }
 }
 
 function applyQuickRange(key) {
   const todayIso = getTodayIso()
   const todayJalali = formatJalali(getTodayJalali())
+  reportFilters.value.rangeKey = key
   if (key === 'today') {
-    reportFilters.value.rangeKey = key
     reportFilters.value.start = todayJalali
     reportFilters.value.end = todayJalali
-    void loadReports()
-    return
+  } else if (key === 'week') {
+    reportFilters.value.start = isoToJalali(jalaliWeekStartIso(todayIso))
+    reportFilters.value.end = todayJalali
+  } else if (key === 'month') {
+    reportFilters.value.start = isoToJalali(jalaliMonthStartIso(todayIso))
+    reportFilters.value.end = todayJalali
   }
-  if (key === 'yesterday') {
-    const day = isoToJalali(shiftIsoDate(todayIso, -1))
-    reportFilters.value.rangeKey = key
-    reportFilters.value.start = day
-    reportFilters.value.end = day
-    void loadReports()
-    return
-  }
-  const delta = key === 'week' ? -6 : -29
-  reportFilters.value.rangeKey = key
-  reportFilters.value.start = isoToJalali(shiftIsoDate(todayIso, delta))
-  reportFilters.value.end = todayJalali
   void loadReports()
 }
 
 function resetReportFilters() {
   reportFilters.value = { q: '', start: '', end: '', userId: '', eventType: 'all', source: 'all', department: '', rangeKey: '' }
   void loadReports()
-}
-
-function toggleReportRow(rowId) {
-  expandedReportRowId.value = expandedReportRowId.value === rowId ? null : rowId
 }
 
 function exportReportsCsv() {
@@ -345,34 +342,6 @@ async function submitManagerEvent(user, eventType) {
   }
 }
 
-function eventTimeDraft(row) {
-  if (eventTimeDrafts.value[row.id]) return eventTimeDrafts.value[row.id]
-  return String(row.eventTime || '').slice(0, 5) || getTehranClock()
-}
-
-function setEventTimeDraft(rowId, value) {
-  eventTimeDrafts.value = { ...eventTimeDrafts.value, [rowId]: value }
-}
-
-async function saveEventTime(row) {
-  submitting.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
-  try {
-    const timeValue = eventTimeDraft(row)
-    await apiFetch(`/attendance/events/${row.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ time: timeValue }),
-    })
-    await loadReports()
-    successMessage.value = 'زمان رویداد به‌روز شد.'
-  } catch (error) {
-    errorMessage.value = error.message
-  } finally {
-    submitting.value = false
-  }
-}
-
 async function submitPublicEvent(eventType) {
   submitting.value = true
   errorMessage.value = ''
@@ -424,10 +393,16 @@ async function copyLink(user) {
   successMessage.value = 'لینک ورود و خروج کپی شد.'
 }
 
+watch(
+  () => state.liveSync?.tick,
+  () => {
+    if (isPublic.value) return
+    if (activeTab.value === 'reports') void loadReports()
+    else void loadDashboard()
+  },
+)
+
 onMounted(() => {
-  if (window.matchMedia('(max-width: 760px)').matches) {
-    reportViewMode.value = 'cards'
-  }
   if (isPublic.value) void loadPublic()
   else void loadDashboard()
 })
@@ -653,327 +628,13 @@ onMounted(() => {
           <template v-if="reportSummary.statsTruncated"> آمار تجمیعی بر اساس {{ fa(reportSummary.statsSampleSize || 5000) }} رویداد اول محاسبه شده است.</template>
         </div>
 
-        <div class="report-view-tabs">
-          <button :class="['report-view-tab', reportViewMode === 'daily' && 'is-active']" type="button" @click="reportViewMode = 'daily'">گزارش روزانه</button>
-          <button :class="['report-view-tab', reportViewMode === 'table' && 'is-active']" type="button" @click="reportViewMode = 'table'">رویدادها</button>
-          <button :class="['report-view-tab', reportViewMode === 'cards' && 'is-active']" type="button" @click="reportViewMode = 'cards'">کارت موبایل</button>
-          <button :class="['report-view-tab', reportViewMode === 'personnel' && 'is-active']" type="button" @click="reportViewMode = 'personnel'">آمار پرسنل</button>
-          <button :class="['report-view-tab', reportViewMode === 'dailyStats' && 'is-active']" type="button" @click="reportViewMode = 'dailyStats'">آمار تجمیعی</button>
-        </div>
-
-        <section v-if="reportViewMode === 'daily'" class="surface-block report-table-card">
-          <div class="section-label-row report-table-head">
-            <div>
-              <h3>گزارش روزانه ورود و خروج</h3>
-              <p class="report-table-subtitle">هر ردیف = یک نفر در یک روز · جزئیات همه ورود/خروج‌ها در همان ردیف</p>
-            </div>
-            <span class="table-count">{{ fa(reportDailyUserRows.length) }} ردیف</span>
-          </div>
-
-          <div class="attendance-table-wrap">
-            <table class="attendance-report-table attendance-report-table-detailed">
-              <thead>
-                <tr>
-                  <th>تاریخ</th>
-                  <th>پرسنل</th>
-                  <th>بخش</th>
-                  <th>اولین ورود</th>
-                  <th>آخرین خروج</th>
-                  <th>تعداد رویداد</th>
-                  <th>کارکرد</th>
-                  <th>وضعیت</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <template v-for="row in reportDailyUserRows" :key="row.id">
-                  <tr :class="['report-row', expandedReportRowId === row.id && 'is-expanded']">
-                    <td>{{ dateOnly(row.date) }}</td>
-                    <td>
-                      <strong>{{ row.userName }}</strong>
-                      <small v-if="row.userPhone" class="report-cell-sub">{{ row.userPhone }}</small>
-                    </td>
-                    <td>{{ row.userDepartment || '-' }}</td>
-                    <td>{{ row.firstCheckIn || '—' }}</td>
-                    <td>{{ row.lastCheckOut || '—' }}</td>
-                    <td>{{ fa(row.eventCount) }} <small class="report-cell-sub">({{ fa(row.checkinCount) }} ورود / {{ fa(row.checkoutCount) }} خروج)</small></td>
-                    <td>{{ row.workedHours != null ? `${fa(row.workedHours)} ساعت` : '—' }}</td>
-                    <td>
-                      <span :class="['status-badge', row.hasOpenShift ? 'tone-warning' : 'tone-success']">
-                        {{ row.hasOpenShift ? 'شیفت باز' : 'بسته' }}
-                      </span>
-                    </td>
-                    <td>
-                      <button class="icon-btn report-expand-btn" type="button" :title="expandedReportRowId === row.id ? 'بستن' : 'جزئیات'" @click="toggleReportRow(row.id)">
-                        <IconlyIcon :name="expandedReportRowId === row.id ? 'expand_less' : 'expand_more'" decorative />
-                      </button>
-                    </td>
-                  </tr>
-                  <tr v-if="expandedReportRowId === row.id" class="report-row-detail">
-                    <td colspan="9">
-                      <div class="daily-events-list">
-                        <article v-for="event in row.events" :key="event.id" class="daily-event-item">
-                          <div class="daily-event-head">
-                            <span :class="['status-badge', eventTone(event.eventType)]">{{ eventLabel(event.eventType) }}</span>
-                            <strong>{{ timeOnly(event.eventTime || event.eventAt) }}</strong>
-                            <small>{{ sourceLabel(event.source) }}</small>
-                            <span v-if="event.note" class="report-cell-sub">{{ event.note }}</span>
-                          </div>
-                          <div class="report-time-edit">
-                            <input :value="eventTimeDraft(event)" type="time" @input="setEventTimeDraft(event.id, $event.target.value)" />
-                            <button class="action-btn tone-primary" type="button" :disabled="submitting" @click="saveEventTime(event)">ذخیره</button>
-                          </div>
-                        </article>
-                      </div>
-                    </td>
-                  </tr>
-                </template>
-                <tr v-if="!reportDailyUserRows.length && !loading">
-                  <td colspan="9">گزارشی برای این فیلترها پیدا نشد.</td>
-                </tr>
-                <tr v-if="loading">
-                  <td colspan="9">در حال بارگذاری گزارش…</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section v-else-if="reportViewMode === 'table'" class="surface-block report-table-card">
-          <div class="section-label-row report-table-head">
-            <div>
-              <h3>جدول جزئیات رویدادها</h3>
-              <p class="report-table-subtitle">تمام جزئیات: زمان، GPS، فاصله، مدت شیفت، منبع ثبت و یادداشت</p>
-            </div>
-            <span class="table-count">{{ fa(reportRows.length) }} / {{ fa(reportSummary.total) }}</span>
-          </div>
-
-          <div class="attendance-table-wrap">
-            <table class="attendance-report-table attendance-report-table-detailed">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>پرسنل</th>
-                  <th>سمت / بخش</th>
-                  <th>نوع</th>
-                  <th>منبع</th>
-                  <th>تاریخ</th>
-                  <th>ساعت</th>
-                  <th>مدت شیفت</th>
-                  <th>موقعیت</th>
-                  <th>یادداشت</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <template v-for="row in reportRows" :key="row.id">
-                  <tr :class="['report-row', expandedReportRowId === row.id && 'is-expanded']">
-                    <td>{{ fa(row.row) }}</td>
-                    <td>
-                      <strong>{{ row.userName }}</strong>
-                      <small v-if="row.userPhone" class="report-cell-sub">{{ row.userPhone }}</small>
-                    </td>
-                    <td>
-                      <span>{{ row.userRole || '-' }}</span>
-                      <small class="report-cell-sub">{{ row.userDepartment || '-' }}</small>
-                    </td>
-                    <td><span :class="['status-badge', eventTone(row.eventType)]">{{ eventLabel(row.eventType) }}</span></td>
-                    <td>{{ sourceLabel(row.source) }}</td>
-                    <td>{{ dateOnly(row.eventDate || row.eventAt) }}</td>
-                    <td>{{ timeOnly(row.eventTime || row.eventAt) }}</td>
-                    <td>{{ formatShift(row) }}</td>
-                    <td>
-                      <span :class="['report-gps-pill', row.withinRadius === true && 'is-ok', row.withinRadius === false && 'is-bad', !row.hasGps && 'is-muted']">
-                        {{ gpsLabel(row) }}
-                      </span>
-                    </td>
-                    <td class="report-note-cell">{{ row.note || '-' }}</td>
-                    <td>
-                      <button class="icon-btn report-expand-btn" type="button" :title="expandedReportRowId === row.id ? 'بستن' : 'جزئیات'" @click="toggleReportRow(row.id)">
-                        <IconlyIcon :name="expandedReportRowId === row.id ? 'expand_less' : 'expand_more'" decorative />
-                      </button>
-                    </td>
-                  </tr>
-                  <tr v-if="expandedReportRowId === row.id" class="report-row-detail">
-                    <td colspan="11">
-                      <div class="report-detail-grid">
-                        <article><span>شناسه رویداد</span><strong>{{ fa(row.id) }}</strong></article>
-                        <article><span>موبایل</span><strong>{{ row.userPhone || '-' }}</strong></article>
-                        <article><span>ثبت سیستم</span><strong>{{ dateTime(row.createdAt) }}</strong></article>
-                        <article><span>زمان کامل</span><strong>{{ dateTime(row.eventAt) }}</strong></article>
-                        <article>
-                          <span>ویرایش ساعت</span>
-                          <div class="report-time-edit">
-                            <input :value="eventTimeDraft(row)" type="time" @input="setEventTimeDraft(row.id, $event.target.value)" />
-                            <button class="action-btn tone-primary" type="button" :disabled="submitting" @click="saveEventTime(row)">ذخیره</button>
-                          </div>
-                        </article>
-                        <article><span>منبع</span><strong>{{ sourceLabel(row.source) }}</strong></article>
-                        <article><span>مدت شیفت</span><strong>{{ formatShift(row) }}</strong></article>
-                        <article><span>فاصله</span><strong>{{ row.distanceMeters != null ? `${fa(Math.round(row.distanceMeters))} متر` : '-' }}</strong></article>
-                        <article><span>مختصات</span><strong dir="ltr">{{ row.coordinatesLabel || '-' }}</strong></article>
-                        <article class="report-detail-wide"><span>یادداشت</span><strong>{{ row.note || '—' }}</strong></article>
-                      </div>
-                    </td>
-                  </tr>
-                </template>
-                <tr v-if="!reportRows.length && !loading">
-                  <td colspan="11">گزارشی برای این فیلترها پیدا نشد.</td>
-                </tr>
-                <tr v-if="loading">
-                  <td colspan="11">در حال بارگذاری گزارش…</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section v-else-if="reportViewMode === 'cards'" class="report-cards-grid">
-          <article v-for="row in reportRows" :key="row.id" :class="['report-event-card', `card-tone-${row.eventType}`]">
-            <div class="report-event-card-head">
-              <div>
-                <strong>{{ row.userName }}</strong>
-                <small>{{ row.userRole }} · {{ row.userDepartment }}</small>
-              </div>
-              <span :class="['status-badge', eventTone(row.eventType)]">{{ eventLabel(row.eventType) }}</span>
-            </div>
-            <div class="report-event-card-meta">
-              <span><IconlyIcon name="calendar" decorative /> {{ dateOnly(row.eventDate || row.eventAt) }} · {{ timeOnly(row.eventTime || row.eventAt) }}</span>
-              <span><IconlyIcon name="login" decorative /> {{ sourceLabel(row.source) }}</span>
-              <span v-if="row.shiftMinutes != null"><IconlyIcon name="schedule" decorative /> مدت: {{ formatShift(row) }}</span>
-              <span :class="['report-gps-pill', row.withinRadius === true && 'is-ok', row.withinRadius === false && 'is-bad']">{{ gpsLabel(row) }}</span>
-            </div>
-            <p v-if="row.note" class="report-event-card-note">{{ row.note }}</p>
-            <div class="report-event-card-foot">
-              <small v-if="row.userPhone">📱 {{ row.userPhone }}</small>
-              <small v-if="row.coordinatesLabel" dir="ltr">📍 {{ row.coordinatesLabel }}</small>
-              <small>ثبت: {{ dateTime(row.createdAt) }}</small>
-            </div>
-          </article>
-          <p v-if="!reportRows.length && !loading" class="attendance-public-hint">گزارشی برای این فیلترها پیدا نشد.</p>
-        </section>
-
-        <section v-else-if="reportViewMode === 'personnel'" class="surface-block report-table-card">
-          <div class="section-label-row report-table-head">
-            <div>
-              <h3>آمار تجمیعی پرسنل</h3>
-              <p class="report-table-subtitle">ورود، خروج، ساعات کار، GPS و آخرین وضعیت هر نفر</p>
-            </div>
-            <span class="table-count">{{ fa(reportPersonnelStats.length) }} نفر</span>
-          </div>
-          <div class="attendance-table-wrap desktop-data-table">
-            <table class="attendance-report-table">
-              <thead>
-                <tr>
-                  <th>پرسنل</th>
-                  <th>بخش</th>
-                  <th>موبایل</th>
-                  <th>کل رویداد</th>
-                  <th>ورود</th>
-                  <th>خروج</th>
-                  <th>ساعات کار</th>
-                  <th>لینک / مدیر</th>
-                  <th>GPS</th>
-                  <th>آخرین رویداد</th>
-                  <th>وضعیت</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="person in reportPersonnelStats" :key="person.userId">
-                  <td><strong>{{ person.userName }}</strong><small class="report-cell-sub">{{ person.userRole || '-' }}</small></td>
-                  <td>{{ person.userDepartment || '-' }}</td>
-                  <td>{{ person.userPhone || '-' }}</td>
-                  <td>{{ fa(person.totalEvents) }}</td>
-                  <td>{{ fa(person.checkins) }}</td>
-                  <td>{{ fa(person.checkouts) }}</td>
-                  <td>{{ formatHours(person.workedHours) }}</td>
-                  <td>{{ fa(person.linkEvents) }} / {{ fa(person.managerEvents) }}</td>
-                  <td>{{ fa(person.withGps) }}</td>
-                  <td>{{ eventLabel(person.lastEventType) }} · {{ dateTime(person.lastEventAt) }}</td>
-                  <td><span :class="['status-badge', eventTone(person.currentStatus)]">{{ statusLabel(person.currentStatus) }}</span></td>
-                </tr>
-                <tr v-if="!reportPersonnelStats.length && !loading"><td colspan="11">آمار پرسنلی برای این فیلترها موجود نیست.</td></tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="mobile-data-cards report-cards-grid">
-            <article
-              v-for="person in reportPersonnelStats"
-              :key="`person-card-${person.userId}`"
-              class="report-event-card"
-            >
-              <div class="report-event-card-head">
-                <div>
-                  <strong>{{ person.userName }}</strong>
-                  <small>{{ person.userRole || '-' }} · {{ person.userDepartment || '-' }}</small>
-                </div>
-                <span :class="['status-badge', eventTone(person.currentStatus)]">{{ statusLabel(person.currentStatus) }}</span>
-              </div>
-              <div class="report-event-card-meta">
-                <span>رویداد: {{ fa(person.totalEvents) }} · ورود {{ fa(person.checkins) }} · خروج {{ fa(person.checkouts) }}</span>
-                <span>ساعات: {{ formatHours(person.workedHours) }}</span>
-                <span>آخرین: {{ eventLabel(person.lastEventType) }} · {{ dateTime(person.lastEventAt) }}</span>
-              </div>
-            </article>
-            <p v-if="!reportPersonnelStats.length && !loading" class="attendance-public-hint">آمار پرسنلی برای این فیلترها موجود نیست.</p>
-          </div>
-        </section>
-
-        <section v-else-if="reportViewMode === 'dailyStats'" class="surface-block report-table-card">
-          <div class="section-label-row report-table-head">
-            <div>
-              <h3>آمار روزانه</h3>
-              <p class="report-table-subtitle">تفکیک روزانه رویدادها، پرسنل حاضر و ساعات کار</p>
-            </div>
-            <span class="table-count">{{ fa(reportDailyStats.length) }} روز</span>
-          </div>
-          <div class="attendance-table-wrap desktop-data-table">
-            <table class="attendance-report-table">
-              <thead>
-                <tr>
-                  <th>تاریخ</th>
-                  <th>کل رویداد</th>
-                  <th>ورود</th>
-                  <th>خروج</th>
-                  <th>پرسنل</th>
-                  <th>ساعات کار</th>
-                  <th>لینک</th>
-                  <th>مدیر</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="day in reportDailyStats" :key="day.date">
-                  <td><strong>{{ dateOnly(day.date) }}</strong></td>
-                  <td>{{ fa(day.totalEvents) }}</td>
-                  <td>{{ fa(day.checkins) }}</td>
-                  <td>{{ fa(day.checkouts) }}</td>
-                  <td>{{ fa(day.uniqueUsers) }}</td>
-                  <td>{{ formatHours(day.workedHours) }}</td>
-                  <td>{{ fa(day.linkEvents) }}</td>
-                  <td>{{ fa(day.managerEvents) }}</td>
-                </tr>
-                <tr v-if="!reportDailyStats.length && !loading"><td colspan="8">آمار روزانه برای این فیلترها موجود نیست.</td></tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="mobile-data-cards report-cards-grid">
-            <article v-for="day in reportDailyStats" :key="`day-card-${day.date}`" class="report-event-card">
-              <div class="report-event-card-head">
-                <div>
-                  <strong>{{ dateOnly(day.date) }}</strong>
-                  <small>{{ fa(day.uniqueUsers) }} پرسنل · {{ fa(day.totalEvents) }} رویداد</small>
-                </div>
-              </div>
-              <div class="report-event-card-meta">
-                <span>ورود {{ fa(day.checkins) }} · خروج {{ fa(day.checkouts) }}</span>
-                <span>ساعات: {{ formatHours(day.workedHours) }}</span>
-              </div>
-            </article>
-            <p v-if="!reportDailyStats.length && !loading" class="attendance-public-hint">آمار روزانه برای این فیلترها موجود نیست.</p>
-          </div>
-        </section>
+        <AttendancePeriodBoard
+          :events="reportRows"
+          :mode="reportBoardMode"
+          :loading="loading"
+          :can-edit-times="true"
+          @updated="loadReports"
+        />
       </section>
     </template>
   </section>

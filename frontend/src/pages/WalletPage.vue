@@ -373,10 +373,19 @@ watch(
 
     <template v-else>
       <div class="wallet-hero">
+        <div class="wallet-hero-visual" aria-hidden="true"></div>
         <div class="wallet-hero-balance">
-          <IconlyIcon name="account_balance_wallet" decorative />
+          <div class="wallet-hero-top">
+            <div class="wallet-hero-icon">
+              <IconlyIcon name="account_balance_wallet" decorative />
+            </div>
+            <div class="wallet-hero-labels">
+              <span>موجودی کل</span>
+              <small>{{ state.wallet.organization?.name || state.currentUser.organization }}</small>
+            </div>
+          </div>
           <strong>{{ state.wallet.summary.totalBalance }}</strong>
-          <small>{{ state.wallet.organization?.name || state.currentUser.organization }}</small>
+          <p class="wallet-hero-caption">مانده قابل استفاده در کیف پول سازمان</p>
         </div>
 
         <div v-if="shortcuts.length" class="wallet-actions">
@@ -863,10 +872,28 @@ watch(
   overflow: hidden;
   min-height: 230px;
   padding: 26px;
-  border: 1px solid var(--wallet-line);
-  border-radius: 12px;
-  background: var(--surface, #fff);
-  box-shadow: none;
+  border: 1px solid rgba(52, 144, 139, 0.14);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(72, 103, 183, 0.18), transparent 42%),
+    radial-gradient(circle at 0% 100%, rgba(52, 144, 139, 0.16), transparent 38%),
+    linear-gradient(135deg, #0f2744 0%, #1a3a5c 52%, #34908b 100%);
+  box-shadow: 0 18px 40px rgba(15, 39, 68, 0.18);
+}
+
+.wallet-hero-visual {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.08) 0%, transparent 38%),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.03) 0,
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 12px
+    );
+  pointer-events: none;
 }
 
 .wallet-hero-balance,
@@ -885,25 +912,58 @@ watch(
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
+  color: #fff;
 }
 
-.wallet-hero-balance .iconly-shell {
-  width: 48px;
-  height: 48px;
+.wallet-hero-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.wallet-hero-icon {
+  width: 52px;
+  height: 52px;
   display: grid;
   place-items: center;
-  border-radius: 18px;
+  border-radius: 16px;
   color: #fff;
-  background: var(--wallet-navy);
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.wallet-hero-labels {
+  display: grid;
+  gap: 4px;
+}
+
+.wallet-hero-labels span {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.wallet-hero-labels small {
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .wallet-hero-balance strong {
-  color: var(--wallet-navy);
-  font-size: clamp(1.85rem, 4.8vw, 3.35rem);
-  font-weight: 760;
+  color: #fff;
+  font-size: clamp(2rem, 5vw, 3.6rem);
+  font-weight: 800;
   line-height: 1;
   letter-spacing: -0.04em;
+  text-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.wallet-hero-caption {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 650;
 }
 
 .wallet-hero-balance small,

@@ -21,6 +21,16 @@ services:
       retries: 12
       start_period: 45s
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
   backend:
     build:
       context: .
@@ -56,6 +66,9 @@ services:
       WORKFLOW_AUTO_INIT_DB: ${WORKFLOW_AUTO_INIT_DB:-true}
       WORKFLOW_AUTO_SEED_DB: ${WORKFLOW_AUTO_SEED_DB:-false}
       WORKFLOW_DB_WAIT_TIMEOUT: ${WORKFLOW_DB_WAIT_TIMEOUT:-90}
+      WORKFLOW_CACHE_BACKEND: ${WORKFLOW_CACHE_BACKEND:-redis}
+      WORKFLOW_REDIS_URL: ${WORKFLOW_REDIS_URL:-redis://redis:6379/1}
+      WORKFLOW_DB_CONN_MAX_AGE: ${WORKFLOW_DB_CONN_MAX_AGE:-60}
       WORKFLOW_PUBLIC_APP_URL: ${WORKFLOW_PUBLIC_APP_URL:-https://carnomand.ir}
       WORKFLOW_NESHAN_SERVICE_KEY: ${WORKFLOW_NESHAN_SERVICE_KEY:-}
       WORKFLOW_NESHAN_REVERSE_URL: ${WORKFLOW_NESHAN_REVERSE_URL:-https://api.neshan.org/v5/reverse}
@@ -68,6 +81,8 @@ services:
       ORG_TRIAL_HOURS: ${ORG_TRIAL_HOURS:-24}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - ../docker-data/uploads:/app/uploads

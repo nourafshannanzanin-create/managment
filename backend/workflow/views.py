@@ -16,7 +16,7 @@ from pathlib import Path
 from django.conf import settings
 from django.core.management import call_command
 from django.db import IntegrityError, connection, transaction
-from django.db.models import Prefetch, Q
+from django.db.models import Count, Prefetch, Q
 from django.db.utils import OperationalError, ProgrammingError
 from django.http import FileResponse, HttpRequest, HttpResponse, HttpResponseNotAllowed, JsonResponse
 from django.utils import timezone
@@ -65,9 +65,11 @@ from workflow.models import (
     OrganizationMembership,
     OrganizationPreference,
     PlatformRole,
+    ApprovalNote,
     Request,
     RequestApprovalAssignment,
     RequestAttachment,
+    RequestNote,
     RequestPriority,
     RequestStatus,
     RequestTimeline,
@@ -102,6 +104,7 @@ from workflow.support_tickets import (
 from workflow.services import (
     approval_metrics,
     build_bootstrap_payload,
+    build_bootstrap_collection_payload,
     build_hq_payload,
     build_hq_reports_payload,
     build_hq_services_payload,
@@ -123,11 +126,16 @@ from workflow.services import (
     media_url,
     IMAGE_EXTENSIONS,
     serialize_approval,
+    serialize_approval_note,
     serialize_current_user,
     serialize_expense,
     serialize_expense_note,
     serialize_hq_team_member,
     serialize_request,
+    serialize_request_note,
+    can_delete_request,
+    can_delete_expense,
+    can_delete_document,
     serialize_support_ticket,
     serialize_user,
     serialize_entrusted_item,
@@ -1129,6 +1137,13 @@ def parse_iso_date_param(value: str | None) -> date | None:
         return None
 
 
+def local_datetime_bounds(day: date) -> tuple[datetime, datetime]:
+    tz = timezone.get_current_timezone()
+    start = timezone.make_aware(datetime.combine(day, time.min), tz)
+    end = timezone.make_aware(datetime.combine(day, time.max), tz)
+    return start, end
+
+
 def compute_attendance_worked_seconds(events: list[AttendanceEvent], *, include_open: bool = False, until=None) -> float:
     by_user: dict[int, list[AttendanceEvent]] = defaultdict(list)
     for event in events:
@@ -1325,9 +1340,11 @@ def build_attendance_daily_user_rows(events: list[AttendanceEvent], *, include_o
 def build_attendance_report_payload(user: User, params) -> dict:
     organization = attendance_organization_for_user(user)
     from workflow.attendance_auto_checkout import auto_checkout_open_shifts
+    from workflow.cache_utils import cache_throttled, get_cached_organization_preference
 
-    auto_checkout_open_shifts(organization=organization)
-    preference, _ = OrganizationPreference.objects.get_or_create(organization=organization)
+    if cache_throttled(f"wf:attendance:auto_checkout:{organization.id}", 60):
+        auto_checkout_open_shifts(organization=organization)
+    preference = get_cached_organization_preference(organization)
     radius_meters = float(preference.attendance_radius_meters or DEFAULT_ATTENDANCE_RADIUS_METERS)
     events = AttendanceEvent.objects.filter(organization=organization).select_related("user", "user__department")
     start_date = parse_iso_date_param(params.get("start"))
@@ -1339,9 +1356,11 @@ def build_attendance_report_payload(user: User, params) -> dict:
     query = (params.get("q") or "").strip()
 
     if start_date:
-        events = events.filter(event_at__date__gte=start_date)
+        start_dt, _ = local_datetime_bounds(start_date)
+        events = events.filter(event_at__gte=start_dt)
     if end_date:
-        events = events.filter(event_at__date__lte=end_date)
+        _, end_dt = local_datetime_bounds(end_date)
+        events = events.filter(event_at__lte=end_dt)
     if event_type in {AttendanceEvent.EVENT_IN, AttendanceEvent.EVENT_OUT}:
         events = events.filter(event_type=event_type)
     if source in {AttendanceEvent.SOURCE_MANAGER, AttendanceEvent.SOURCE_LINK}:
@@ -1359,7 +1378,14 @@ def build_attendance_report_payload(user: User, params) -> dict:
             | Q(note__icontains=query)
         )
 
-    total_matching = events.count()
+    summary_counts = events.aggregate(
+        total=Count("id"),
+        checkins=Count("id", filter=Q(event_type=AttendanceEvent.EVENT_IN)),
+        checkouts=Count("id", filter=Q(event_type=AttendanceEvent.EVENT_OUT)),
+        manager_events=Count("id", filter=Q(source=AttendanceEvent.SOURCE_MANAGER)),
+        link_events=Count("id", filter=Q(source=AttendanceEvent.SOURCE_LINK)),
+    )
+    total_matching = summary_counts["total"] or 0
     stats_events = list(events.order_by("user_id", "event_at", "id")[:5000])
     rows = list(events.order_by("-event_at", "-id")[:500])
     events_by_user: dict[int, list[AttendanceEvent]] = defaultdict(list)
@@ -1395,12 +1421,12 @@ def build_attendance_report_payload(user: User, params) -> dict:
             "truncated": total_matching > len(rows),
             "statsTruncated": total_matching > len(stats_events),
             "stats_truncated": total_matching > len(stats_events),
-            "checkins": events.filter(event_type=AttendanceEvent.EVENT_IN).count(),
-            "checkouts": events.filter(event_type=AttendanceEvent.EVENT_OUT).count(),
-            "managerEvents": events.filter(source=AttendanceEvent.SOURCE_MANAGER).count(),
-            "manager_events": events.filter(source=AttendanceEvent.SOURCE_MANAGER).count(),
-            "linkEvents": events.filter(source=AttendanceEvent.SOURCE_LINK).count(),
-            "link_events": events.filter(source=AttendanceEvent.SOURCE_LINK).count(),
+            "checkins": summary_counts["checkins"] or 0,
+            "checkouts": summary_counts["checkouts"] or 0,
+            "managerEvents": summary_counts["manager_events"] or 0,
+            "manager_events": summary_counts["manager_events"] or 0,
+            "linkEvents": summary_counts["link_events"] or 0,
+            "link_events": summary_counts["link_events"] or 0,
             "uniqueUsers": unique_users,
             "unique_users": unique_users,
             "withGps": with_gps,
@@ -1651,7 +1677,7 @@ def require_auth(view_func):
             user_id = int(payload.get("sub"))
         except Exception:
             return json_error("توکن نامعتبر است.", status=401)
-        user = User.objects.select_related("department", "manager").filter(pk=user_id, is_active=True).first()
+        user = User.objects.select_related("department", "manager", "organization_membership__organization").filter(pk=user_id, is_active=True).first()
         if user is None:
             return json_error("کاربر معتبر نیست.", status=401)
         attach_user(request, user)
@@ -1945,7 +1971,36 @@ def bootstrap_view(request: HttpRequest):
     ensure_signature(request.current_user)
     organization_id = request.GET.get("organizationId")
     selected_organization_id = int(organization_id) if organization_id and organization_id.isdigit() else None
-    return json_response(build_bootstrap_payload(request.current_user, selected_organization_id))
+    mode = (request.GET.get("mode") or "full").strip().lower()
+    if mode not in {"full", "summary"}:
+        return json_error("mode نامعتبر است.", status=422)
+    return json_response(build_bootstrap_payload(request.current_user, selected_organization_id, mode=mode))
+
+
+@require_auth
+@methods("GET")
+def bootstrap_collections_view(request: HttpRequest):
+    startup_ready()
+    organization_id = request.GET.get("organizationId")
+    selected_organization_id = int(organization_id) if organization_id and organization_id.isdigit() else None
+    section = (request.GET.get("section") or "").strip().lower()
+    if not section:
+        return json_error("section الزامی است.", status=422)
+    limit = request.GET.get("limit") or request.GET.get("pageSize") or "200"
+    offset = request.GET.get("offset") or "0"
+    if not str(limit).isdigit() or not str(offset).isdigit():
+        return json_error("limit/offset نامعتبر است.", status=422)
+    try:
+        payload = build_bootstrap_collection_payload(
+            request.current_user,
+            section,
+            limit=int(limit),
+            offset=int(offset),
+            organization_id=selected_organization_id,
+        )
+    except ValueError as exc:
+        return json_error(str(exc), status=422)
+    return json_response(payload)
 
 
 def ensure_hq_admin(user: User):
@@ -2642,14 +2697,19 @@ def attendance_event_view(request: HttpRequest):
     event_at = parse_manager_event_at(payload)
     if event_at is None:
         return json_error("زمان ورود/خروج معتبر نیست.", status=422)
-    event = AttendanceEvent.objects.create(
-        organization=organization,
-        user=target_user,
-        event_type=event_type,
-        source=AttendanceEvent.SOURCE_MANAGER,
-        note=(payload.get("note") or "").strip(),
-        event_at=event_at,
-    )
+    from workflow.attendance_guard import AttendanceTransitionError, create_attendance_event
+
+    try:
+        event = create_attendance_event(
+            organization=organization,
+            user=target_user,
+            event_type=event_type,
+            source=AttendanceEvent.SOURCE_MANAGER,
+            note=(payload.get("note") or "").strip(),
+            event_at=event_at,
+        )
+    except AttendanceTransitionError as exc:
+        return json_error(str(exc), status=409)
     AuditLog.objects.create(
         actor=request.current_user,
         actor_name=request.current_user.full_name,
@@ -2812,7 +2872,9 @@ def public_attendance_view(request: HttpRequest, token: str):
     if not FeaturePurchase.objects.filter(organization=organization, feature_key="attendance", is_active=True).exists():
         return json_error("ماژول ورود و خروج برای این سازمان فعال نیست.", status=402)
 
-    preference, _ = OrganizationPreference.objects.get_or_create(organization=organization)
+    from workflow.cache_utils import get_cached_organization_preference
+
+    preference = get_cached_organization_preference(organization)
     location_payload = serialize_attendance_location(preference, organization)
 
     if request.method == "POST":
@@ -2826,16 +2888,21 @@ def public_attendance_view(request: HttpRequest, token: str):
         if isinstance(location_result, JsonResponse):
             return location_result
         latitude, longitude, distance_meters = location_result
-        AttendanceEvent.objects.create(
-            organization=organization,
-            user=target_user,
-            event_type=event_type,
-            source=AttendanceEvent.SOURCE_LINK,
-            note=(payload.get("note") or "").strip(),
-            latitude=latitude,
-            longitude=longitude,
-            distance_meters=distance_meters,
-        )
+        from workflow.attendance_guard import AttendanceTransitionError, create_attendance_event
+
+        try:
+            create_attendance_event(
+                organization=organization,
+                user=target_user,
+                event_type=event_type,
+                source=AttendanceEvent.SOURCE_LINK,
+                note=(payload.get("note") or "").strip(),
+                latitude=latitude,
+                longitude=longitude,
+                distance_meters=distance_meters,
+            )
+        except AttendanceTransitionError as exc:
+            return json_error(str(exc), status=409)
 
     user_payload = serialize_attendance_user(target_user, organization)
     today_start = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -4037,8 +4104,10 @@ def request_detail_view(request: HttpRequest, request_code: str):
     request_obj._current_user = request.current_user
 
     if request.method == "DELETE":
-        if request_obj.requester_id != request.current_user.id and not is_manager(request.current_user):
-            return json_error("اجازه حذف این درخواست را ندارید.", status=403)
+        if not can_delete_request(request.current_user, request_obj):
+            if request_obj.status in {RequestStatus.APPROVED, RequestStatus.REJECTED, RequestStatus.CLOSED}:
+                return json_error("امکان حذف پس از تکمیل وجود ندارد.", status=409)
+            return json_error("فقط سازنده درخواست می‌تواند آن را حذف کند.", status=403)
         code = request_obj.code
         title = request_obj.title
         request_obj.delete()
@@ -4327,8 +4396,10 @@ def expense_detail_view(request: HttpRequest, expense_code: str):
         return json_error("اجازه این عملیات را ندارید.", status=403)
 
     if request.method == "DELETE":
-        if not (is_owner or is_manager(request.current_user)):
-            return json_error("اجازه حذف این هزینه را ندارید.", status=403)
+        if not can_delete_expense(request.current_user, expense):
+            if expense.status in {ExpenseStatus.APPROVED, ExpenseStatus.REJECTED}:
+                return json_error("امکان حذف پس از تکمیل وجود ندارد.", status=409)
+            return json_error("فقط سازنده هزینه می‌تواند آن را حذف کند.", status=403)
         code = expense.code
         title = expense.title
         expense.delete()
@@ -4393,6 +4464,70 @@ def expense_notes_view(request: HttpRequest, expense_code: str):
     )
     note = ExpenseNote.objects.select_related("author").get(pk=note.pk)
     return json_response(serialize_expense_note(note), status=201)
+
+
+@require_auth
+@methods("GET", "POST")
+@csrf_exempt
+def request_notes_view(request: HttpRequest, request_code: str):
+    request_obj = scoped_requests(request).filter(code=request_code).first()
+    if request_obj is None:
+        return json_error("درخواست پیدا نشد.", status=404)
+    if request.method == "GET":
+        notes = [
+            serialize_request_note(item)
+            for item in request_obj.user_notes.filter(deleted_at__isnull=True).select_related("author").order_by("created_at")
+        ]
+        return json_response({"notes": notes})
+    payload = parse_json(request)
+    body = (payload.get("body") or "").strip()
+    if not body:
+        return json_error("متن یادداشت الزامی است.", status=422)
+    parent = None
+    parent_id = payload.get("parentId") or payload.get("parent_id")
+    if parent_id:
+        parent = request_obj.user_notes.filter(pk=parent_id, deleted_at__isnull=True).select_related("author").first()
+    note = RequestNote.objects.create(
+        request=request_obj,
+        author=request.current_user,
+        parent=parent,
+        body=body,
+    )
+    note = RequestNote.objects.select_related("author").get(pk=note.pk)
+    return json_response(serialize_request_note(note), status=201)
+
+
+@require_auth
+@methods("GET", "POST")
+@csrf_exempt
+def approval_notes_view(request: HttpRequest, document_code: str):
+    if not can_access_approvals(request.current_user):
+        return json_error("دسترسی کافی ندارید.", status=403)
+    document = scoped_documents(request).filter(code=document_code).first()
+    if document is None:
+        return json_error("سند پیدا نشد.", status=404)
+    if request.method == "GET":
+        notes = [
+            serialize_approval_note(item)
+            for item in document.user_notes.filter(deleted_at__isnull=True).select_related("author").order_by("created_at")
+        ]
+        return json_response({"notes": notes})
+    payload = parse_json(request)
+    body = (payload.get("body") or "").strip()
+    if not body:
+        return json_error("متن یادداشت الزامی است.", status=422)
+    parent = None
+    parent_id = payload.get("parentId") or payload.get("parent_id")
+    if parent_id:
+        parent = document.user_notes.filter(pk=parent_id, deleted_at__isnull=True).select_related("author").first()
+    note = ApprovalNote.objects.create(
+        document=document,
+        author=request.current_user,
+        parent=parent,
+        body=body,
+    )
+    note = ApprovalNote.objects.select_related("author").get(pk=note.pk)
+    return json_response(serialize_approval_note(note), status=201)
 
 
 @require_auth
@@ -5007,12 +5142,10 @@ def approval_detail_view(request: HttpRequest, document_code: str):
         return json_error("سند پیدا نشد.", status=404)
     if request.method == "GET":
         return json_response(serialize_approval(document, request.current_user))
-    if not (
-        document.owner_id == request.current_user.id
-        or is_manager(request.current_user)
-        or request.current_user.slug == HQ_USERNAME
-    ):
-        return json_error("اجازه حذف این تاییدیه را ندارید.", status=403)
+    if not can_delete_document(request.current_user, document):
+        if document.status in {DocumentStatus.APPROVED, DocumentStatus.REJECTED, DocumentStatus.ARCHIVED}:
+            return json_error("امکان حذف پس از تکمیل وجود ندارد.", status=409)
+        return json_error("فقط سازنده تأییدیه می‌تواند آن را حذف کند.", status=403)
     code = document.code
     title = document.title
     document.delete()
@@ -5671,10 +5804,37 @@ def serialize_direct_message(
 
 
 def conversation_peer(conversation: DirectConversation, current_user: User) -> User | None:
-    for member in conversation.memberships.all():
+    for member in conversation_memberships(conversation):
         if member.user_id != current_user.id:
             return member.user
     return None
+
+
+def build_direct_conversation_meta(conversation_ids: list[int], current_user_id: int, last_read_by_conv: dict[int, object]) -> tuple[dict[int, DirectMessage], dict[int, int]]:
+    if not conversation_ids:
+        return {}, {}
+    last_by_conv: dict[int, DirectMessage] = {}
+    messages = (
+        DirectMessage.objects.filter(conversation_id__in=conversation_ids)
+        .select_related("sender")
+        .order_by("conversation_id", "-created_at", "-id")
+    )
+    for message in messages:
+        conversation_id = int(message.conversation_id)
+        if conversation_id not in last_by_conv:
+            last_by_conv[conversation_id] = message
+
+    unread_by_conv = {conversation_id: 0 for conversation_id in conversation_ids}
+    unread_rows = (
+        DirectMessage.objects.filter(conversation_id__in=conversation_ids)
+        .exclude(sender_id=current_user_id)
+        .values_list("conversation_id", "created_at")
+    )
+    for conversation_id, created_at in unread_rows:
+        last_read_at = last_read_by_conv.get(int(conversation_id))
+        if last_read_at is None or (created_at and created_at > last_read_at):
+            unread_by_conv[int(conversation_id)] = unread_by_conv.get(int(conversation_id), 0) + 1
+    return last_by_conv, unread_by_conv
 
 
 def serialize_direct_conversation(
@@ -5682,6 +5842,8 @@ def serialize_direct_conversation(
     current_user: User,
     *,
     include_attachment: bool = True,
+    last_message: DirectMessage | None = None,
+    unread_count: int | None = None,
 ) -> dict:
     memberships = conversation_memberships(conversation)
     is_group = conversation_is_group(conversation)
@@ -5691,14 +5853,16 @@ def serialize_direct_conversation(
     last_read_at = membership.last_read_at if membership else None
     peer_last_read_at = peer_membership.last_read_at if peer_membership else None
     members = [serialize_chat_user(item.user) for item in memberships if item.user_id]
-    messages_qs = conversation.messages.select_related("sender")
-    if not include_attachment:
-        messages_qs = messages_qs.only("id", "conversation_id", "sender_id", "sender__full_name", "body", "created_at")
-    last_message = messages_qs.order_by("-created_at", "-id").first()
-    unread_qs = conversation.messages.exclude(sender_id=current_user.id)
-    if last_read_at is not None:
-        unread_qs = unread_qs.filter(created_at__gt=last_read_at)
-    unread_count = unread_qs.count()
+    if last_message is None:
+        messages_qs = conversation.messages.select_related("sender")
+        if not include_attachment:
+            messages_qs = messages_qs.only("id", "conversation_id", "sender_id", "sender__full_name", "body", "created_at")
+        last_message = messages_qs.order_by("-created_at", "-id").first()
+    if unread_count is None:
+        unread_qs = conversation.messages.exclude(sender_id=current_user.id)
+        if last_read_at is not None:
+            unread_qs = unread_qs.filter(created_at__gt=last_read_at)
+        unread_count = unread_qs.count()
     last_preview = "گفتگو را شروع کنید"
     if last_message is not None:
         preview_body = (last_message.body or "").strip()
@@ -5782,7 +5946,7 @@ def chat_conversations_view(request: HttpRequest):
         return json_error("زیرساخت گفتگوی سازمانی هنوز آماده نیست. لطفا migrationهای سرور را اجرا کنید.", status=503)
 
     if request.method == "GET":
-        conversations = (
+        conversations = list(
             DirectConversation.objects.filter(organization=organization, memberships__user=request.current_user)
             .prefetch_related(
                 Prefetch(
@@ -5793,9 +5957,24 @@ def chat_conversations_view(request: HttpRequest):
             .distinct()
             .order_by("-updated_at", "-id")
         )
+        last_read_by_conv = {}
+        for conversation in conversations:
+            membership = next((item for item in conversation_memberships(conversation) if item.user_id == request.current_user.id), None)
+            last_read_by_conv[conversation.id] = membership.last_read_at if membership else None
+        last_by_conv, unread_by_conv = build_direct_conversation_meta(
+            [item.id for item in conversations],
+            request.current_user.id,
+            last_read_by_conv,
+        )
         return json_response(
             [
-                serialize_direct_conversation(item, request.current_user, include_attachment=attachments_ready)
+                serialize_direct_conversation(
+                    item,
+                    request.current_user,
+                    include_attachment=attachments_ready,
+                    last_message=last_by_conv.get(item.id),
+                    unread_count=unread_by_conv.get(item.id, 0),
+                )
                 for item in conversations
             ],
             safe=False,

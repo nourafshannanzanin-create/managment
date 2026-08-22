@@ -91,11 +91,32 @@ DATABASES = {
         "PASSWORD": os.getenv("WORKFLOW_MYSQL_PASSWORD", "workflow_password"),
         "HOST": os.getenv("WORKFLOW_MYSQL_HOST", "127.0.0.1"),
         "PORT": env_int("WORKFLOW_MYSQL_PORT", 3306),
+        "CONN_MAX_AGE": env_int("WORKFLOW_DB_CONN_MAX_AGE", 60),
         "OPTIONS": {
             "charset": "utf8mb4",
+            "connect_timeout": env_int("WORKFLOW_DB_CONNECT_TIMEOUT", 10),
         },
     }
 }
+
+CACHES = {
+    "default": (
+        {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": os.getenv("WORKFLOW_REDIS_URL", "redis://127.0.0.1:6379/1"),
+        }
+        if os.getenv("WORKFLOW_CACHE_BACKEND", "locmem").strip().lower() == "redis"
+        else {
+            "BACKEND": os.getenv(
+                "WORKFLOW_CACHE_BACKEND",
+                "django.core.cache.backends.locmem.LocMemCache",
+            ),
+            "LOCATION": os.getenv("WORKFLOW_CACHE_LOCATION", "workflow-hub"),
+            "OPTIONS": {"MAX_ENTRIES": env_int("WORKFLOW_CACHE_MAX_ENTRIES", 5000)},
+        }
+    )
+}
+WORKFLOW_CACHE_TTL = env_int("WORKFLOW_CACHE_TTL", 300)
 
 LANGUAGE_CODE = "fa-ir"
 TIME_ZONE = "Asia/Tehran"

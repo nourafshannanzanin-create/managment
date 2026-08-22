@@ -16,6 +16,8 @@ from workflow.tasking import (
     accept_task,
     add_comment,
     approve_task,
+    change_task_assignee,
+    can_delete_task,
     create_task,
     dashboard_payload,
     end_of_day_due_at,
@@ -120,8 +122,10 @@ def tasking_task_detail_view(request: HttpRequest, task_id: int):
         return json_response(serialize_task(task, request.current_user, include_detail=True))
 
     if request.method == "DELETE":
-        if request.current_user.id not in {task.creator_id, task.owner_id} and not is_manager(request.current_user):
-            return json_error("اجازه حذف این تسک را ندارید.", status=403)
+        if not can_delete_task(request.current_user, task):
+            if task.status in {TaskStatus.COMPLETED, TaskStatus.CANCELLED}:
+                return json_error("امکان حذف پس از تکمیل وجود ندارد.", status=409)
+            return json_error("فقط سازنده تسک می‌تواند آن را حذف کند.", status=403)
         task.deleted_at = timezone.now()
         task.status = TaskStatus.CANCELLED
         task.save(update_fields=["deleted_at", "status", "updated_at", "version"])
@@ -176,6 +180,19 @@ def tasking_task_detail_view(request: HttpRequest, task_id: int):
         if "isPinned" in payload or "is_pinned" in payload:
             task.is_pinned = bool(payload.get("isPinned", payload.get("is_pinned")))
             changed.append("is_pinned")
+        assignee_raw = payload.get("assigneeId") if "assigneeId" in payload else payload.get("assignee_id")
+        if assignee_raw not in (None, ""):
+            try:
+                new_assignee_id = int(assignee_raw)
+            except (TypeError, ValueError):
+                return json_error("مسئول تسک معتبر نیست.", status=422)
+            if new_assignee_id != task.owner_id:
+                task = change_task_assignee(
+                    request.current_user,
+                    task,
+                    new_assignee_id,
+                    reason=(payload.get("reason") or "").strip() or "تغییر مسئول تسک",
+                )
         if changed:
             task.version = (task.version or 0) + 1
             task.save()

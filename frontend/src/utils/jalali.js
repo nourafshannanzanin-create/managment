@@ -163,6 +163,40 @@ export function getTodayIso(timeZone = 'Asia/Tehran') {
   return parts ? formatGregorianIso(parts) : ''
 }
 
+const PERSIAN_WEEKDAY_NAMES = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه']
+
+export function persianWeekdayFromIso(iso) {
+  const match = String(iso || '').slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return ''
+  const weekday = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))).getUTCDay()
+  return PERSIAN_WEEKDAY_NAMES[weekday] || ''
+}
+
+export function jalaliWeekStartIso(iso = getTodayIso()) {
+  const day = String(iso || getTodayIso()).slice(0, 10)
+  const match = day.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return getTodayIso()
+  const weekday = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))).getUTCDay()
+  const saturdayOffset = (weekday + 1) % 7
+  return shiftIsoDate(day, -saturdayOffset)
+}
+
+export function jalaliMonthStartIso(iso = getTodayIso()) {
+  const day = String(iso || getTodayIso()).slice(0, 10)
+  const match = day.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return getTodayIso()
+  const { jy, jm } = gregorianToJalali(Number(match[1]), Number(match[2]), Number(match[3]))
+  return formatGregorianIso(jalaliToGregorian(jy, jm, 1))
+}
+
+export function jalaliYearStartIso(iso = getTodayIso()) {
+  const day = String(iso || getTodayIso()).slice(0, 10)
+  const match = day.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return getTodayIso()
+  const { jy } = gregorianToJalali(Number(match[1]), Number(match[2]), Number(match[3]))
+  return formatGregorianIso(jalaliToGregorian(jy, 1, 1))
+}
+
 export function shiftIsoDate(value, deltaDays = 0) {
   const text = String(value || '').slice(0, 10)
   const match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/)

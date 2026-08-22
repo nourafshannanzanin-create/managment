@@ -54,6 +54,7 @@ const editForm = reactive({
   category: '',
   departmentId: '',
   estimatedMinutes: 60,
+  assigneeId: '',
 })
 
 watch(
@@ -106,6 +107,27 @@ const departmentOptions = computed(() =>
     ? state.tasking.departments
     : state.settings?.departments || state.directories?.departments || [],
 )
+const assigneeOptions = computed(() => {
+  const fromTasking = state.tasking.assigneeOptions || []
+  const fromUsers = state.users || []
+  const fromDirectories = state.directories?.users || []
+  const source = [...fromTasking, ...fromUsers, ...fromDirectories]
+  const seen = new Set()
+  return source
+    .map((u) => ({
+      id: u.id,
+      name: u.name || u.fullName || u.full_name || '',
+      jobTitle: u.jobTitle || u.job_title || '',
+      department: typeof u.department === 'string' ? u.department : (u.department?.name || ''),
+    }))
+    .filter((u) => {
+      const id = Number(u.id)
+      if (!id || seen.has(id) || !u.name) return false
+      seen.add(id)
+      return true
+    })
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'fa'))
+})
 
 watch(
   () => [props.open, activePanel.value, task.value?.id, task.value?.unreadCount],
@@ -142,6 +164,7 @@ function beginEdit() {
   editForm.category = task.value.category || ''
   editForm.departmentId = String(task.value.departmentId || '')
   editForm.estimatedMinutes = Number(task.value.estimatedMinutes || 60)
+  editForm.assigneeId = String(task.value.assignee?.id || task.value.ownerId || '')
   editing.value = true
 }
 
@@ -155,6 +178,7 @@ async function saveEdit() {
       category: editForm.category,
       departmentId: editForm.departmentId || null,
       estimatedMinutes: Number(editForm.estimatedMinutes || 0),
+      assigneeId: editForm.assigneeId ? Number(editForm.assigneeId) : null,
       reason: 'ویرایش مشخصات تسک',
     })
     editing.value = false
@@ -368,6 +392,15 @@ async function sendComment() {
               <textarea v-model="editForm.description" rows="3"></textarea>
             </label>
             <label class="field-shell">
+              <span>مسئول انجام</span>
+              <select v-model="editForm.assigneeId">
+                <option value="">انتخاب مسئول</option>
+                <option v-for="user in assigneeOptions" :key="user.id" :value="String(user.id)">
+                  {{ user.name }} — {{ user.jobTitle || user.department || 'همکار' }}
+                </option>
+              </select>
+            </label>
+            <label class="field-shell">
               <span>اولویت</span>
               <select v-model="editForm.priority">
                 <option value="critical">بحرانی</option>
@@ -441,7 +474,7 @@ async function sendComment() {
           </div>
           <div class="field-shell">
             <span>توضیحات</span>
-            <p>{{ task.description || 'بدون توضیح' }}</p>
+            <p class="task-description-text">{{ task.description || 'بدون توضیح' }}</p>
           </div>
         </template>
         <label v-if="task.canComplete" class="field-shell">
@@ -954,6 +987,7 @@ async function sendComment() {
   gap: 10px;
 }
 .edit-grid .full { grid-column: 1 / -1; }
+.task-description-text { white-space: pre-wrap; line-height: 1.7; margin: 0; }
 .attachment-list { display: grid; gap: 6px; }
 .is-danger-text { color: #9b1c1c; font-weight: 700; }
 .empty-copy { color: var(--muted); }

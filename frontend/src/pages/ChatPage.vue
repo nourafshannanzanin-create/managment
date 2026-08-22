@@ -691,49 +691,97 @@ onBeforeUnmount(() => {
 
         <aside v-if="showGroupInfo && selectedIsGroup" class="chat-group-panel">
           <div class="chat-group-panel-head">
-            <strong>اطلاعات گروه</strong>
-            <button type="button" class="chat-panel-close" @click="showGroupInfo = false">×</button>
+            <button type="button" class="chat-panel-close" aria-label="بستن" @click="showGroupInfo = false">×</button>
           </div>
-          <label class="field-shell">
-            <span>نام گروه</span>
-            <input v-model.trim="groupEditTitle" type="text" maxlength="120" />
-          </label>
-          <button class="action-btn tone-soft" type="button" :disabled="groupSaving" @click="saveGroupSettings">ذخیره نام</button>
-          <div class="chat-group-members">
-            <small>اعضا ({{ (selectedConversation.members || []).length.toLocaleString('fa-IR') }})</small>
-            <article v-for="member in selectedConversation.members || []" :key="member.id" class="chat-group-member-row">
-              <UserAvatar :person="member" :name="member.name" size="sm" />
-              <div>
-                <strong>{{ member.name }}</strong>
-                <small>{{ member.role || member.department || 'عضو' }}</small>
-              </div>
-              <button
-                v-if="Number(member.id) !== Number(state.currentUser.id) && (selectedConversation.members || []).length > 2"
-                class="chat-member-remove"
-                type="button"
-                @click="removeGroupMember(member.id)"
-              >
-                حذف
-              </button>
+
+          <div class="chat-group-hero">
+            <div class="chat-group-hero-avatar">
+              <span>{{ groupInitials(groupEditTitle || conversationName(selectedConversation)) }}</span>
+            </div>
+            <div class="chat-group-hero-copy">
+              <span class="chat-group-hero-kicker">جزئیات گروه</span>
+              <strong>{{ groupEditTitle || conversationName(selectedConversation) }}</strong>
+              <small>{{ (selectedConversation.members || []).length.toLocaleString('fa-IR') }} عضو</small>
+            </div>
+          </div>
+
+          <div class="chat-group-stats">
+            <article>
+              <small>اعضا</small>
+              <strong>{{ (selectedConversation.members || []).length.toLocaleString('fa-IR') }}</strong>
+            </article>
+            <article>
+              <small>نوع</small>
+              <strong>گروهی</strong>
             </article>
           </div>
-          <div class="chat-group-add">
-            <small>افزودن عضو</small>
-            <button
-              v-for="user in users.filter((item) => !(selectedConversation.members || []).some((member) => Number(member.id) === Number(item.id)))"
-              :key="`add-${user.id}`"
-              class="chat-list-item chat-picker-item"
-              type="button"
-              @click="addGroupMember(user.id)"
-            >
-              <UserAvatar :person="user" :name="user.name" size="sm" />
-              <div class="chat-list-copy">
-                <strong>{{ user.name }}</strong>
-                <small>{{ user.role || user.department || 'همکار' }}</small>
-              </div>
-              <span class="chat-picker-check">+</span>
+
+          <section class="chat-group-section">
+            <div class="chat-group-section-head">
+              <h3>نام گروه</h3>
+              <small>عنوان نمایشی برای همه اعضا</small>
+            </div>
+            <label class="field-shell chat-group-name-field">
+              <span>نام</span>
+              <input v-model.trim="groupEditTitle" type="text" maxlength="120" placeholder="نام گروه" />
+            </label>
+            <button class="action-btn tone-primary chat-group-save" type="button" :disabled="groupSaving" @click="saveGroupSettings">
+              {{ groupSaving ? 'در حال ذخیره...' : 'ذخیره نام' }}
             </button>
-          </div>
+          </section>
+
+          <section class="chat-group-section">
+            <div class="chat-group-section-head">
+              <h3>اعضای گروه</h3>
+              <span class="meta-pill">{{ (selectedConversation.members || []).length }} نفر</span>
+            </div>
+            <div class="chat-group-members">
+              <article v-for="member in selectedConversation.members || []" :key="member.id" class="chat-group-member-row">
+                <UserAvatar :person="member" :name="member.name" size="sm" />
+                <div class="chat-group-member-copy">
+                  <strong>{{ member.name }}</strong>
+                  <small>{{ member.role || member.department || 'عضو' }}</small>
+                </div>
+                <button
+                  v-if="Number(member.id) !== Number(state.currentUser.id) && (selectedConversation.members || []).length > 2"
+                  class="chat-member-remove"
+                  type="button"
+                  @click="removeGroupMember(member.id)"
+                >
+                  حذف
+                </button>
+              </article>
+            </div>
+          </section>
+
+          <section class="chat-group-section">
+            <div class="chat-group-section-head">
+              <h3>افزودن عضو</h3>
+              <small>همکاران قابل افزودن به گروه</small>
+            </div>
+            <div class="chat-group-add">
+              <button
+                v-for="user in users.filter((item) => !(selectedConversation.members || []).some((member) => Number(member.id) === Number(item.id)))"
+                :key="`add-${user.id}`"
+                class="chat-group-add-item"
+                type="button"
+                @click="addGroupMember(user.id)"
+              >
+                <UserAvatar :person="user" :name="user.name" size="sm" />
+                <div class="chat-list-copy">
+                  <strong>{{ user.name }}</strong>
+                  <small>{{ user.role || user.department || 'همکار' }}</small>
+                </div>
+                <span class="chat-picker-check">+</span>
+              </button>
+              <div
+                v-if="!users.filter((item) => !(selectedConversation.members || []).some((member) => Number(member.id) === Number(item.id))).length"
+                class="chat-group-empty-add"
+              >
+                همه همکاران در این گروه هستند.
+              </div>
+            </div>
+          </section>
         </aside>
 
         <div ref="threadRef" class="chat-messages">
@@ -1355,17 +1403,137 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 64px 0 56px 0;
   z-index: 4;
-  background: rgba(255, 255, 255, 0.98);
-  border-top: 1px solid rgba(52, 144, 139, 0.1);
-  padding: 16px;
+  background: linear-gradient(180deg, rgba(248, 252, 251, 0.98) 0%, rgba(255, 255, 255, 0.98) 28%);
+  border-top: 1px solid rgba(52, 144, 139, 0.12);
+  padding: 14px 16px 20px;
   overflow: auto;
   display: grid;
-  gap: 12px;
+  gap: 14px;
   align-content: start;
 }
 
-.chat-group-panel-head,
-.chat-group-member-row {
+.chat-group-panel-head {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.chat-group-hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(52, 144, 139, 0.14), rgba(72, 103, 183, 0.08));
+  border: 1px solid rgba(52, 144, 139, 0.12);
+}
+
+.chat-group-hero-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #34908b, #4867b7);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.chat-group-hero-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.chat-group-hero-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  color: #34908b;
+}
+
+.chat-group-hero-copy strong {
+  font-size: 1.05rem;
+  color: #1f3b55;
+  overflow-wrap: anywhere;
+}
+
+.chat-group-hero-copy small {
+  color: #667085;
+}
+
+.chat-group-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.chat-group-stats article {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(52, 144, 139, 0.1);
+  display: grid;
+  gap: 4px;
+}
+
+.chat-group-stats small {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chat-group-stats strong {
+  color: #1f3b55;
+  font-size: 1rem;
+}
+
+.chat-group-section {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(52, 144, 139, 0.08);
+}
+
+.chat-group-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.chat-group-section-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #1f3b55;
+}
+
+.chat-group-section-head small {
+  display: block;
+  margin-top: 4px;
+  color: #667085;
+  font-size: 11px;
+}
+
+.chat-group-name-field {
+  margin: 0;
+}
+
+.chat-group-save {
+  justify-self: start;
+}
+
+.chat-group-members {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.chat-group-member-row,
+.chat-group-add-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1373,15 +1541,46 @@ onBeforeUnmount(() => {
 }
 
 .chat-group-member-row {
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(52, 144, 139, 0.08);
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(72, 103, 183, 0.05);
 }
 
-.chat-group-member-row > div {
+.chat-group-member-copy {
   display: grid;
   gap: 2px;
   min-width: 0;
   flex: 1;
+}
+
+.chat-group-add {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.chat-group-add-item {
+  width: 100%;
+  border: 1px dashed rgba(52, 144, 139, 0.22);
+  border-radius: 12px;
+  background: rgba(52, 144, 139, 0.04);
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: right;
+}
+
+.chat-group-add-item:hover {
+  background: rgba(52, 144, 139, 0.08);
+}
+
+.chat-group-empty-add {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(72, 103, 183, 0.05);
+  color: #667085;
+  font-size: 12px;
+  text-align: center;
 }
 
 .chat-member-remove,

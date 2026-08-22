@@ -536,6 +536,36 @@ class ExpenseNote(TimeStampedModel):
         ]
 
 
+class RequestNote(TimeStampedModel):
+    request = models.ForeignKey(Request, on_delete=models.CASCADE, related_name="user_notes")
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="request_notes")
+    parent = models.ForeignKey("self", on_delete=models.CASCADE, blank=True, null=True, related_name="replies")
+    body = models.TextField()
+    edited_at = models.DateTimeField(blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = "request_notes"
+        indexes = [
+            models.Index(fields=["request", "created_at"], name="idx_request_note_date"),
+        ]
+
+
+class ApprovalNote(TimeStampedModel):
+    document = models.ForeignKey("Document", on_delete=models.CASCADE, related_name="user_notes")
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="approval_notes")
+    parent = models.ForeignKey("self", on_delete=models.CASCADE, blank=True, null=True, related_name="replies")
+    body = models.TextField()
+    edited_at = models.DateTimeField(blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = "approval_notes"
+        indexes = [
+            models.Index(fields=["document", "created_at"], name="idx_approval_note_date"),
+        ]
+
+
 class Document(models.Model):
     code = models.CharField(max_length=40, unique=True, db_index=True)
     title = models.CharField(max_length=180)

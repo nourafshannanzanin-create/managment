@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Prefetch, Q
+from django.db.models import Count, Prefetch, Q, Sum
 from django.utils import timezone
 
 from workflow.access import can_access_approvals, can_access_expenses, can_access_settings, can_access_users, can_approve_documents, can_manage_users, can_view_reports, get_user_organization, is_manager, organization_users, visible_users
@@ -34,9 +34,11 @@ from workflow.models import (
     OrganizationMembership,
     OrganizationPreference,
     PlatformRole,
+    ApprovalNote,
     Request,
     RequestApprovalAssignment,
     RequestAttachment,
+    RequestNote,
     RequestPriority,
     RequestStatus,
     RequestTimeline,
@@ -58,6 +60,28 @@ PERSIAN_WEEK_DAYS = ["شنبه", "یکشنبه", "دوشنبه", "سه شنبه"
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
 PDF_EXTENSIONS = {".pdf"}
 HQ_USERNAME = "milad_dhs"
+
+REQUEST_TERMINAL_STATUSES = {RequestStatus.APPROVED, RequestStatus.REJECTED, RequestStatus.CLOSED}
+EXPENSE_TERMINAL_STATUSES = {ExpenseStatus.APPROVED, ExpenseStatus.REJECTED}
+DOCUMENT_TERMINAL_STATUSES = {DocumentStatus.APPROVED, DocumentStatus.REJECTED, DocumentStatus.ARCHIVED}
+
+
+def can_delete_request(user: User | None, request_obj: Request) -> bool:
+    if not user or request_obj.requester_id != user.id:
+        return False
+    return request_obj.status not in REQUEST_TERMINAL_STATUSES
+
+
+def can_delete_expense(user: User | None, expense: Expense) -> bool:
+    if not user or expense.owner_id != user.id:
+        return False
+    return expense.status not in EXPENSE_TERMINAL_STATUSES
+
+
+def can_delete_document(user: User | None, document: Document) -> bool:
+    if not user or document.owner_id != user.id:
+        return False
+    return document.status not in DOCUMENT_TERMINAL_STATUSES
 HQ_ORG_CODE = "hq-control"
 SHOWCASE_ORG_CODE = "carnomand-sample"
 CORE_FEATURE_KEY = "core_software"
@@ -1065,7 +1089,7 @@ def serialize_request(request_obj: Request) -> dict:
             or can_approve
         )
     )
-    can_delete = bool(current_user and (is_requester or is_manager(current_user)))
+    can_delete = can_delete_request(current_user, request_obj)
     attachments = list(getattr(request_obj, "_prefetched_objects_cache", {}).get("attachments", []))
     leave = None
     try:
@@ -1073,6 +1097,13 @@ def serialize_request(request_obj: Request) -> dict:
     except LeaveRequest.DoesNotExist:
         leave = None
     request_type = getattr(request_obj, "request_type", None) or RequestType.GENERAL
+    notes = list(getattr(request_obj, "_prefetched_objects_cache", {}).get("user_notes", []))
+    if not notes and request_obj.pk:
+        notes = list(
+            request_obj.user_notes.filter(deleted_at__isnull=True)
+            .select_related("author")
+            .order_by("created_at")
+        )
     return {
         "id": request_obj.code,
         "title": request_obj.title,
@@ -1128,7 +1159,41 @@ def serialize_request(request_obj: Request) -> dict:
         "canEdit": can_edit,
         "canRefer": can_refer,
         "canDelete": can_delete,
+        "notes": [serialize_request_note(item) for item in notes],
+        "noteCount": len(notes),
         "currentApproverId": current_assignment.approver_id if current_assignment else None,
+    }
+
+
+def serialize_request_note(note: RequestNote) -> dict:
+    parent_payload = None
+    if note.parent_id:
+        parent = note.parent
+        if parent is None:
+            parent = RequestNote.objects.filter(pk=note.parent_id).select_related("author").first()
+        if parent:
+            parent_payload = {
+                "id": parent.id,
+                "body": (parent.body or "")[:180],
+                "author": {
+                    "id": parent.author_id,
+                    "name": normalize_person_name(parent.author.full_name) if parent.author else "نامشخص",
+                },
+            }
+    author = note.author
+    return {
+        "id": note.id,
+        "body": note.body or "",
+        "createdAt": note.created_at.isoformat() if note.created_at else "",
+        "editedAt": note.edited_at.isoformat() if note.edited_at else "",
+        "author": {
+            "id": author.id if author else None,
+            "name": normalize_person_name(author.full_name) if author else "نامشخص",
+            "avatarUrl": user_avatar_url(author) if author else "",
+            "role": access_role_label(author.role) if author else "",
+        },
+        "parentId": note.parent_id,
+        "parent": parent_payload,
     }
 
 
@@ -1178,7 +1243,7 @@ def serialize_expense(expense: Expense) -> dict:
     is_owner = bool(current_user and expense.owner_id == current_user.id)
     can_edit = bool(current_user and (is_owner or current_assignment is not None or is_manager(current_user)))
     can_refer = can_edit
-    can_delete = bool(current_user and (is_owner or is_manager(current_user)))
+    can_delete = can_delete_expense(current_user, expense)
     notes = list(getattr(expense, "_prefetched_objects_cache", {}).get("user_notes", []))
     if not notes and expense.pk:
         notes = list(
@@ -1473,6 +1538,13 @@ def serialize_approval(document: Document, current_user: User | None = None) -> 
             (assignment for assignment in document.approval_assignments.all() if assignment.approver_id == current_user.id),
             None,
         )
+    notes = list(getattr(document, "_prefetched_objects_cache", {}).get("user_notes", []))
+    if not notes and document.pk:
+        notes = list(
+            document.user_notes.filter(deleted_at__isnull=True)
+            .select_related("author")
+            .order_by("created_at")
+        )
     return {
         "id": document.code,
         "title": document.title,
@@ -1498,14 +1570,7 @@ def serialize_approval(document: Document, current_user: User | None = None) -> 
             (current_assignment is not None and current_assignment.status == ApprovalAssignmentStatus.PENDING)
             or (current_user is not None and current_user.slug == HQ_USERNAME and document.status in {DocumentStatus.PENDING, DocumentStatus.WAITING_SIGNATURE})
         ),
-        "canDelete": bool(
-            current_user
-            and (
-                document.owner_id == current_user.id
-                or is_manager(current_user)
-                or current_user.slug == HQ_USERNAME
-            )
-        ),
+        "canDelete": can_delete_document(current_user, document),
         "canRefer": bool(
             current_user
             and (
@@ -1515,7 +1580,41 @@ def serialize_approval(document: Document, current_user: User | None = None) -> 
                 or current_user.slug == HQ_USERNAME
             )
         ),
+        "notes": [serialize_approval_note(item) for item in notes],
+        "noteCount": len(notes),
         "currentApproverId": current_assignment.approver_id if current_assignment else None,
+    }
+
+
+def serialize_approval_note(note: ApprovalNote) -> dict:
+    parent_payload = None
+    if note.parent_id:
+        parent = note.parent
+        if parent is None:
+            parent = ApprovalNote.objects.filter(pk=note.parent_id).select_related("author").first()
+        if parent:
+            parent_payload = {
+                "id": parent.id,
+                "body": (parent.body or "")[:180],
+                "author": {
+                    "id": parent.author_id,
+                    "name": normalize_person_name(parent.author.full_name) if parent.author else "نامشخص",
+                },
+            }
+    author = note.author
+    return {
+        "id": note.id,
+        "body": note.body or "",
+        "createdAt": note.created_at.isoformat() if note.created_at else "",
+        "editedAt": note.edited_at.isoformat() if note.edited_at else "",
+        "author": {
+            "id": author.id if author else None,
+            "name": normalize_person_name(author.full_name) if author else "نامشخص",
+            "avatarUrl": user_avatar_url(author) if author else "",
+            "role": access_role_label(author.role) if author else "",
+        },
+        "parentId": note.parent_id,
+        "parent": parent_payload,
     }
 
 
@@ -1530,6 +1629,10 @@ def visible_requests(user: User):
             "assigned_employees",
             "attachments",
             Prefetch("approval_assignments", queryset=RequestApprovalAssignment.objects.select_related("approver").order_by("created_at")),
+            Prefetch(
+                "user_notes",
+                queryset=RequestNote.objects.filter(deleted_at__isnull=True).select_related("author").order_by("created_at"),
+            ),
         )
         .distinct()
         .order_by("-created_at")
@@ -1564,7 +1667,11 @@ def visible_approvals(user: User):
             Prefetch(
                 "approval_assignments",
                 queryset=ApprovalAssignment.objects.select_related("approver").order_by("created_at"),
-            )
+            ),
+            Prefetch(
+                "user_notes",
+                queryset=ApprovalNote.objects.filter(deleted_at__isnull=True).select_related("author").order_by("created_at"),
+            ),
         )
         .distinct()
         .order_by("-uploaded_at")
@@ -1661,7 +1768,7 @@ def visible_reports_payload(user: User) -> dict:
             expense_by_submitter[normalize_person_name(item.owner.full_name)] += Decimal(item.amount)
     return {
         "summary": {
-            "users": users_qs.count(),
+            "users": len(user_ids),
             "requests": len(requests_qs),
             "expenses": len(expenses_qs),
             "approvals": len(approvals_qs),
@@ -1681,24 +1788,23 @@ def visible_reports_payload(user: User) -> dict:
 
 
 def serialize_hq_organization(organization: Organization) -> dict:
-    users = list(User.objects.filter(organization_membership__organization=organization))
-    user_ids = [item.id for item in users]
-    requests = Request.objects.filter(requester_id__in=user_ids)
-    expenses = Expense.objects.filter(owner_id__in=user_ids)
-    documents = Document.objects.filter(owner_id__in=user_ids)
-    total_expense = sum(Decimal(item.amount) for item in expenses)
-    active_users = sum(1 for item in users if item.is_active)
+    user_ids = list(User.objects.filter(organization_membership__organization=organization).values_list("id", flat=True))
+    request_count = Request.objects.filter(requester_id__in=user_ids).count() if user_ids else 0
+    expense_agg = Expense.objects.filter(owner_id__in=user_ids).aggregate(total=Sum("amount"), count=Count("id")) if user_ids else {"total": 0, "count": 0}
+    document_count = Document.objects.filter(owner_id__in=user_ids).count() if user_ids else 0
+    active_users = User.objects.filter(organization_membership__organization=organization, is_active=True).count()
+    total_expense = Decimal(expense_agg.get("total") or 0)
     return {
         "id": organization.id,
         "code": organization.code,
         "name": organization.name,
         "createdAt": format_date(organization.created_at),
         "createdAtIso": format_date(organization.created_at),
-        "users": len(users),
+        "users": len(user_ids),
         "activeUsers": active_users,
-        "requests": requests.count(),
-        "expenses": expenses.count(),
-        "documents": documents.count(),
+        "requests": request_count,
+        "expenses": int(expense_agg.get("count") or 0),
+        "documents": document_count,
         "paymentTotal": format_money(total_expense),
         "paymentTotalRaw": float(total_expense),
     }
@@ -1842,25 +1948,39 @@ def update_document_status(document: Document) -> None:
     document.save(update_fields=["status", "approved_at", "rejected_at", "rejection_reason"])
 
 
-def build_bootstrap_payload(user: User, organization_id: int | None = None) -> dict:
-    hq_selected_organization = None
-    if user_is_hq_user(user) and organization_id:
-        hq_selected_organization = customer_organizations().filter(pk=organization_id).first()
+BOOTSTRAP_COLLECTION_SECTIONS = frozenset({"requests", "expenses", "approvals", "users"})
+DEFAULT_BOOTSTRAP_COLLECTION_LIMIT = 200
+MAX_BOOTSTRAP_COLLECTION_LIMIT = 500
 
-    if user_is_hq_user(user) and hq_selected_organization is None:
-        requests_qs = []
-        expenses_qs = []
-        approvals_qs = []
-        users_qs = []
-    elif hq_selected_organization is not None:
+
+def _resolve_bootstrap_hq_organization(user: User, organization_id: int | None = None) -> Organization | None:
+    if user_is_hq_user(user) and organization_id:
+        return customer_organizations().filter(pk=organization_id).first()
+    return None
+
+
+def _bootstrap_has_empty_scope(user: User, hq_selected_organization: Organization | None) -> bool:
+    return user_is_hq_user(user) and hq_selected_organization is None
+
+
+def _bootstrap_collection_querysets(user: User, hq_selected_organization: Organization | None):
+    if _bootstrap_has_empty_scope(user, hq_selected_organization):
+        return (
+            Request.objects.none(),
+            Expense.objects.none(),
+            Document.objects.none(),
+            User.objects.none(),
+        )
+
+    if hq_selected_organization is not None:
         retention_start = operational_retention_start(hq_selected_organization)
-        users_qs = list(
+        users_qs = (
             User.objects.filter(organization_membership__organization=hq_selected_organization)
             .select_related("department", "manager", "organization_membership__organization")
             .order_by("created_at")
         )
-        user_ids = [item.id for item in users_qs]
-        requests_qs = list(
+        user_ids = users_qs.values_list("id", flat=True)
+        requests_qs = (
             Request.objects.filter(requester_id__in=user_ids)
             .filter(created_at__date__gte=retention_start)
             .select_related("requester", "manager", "department")
@@ -1869,62 +1989,82 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
                 "assigned_employees",
                 "attachments",
                 Prefetch("approval_assignments", queryset=RequestApprovalAssignment.objects.select_related("approver").order_by("created_at")),
+                Prefetch(
+                    "user_notes",
+                    queryset=RequestNote.objects.filter(deleted_at__isnull=True).select_related("author").order_by("created_at"),
+                ),
             )
             .order_by("-created_at")
         )
-        expenses_qs = list(
+        expenses_qs = (
             Expense.objects.filter(owner_id__in=user_ids)
             .filter(expense_date__gte=retention_start)
             .select_related("owner", "department")
-            .prefetch_related(Prefetch("approval_assignments", queryset=ExpenseApprovalAssignment.objects.select_related("approver").order_by("created_at")))
+            .prefetch_related(
+                Prefetch("approval_assignments", queryset=ExpenseApprovalAssignment.objects.select_related("approver").order_by("created_at")),
+                Prefetch(
+                    "user_notes",
+                    queryset=ExpenseNote.objects.filter(deleted_at__isnull=True).select_related("author").order_by("created_at"),
+                ),
+            )
             .order_by("-expense_date", "-created_at")
         )
-        approvals_qs = list(
+        approvals_qs = (
             Document.objects.filter(owner_id__in=user_ids)
             .filter(uploaded_at__date__gte=retention_start)
             .select_related("owner", "department")
-            .prefetch_related(Prefetch("approval_assignments", queryset=ApprovalAssignment.objects.select_related("approver").order_by("created_at")))
+            .prefetch_related(
+                Prefetch("approval_assignments", queryset=ApprovalAssignment.objects.select_related("approver").order_by("created_at")),
+                Prefetch(
+                    "user_notes",
+                    queryset=ApprovalNote.objects.filter(deleted_at__isnull=True).select_related("author").order_by("created_at"),
+                ),
+            )
             .order_by("-uploaded_at")
         )
-    else:
-        requests_qs = list(visible_requests(user))
-        expenses_qs = list(visible_expenses(user))
-        approvals_qs = list(visible_approvals(user))
-        users_qs = list(visible_users(user).select_related("department", "manager", "organization_membership__organization").prefetch_related("entrusted_items").order_by("created_at"))
+        return requests_qs, expenses_qs, approvals_qs, users_qs
 
-    for request_obj in requests_qs:
-        request_obj._current_user = user
-    for expense in expenses_qs:
-        expense._current_user = user
+    requests_qs = visible_requests(user)
+    expenses_qs = visible_expenses(user)
+    approvals_qs = visible_approvals(user)
+    users_qs = visible_users(user).select_related("department", "manager", "organization_membership__organization").prefetch_related("entrusted_items").order_by("created_at")
+    return requests_qs, expenses_qs, approvals_qs, users_qs
 
-    departments = list(visible_department_catalog())
-    directory_users_qs = list(
-        organization_users(user)
-        .select_related("department", "manager", "organization_membership__organization")
-        .prefetch_related("entrusted_items")
-        .order_by("created_at")
+
+def _annotate_bootstrap_collection_items(user: User, section: str, items: list) -> None:
+    if section in {"requests", "expenses"}:
+        for item in items:
+            item._current_user = user
+
+
+def _serialize_bootstrap_collection(section: str, items: list, user: User) -> list:
+    if section == "requests":
+        return [serialize_request(item) for item in items]
+    if section == "expenses":
+        return [serialize_expense(item) for item in items]
+    if section == "approvals":
+        return [serialize_approval(item, user) for item in items]
+    return [serialize_user(item) for item in items]
+
+
+def _compute_bootstrap_expense_metrics(expenses_qs):
+    today = timezone.localdate()
+    start_day = today - timedelta(days=6)
+    week_start = today - timedelta(days=today.weekday())
+    aggregates = expenses_qs.aggregate(
+        month_total=Sum("amount", filter=Q(expense_date__month=today.month, expense_date__year=today.year)),
+        year_total=Sum("amount", filter=Q(expense_date__year=today.year)),
+        today_total=Sum("amount", filter=Q(expense_date=today)),
+        week_total=Sum("amount", filter=Q(expense_date__gte=week_start)),
     )
-    activities = list(
-        AuditLog.objects.filter(actor_id__in=[item.id for item in users_qs]).select_related("actor").order_by("-created_at")[:6]
-    )
-
-    month_total = sum(Decimal(item.amount) for item in expenses_qs if item.expense_date.month == timezone.localdate().month)
-    year_total = sum(Decimal(item.amount) for item in expenses_qs if item.expense_date.year == timezone.localdate().year)
-    active_requests = sum(1 for item in requests_qs if item.status in {RequestStatus.SUBMITTED, RequestStatus.UNDER_REVIEW})
-    if hq_selected_organization is not None:
-        metrics = {
-            "pending": sum(1 for item in approvals_qs if item.status in {DocumentStatus.PENDING, DocumentStatus.WAITING_SIGNATURE}),
-            "approved": sum(1 for item in approvals_qs if item.status == DocumentStatus.APPROVED),
-            "rejected": sum(1 for item in approvals_qs if item.status == DocumentStatus.REJECTED),
-        }
-    else:
-        metrics = approval_metrics(user)
+    month_total = aggregates["month_total"] or Decimal("0")
+    year_total = aggregates["year_total"] or Decimal("0")
+    today_total = aggregates["today_total"] or Decimal("0")
+    week_total = aggregates["week_total"] or Decimal("0")
 
     expense_by_day: dict[date, Decimal] = defaultdict(lambda: Decimal("0"))
-    start_day = timezone.localdate() - timedelta(days=6)
-    for expense in expenses_qs:
-        if expense.expense_date >= start_day:
-            expense_by_day[expense.expense_date] += Decimal(expense.amount)
+    for row in expenses_qs.filter(expense_date__gte=start_day).values("expense_date").annotate(total=Sum("amount")):
+        expense_by_day[row["expense_date"]] = row["total"] or Decimal("0")
 
     max_total = max(expense_by_day.values(), default=Decimal("0"))
     chart_data = []
@@ -1934,25 +2074,130 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
         scaled = int((day_total / max_total) * 100) if max_total > 0 and day_total > 0 else 0
         chart_data.append({"day": PERSIAN_WEEK_DAYS[index], "value": scaled})
 
+    return month_total, year_total, today_total, week_total, chart_data
+
+
+def _compute_bootstrap_request_metrics(requests_qs):
+    active_requests = requests_qs.filter(status__in={RequestStatus.SUBMITTED, RequestStatus.UNDER_REVIEW}).count()
+    counts_by_status = {
+        row["status"]: row["count"]
+        for row in requests_qs.exclude(status=RequestStatus.CLOSED).values("status").annotate(count=Count("id"))
+    }
     pipeline = [
-        {"label": label, "count": sum(1 for item in requests_qs if item.status == code)}
+        {"label": label, "count": counts_by_status.get(code, 0)}
         for code, label in RequestStatus.choices
         if code != RequestStatus.CLOSED
     ]
+    return active_requests, pipeline
 
-    reports = []
-    if can_view_reports(user):
-        reports = [
-            {"title": "گزارش درخواست ها", "description": "نمای کلی جریان درخواست ها", "export": "CSV / Excel", "owner": "مدیرعامل", "generatedAt": timezone.localdate().isoformat(), "generatedAtIso": timezone.localdate().isoformat()},
-            {"title": "گزارش هزینه ها", "description": "تحلیل هزینه های سازمان", "export": "CSV / Excel", "owner": "مدیرعامل", "generatedAt": timezone.localdate().isoformat(), "generatedAtIso": timezone.localdate().isoformat()},
-            {"title": "گزارش تاییدها", "description": "عملکرد مدیران در تایید اسناد", "export": "CSV / Excel", "owner": "مدیرعامل", "generatedAt": timezone.localdate().isoformat(), "generatedAtIso": timezone.localdate().isoformat()},
-        ]
 
+def _compute_bootstrap_approval_metrics(user: User, approvals_qs, hq_selected_organization: Organization | None) -> dict:
+    if hq_selected_organization is not None:
+        metrics_row = approvals_qs.aggregate(
+            pending=Count("id", filter=Q(status__in={DocumentStatus.PENDING, DocumentStatus.WAITING_SIGNATURE})),
+            approved=Count("id", filter=Q(status=DocumentStatus.APPROVED)),
+            rejected=Count("id", filter=Q(status=DocumentStatus.REJECTED)),
+        )
+        return {
+            "pending": metrics_row["pending"] or 0,
+            "approved": metrics_row["approved"] or 0,
+            "rejected": metrics_row["rejected"] or 0,
+        }
+    return approval_metrics(user)
+
+
+def _bootstrap_collection_meta(requests_qs, expenses_qs, approvals_qs, users_qs) -> dict:
+    return {
+        "requests": requests_qs.count(),
+        "expenses": expenses_qs.count(),
+        "approvals": approvals_qs.count(),
+        "users": users_qs.count(),
+    }
+
+
+def build_bootstrap_collection_payload(
+    user: User,
+    section: str,
+    *,
+    limit: int = DEFAULT_BOOTSTRAP_COLLECTION_LIMIT,
+    offset: int = 0,
+    organization_id: int | None = None,
+) -> dict:
+    section = (section or "").strip().lower()
+    if section not in BOOTSTRAP_COLLECTION_SECTIONS:
+        raise ValueError("بخش bootstrap معتبر نیست.")
+
+    limit = max(1, min(int(limit), MAX_BOOTSTRAP_COLLECTION_LIMIT))
+    offset = max(0, int(offset))
+    hq_selected_organization = _resolve_bootstrap_hq_organization(user, organization_id)
+    if _bootstrap_has_empty_scope(user, hq_selected_organization):
+        return {
+            "section": section,
+            "items": [],
+            "total": 0,
+            "limit": limit,
+            "offset": offset,
+            "hasMore": False,
+        }
+
+    requests_qs, expenses_qs, approvals_qs, users_qs = _bootstrap_collection_querysets(user, hq_selected_organization)
+    queryset_map = {
+        "requests": requests_qs,
+        "expenses": expenses_qs,
+        "approvals": approvals_qs,
+        "users": users_qs,
+    }
+    queryset = queryset_map[section]
+    total = queryset.count()
+    page = list(queryset[offset : offset + limit])
+    _annotate_bootstrap_collection_items(user, section, page)
+    items = _serialize_bootstrap_collection(section, page, user)
+    loaded = offset + len(page)
+    return {
+        "section": section,
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "hasMore": loaded < total,
+    }
+
+
+def build_bootstrap_payload(user: User, organization_id: int | None = None, *, mode: str = "full") -> dict:
+    summary_mode = (mode or "full").strip().lower() == "summary"
+    hq_selected_organization = _resolve_bootstrap_hq_organization(user, organization_id)
+    requests_qs, expenses_qs, approvals_qs, users_qs = _bootstrap_collection_querysets(user, hq_selected_organization)
+    collection_meta = _bootstrap_collection_meta(requests_qs, expenses_qs, approvals_qs, users_qs)
+
+    if summary_mode:
+        requests_list: list = []
+        expenses_list: list = []
+        approvals_list: list = []
+        users_list: list = []
+    else:
+        requests_list = list(requests_qs)
+        expenses_list = list(expenses_qs)
+        approvals_list = list(approvals_qs)
+        users_list = list(users_qs)
+        _annotate_bootstrap_collection_items(user, "requests", requests_list)
+        _annotate_bootstrap_collection_items(user, "expenses", expenses_list)
+
+    departments = list(visible_department_catalog())
+    directory_users_qs = list(
+        organization_users(user)
+        .select_related("department", "manager", "organization_membership__organization")
+        .prefetch_related("entrusted_items")
+        .order_by("created_at")
+    )
+    activity_user_ids = users_qs.values_list("id", flat=True) if not _bootstrap_has_empty_scope(user, hq_selected_organization) else []
+    activities = list(
+        AuditLog.objects.filter(actor_id__in=activity_user_ids).select_related("actor").order_by("-created_at")[:6]
+    )
+
+    month_total, year_total, today_total, week_total, chart_data = _compute_bootstrap_expense_metrics(expenses_qs)
+    active_requests, pipeline = _compute_bootstrap_request_metrics(requests_qs)
+    metrics = _compute_bootstrap_approval_metrics(user, approvals_qs, hq_selected_organization)
     reports = report_catalog(user) if can_view_reports(user) else []
-
-    today_total = sum(Decimal(item.amount) for item in expenses_qs if item.expense_date == timezone.localdate())
-    week_start = timezone.localdate() - timedelta(days=timezone.localdate().weekday())
-    week_total = sum(Decimal(item.amount) for item in expenses_qs if item.expense_date >= week_start)
     wallet_organization = hq_selected_organization
     if wallet_organization is None and user.slug != HQ_USERNAME:
         wallet_organization = get_user_organization(user)
@@ -1968,6 +2213,8 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
         sms_threshold = Decimal("0")
 
     return {
+        "mode": "summary" if summary_mode else "full",
+        "collectionMeta": collection_meta,
         "currentUser": serialize_current_user(user),
         "selectedOrganization": (
             {"id": hq_selected_organization.id, "name": hq_selected_organization.name, "code": hq_selected_organization.code}
@@ -1988,10 +2235,10 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None) -> d
         ],
         "chartData": chart_data,
         "pipeline": pipeline,
-        "requests": [serialize_request(item) for item in requests_qs],
-        "expenses": [serialize_expense(item) for item in expenses_qs],
-        "approvals": [serialize_approval(item, user) for item in approvals_qs],
-        "users": [serialize_user(item) for item in users_qs],
+        "requests": [serialize_request(item) for item in requests_list],
+        "expenses": [serialize_expense(item) for item in expenses_list],
+        "approvals": [serialize_approval(item, user) for item in approvals_list],
+        "users": [serialize_user(item) for item in users_list],
         "reports": reports,
         "activities": [
             {

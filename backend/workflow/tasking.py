@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import date, datetime, timedelta, time as dt_time
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -46,6 +47,8 @@ PRIORITY_SCORE = {
     TaskPriority.LOW: 50,
 }
 
+TASK_TERMINAL_STATUSES = {TaskStatus.COMPLETED, TaskStatus.CANCELLED}
+
 STATUS_LABELS = {
     TaskStatus.DRAFT: "پیش‌نویس",
     TaskStatus.PENDING_ACCEPTANCE: "نیازمند پذیرش",
@@ -80,7 +83,11 @@ def _default_work_days() -> list[int]:
     return list(DEFAULT_WORK_DAYS)
 
 
-def get_or_create_tasking_settings(organization: Organization) -> TaskingSettings:
+def get_or_create_tasking_settings(organization: Organization, *, use_cache: bool = True) -> TaskingSettings:
+    if use_cache:
+        from workflow.cache_utils import get_cached_tasking_settings
+
+        return get_cached_tasking_settings(organization)
     settings_obj, created = TaskingSettings.objects.get_or_create(
         organization=organization,
         defaults={"work_days": _default_work_days()},
@@ -301,6 +308,9 @@ def update_tasking_settings(organization: Organization, payload: dict) -> Taskin
     settings_obj.updated_at = timezone.now()
     update_fields.append("updated_at")
     settings_obj.save(update_fields=list(dict.fromkeys(update_fields)))
+    from workflow.cache_utils import invalidate_tasking_settings_cache
+
+    invalidate_tasking_settings_cache(organization.id)
     return settings_obj
 
 
@@ -349,64 +359,84 @@ def approved_leave_minutes(user: User, work_date: date) -> int:
     return total
 
 
-def effective_work_minutes(user: User, settings_obj: TaskingSettings, work_date: date) -> int:
-    preference = OrganizationPreference.objects.filter(organization=settings_obj.organization).first()
+def effective_work_minutes(
+    user: User,
+    settings_obj: TaskingSettings,
+    work_date: date,
+    preference: OrganizationPreference | None = None,
+) -> int:
+    if preference is None:
+        preference = OrganizationPreference.objects.filter(organization=settings_obj.organization).first()
     scheduled = scheduled_work_minutes(settings_obj, work_date, preference)
     leave = approved_leave_minutes(user, work_date)
     return max(0, scheduled - leave)
 
 
-def capacity_for_day(user: User, settings_obj: TaskingSettings, work_date: date) -> dict:
-    preference = OrganizationPreference.objects.filter(organization=settings_obj.organization).first()
-    effective = effective_work_minutes(user, settings_obj, work_date)
-    # Never show "X از ۰": if day was excluded / leave wiped hours, use configured day length.
-    if effective <= 0:
-        effective = day_length_minutes(settings_obj, work_date, preference)
-    target = int(effective * settings_obj.target_utilization_percent / 100) if effective else 0
-    maximum = int(effective * settings_obj.max_utilization_percent / 100) if effective else 0
-
-    # Day plan (open + completed allocations) — progress "done" is measured against this.
-    planned = (
-        TaskAllocation.objects.filter(user=user, work_date=work_date)
-        .exclude(task__status__in=[TaskStatus.CANCELLED, TaskStatus.PENDING_ACCEPTANCE, TaskStatus.DRAFT])
-        .aggregate(total=Sum("planned_minutes"))
-        .get("total")
-        or 0
-    )
-
-    # Done = ONLY real timer time for this local day (sum of all timer sessions).
-    tz = org_timezone(settings_obj)
-    day_start = datetime.combine(work_date, dt_time.min, tzinfo=tz)
-    day_end = datetime.combine(work_date, dt_time.max, tzinfo=tz)
-    closed_entries = TaskTimeEntry.objects.filter(
-        user=user,
-        is_active=False,
-        started_at__gte=day_start,
-        started_at__lte=day_end,
-    ).only("duration_seconds", "started_at", "ended_at")
+def capacity_for_day(
+    user: User,
+    settings_obj: TaskingSettings,
+    work_date: date,
+    *,
+    preference: OrganizationPreference | None = None,
+    batch_ctx=None,
+) -> dict:
     closed_seconds = 0
-    for entry in closed_entries:
-        seconds = int(entry.duration_seconds or 0)
-        if seconds <= 0 and entry.started_at and entry.ended_at:
-            seconds = max(0, int((entry.ended_at - entry.started_at).total_seconds()))
-        closed_seconds += seconds
-
     active_seconds = 0
-    active_now = TaskTimeEntry.objects.filter(user=user, is_active=True).order_by("-started_at").first()
-    if active_now is not None:
-        local_started = active_now.started_at.astimezone(tz).date() if active_now.started_at else None
-        if local_started == work_date:
-            active_seconds = max(0, int((timezone.now() - active_now.started_at).total_seconds()))
-
-    actual_seconds = closed_seconds + active_seconds
-    actual_minutes = max(0, int(actual_seconds // 60))
+    if batch_ctx is not None:
+        metrics = batch_ctx.capacity_metrics(user.id, work_date)
+        effective = metrics["effectiveWorkMinutes"]
+        target = metrics["targetMinutes"]
+        maximum = int(effective * settings_obj.max_utilization_percent / 100) if effective else 0
+        planned = metrics["plannedMinutes"]
+        actual_minutes = metrics["actualMinutes"]
+        if preference is None:
+            preference = batch_ctx.preference
+        closed_seconds = batch_ctx.closed_seconds_by_user_date.get((user.id, work_date), 0)
+        active = batch_ctx.active_by_user.get(user.id)
+        if active is not None and active.started_at and active.started_at.astimezone(batch_ctx.tz).date() == work_date:
+            active_seconds = max(0, int((timezone.now() - active.started_at).total_seconds()))
+    else:
+        if preference is None:
+            preference = OrganizationPreference.objects.filter(organization=settings_obj.organization).first()
+        effective = effective_work_minutes(user, settings_obj, work_date, preference=preference)
+        if effective <= 0:
+            effective = day_length_minutes(settings_obj, work_date, preference)
+        target = int(effective * settings_obj.target_utilization_percent / 100) if effective else 0
+        maximum = int(effective * settings_obj.max_utilization_percent / 100) if effective else 0
+        planned = (
+            TaskAllocation.objects.filter(user=user, work_date=work_date)
+            .exclude(task__status__in=[TaskStatus.CANCELLED, TaskStatus.PENDING_ACCEPTANCE, TaskStatus.DRAFT])
+            .aggregate(total=Sum("planned_minutes"))
+            .get("total")
+            or 0
+        )
+        tz = org_timezone(settings_obj)
+        day_start = datetime.combine(work_date, dt_time.min, tzinfo=tz)
+        day_end = datetime.combine(work_date, dt_time.max, tzinfo=tz)
+        closed_entries = TaskTimeEntry.objects.filter(
+            user=user,
+            is_active=False,
+            started_at__gte=day_start,
+            started_at__lte=day_end,
+        ).only("duration_seconds", "started_at", "ended_at")
+        for entry in closed_entries:
+            seconds = int(entry.duration_seconds or 0)
+            if seconds <= 0 and entry.started_at and entry.ended_at:
+                seconds = max(0, int((entry.ended_at - entry.started_at).total_seconds()))
+            closed_seconds += seconds
+        active_now = TaskTimeEntry.objects.filter(user=user, is_active=True).order_by("-started_at").first()
+        if active_now is not None:
+            local_started = active_now.started_at.astimezone(tz).date() if active_now.started_at else None
+            if local_started == work_date:
+                active_seconds = max(0, int((timezone.now() - active_now.started_at).total_seconds()))
+        actual_minutes = max(0, int((closed_seconds + active_seconds) // 60))
     progress_base = int(planned) if int(planned) > 0 else int(target) if int(target) > 0 else int(effective)
     progress_denominator = int(target) if int(target) > 0 else int(effective)
     done_percent = int((actual_minutes / progress_denominator) * 100) if progress_denominator else (100 if actual_minutes else 0)
     done_percent = min(100, done_percent)
 
     load_minutes = max(int(planned), actual_minutes)
-    utilization = int((load_minutes / effective) * 100) if effective else (100 if load_minutes else 0)
+    utilization = int((actual_minutes / target) * 100) if target else (100 if actual_minutes else 0)
     if utilization < settings_obj.under_planned_threshold_percent:
         band = "under"
         band_label = "کمتر از ظرفیت هدف"
@@ -468,6 +498,14 @@ def priority_score(task: Task, settings_obj: TaskingSettings, today: date) -> in
     age_days = max(0, (today - task.created_at.date()).days)
     score += min(age_days * 5, 100)
     return score
+
+
+def can_delete_task(user: User, task: Task) -> bool:
+    if task.deleted_at:
+        return False
+    if user.id != task.creator_id:
+        return False
+    return task.status not in TASK_TERMINAL_STATUSES
 
 
 def can_view_task(user: User, task: Task) -> bool:
@@ -857,7 +895,7 @@ def serialize_task(task: Task, current_user: User, *, include_detail: bool = Fal
         "canComplete": task.owner_id == current_user.id and task.status in {TaskStatus.IN_PROGRESS, TaskStatus.PAUSED, TaskStatus.SCHEDULED, TaskStatus.UPCOMING, TaskStatus.CHANGES_REQUESTED},
         "canReview": can_review_task(current_user, task) and task.status == TaskStatus.PENDING_REVIEW,
         "canEdit": current_user.id in {task.owner_id, task.creator_id} or is_manager(current_user) or can_review_task(current_user, task),
-        "canDelete": current_user.id in {task.owner_id, task.creator_id} or is_manager(current_user),
+        "canDelete": can_delete_task(current_user, task),
         "version": task.version,
         "createdAt": task.created_at.isoformat() if task.created_at else "",
         "updatedAt": task.updated_at.isoformat() if task.updated_at else "",
@@ -1122,6 +1160,70 @@ def add_additional_estimate(actor: User, task: Task, additional_minutes: int, re
         reason or f"{extra} دقیقه به تخمین اضافه شد (از {old} به {task.estimated_minutes})",
         {"from": old, "added": extra, "to": task.estimated_minutes},
     )
+    return task
+
+
+@transaction.atomic
+def change_task_assignee(actor: User, task: Task, assignee_id: int, reason: str = "") -> Task:
+    if task.status in TASK_TERMINAL_STATUSES:
+        raise TaskingError("تغییر مسئول پس از تکمیل مجاز نیست.", status=409)
+    if actor.id not in {task.creator_id, task.owner_id} and not is_manager(actor):
+        raise TaskingError("اجازه تغییر مسئول را ندارید.", status=403)
+    try:
+        assignee_id = int(assignee_id)
+    except (TypeError, ValueError) as exc:
+        raise TaskingError("مسئول تسک معتبر نیست.") from exc
+    if assignee_id == task.owner_id:
+        return task
+    assignee = (
+        organization_users(actor)
+        .filter(pk=assignee_id, is_active=True, is_deleted=False)
+        .select_related("manager", "department")
+        .first()
+    )
+    if assignee is None:
+        raise TaskingError("مسئول انتخاب‌شده در مجموعه یافت نشد یا غیرفعال است.")
+
+    settings_obj = get_or_create_tasking_settings(task.organization)
+    active = TaskTimeEntry.objects.filter(task=task, is_active=True).select_for_update().first()
+    if active:
+        _close_time_entry(active)
+        refresh_task_time_fields(task)
+        if task.status == TaskStatus.IN_PROGRESS:
+            task.status = TaskStatus.PAUSED
+            task.save(update_fields=["status", "updated_at", "version"])
+
+    for_other = assignee.id != actor.id
+    requires_acceptance = settings_obj.assignment_requires_acceptance and for_other
+    previous_owner = task.owner
+    task.owner = assignee
+    task.direct_manager_snapshot = assignee.manager
+    if not task.department_id and assignee.department_id:
+        task.department_id = assignee.department_id
+    if requires_acceptance:
+        task.status = TaskStatus.PENDING_ACCEPTANCE
+    elif task.status == TaskStatus.PENDING_ACCEPTANCE:
+        task.status = TaskStatus.SCHEDULED
+    task.updated_at = timezone.now()
+    task.version += 1
+    task.save(update_fields=["owner", "direct_manager_snapshot", "department", "status", "updated_at", "version"])
+
+    task.assignments.filter(status=TaskAssignmentStatus.PENDING).update(status=TaskAssignmentStatus.CANCELLED)
+    assignment_status = TaskAssignmentStatus.PENDING if requires_acceptance else TaskAssignmentStatus.ACCEPTED
+    TaskAssignment.objects.create(
+        task=task,
+        assignee=assignee,
+        assigned_by=actor,
+        status=assignment_status,
+        responded_at=None if requires_acceptance else timezone.now(),
+    )
+
+    TaskAllocation.objects.filter(task=task).delete()
+    if not requires_acceptance and task.status not in TASK_TERMINAL_STATUSES:
+        schedule_task(task, settings_obj=settings_obj)
+
+    detail = reason or f"مسئول از {previous_owner.full_name} به {assignee.full_name} تغییر کرد."
+    log_activity(task, actor, "reassigned", detail)
     return task
 
 
@@ -1805,6 +1907,8 @@ def dashboard_payload(user: User, focus_date: date | None = None, supervise_owne
 
 
 def reports_summary(user: User, *, start: date, end: date, user_id: int | None = None) -> dict:
+    from workflow.performance import CapacityBatchContext, batch_task_stats
+
     organization = get_user_organization(user)
     settings_obj = get_or_create_tasking_settings(organization)
     users_qs = organization_users(user).filter(is_active=True, is_deleted=False).select_related("department")
@@ -1813,9 +1917,27 @@ def reports_summary(user: User, *, start: date, end: date, user_id: int | None =
     if not is_manager(user) and user.role not in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER}:
         users_qs = users_qs.filter(pk=user.id)
 
+    people = list(users_qs)
+    user_ids = [person.id for person in people]
+    batch_ctx = CapacityBatchContext(settings_obj=settings_obj, user_ids=user_ids, start=start, end=end)
+    task_stats = batch_task_stats(organization.id, user_ids, start=start, end=end)
+
     rows = []
     buckets = {"under": 0, "target": 0, "high": 0, "over": 0}
-    for person in users_qs:
+    completed_tasks = Task.objects.filter(
+        organization=organization,
+        owner_id__in=user_ids,
+        deleted_at__isnull=True,
+        status=TaskStatus.COMPLETED,
+        completed_at__date__gte=start,
+        completed_at__date__lte=end,
+    ).only("owner_id", "estimated_minutes", "actual_minutes")
+    variance_by_user: dict[int, list[float]] = defaultdict(list)
+    for task in completed_tasks:
+        if task.estimated_minutes:
+            variance_by_user[task.owner_id].append((task.actual_minutes - task.estimated_minutes) / task.estimated_minutes)
+
+    for person in people:
         planned = 0
         target = 0
         actual = 0
@@ -1823,13 +1945,13 @@ def reports_summary(user: User, *, start: date, end: date, user_id: int | None =
         days = 0
         while cursor <= end:
             if is_working_day(settings_obj, cursor):
-                cap = capacity_for_day(person, settings_obj, cursor)
+                cap = capacity_for_day(person, settings_obj, cursor, batch_ctx=batch_ctx)
                 planned += cap["plannedMinutes"]
                 target += cap["targetMinutes"]
                 actual += cap["actualMinutes"]
                 days += 1
             cursor += timedelta(days=1)
-        utilization = int((planned / target) * 100) if target else 0
+        utilization = int((actual / target) * 100) if target else 0
         if utilization < settings_obj.under_planned_threshold_percent:
             band = "under"
         elif utilization <= settings_obj.target_utilization_percent:
@@ -1839,13 +1961,9 @@ def reports_summary(user: User, *, start: date, end: date, user_id: int | None =
         else:
             band = "over"
         buckets[band] += 1
-        task_qs = Task.objects.filter(organization=organization, owner=person, deleted_at__isnull=True)
-        completed = task_qs.filter(status=TaskStatus.COMPLETED, completed_at__date__gte=start, completed_at__date__lte=end)
-        accuracy_samples = []
-        for task in completed:
-            if task.estimated_minutes:
-                accuracy_samples.append((task.actual_minutes - task.estimated_minutes) / task.estimated_minutes)
-        avg_variance = sum(accuracy_samples) / len(accuracy_samples) if accuracy_samples else 0
+        person_stats = task_stats.get(person.id, {})
+        samples = variance_by_user.get(person.id, [])
+        avg_variance = sum(samples) / len(samples) if samples else 0
         rows.append(
             {
                 "user": serialize_user_brief(person),
@@ -1861,10 +1979,10 @@ def reports_summary(user: User, *, start: date, end: date, user_id: int | None =
                     "high": "بار کاری بالا",
                     "over": "بیش از ظرفیت",
                 }[band],
-                "completedCount": completed.count(),
-                "pendingCount": task_qs.filter(status__in=[TaskStatus.SCHEDULED, TaskStatus.UPCOMING, TaskStatus.IN_PROGRESS, TaskStatus.PAUSED]).count(),
-                "overdueCount": task_qs.filter(due_at__lt=timezone.now()).exclude(status__in=[TaskStatus.COMPLETED, TaskStatus.CANCELLED]).count(),
-                "reworkCount": task_qs.filter(review_iteration__gt=1).count(),
+                "completedCount": person_stats.get("completedCount", 0),
+                "pendingCount": person_stats.get("pendingCount", 0),
+                "overdueCount": person_stats.get("overdueCount", 0),
+                "reworkCount": person_stats.get("reworkCount", 0),
                 "estimateAccuracyVariance": round(avg_variance, 3),
             }
         )

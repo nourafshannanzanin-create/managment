@@ -1166,8 +1166,9 @@ async function authorizedFetch(path, options = {}) {
   return response
 }
 
-function hydrateBootstrap(payload) {
+function hydrateBootstrap(payload, options = {}) {
   if (!payload) return
+  const includeCollections = options.collections !== false
 
   Object.assign(state.currentUser, createCurrentUser(), payload.currentUser || {})
   state.currentUser.avatarUrl = resolveAvatarUrl(state.currentUser.avatarUrl || state.currentUser.avatar_url || '')
@@ -1175,10 +1176,12 @@ function hydrateBootstrap(payload) {
   replaceItems(state.stats, payload.stats)
   replaceItems(state.chartData, payload.chartData)
   replaceItems(state.pipeline, payload.pipeline)
-  replaceItems(state.requests, (payload.requests || []).map(normalizeRequest))
-  replaceItems(state.expenses, (payload.expenses || []).map(normalizeExpense))
-  replaceItems(state.approvals, (payload.approvals || []).map(normalizeApproval))
-  replaceItems(state.users, (payload.users || []).map(normalizeUser))
+  if (includeCollections) {
+    replaceItems(state.requests, (payload.requests || []).map(normalizeRequest))
+    replaceItems(state.expenses, (payload.expenses || []).map(normalizeExpense))
+    replaceItems(state.approvals, (payload.approvals || []).map(normalizeApproval))
+    replaceItems(state.users, (payload.users || []).map(normalizeUser))
+  }
   replaceItems(state.reports, (payload.reports || []).map(normalizeReport))
   replaceItems(state.activities, payload.activities)
   replaceItems(state.insights, payload.insights)
@@ -1202,6 +1205,7 @@ function hydrateBootstrap(payload) {
   }
 
   // Preserve open selections during soft/live refresh so drafts and modals stay stable.
+  if (!includeCollections) return
   if (!selectedState.requestId || !state.requests.some((item) => item.id === selectedState.requestId)) {
     selectedState.requestId = state.requests[0]?.id || ''
   }
@@ -1412,6 +1416,64 @@ function trackExpenseInboxNotifications(previousIds = []) {
   }
 }
 
+const BOOTSTRAP_COLLECTION_SECTIONS = ['requests', 'expenses', 'approvals', 'users']
+const BOOTSTRAP_COLLECTION_PAGE = 250
+
+function bootstrapOrganizationQuery() {
+  if (!state.currentUser.isHq || !state.hq.selectedOrganizationId) return ''
+  return `organizationId=${encodeURIComponent(state.hq.selectedOrganizationId)}`
+}
+
+function appendBootstrapQuery(path, params = {}) {
+  const search = new URLSearchParams()
+  const orgQuery = bootstrapOrganizationQuery()
+  if (orgQuery) {
+    const [key, value] = orgQuery.split('=')
+    search.set(key, value)
+  }
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') search.set(key, String(value))
+  })
+  const query = search.toString()
+  return query ? `${path}?${query}` : path
+}
+
+async function loadBootstrapCollections(options = {}) {
+  if (!state.authToken) return
+  const soft = Boolean(options.soft)
+  const normalizers = {
+    requests: normalizeRequest,
+    expenses: normalizeExpense,
+    approvals: normalizeApproval,
+    users: normalizeUser,
+  }
+
+  for (const section of BOOTSTRAP_COLLECTION_SECTIONS) {
+    let offset = 0
+    let hasMore = true
+    const accumulated = []
+
+    while (hasMore) {
+      const response = await authorizedFetch(
+        appendBootstrapQuery('/bootstrap/collections', {
+          section,
+          limit: BOOTSTRAP_COLLECTION_PAGE,
+          offset,
+        }),
+      )
+      const payload = repairPayload(await response.json())
+      const items = Array.isArray(payload.items) ? payload.items : []
+      accumulated.push(...items.map(normalizers[section]))
+      hasMore = Boolean(payload.hasMore) && items.length > 0
+      offset += items.length
+      if (soft) break
+      if (!items.length) break
+    }
+
+    replaceItems(state[section], accumulated)
+  }
+}
+
 async function loadBootstrapData(force = false, options = {}) {
   if (!state.authToken) {
     state.sessionReady = true
@@ -1426,12 +1488,14 @@ async function loadBootstrapData(force = false, options = {}) {
     clearLastError()
   }
   try {
-    const organizationQuery = state.currentUser.isHq && state.hq.selectedOrganizationId
-      ? `?organizationId=${encodeURIComponent(state.hq.selectedOrganizationId)}`
-      : ''
-    const response = await authorizedFetch(`/bootstrap${organizationQuery}`)
+    const response = await authorizedFetch(appendBootstrapQuery('/bootstrap', { mode: 'summary' }))
     const payload = repairPayload(await response.json())
-    hydrateBootstrap(payload)
+    hydrateBootstrap(payload, { collections: !soft })
+    if (!soft) {
+      await loadBootstrapCollections()
+    } else {
+      await loadBootstrapCollections({ soft: true })
+    }
     if (soft) {
       trackExpenseInboxNotifications(previousExpenseInboxIds)
     } else {
@@ -3063,6 +3127,64 @@ export function useWorkflowHub() {
     return note
   }
 
+  async function addRequestNote(requestId, body, parentId = null) {
+    state.lastError = ''
+    const response = await authorizedFetch(hqScopedPath(`/requests/${requestId}/notes`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body, parentId }),
+    })
+    const note = repairPayload(await response.json())
+    const requestIdKey = requestId
+    const detail = requestDetailState.items[requestIdKey]
+    if (detail?.request) {
+      const current = detail.request.notes || []
+      detail.request = {
+        ...detail.request,
+        notes: [...current, note],
+        noteCount: current.length + 1,
+      }
+    }
+    const listIndex = state.requests.findIndex((item) => item.id === requestIdKey)
+    if (listIndex >= 0) {
+      const current = state.requests[listIndex].notes || []
+      state.requests[listIndex] = {
+        ...state.requests[listIndex],
+        notes: [...current, note],
+        noteCount: current.length + 1,
+      }
+    }
+    return note
+  }
+
+  async function addApprovalNote(approvalId, body, parentId = null) {
+    state.lastError = ''
+    const response = await authorizedFetch(hqScopedPath(`/approvals/${approvalId}/notes`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body, parentId }),
+    })
+    const note = repairPayload(await response.json())
+    if (approvalDetailState.item?.id === approvalId) {
+      const current = approvalDetailState.item.notes || []
+      approvalDetailState.item = {
+        ...approvalDetailState.item,
+        notes: [...current, note],
+        noteCount: current.length + 1,
+      }
+    }
+    const listIndex = state.approvals.findIndex((item) => item.id === approvalId)
+    if (listIndex >= 0) {
+      const current = state.approvals[listIndex].notes || []
+      state.approvals[listIndex] = {
+        ...state.approvals[listIndex],
+        notes: [...current, note],
+        noteCount: current.length + 1,
+      }
+    }
+    return note
+  }
+
 async function updateUser(userId, payload) {
   clearLastError()
   try {
@@ -3622,6 +3744,8 @@ async function removeUserEntrustedItem(userId, itemId) {
     rejectSelectedExpense,
     referSelectedExpense,
     addExpenseNote,
+    addRequestNote,
+    addApprovalNote,
     updateUser,
     addUserEntrustedItem,
     removeUserEntrustedItem,

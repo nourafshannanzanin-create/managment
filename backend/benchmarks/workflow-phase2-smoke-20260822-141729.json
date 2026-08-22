@@ -1,0 +1,71 @@
+{
+  "label": "phase2-smoke",
+  "generatedAt": "2026-08-22T10:47:29.133672+00:00",
+  "userId": 11,
+  "userSlug": "milad_dhs",
+  "database": "workflow_hub",
+  "connMaxAge": 60,
+  "endpoints": [
+    {
+      "name": "bootstrap_full",
+      "path": "/api/v1/bootstrap?mode=full",
+      "status": 400,
+      "queries": 0,
+      "ms": 188.34,
+      "error": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n  <meta name=\"robots\" content=\"NONE,NOARCHIVE\">\n  <title>DisallowedHost\n          at /api/v1/bootstrap</title>\n  <style type=\"text/css\">\n    html * { padding:0; margin:0; }\n    body * { padd"
+    },
+    {
+      "name": "bootstrap_summary",
+      "path": "/api/v1/bootstrap?mode=summary",
+      "status": 400,
+      "queries": 0,
+      "ms": 19.83,
+      "error": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n  <meta name=\"robots\" content=\"NONE,NOARCHIVE\">\n  <title>DisallowedHost\n          at /api/v1/bootstrap</title>\n  <style type=\"text/css\">\n    html * { padding:0; margin:0; }\n    body * { padd"
+    },
+    {
+      "name": "bootstrap_requests",
+      "path": "/api/v1/bootstrap/collections?section=requests&limit=200&offset=0",
+      "status": 400,
+      "queries": 0,
+      "ms": 25.84,
+      "error": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n  <meta name=\"robots\" content=\"NONE,NOARCHIVE\">\n  <title>DisallowedHost\n          at /api/v1/bootstrap/collections</title>\n  <style type=\"text/css\">\n    html * { padding:0; margin:0; }\n    b"
+    },
+    {
+      "name": "bootstrap_expenses",
+      "path": "/api/v1/bootstrap/collections?section=expenses&limit=200&offset=0",
+      "status": 400,
+      "queries": 0,
+      "ms": 30.03,
+      "error": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n  <meta name=\"robots\" content=\"NONE,NOARCHIVE\">\n  <title>DisallowedHost\n          at /api/v1/bootstrap/collections</title>\n  <style type=\"text/css\">\n    html * { padding:0; margin:0; }\n    b"
+    },
+    {
+      "name": "bootstrap_approvals",
+      "path": "/api/v1/bootstrap/collections?section=approvals&limit=200&offset=0",
+      "status": 400,
+      "queries": 0,
+      "ms": 25.93,
+      "error": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n  <meta name=\"robots\" content=\"NONE,NOARCHIVE\">\n  <title>DisallowedHost\n          at /api/v1/bootstrap/collections</title>\n  <style type=\"text/css\">\n    html * { padding:0; margin:0; }\n    b"
+    },
+    {
+      "name": "attendance_reports",
+      "path": "/api/v1/attendance/reports",
+      "status": 400,
+      "queries": 0,
+      "ms": 22.15,
+      "error": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n  <meta name=\"robots\" content=\"NONE,NOARCHIVE\">\n  <title>DisallowedHost\n          at /api/v1/attendance/reports</title>\n  <style type=\"text/css\">\n    html * { padding:0; margin:0; }\n    body"
+    },
+    {
+      "name": "tasking_reports",
+      "path": "/api/v1/tasking/reports",
+      "status": 400,
+      "queries": 0,
+      "ms": 24.29,
+      "error": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n  <meta name=\"robots\" content=\"NONE,NOARCHIVE\">\n  <title>DisallowedHost\n          at /api/v1/tasking/reports</title>\n  <style type=\"text/css\">\n    html * { padding:0; margin:0; }\n    body * "
+    }
+  ],
+  "notes": [
+    "Compare the same label across deployments only after identical data volume.",
+    "Restart Django applies code changes; benchmark before/after to prove performance gains.",
+    "Race-sensitive paths (wallet transactions, active timers) still need concurrency tests under load."
+  ]
+}

@@ -39,10 +39,9 @@ def ensure_user_memberships() -> None:
 
 
 def get_user_organization(user: User) -> Organization:
-    if hasattr(user, "organization_membership"):
-        return user.organization_membership.organization
-    ensure_user_memberships()
-    return OrganizationMembership.objects.select_related("organization").get(user=user).organization
+    from workflow.cache_utils import get_cached_user_organization
+
+    return get_cached_user_organization(user)
 
 
 def organization_users(user: User):

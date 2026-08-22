@@ -33,6 +33,9 @@ const editForm = reactive({
   description: '',
   priority: 'medium',
 })
+const noteBody = ref('')
+const replyTo = ref(null)
+const noteSubmitting = ref(false)
 
 const {
   availableManagerDirectory,
@@ -43,12 +46,14 @@ const {
   rejectSelectedRequest,
   updateSelectedRequest,
   deleteSelectedRequest,
+  addRequestNote,
   openProtectedFile,
   state,
 } = useWorkflowHub()
 
 const decisions = computed(() => props.request?.decisions || [])
 const attachments = computed(() => props.request?.attachments || [])
+const requestNotes = computed(() => props.request?.notes || [])
 const canEdit = computed(() => Boolean(props.request?.canEdit))
 const canRefer = computed(() => Boolean(props.request?.canRefer || canApproveSelectedRequest.value))
 const canDelete = computed(() => Boolean(props.request?.canDelete))
@@ -147,6 +152,36 @@ function formatLeaveDateTime(value) {
 function leaveModeLabel(mode) {
   return mode === 'daily' ? 'روزانه' : mode === 'hourly' ? 'ساعتی' : mode || '-'
 }
+
+function formatDateTime(value) {
+  if (!value) return '-'
+  return formatTehranDateTime(value)
+}
+
+function isMyNote(note) {
+  return Number(note?.author?.id) === Number(state.currentUser?.id)
+}
+
+function startReply(note) {
+  replyTo.value = note
+}
+
+function cancelReply() {
+  replyTo.value = null
+}
+
+async function submitNote() {
+  const body = noteBody.value.trim()
+  if (!body || !props.request?.id || noteSubmitting.value) return
+  noteSubmitting.value = true
+  try {
+    await addRequestNote(props.request.id, body, replyTo.value?.id || null)
+    noteBody.value = ''
+    replyTo.value = null
+  } finally {
+    noteSubmitting.value = false
+  }
+}
 </script>
 
 <template>
@@ -192,6 +227,64 @@ function leaveModeLabel(mode) {
           <label class="field-shell"><span>توضیحات</span><textarea v-model="editForm.description" rows="5" /></label>
         </template>
         <p v-else class="long-text">{{ request.description || 'توضیحی ثبت نشده است.' }}</p>
+      </section>
+
+      <section class="surface-inline detail-section request-notes-panel">
+        <div class="section-label-row">
+          <div class="notes-heading">
+            <IconlyIcon name="edit" decorative />
+            <div>
+              <h3>یادداشت‌های درخواست</h3>
+              <small>ثبت توضیحات و پیگیری برای همه افراد دارای دسترسی</small>
+            </div>
+          </div>
+          <span class="meta-pill">{{ request.noteCount || requestNotes.length }} یادداشت</span>
+        </div>
+
+        <div class="notes-feed">
+          <article
+            v-for="item in requestNotes"
+            :key="item.id"
+            :class="['note-card', isMyNote(item) && 'is-mine']"
+          >
+            <UserAvatar :person="item.author" :name="item.author?.name" size="sm" />
+            <div class="note-card-body">
+              <div class="note-card-head">
+                <div class="note-author-meta">
+                  <strong>{{ item.author?.name || 'کاربر' }}</strong>
+                  <span v-if="item.author?.role" class="note-role-pill">{{ item.author.role }}</span>
+                </div>
+                <small>{{ formatDateTime(item.createdAt) }}</small>
+              </div>
+              <div v-if="item.parent" class="note-reply-ref">
+                <small>پاسخ به {{ item.parent.author?.name || 'یادداشت' }}</small>
+                <p>{{ item.parent.body }}</p>
+              </div>
+              <p class="note-body">{{ item.body }}</p>
+              <button class="linkish" type="button" @click="startReply(item)">پاسخ</button>
+            </div>
+          </article>
+          <div v-if="!requestNotes.length" class="empty-state-inline centered-empty notes-empty">
+            <IconlyIcon name="edit" decorative />
+            <p>هنوز یادداشتی ثبت نشده است.</p>
+          </div>
+        </div>
+
+        <div class="notes-composer">
+          <div v-if="replyTo" class="reply-banner">
+            <span>پاسخ به {{ replyTo.author?.name }}</span>
+            <button type="button" aria-label="لغو پاسخ" @click="cancelReply">×</button>
+          </div>
+          <label class="field-shell notes-field">
+            <span>یادداشت جدید</span>
+            <textarea v-model="noteBody" rows="3" placeholder="یادداشت خود را بنویسید..." @keydown.ctrl.enter.prevent="submitNote" />
+          </label>
+          <div class="notes-composer-actions">
+            <button class="action-btn tone-primary" type="button" :disabled="!noteBody.trim() || noteSubmitting" @click="submitNote">
+              {{ noteSubmitting ? 'در حال ارسال...' : 'ثبت یادداشت' }}
+            </button>
+          </div>
+        </div>
       </section>
 
       <section class="surface-inline detail-section">
@@ -264,5 +357,21 @@ function leaveModeLabel(mode) {
 .long-text { margin: 0; line-height: 2; color: #33415f; white-space: pre-wrap; }
 .file-button { width: 100%; border: 0; text-align: right; cursor: pointer; }
 .inline-error { margin: 0; color: #b42318; }
+.request-notes-panel { gap: 14px; }
+.notes-heading { display: flex; align-items: flex-start; gap: 10px; }
+.notes-feed { display: grid; gap: 10px; max-height: 280px; overflow: auto; padding-inline: 2px; }
+.note-card { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 12px; border-radius: 14px; background: rgba(72, 103, 183, 0.06); }
+.note-card.is-mine { background: rgba(52, 144, 139, 0.1); }
+.note-card-body { display: grid; gap: 8px; min-width: 0; }
+.note-card-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+.note-author-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.note-role-pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(72, 103, 183, 0.12); color: #4867b7; }
+.note-body { margin: 0; line-height: 1.8; white-space: pre-wrap; }
+.note-reply-ref { padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.7); border-inline-start: 3px solid rgba(52, 144, 139, 0.45); }
+.note-reply-ref p { margin: 4px 0 0; font-size: 12px; color: #5f7a76; }
+.notes-composer { display: grid; gap: 10px; }
+.reply-banner { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 10px; background: rgba(52, 144, 139, 0.08); font-size: 12px; }
+.notes-composer-actions { display: flex; justify-content: flex-end; }
+.linkish { border: 0; background: transparent; color: #34908b; cursor: pointer; font: inherit; padding: 0; justify-self: start; }
 @media (max-width: 760px) { .detail-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

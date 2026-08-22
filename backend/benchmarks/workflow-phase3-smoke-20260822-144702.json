@@ -1,0 +1,79 @@
+{
+  "label": "phase3-smoke",
+  "generatedAt": "2026-08-22T11:16:58.255756+00:00",
+  "userId": 11,
+  "userSlug": "milad_dhs",
+  "database": "workflow_hub",
+  "connMaxAge": 60,
+  "endpoints": [
+    {
+      "name": "bootstrap_full",
+      "path": "/api/v1/bootstrap?mode=full",
+      "status": 200,
+      "queries": 81,
+      "ms": 766.62,
+      "responseBytes": 8239,
+      "responseKB": 8.05
+    },
+    {
+      "name": "bootstrap_summary",
+      "path": "/api/v1/bootstrap?mode=summary",
+      "status": 200,
+      "queries": 81,
+      "ms": 798.89,
+      "responseBytes": 8242,
+      "responseKB": 8.05
+    },
+    {
+      "name": "bootstrap_requests",
+      "path": "/api/v1/bootstrap/collections?section=requests&limit=200&offset=0",
+      "status": 200,
+      "queries": 70,
+      "ms": 623.19,
+      "responseBytes": 93,
+      "responseKB": 0.09
+    },
+    {
+      "name": "bootstrap_expenses",
+      "path": "/api/v1/bootstrap/collections?section=expenses&limit=200&offset=0",
+      "status": 200,
+      "queries": 70,
+      "ms": 821.53,
+      "responseBytes": 93,
+      "responseKB": 0.09
+    },
+    {
+      "name": "bootstrap_approvals",
+      "path": "/api/v1/bootstrap/collections?section=approvals&limit=200&offset=0",
+      "status": 200,
+      "queries": 70,
+      "ms": 720.25,
+      "responseBytes": 94,
+      "responseKB": 0.09
+    },
+    {
+      "name": "attendance_reports",
+      "path": "/api/v1/attendance/reports",
+      "status": 200,
+      "queries": 9,
+      "ms": 34.85,
+      "responseBytes": 1156,
+      "responseKB": 1.13
+    },
+    {
+      "name": "tasking_reports",
+      "path": "/api/v1/tasking/reports",
+      "status": 200,
+      "queries": 18,
+      "ms": 35.63,
+      "responseBytes": 1193,
+      "responseKB": 1.17
+    }
+  ],
+  "notes": [
+    "Compare the same label across deployments only after identical data volume.",
+    "Use responseBytes/responseKB to prove summary vs full payload shrink on large datasets.",
+    "Pair with Locust (backend/loadtests/locustfile.py) for P95/P99 under concurrent users.",
+    "Restart Django applies code changes; benchmark before/after to prove performance gains."
+  ]
+}

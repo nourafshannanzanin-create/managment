@@ -6,7 +6,8 @@ import BaseModal from '../components/BaseModal.vue'
 import PageHeader from '../components/PageHeader.vue'
 import SectionHeading from '../components/SectionHeading.vue'
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
-import { formatJalali, formatTehranDateTime, getTodayIso, getTodayJalali, isoToJalali, jalaliToIso, shiftIsoDate } from '../utils/jalali'
+import AttendancePeriodBoard from '../components/AttendancePeriodBoard.vue'
+import { formatJalali, formatTehranDateTime, getTodayIso, getTodayJalali, isoToJalali, jalaliMonthStartIso, jalaliToIso, jalaliWeekStartIso, jalaliYearStartIso } from '../utils/jalali'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { joinDisplayParts } from '../utils/text'
 import { rowToneForStatus, toneForStatus } from '../utils/status'
@@ -85,14 +86,9 @@ const reportUsers = computed(() => state.users || [])
 function periodIsoRange() {
   const todayIso = getTodayIso()
   if (filters.period === 'today') return { start: todayIso, end: todayIso }
-  if (filters.period === 'week') {
-    const [year, month, day] = todayIso.split('-').map(Number)
-    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay()
-    const mondayOffset = (weekday + 6) % 7
-    return { start: shiftIsoDate(todayIso, -mondayOffset), end: todayIso }
-  }
-  if (filters.period === 'month') return { start: `${todayIso.slice(0, 8)}01`, end: todayIso }
-  if (filters.period === 'year') return { start: `${todayIso.slice(0, 4)}-01-01`, end: todayIso }
+  if (filters.period === 'week') return { start: jalaliWeekStartIso(todayIso), end: todayIso }
+  if (filters.period === 'month') return { start: jalaliMonthStartIso(todayIso), end: todayIso }
+  if (filters.period === 'year') return { start: jalaliYearStartIso(todayIso), end: todayIso }
   if (filters.period === 'custom') {
     return {
       start: filters.startDate ? jalaliToIso(filters.startDate) : '',
@@ -160,16 +156,17 @@ const activeRows = computed(() => {
     })
   }
   if (activeTab.value === 'attendance') {
+    const query = String(topbarFilter.value.query || '').trim().toLowerCase()
+    const person = String(topbarFilter.value.person || '').trim()
     return attendanceRows.value.filter((item) => {
       if (filters.userId && String(item.userId || item.user_id) !== String(filters.userId)) return false
-      return matchesTopbar(
-        {
-          ...item,
-          name: item.userName || item.user_name,
-          owner: item.userName || item.user_name,
-        },
-        ['name', 'owner', 'source', 'eventType', 'event_type'],
-      )
+      const name = String(item.userName || item.user_name || '')
+      if (person && name !== person && !name.includes(person)) return false
+      if (query) {
+        const hay = [name, item.userRole, item.userDepartment, item.note, item.eventType, item.event_type].join(' ').toLowerCase()
+        if (!hay.includes(query)) return false
+      }
+      return true
     })
   }
   const rows = activeTab.value === 'requests'
@@ -379,10 +376,15 @@ async function loadAttendanceReports() {
     })
     const payload = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(payload.detail || payload.message || 'بارگذاری گزارش ورود و خروج ناموفق بود.')
-    attendanceRows.value = payload.rows || []
+    const rows = payload.rows || []
+    if (rows.length) {
+      attendanceRows.value = rows
+    } else {
+      const daily = payload.dailyUserRows || payload.daily_user_rows || []
+      attendanceRows.value = daily.flatMap((day) => day.events || [])
+    }
   } catch (error) {
     attendanceError.value = error.message || 'بارگذاری گزارش ورود و خروج ناموفق بود.'
-    attendanceRows.value = []
   } finally {
     attendanceLoading.value = false
   }
@@ -444,8 +446,7 @@ watch(
     filters.userId,
     topbarFilter.value.query,
     topbarFilter.value.person,
-    topbarFilter.value.startDate,
-    topbarFilter.value.endDate,
+    state.liveSync.tick,
   ],
   () => {
     if (activeTab.value === 'attendance') void loadAttendanceReports()
@@ -504,7 +505,6 @@ onMounted(() => {
           <span>دانلود جدول</span>
         </button>
       </div>
-      <div v-if="activeTab === 'attendance' && attendanceError" class="attendance-alert is-danger">{{ attendanceError }}</div>
     </section>
 
     <section v-if="activeTab === 'tasking'" class="metric-grid metric-grid-4">
@@ -524,7 +524,17 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="surface-block report-table-card">
+    <AttendancePeriodBoard
+      v-if="activeTab === 'attendance'"
+      :events="activeRows"
+      :mode="filters.period === 'today' ? 'today' : 'period'"
+      :loading="attendanceLoading"
+      :error="attendanceError"
+      :can-edit-times="true"
+      @updated="loadAttendanceReports"
+    />
+
+    <section v-else class="surface-block report-table-card">
       <div class="section-label-row">
         <SectionHeading
           :title="tabs.find((item) => item.key === activeTab)?.label || 'گزارش'"
@@ -539,8 +549,7 @@ onMounted(() => {
             <tr v-if="activeTab === 'requests'"><th>کد</th><th>عنوان</th><th>ثبت‌کننده</th><th>مدیر</th><th>واحد</th><th>وضعیت</th><th>اولویت</th><th>تاریخ</th><th>تصمیم‌ها</th></tr>
             <tr v-else-if="activeTab === 'expenses'"><th>کد</th><th>شرح</th><th>ثبت‌کننده</th><th>مبلغ</th><th>واحد</th><th>وضعیت</th><th>تاریخ</th><th>تصمیم‌ها</th></tr>
             <tr v-else-if="activeTab === 'approvals'"><th>کد</th><th>عنوان</th><th>ثبت‌کننده</th><th>نوع</th><th>واحد</th><th>ریسک</th><th>وضعیت</th><th>تاریخ</th><th>تصمیم‌ها</th></tr>
-            <tr v-else-if="activeTab === 'attendance'"><th>ردیف</th><th>پرسنل</th><th>سمت / بخش</th><th>نوع</th><th>منبع</th><th>تاریخ</th><th>ساعت</th><th>موقعیت</th><th>یادداشت</th></tr>
-            <tr v-else-if="activeTab === 'tasking'"><th>نام</th><th>بخش</th><th>برنامه</th><th>هدف</th><th>واقعی</th><th>Utilization</th><th>وضعیت ظرفیت</th><th>تکمیل</th><th>عقب‌افتاده</th></tr>
+            <tr v-else-if="activeTab === 'tasking'"><th>نام</th><th>بخش</th><th>برنامه</th><th>هدف</th><th>کارکرد واقعی</th><th>کارکرد/هدف</th><th>وضعیت ظرفیت</th><th>تکمیل</th><th>عقب‌افتاده</th></tr>
             <tr v-else><th>شناسه</th><th>نام</th><th>نام کاربری</th><th>نقش</th><th>واحد</th><th>مدیر</th><th>پاداش</th><th>جریمه</th><th>خالص</th></tr>
           </thead>
           <tbody>
@@ -579,24 +588,13 @@ onMounted(() => {
                 <td><span :class="['status-badge', toneForStatus(row.status)]">{{ row.status }}</span></td>
                 <td>{{ row.uploadedAt }}</td><td>{{ decisionText(row) }}</td>
               </template>
-              <template v-else-if="activeTab === 'attendance'">
-                <td>{{ row.row || row.id }}</td>
-                <td>{{ row.userName }}</td>
-                <td>{{ joinDisplayParts([row.userRole, row.userDepartment]) }}</td>
-                <td><span :class="['status-badge', toneForStatus(attendanceStatus(row))]">{{ attendanceStatus(row) }}</span></td>
-                <td>{{ sourceLabel(row.source) }}</td>
-                <td>{{ row.eventDate ? isoToJalali(row.eventDate) : '-' }}</td>
-                <td>{{ row.eventTime || '-' }}</td>
-                <td>{{ row.distanceMeters != null ? `${Math.round(row.distanceMeters)} متر` : (row.coordinatesLabel || '-') }}</td>
-                <td>{{ row.note || '-' }}</td>
-              </template>
               <template v-else-if="activeTab === 'tasking'">
                 <td class="cell-mobile-primary">{{ row.user?.name }}</td>
                 <td class="cell-mobile-hide">{{ row.user?.department || '-' }}</td>
                 <td>{{ row.plannedMinutes }}</td>
                 <td>{{ row.targetMinutes }}</td>
                 <td>{{ row.actualMinutes }}</td>
-                <td data-label="Utilization">{{ row.utilizationPercent }}٪</td>
+                <td data-label="کارکرد/هدف">{{ row.utilizationPercent }}٪</td>
                 <td data-label="وضعیت"><span class="status-badge">{{ row.bandLabel }}</span></td>
                 <td>{{ row.completedCount }}</td>
                 <td>{{ row.overdueCount }}</td>

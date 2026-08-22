@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue'
 import BaseModal from './BaseModal.vue'
 import UserAvatar from './UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
+import { formatTehranDateTime } from '../utils/jalali'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -21,6 +22,9 @@ const referTab = ref('managers')
 const referSearch = ref('')
 const previewObjectUrl = ref('')
 const previewLoading = ref(false)
+const noteBody = ref('')
+const replyTo = ref(null)
+const noteSubmitting = ref(false)
 
 const {
   approveSelectedDocument,
@@ -29,6 +33,7 @@ const {
   rejectSelectedDocument,
   referSelectedDocument,
   deleteSelectedApproval,
+  addApprovalNote,
   loadSignature,
   openSignatureComposer,
   signatureState,
@@ -49,6 +54,7 @@ const isRejected = computed(() => String(props.approval?.status || '').includes(
 const canSubmitApproval = computed(() => Boolean(props.approval?.canApprove) && signatureState.hasSignature)
 const canRefer = computed(() => Boolean(props.approval?.canRefer || props.approval?.canApprove))
 const canDelete = computed(() => Boolean(props.approval?.canDelete))
+const approvalNotes = computed(() => props.approval?.notes || [])
 
 const statusTone = computed(() => {
   if (isApproved.value) return 'is-approved'
@@ -154,6 +160,35 @@ async function handleRefer() {
   referOpen.value = false
 }
 
+function formatDateTime(value) {
+  return formatTehranDateTime(value) || '-'
+}
+
+function isMyNote(note) {
+  return Number(note?.author?.id) === Number(state.currentUser?.id)
+}
+
+function startReply(note) {
+  replyTo.value = note
+}
+
+function cancelReply() {
+  replyTo.value = null
+}
+
+async function submitNote() {
+  const body = noteBody.value.trim()
+  if (!body || !props.approval?.id || noteSubmitting.value) return
+  noteSubmitting.value = true
+  try {
+    await addApprovalNote(props.approval.id, body, replyTo.value?.id || null)
+    noteBody.value = ''
+    replyTo.value = null
+  } finally {
+    noteSubmitting.value = false
+  }
+}
+
 watch(
   () => [props.open, props.approval?.id, props.approval?.canApprove, previewUrl.value, previewKind.value],
   async ([open, _, canApprove]) => {
@@ -214,6 +249,54 @@ watch(
             <strong>{{ item.value }}</strong>
           </div>
         </article>
+      </section>
+
+      <section class="approval-surface approval-notes-surface">
+        <div class="approval-surface-head">
+          <div>
+            <p class="approval-surface-kicker">یادداشت</p>
+            <h3>یادداشت‌های تأییدیه</h3>
+            <small>ثبت توضیحات برای همه افراد دارای دسترسی</small>
+          </div>
+          <span class="meta-pill">{{ approval.noteCount || approvalNotes.length }} یادداشت</span>
+        </div>
+
+        <div class="approval-notes-feed">
+          <article v-for="item in approvalNotes" :key="item.id" :class="['approval-note-card', isMyNote(item) && 'is-mine']">
+            <UserAvatar :person="item.author" :name="item.author?.name" size="sm" />
+            <div class="approval-note-body">
+              <div class="approval-note-head">
+                <strong>{{ item.author?.name || 'کاربر' }}</strong>
+                <small>{{ formatDateTime(item.createdAt) }}</small>
+              </div>
+              <div v-if="item.parent" class="approval-note-reply">
+                <small>پاسخ به {{ item.parent.author?.name || 'یادداشت' }}</small>
+                <p>{{ item.parent.body }}</p>
+              </div>
+              <p class="approval-note-text">{{ item.body }}</p>
+              <button class="linkish" type="button" @click="startReply(item)">پاسخ</button>
+            </div>
+          </article>
+          <div v-if="!approvalNotes.length" class="approval-preview-empty compact-empty">
+            <strong>هنوز یادداشتی ثبت نشده است</strong>
+          </div>
+        </div>
+
+        <div class="approval-notes-composer">
+          <div v-if="replyTo" class="reply-banner">
+            <span>پاسخ به {{ replyTo.author?.name }}</span>
+            <button type="button" aria-label="لغو پاسخ" @click="cancelReply">×</button>
+          </div>
+          <label class="field-shell">
+            <span>یادداشت جدید</span>
+            <textarea v-model="noteBody" rows="3" placeholder="یادداشت خود را بنویسید..." @keydown.ctrl.enter.prevent="submitNote" />
+          </label>
+          <div class="approval-action-row">
+            <button class="action-btn tone-primary" type="button" :disabled="!noteBody.trim() || noteSubmitting" @click="submitNote">
+              {{ noteSubmitting ? 'در حال ارسال...' : 'ثبت یادداشت' }}
+            </button>
+          </div>
+        </div>
       </section>
 
       <section class="approval-content-grid">
@@ -808,6 +891,20 @@ watch(
 .inline-error {
   margin: 0;
 }
+
+.approval-notes-surface { display: grid; gap: 14px; }
+.approval-notes-feed { display: grid; gap: 10px; max-height: 260px; overflow: auto; }
+.approval-note-card { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 12px; border-radius: 14px; background: rgba(72, 103, 183, 0.06); }
+.approval-note-card.is-mine { background: rgba(52, 144, 139, 0.1); }
+.approval-note-body { display: grid; gap: 8px; min-width: 0; }
+.approval-note-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.approval-note-text { margin: 0; line-height: 1.8; white-space: pre-wrap; }
+.approval-note-reply { padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.72); border-inline-start: 3px solid rgba(52,144,139,0.45); }
+.approval-note-reply p { margin: 4px 0 0; font-size: 12px; color: #5f7a76; }
+.approval-notes-composer { display: grid; gap: 10px; }
+.reply-banner { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 10px; background: rgba(52,144,139,0.08); font-size: 12px; }
+.linkish { border: 0; background: transparent; color: #34908b; cursor: pointer; font: inherit; padding: 0; justify-self: start; }
+.compact-empty { padding: 16px; }
 
 .approval-modal-shell.is-approved .approval-status-icon {
   background: var(--surface, #fff);
