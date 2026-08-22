@@ -111,7 +111,7 @@ services:
     restart: unless-stopped
     depends_on:
       backend:
-        condition: service_healthy
+        condition: service_started
     expose:
       - "80"
     healthcheck:
@@ -125,9 +125,9 @@ services:
     restart: unless-stopped
     depends_on:
       backend:
-        condition: service_healthy
+        condition: service_started
       frontend:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "${GATEWAY_BIND_IP:-127.0.0.1}:${GATEWAY_PORT:-18090}:80"
     volumes:
