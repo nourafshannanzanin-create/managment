@@ -1055,6 +1055,23 @@ function quickStart(task, stopOther = false) {
 </template>
 
 <style scoped>
+.tasking-page {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.tasking-page .surface-block {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.tasking-supervise-panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .tasking-page-header {
   display: grid;
   gap: 0;
@@ -1238,6 +1255,9 @@ function quickStart(task, stopOther = false) {
   display: grid;
   gap: 14px;
   padding: 16px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 .capacity-hero-grid {
   display: grid;
@@ -1544,12 +1564,21 @@ function quickStart(task, stopOther = false) {
   border-radius: 16px;
   background: #f7fbfa;
   border: 1px solid rgba(52, 144, 139, 0.14);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 .supervise-filters-grid {
   display: grid;
-  grid-template-columns: minmax(180px, 1.1fr) minmax(170px, 0.95fr) minmax(220px, 1.4fr) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   align-items: start;
+  width: 100%;
+  max-width: 100%;
+}
+.supervise-field:nth-child(3),
+.supervise-field-action {
+  grid-column: 1 / -1;
 }
 .supervise-field {
   display: grid;
@@ -1632,6 +1661,17 @@ function quickStart(task, stopOther = false) {
   justify-content: center;
   white-space: nowrap;
   padding-inline: 14px;
+}
+
+@media (min-width: 1080px) {
+  .supervise-filters-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .supervise-field:nth-child(3),
+  .supervise-field-action {
+    grid-column: auto;
+  }
 }
 .chip-row, .tab-strip, .subtab-strip {
   display: flex;
@@ -1726,6 +1766,8 @@ function quickStart(task, stopOther = false) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  min-width: 0;
+  max-width: 100%;
 }
 .task-card {
   border: 1px solid rgba(52, 144, 139, 0.12);
@@ -1736,6 +1778,9 @@ function quickStart(task, stopOther = false) {
   gap: 12px;
   cursor: pointer;
   transition: transform 0.16s ease, box-shadow 0.16s ease;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 .task-card:hover {
   transform: translateY(-1px);
@@ -1784,7 +1829,11 @@ function quickStart(task, stopOther = false) {
   background: rgba(22, 163, 74, 0.12);
   color: #15803d;
 }
-.task-card-footer { justify-content: space-between; }
+.task-card-footer { justify-content: space-between; flex-wrap: wrap; }
+.task-card-actions {
+  flex-wrap: wrap;
+  min-width: 0;
+}
 .priority-dot {
   width: 10px;
   height: 10px;
@@ -1817,183 +1866,198 @@ function quickStart(task, stopOther = false) {
   justify-items: center;
 }
 @media (max-width: 920px) {
-  .active-timer-banner { grid-template-columns: 1fr; }
-  .active-timer-banner { flex-direction: column; align-items: stretch; }
-  .capacity-stats,
-  .tasking-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .task-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 640px) {
+  .tasking-page {
+    gap: 12px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
   .tasking-page-header {
     padding: 12px;
     border-radius: 16px;
   }
 
-  .tasking-header-bar {
-    margin-top: 10px;
-    padding-top: 10px;
-    gap: 8px;
-  }
-
-  .tasking-new-btn-label {
-    display: none;
-  }
-
-  .tasking-date-picker-wrap {
-    min-width: 118px;
-    max-width: 140px;
-  }
-
-  .tasking-new-btn {
-    width: 40px;
-    min-width: 40px;
-    padding: 0;
-    justify-content: center;
-  }
-
-  .supervise-filter-pill.is-compact {
-    max-width: 140px;
-    font-size: 10px;
-    min-height: 28px;
-    padding-inline: 8px;
+  .active-timer-banner {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+    gap: 10px;
   }
 
   .capacity-hero {
     padding: 12px;
-    gap: 12px;
+    gap: 10px;
+    border-radius: 16px;
   }
 
   .capacity-hero-grid {
-    grid-template-columns: 72px minmax(0, 1fr);
-    gap: 12px;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 10px;
   }
 
-  .capacity-ring-block {
-    width: 72px;
+  .capacity-ring-block { width: 64px; }
+  .capacity-ring { width: 64px; height: 64px; }
+  .capacity-ring-core { width: 48px; height: 48px; }
+  .capacity-ring-core strong { font-size: 0.95rem; }
+
+  .capacity-stats,
+  .tasking-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
-  .capacity-ring {
-    width: 72px;
-    height: 72px;
+  .capacity-stat-card { padding: 8px; }
+
+  .tasking-metric-card {
+    min-height: 0;
+    padding: 10px;
+    border-radius: 14px;
+    gap: 4px;
   }
 
-  .capacity-ring-core {
-    width: 54px;
-    height: 54px;
+  .tasking-metric-card strong { font-size: 1.05rem; }
+  .tasking-metric-label { font-size: 11px; }
+
+  .task-card-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
-  .capacity-ring-core strong {
-    font-size: 1.05rem;
+  .task-card {
+    padding: 12px;
+    border-radius: 14px;
+    gap: 10px;
   }
 
-  .capacity-title {
-    font-size: 0.92rem;
+  .task-card-footer {
+    flex-direction: column;
+    align-items: stretch;
   }
 
+  .task-card-actions { flex-wrap: wrap; }
+
+  .tasking-toolbar {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .supervise-filters {
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .supervise-filters-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .supervise-field,
+  .supervise-field:nth-child(3),
+  .supervise-field-action {
+    grid-column: 1 / -1;
+    grid-template-rows: 16px 40px;
+  }
+
+  .supervise-control,
+  .supervise-control-wrap,
+  .supervise-search,
+  .supervise-reset-btn {
+    height: 40px;
+    min-height: 40px;
+    max-height: 40px;
+  }
+
+  .supervise-control-wrap :deep(.shamsi-picker),
+  .supervise-control-wrap :deep(.shamsi-picker-input-wrap),
+  .supervise-control-wrap :deep(.shamsi-picker-input) {
+    height: 40px;
+    min-height: 40px;
+  }
+
+  .supervise-reset-btn { width: 100%; }
+
+  .main-tab-strip.tab-strip,
+  .tab-strip:not(.main-tab-strip) {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding: 2px 2px 6px;
+  }
+
+  .main-tab-strip .chip-btn,
+  .tab-strip:not(.main-tab-strip) .chip-btn {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: max-content;
+    min-height: 38px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    justify-content: center;
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  .main-tab-strip .chip-btn { padding-inline: 12px 26px; }
+
+  .main-tab-strip .chip-btn-label,
+  .tab-strip:not(.main-tab-strip) .chip-btn-label {
+    white-space: nowrap;
+    font-size: 12px;
+  }
+
+  .main-tab-strip .tasking-tab-badge.is-main {
+    top: 3px;
+    inset-inline-end: 3px;
+    min-width: 16px;
+    height: 16px;
+    font-size: 9px;
+    padding: 0 4px;
+  }
+}
+
+@media (max-width: 640px) {
+  .tasking-page-header { padding: 10px; border-radius: 14px; }
+  .tasking-header-bar { margin-top: 8px; padding-top: 8px; gap: 6px; }
+  .tasking-new-btn-label { display: none; }
+  .tasking-date-picker-wrap { min-width: 110px; max-width: 132px; }
+  .tasking-new-btn {
+    width: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .date-nav-btn,
+  .date-today-btn { height: 36px; min-height: 36px; }
+  .date-nav-btn { width: 32px; }
+  .supervise-filter-pill.is-compact {
+    max-width: 120px;
+    font-size: 10px;
+    min-height: 28px;
+    padding-inline: 8px;
+  }
+  .capacity-title { font-size: 0.88rem; }
   .capacity-subtitle {
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     white-space: normal;
-  }
-
-  .capacity-stats,
-  .tasking-metric-grid,
-  .task-card-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 10px;
-  }
-  .capacity-stats article,
-  .capacity-stat-card,
-  .tasking-metric-card {
-    min-width: 0;
-    padding: 12px;
-  }
-  .task-card-footer { flex-direction: column; align-items: stretch; }
-  .task-card-actions { flex-wrap: wrap; }
-  .tasking-toolbar {
-    display: grid;
-    gap: 10px;
-  }
-  .supervise-filters {
-    padding: 12px;
-    border-radius: 14px;
-  }
-  .supervise-filters-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    align-items: start;
-  }
-  .supervise-field:nth-child(3),
-  .supervise-field-action {
-    grid-column: 1 / -1;
-  }
-  .supervise-reset-btn {
-    width: 100%;
-  }
-  .main-tab-strip.tab-strip,
-  .tab-strip:not(.main-tab-strip) {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 8px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    padding: 4px 2px 8px;
-  }
-  .main-tab-strip .chip-btn,
-  .tab-strip:not(.main-tab-strip) .chip-btn {
-    flex: 0 0 auto;
-    width: auto;
-    min-width: max-content;
-    min-height: 42px;
-    padding: 8px 14px;
-    border-radius: 999px;
-    overflow: visible;
-    justify-content: center;
-    gap: 8px;
-    font-size: 13px;
-  }
-  .main-tab-strip .chip-btn {
-    padding-inline: 14px 28px;
-  }
-  .main-tab-strip .chip-btn-label,
-  .tab-strip:not(.main-tab-strip) .chip-btn-label {
-    white-space: nowrap;
-    overflow: visible;
-    text-overflow: clip;
-    flex: 0 0 auto;
-    min-width: auto;
-    text-align: center;
-    line-height: 1.3;
-    font-size: 13px;
-  }
-  .main-tab-strip .tasking-tab-badge.is-main {
-    top: 4px;
-    inset-inline-end: 4px;
-    min-width: 17px;
-    height: 17px;
-    font-size: 10px;
-    padding: 0 4px;
-  }
-  .tab-strip:not(.main-tab-strip) .tasking-tab-badge.is-sub {
-    flex: 0 0 auto;
-    min-width: 15px;
-    height: 15px;
-    font-size: 9px;
+    font-size: 11px;
   }
 }
 
 @media (max-width: 420px) {
   .main-tab-strip .chip-btn,
   .tab-strip:not(.main-tab-strip) .chip-btn {
-    min-height: 40px;
-    font-size: 12px;
-  }
-  .supervise-filters-grid {
-    grid-template-columns: 1fr;
+    min-height: 36px;
+    font-size: 11px;
   }
 }
 </style>

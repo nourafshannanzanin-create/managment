@@ -4983,5 +4983,102 @@ body:has(.app-shell:not(.is-auth-route)),
   #app .app-shell:not(.is-auth-route) .chat-page-luxe.show-thread .chat-messages {
     padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important;
   }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    overflow-x: clip !important;
+    gap: 12px !important;
+    box-sizing: border-box !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .surface-block,
+  #app .app-shell:not(.is-auth-route) .tasking-page .supervise-filters,
+  #app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero,
+  #app .app-shell:not(.is-auth-route) .tasking-page .tasking-page-header,
+  #app .app-shell:not(.is-auth-route) .tasking-page .task-card-grid {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .surface-block {
+    padding: 12px !important;
+    border-radius: 16px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero {
+    padding: 12px !important;
+    border-radius: 16px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero .capacity-ring {
+    width: 64px !important;
+    height: 64px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero .capacity-ring-core {
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero .capacity-ring-core strong {
+    font-size: 0.95rem !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero .capacity-title {
+    font-size: 0.88rem !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .capacity-stats,
+  #app .app-shell:not(.is-auth-route) .tasking-page .tasking-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .tasking-metric-card {
+    min-height: 0 !important;
+    padding: 10px !important;
+    border-radius: 14px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .tasking-metric-card strong {
+    font-size: 1.05rem !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .task-card-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .task-card {
+    padding: 12px !important;
+    border-radius: 14px !important;
+    max-width: 100% !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .supervise-filters-grid {
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 8px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .supervise-field,
+  #app .app-shell:not(.is-auth-route) .tasking-page .supervise-field:nth-child(3),
+  #app .app-shell:not(.is-auth-route) .tasking-page .supervise-field-action {
+    grid-column: 1 / -1 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .action-btn {
+    width: auto !important;
+    min-height: 36px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .supervise-reset-btn {
+    width: 100% !important;
+  }
 }
 
