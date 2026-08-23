@@ -38,6 +38,7 @@ from workflow.tasking import (
     update_estimate,
     update_tasking_settings,
     visible_tasks_queryset,
+    supervised_tasks_queryset,
 )
 from workflow.views import json_error, json_response, methods, parse_json, require_auth
 
@@ -81,7 +82,7 @@ def tasking_tasks_view(request: HttpRequest):
         if scope == "mine":
             qs = qs.filter(owner=request.current_user)
         elif scope == "supervise":
-            qs = qs.exclude(owner=request.current_user)
+            qs = supervised_tasks_queryset(request.current_user, qs)
         if status:
             qs = qs.filter(status=status)
         if q:

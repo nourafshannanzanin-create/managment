@@ -9,7 +9,7 @@ from django.db import transaction
 from django.db.models import Q, Sum
 from django.utils import timezone
 
-from workflow.access import get_user_organization, is_manager, organization_users
+from workflow.access import can_access_users, can_manage_users, can_view_reports, get_user_organization, is_manager, organization_users
 from workflow.services import media_url, next_code, normalize_person_name, user_avatar_url
 from workflow.models import (
     AuditLog,
@@ -500,6 +500,41 @@ def priority_score(task: Task, settings_obj: TaskingSettings, today: date) -> in
     return score
 
 
+def supervised_user_ids(user: User) -> set[int] | None:
+    """Return user IDs whose owned tasks this manager can supervise, or None for all org users."""
+    if user.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER}:
+        return None
+    if not is_manager(user):
+        return {user.id}
+    if can_view_reports(user) or can_manage_users(user) or can_access_users(user):
+        return None
+
+    org_users = organization_users(user).filter(is_active=True, is_deleted=False)
+    managed_ids: set[int] = set()
+    frontier = {user.id}
+    while frontier:
+        report_ids = set(org_users.filter(manager_id__in=frontier).values_list("id", flat=True))
+        report_ids -= managed_ids
+        report_ids.discard(user.id)
+        if not report_ids:
+            break
+        managed_ids |= report_ids
+        frontier = report_ids
+    managed_ids.add(user.id)
+    return managed_ids
+
+
+def _user_can_supervise_owner(user: User, owner_id: int | None) -> bool:
+    if owner_id is None:
+        return False
+    if owner_id == user.id:
+        return True
+    supervised_ids = supervised_user_ids(user)
+    if supervised_ids is None:
+        return is_manager(user) or user.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER}
+    return owner_id in supervised_ids
+
+
 def can_delete_task(user: User, task: Task) -> bool:
     if task.deleted_at:
         return False
@@ -511,19 +546,17 @@ def can_delete_task(user: User, task: Task) -> bool:
 def can_view_task(user: User, task: Task) -> bool:
     if task.deleted_at:
         return False
-    if user.role == UserRole.ADMIN:
-        org = get_user_organization(user)
-        return task.organization_id == org.id
+    org = get_user_organization(user)
+    if task.organization_id != org.id:
+        return False
     if task.owner_id == user.id or task.creator_id == user.id:
         return True
     if TaskObserver.objects.filter(task=task, user=user).exists():
         return True
     if TaskReview.objects.filter(task=task, reviewer=user).exists():
         return True
-    if is_manager(user) and task.owner.manager_id == user.id:
+    if _user_can_supervise_owner(user, task.owner_id):
         return True
-    if user.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER}:
-        return task.organization_id == get_user_organization(user).id
     return False
 
 
@@ -534,7 +567,7 @@ def can_review_task(user: User, task: Task) -> bool:
         return True
     if TaskReview.objects.filter(task=task, reviewer=user, status=TaskReviewStatus.PENDING).exists():
         return True
-    if is_manager(user) and task.owner.manager_id == user.id:
+    if _user_can_supervise_owner(user, task.owner_id) and task.owner_id != user.id:
         return True
     if task.creator_id == user.id and is_manager(user):
         return True
@@ -548,13 +581,14 @@ def visible_tasks_queryset(user: User):
         .select_related("owner", "creator", "department", "direct_manager_snapshot")
         .prefetch_related("observers", "allocations", "assignments", "attachments", "time_entries")
     )
-    if user.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER}:
+    supervised_ids = supervised_user_ids(user)
+    if supervised_ids is None and (user.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER} or is_manager(user)):
         return qs
     if is_manager(user):
         return qs.filter(
             Q(owner=user)
             | Q(creator=user)
-            | Q(owner__manager=user)
+            | Q(owner_id__in=supervised_ids or {user.id})
             | Q(observers__user=user)
             | Q(reviews__reviewer=user)
         ).distinct()
@@ -563,6 +597,19 @@ def visible_tasks_queryset(user: User):
         | Q(creator=user)
         | Q(observers__user=user)
         | Q(assignments__assignee=user)
+    ).distinct()
+
+
+def supervised_tasks_queryset(user: User, qs=None):
+    """Tasks visible in team/supervise views (excluding the viewer's own tasks)."""
+    base = qs if qs is not None else visible_tasks_queryset(user)
+    supervised_ids = supervised_user_ids(user)
+    if supervised_ids is None and (user.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER} or is_manager(user)):
+        return base.exclude(owner=user)
+    if is_manager(user):
+        return base.filter(owner_id__in=supervised_ids or {user.id}).exclude(owner=user).distinct()
+    return base.exclude(owner=user).filter(
+        Q(observers__user=user) | Q(owner__manager=user) | Q(reviews__reviewer=user) | Q(creator=user)
     ).distinct()
 
 
@@ -1623,11 +1670,12 @@ def dashboard_payload(user: User, focus_date: date | None = None, supervise_owne
         task__deleted_at__isnull=True,
         task__organization=organization,
     ).select_related("task", "task__creator", "task__owner", "task__department", "assigned_by")
-    supervised = qs.exclude(owner=user).filter(
-        Q(observers__user=user) | Q(owner__manager=user) | Q(reviews__reviewer=user) | Q(creator=user)
-    ).distinct()
+    supervised = supervised_tasks_queryset(user, qs)
     if supervise_owner_id:
-        supervised = supervised.filter(owner_id=supervise_owner_id)
+        if _user_can_supervise_owner(user, supervise_owner_id):
+            supervised = supervised.filter(owner_id=supervise_owner_id)
+        else:
+            supervised = supervised.none()
 
     capacity = capacity_for_day(user, settings_obj, today)
     closed_statuses = {
@@ -1792,14 +1840,18 @@ def dashboard_payload(user: User, focus_date: date | None = None, supervise_owne
     }
 
     supervise_focus = None
+    supervised_ids = supervised_user_ids(user)
+    team_qs = organization_users(user).filter(is_active=True, is_deleted=False).order_by("full_name")
+    if supervised_ids is not None:
+        team_qs = team_qs.filter(id__in=supervised_ids)
+    elif is_manager(user) or user.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER}:
+        team_qs = team_qs.exclude(id=user.id)
+
     if supervise_owner_id:
-        focus_owner = organization_users(user).filter(pk=supervise_owner_id, is_active=True, is_deleted=False).first()
+        focus_owner = team_qs.filter(pk=supervise_owner_id).first()
         if focus_owner is not None:
             owner_capacity = capacity_for_day(focus_owner, settings_obj, today)
-            owner_supervised = qs.exclude(owner=user).filter(
-                Q(observers__user=user) | Q(owner__manager=user) | Q(reviews__reviewer=user) | Q(creator=user),
-                owner=focus_owner,
-            ).distinct()
+            owner_supervised = supervised.filter(owner=focus_owner)
             supervise_focus = {
                 "user": serialize_user_brief(focus_owner),
                 "capacity": owner_capacity,
@@ -1895,12 +1947,14 @@ def dashboard_payload(user: User, focus_date: date | None = None, supervise_owne
             {"id": item.id, "code": item.code, "name": item.name}
             for item in Department.objects.exclude(code__in=["hq-control", "hq"]).exclude(name__iexact="HQ").exclude(code__endswith="-admin").order_by("name")
         ],
+        "superviseTeamMembers": [serialize_user_brief(item) for item in team_qs[:300]],
+        "supervise_team_members": [serialize_user_brief(item) for item in team_qs[:300]],
         "assigneeOptions": [
             {
                 **serialize_user_brief(item),
                 "capacityToday": capacity_for_day(item, settings_obj, today)["utilizationPercent"],
             }
-            for item in organization_users(user).filter(is_active=True, is_deleted=False).select_related("department")[:300]
+            for item in team_qs[:300]
         ],
         "superviseFocus": supervise_focus,
     }

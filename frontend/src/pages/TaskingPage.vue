@@ -542,6 +542,17 @@ const currentSubTabs = computed(() => {
 })
 
 const superviseEmployeeOptions = computed(() => {
+  const fromTeam = state.tasking.superviseTeamMembers || []
+  if (fromTeam.length) {
+    return fromTeam
+      .map((person) => ({
+        id: Number(person?.id || 0),
+        name: String(person?.name || '').trim(),
+      }))
+      .filter((person) => person.id && person.name)
+      .sort((a, b) => a.name.localeCompare(b.name, 'fa'))
+  }
+
   const map = new Map()
   const buckets = state.tasking.supervise || {}
   Object.values(buckets).forEach((list) => {

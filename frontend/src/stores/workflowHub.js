@@ -324,6 +324,7 @@ function createTaskingState() {
     },
     departments: [],
     assigneeOptions: [],
+    superviseTeamMembers: [],
     superviseFocus: null,
     selectedTask: null,
     detailLoading: false,
@@ -3349,6 +3350,7 @@ async function removeUserEntrustedItem(userId, itemId) {
       state.tasking.mentions = payload.mentions || createTaskingState().mentions
       state.tasking.departments = payload.departments || []
       state.tasking.assigneeOptions = payload.assigneeOptions || []
+      state.tasking.superviseTeamMembers = payload.superviseTeamMembers || payload.supervise_team_members || []
       state.tasking.superviseFocus = payload.superviseFocus || null
       if (hadLoaded && soft && !options.quiet) {
         const badgeDelta = Number(state.tasking.badgeCount) - previousBadge

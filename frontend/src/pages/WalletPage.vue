@@ -59,6 +59,11 @@ const purchaseForm = reactive({
   walletId: '',
 })
 
+const optionDetail = reactive({
+  open: false,
+  featureKey: '',
+})
+
 const canUseWallet = computed(() => state.currentUser.isManager || state.currentUser.canUseHq)
 const isSchematicWallet = computed(() => Boolean(state.wallet.schematic))
 const needsOrganization = computed(() => state.currentUser.isHq && !state.hq.selectedOrganizationId)
@@ -74,6 +79,9 @@ const activeWallet = computed(() => {
 })
 const selectedPurchaseOption = computed(() =>
   purchaseOptions.value.find((item) => (item.featureKey || item.feature_key) === purchaseForm.featureKey) || null,
+)
+const selectedOptionDetail = computed(() =>
+  purchaseOptions.value.find((item) => (item.featureKey || item.feature_key) === optionDetail.featureKey) || null,
 )
 const purchasePayNowAmount = computed(() => {
   const option = selectedPurchaseOption.value
@@ -107,20 +115,84 @@ function optionDisabled(option) {
   return optionCatalogDisabled(option) || optionInstallmentLocked(option)
 }
 
+function optionKey(option) {
+  return String(option?.featureKey || option?.feature_key || '')
+}
+
+function optionField(option, camelKey, snakeKey = '') {
+  if (!option) return ''
+  const snake = snakeKey || camelKey.replace(/[A-Z]/g, (ch) => `_${ch.toLowerCase()}`)
+  const value = option[camelKey] ?? option[snake]
+  if (value == null) return ''
+  return String(value).trim()
+}
+
+const isCeoUser = computed(() => {
+  const user = state.currentUser || {}
+  return Boolean(user.accessRole === 'admin' || user.isHq || user.canUseHq)
+})
+
+/** مدیرعامل همه متن‌ها را می‌بیند؛ مدیر همان بخش هم متن مربوط به سرویس خودش را می‌بیند. */
+function canSeeOptionTexts(option) {
+  const user = state.currentUser || {}
+  if (!user.isManager && !user.canUseHq && !user.isHq && user.accessRole !== 'admin') return false
+  if (isCeoUser.value) return true
+
+  const key = optionKey(option)
+  if (key === 'accounting') return Boolean(user.canAccessExpenses || user.isManager)
+  if (key === 'attendance') return Boolean(user.canViewReports || user.canEditWorkTimes || user.isManager)
+  if (key === 'cloud_storage') return Boolean(user.canAccessSettings || user.isManager)
+  // core_software و سایر سرویس‌ها: مدیران کیف پول
+  return Boolean(user.isManager)
+}
+
+function optionSubtitle(option) {
+  return optionField(option, 'subtitle')
+}
+
+function optionDescription(option) {
+  return optionField(option, 'description')
+}
+
+function optionRetention(option) {
+  return optionField(option, 'retentionSummary', 'retention_summary')
+}
+
 function optionIcon(option) {
-  const key = option.featureKey || option.feature_key
+  const key = optionKey(option)
   if (key === 'cloud_storage') return 'cloud'
-  if (key === 'attendance') return 'login'
-  if (key === 'accounting') return 'lock'
+  if (key === 'attendance') return 'badge'
+  if (key === 'accounting') return 'receipt_long'
+  if (key === 'core_software' || key === 'software' || key === 'license' || key === 'core') return 'workspace_premium'
   return 'shopping_cart'
+}
+
+function optionTone(option) {
+  const key = optionKey(option)
+  if (key === 'cloud_storage') return 'cloud'
+  if (key === 'attendance') return 'attendance'
+  if (key === 'accounting') return 'accounting'
+  return 'software'
 }
 
 function optionStatus(option) {
   if (option.installmentIsLocked || option.installment_is_locked) return 'قفل شده'
-  if (optionDisabled(option)) return option.disabledLabel || option.disabled_label || 'غیرفعال'
+  if (optionDisabled(option)) return optionField(option, 'disabledLabel', 'disabled_label') || 'غیرفعال'
   if (option.required) return 'اجباری'
   if (option.isActive || option.is_active) return 'فعال'
-  return 'قابل خرید'
+  return optionField(option, 'statusLabel', 'status_label') || 'قابل خرید'
+}
+
+function openOptionDetail(option) {
+  optionDetail.featureKey = option.featureKey || option.feature_key || ''
+  optionDetail.open = true
+  state.wallet.error = ''
+  state.wallet.message = ''
+}
+
+function closeOptionDetail() {
+  optionDetail.open = false
+  optionDetail.featureKey = ''
 }
 
 async function submitInstallmentPayment(option) {
@@ -228,6 +300,12 @@ function openPurchase(option, paymentPlan = 'cash') {
   purchaseForm.paymentPlan = paymentPlan
   purchaseForm.walletId = activeWallet.value?.id ? String(activeWallet.value.id) : ''
   purchaseForm.open = true
+  optionDetail.open = false
+}
+
+async function payInstallmentFromDetail(option) {
+  await submitInstallmentPayment(option)
+  if (!state.wallet.error) closeOptionDetail()
 }
 
 function closePurchase() {
@@ -373,19 +451,36 @@ watch(
 
     <template v-else>
       <div class="wallet-hero">
-        <div class="wallet-hero-visual" aria-hidden="true"></div>
+        <div class="wallet-hero-visual" aria-hidden="true">
+          <span class="wallet-orb wallet-orb-a"></span>
+          <span class="wallet-orb wallet-orb-b"></span>
+          <span class="wallet-orb wallet-orb-c"></span>
+          <span class="wallet-hero-shine"></span>
+          <span class="wallet-hero-grid"></span>
+        </div>
         <div class="wallet-hero-balance">
           <div class="wallet-hero-top">
             <div class="wallet-hero-icon">
               <IconlyIcon name="account_balance_wallet" decorative />
             </div>
             <div class="wallet-hero-labels">
-              <span>موجودی کل</span>
+              <span class="wallet-hero-eyebrow">کیف پول سازمانی</span>
               <small>{{ state.wallet.organization?.name || state.currentUser.organization }}</small>
             </div>
+            <span class="wallet-hero-chip">به‌روز</span>
           </div>
-          <strong>{{ state.wallet.summary.totalBalance }}</strong>
-          <p class="wallet-hero-caption">مانده قابل استفاده در کیف پول سازمان</p>
+          <p class="wallet-hero-caption">موجودی قابل استفاده</p>
+          <strong class="wallet-hero-amount">{{ state.wallet.summary.totalBalance }}</strong>
+          <div class="wallet-hero-meta">
+            <span>
+              <IconlyIcon name="trending_up" decorative />
+              واریزها {{ state.wallet.summary.depositsTotal || '—' }}
+            </span>
+            <span>
+              <IconlyIcon name="sms" decorative />
+              پیامک {{ state.wallet.summary.smsBalance || '—' }}
+            </span>
+          </div>
         </div>
 
         <div v-if="shortcuts.length" class="wallet-actions">
@@ -396,8 +491,13 @@ watch(
             type="button"
             @click="openTransaction(item.direction)"
           >
-            <IconlyIcon :name="item.icon" decorative />
-            <b>{{ item.label }}</b>
+            <span class="wallet-action-icon">
+              <IconlyIcon :name="item.icon" decorative />
+            </span>
+            <span class="wallet-action-copy">
+              <b>{{ item.label }}</b>
+              <small>{{ item.direction === 'in' ? 'افزایش موجودی' : 'برداشت از حساب' }}</small>
+            </span>
           </button>
         </div>
       </div>
@@ -448,117 +548,85 @@ watch(
         </div>
       </div>
 
-      <div v-if="purchaseOptions.length" class="wallet-options-grid">
-        <article
-          v-for="option in purchaseOptions"
-          :key="option.featureKey || option.feature_key"
-          class="wallet-option-card"
-          :class="{ active: option.isActive || option.is_active, required: option.required, disabled: optionDisabled(option), locked: option.installmentIsLocked || option.installment_is_locked }"
-        >
-          <div class="wallet-option-head">
-            <IconlyIcon :name="optionIcon(option)" decorative />
-            <small>{{ optionStatus(option) }}</small>
+      <div v-if="purchaseOptions.length" class="wallet-options-section">
+        <header class="wallet-section-head options-head">
+          <div>
+            <span>سرویس‌ها و قابلیت‌ها</span>
+            <small>برای مشاهده جزئیات روی هر کارت بزنید</small>
           </div>
-          <strong>{{ option.title }}</strong>
-          <p>{{ option.description }}</p>
-          <small v-if="option.retentionSummary || option.retention_summary" class="wallet-option-retention">
-            {{ option.retentionSummary || option.retention_summary }}
-          </small>
-          <template v-if="!optionDisabled(option)">
-            <div class="wallet-option-price">
-              <span>نقدی</span>
-              <b>{{ option.cashAmount || option.cash_amount || option.totalAmount || option.total_amount }}</b>
-            </div>
-            <div v-if="option.upfrontAmount || option.upfront_amount" class="wallet-option-price">
-              <span>پیش‌پرداخت</span>
-              <b>{{ option.upfrontAmount || option.upfront_amount }}</b>
-            </div>
-            <div v-if="option.installmentMonths || option.installment_months" class="wallet-option-price">
-              <span>اقساط</span>
-              <b>{{ option.monthlyInstallmentAmount || option.monthly_installment_amount }} / {{ option.installmentMonths || option.installment_months }} ماه</b>
-            </div>
-            <div v-if="option.isActive || option.is_active" class="wallet-option-live">
-              <div class="wallet-option-price">
-                <span>پرداخت‌شده</span>
-                <b>{{ option.paidAmount || option.paid_amount }}</b>
-              </div>
-              <div class="wallet-option-price">
-                <span>مانده</span>
-                <b>{{ option.remainingAmount || option.remaining_amount }}</b>
-              </div>
-              <div v-if="option.nextInstallmentDueAt || option.next_installment_due_at" class="wallet-option-price">
-                <span>سررسید بعدی</span>
-                <b>{{ option.nextInstallmentDueAt || option.next_installment_due_at }}</b>
-              </div>
-              <div v-if="option.canPayNextInstallment || option.can_pay_next_installment" class="wallet-option-actions">
-                <button
-                  class="action-btn tone-primary"
-                  type="button"
-                  :disabled="state.wallet.submitting"
-                  @click="submitInstallmentPayment(option)"
-                >
-                  پرداخت قسط {{ option.nextInstallmentAmount || option.next_installment_amount }}
-                </button>
-              </div>
-            </div>
-            <div v-if="optionInstallmentLocked(option)" class="wallet-option-disabled">
-              <IconlyIcon name="lock" decorative />
-              <b>{{ option.installmentLockNotice || option.installment_lock_notice || 'این بخش به دلیل عدم پرداخت قسط قفل شده است.' }}</b>
-            </div>
-            <div v-if="option.annualSubscriptionAmountRaw" class="wallet-option-price annual">
-              <span>اشتراک سالانه</span>
-              <b>{{ option.annualSubscriptionAmount }} / {{ option.annualSubscriptionInstallmentAmount }} / {{ option.annualSubscriptionInstallmentMonths }} ماه</b>
-            </div>
-            <div v-if="!isSchematicWallet" class="wallet-option-actions">
-              <button class="action-btn tone-soft" type="button" :disabled="state.wallet.submitting || option.isActive || option.is_active" @click="openPurchase(option, 'installment')">قسطی</button>
-              <button class="action-btn tone-primary" type="button" :disabled="state.wallet.submitting || option.isActive || option.is_active" @click="openPurchase(option, 'cash')">
-                <IconlyIcon name="shopping_cart_checkout" decorative />
-                <span>خرید نقدی</span>
-              </button>
-            </div>
-            <div v-else class="wallet-option-disabled">
-              <IconlyIcon name="visibility" decorative />
-              <b>نمایشی — بدون خرید واقعی</b>
-            </div>
-          </template>
-          <div v-else class="wallet-option-disabled">
-            <IconlyIcon name="lock" decorative />
-            <b>{{
-              optionInstallmentLocked(option)
-                ? (option.installmentLockNotice || option.installment_lock_notice || 'این بخش به دلیل عدم پرداخت قسط قفل شده است.')
-                : (option.disabledLabel || option.disabled_label || 'فعلا غیرفعال است')
-            }}</b>
-          </div>
-        </article>
+          <b>{{ purchaseOptions.length }}</b>
+        </header>
+        <div class="wallet-options-grid">
+          <button
+            v-for="(option, index) in purchaseOptions"
+            :key="option.featureKey || option.feature_key"
+            type="button"
+            class="wallet-option-tile"
+            :class="[
+              optionTone(option),
+              {
+                active: option.isActive || option.is_active,
+                disabled: optionDisabled(option),
+                locked: option.installmentIsLocked || option.installment_is_locked,
+              },
+            ]"
+            :style="{ '--i': index }"
+            @click="openOptionDetail(option)"
+          >
+            <span class="wallet-option-tile-icon">
+              <IconlyIcon :name="optionIcon(option)" decorative />
+            </span>
+            <strong>{{ option.title }}</strong>
+            <small class="wallet-option-tile-status">{{ optionStatus(option) }}</small>
+            <span class="wallet-option-tile-glow" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
 
       <div class="wallet-summary-grid">
-        <article v-for="card in summaryCards" :key="card.label" :class="['wallet-summary-card', card.tone]">
-          <IconlyIcon :name="card.icon" decorative />
+        <article v-for="(card, index) in summaryCards" :key="card.label" :class="['wallet-summary-card', card.tone]" :style="{ '--i': index }">
+          <div class="wallet-summary-icon">
+            <IconlyIcon :name="card.icon" decorative />
+          </div>
           <small>{{ card.label }}</small>
           <strong>{{ card.value }}</strong>
+          <span class="wallet-summary-glow" aria-hidden="true"></span>
         </article>
       </div>
 
       <div class="wallet-layout">
         <aside class="wallet-stack">
+          <header class="wallet-section-head">
+            <span>کیف‌ها</span>
+            <small>{{ wallets.length }} حساب</small>
+          </header>
           <button
-            v-for="wallet in wallets"
+            v-for="(wallet, index) in wallets"
             :key="wallet.id"
-            :class="['wallet-tile', String(wallet.id) === String(transactionForm.walletId || paymentSetup.walletId || paymentGuide.walletId || paymentForm.walletId || purchaseForm.walletId || activeWallet?.id) && 'is-active']"
+            :class="['wallet-tile', wallet.key === 'sms' ? 'is-sms' : 'is-main', String(wallet.id) === String(transactionForm.walletId || paymentSetup.walletId || paymentGuide.walletId || paymentForm.walletId || purchaseForm.walletId || activeWallet?.id) && 'is-active']"
             type="button"
+            :style="{ '--i': index }"
             @click="transactionForm.walletId = String(wallet.id); paymentSetup.walletId = String(wallet.id); paymentGuide.walletId = String(wallet.id); paymentForm.walletId = String(wallet.id); purchaseForm.walletId = String(wallet.id)"
           >
-            <IconlyIcon :name="wallet.key === 'sms' ? 'sms' : 'account_balance'" decorative />
-            <b>{{ wallet.name }}</b>
+            <div class="wallet-tile-top">
+              <span class="wallet-tile-icon">
+                <IconlyIcon :name="wallet.key === 'sms' ? 'sms' : 'account_balance'" decorative />
+              </span>
+              <b>{{ wallet.name }}</b>
+            </div>
             <strong>{{ wallet.balance }}</strong>
-            <small v-if="wallet.isLow">کمبود موجودی</small>
+            <small v-if="wallet.isLow" class="wallet-tile-warn">کمبود موجودی</small>
+            <small v-else class="wallet-tile-ok">آماده استفاده</small>
+            <span class="wallet-tile-shine" aria-hidden="true"></span>
           </button>
         </aside>
 
         <div class="wallet-ledger">
           <div class="ledger-head">
-            <span>گردش حساب</span>
+            <div>
+              <span>گردش حساب</span>
+              <small>آخرین تراکنش‌ها</small>
+            </div>
             <b>{{ ledgerItems.length }}</b>
           </div>
 
@@ -568,18 +636,19 @@ watch(
 
           <div v-else-if="!ledgerItems.length" class="wallet-empty compact">
             <IconlyIcon name="receipt_long" decorative />
+            <p>هنوز تراکنشی ثبت نشده است</p>
           </div>
 
           <div v-else class="ledger-list">
-            <article v-for="item in ledgerItems" :key="item.id" class="ledger-row">
+            <article v-for="(item, index) in ledgerItems" :key="item.id" class="ledger-row" :style="{ '--i': index }">
               <div :class="['ledger-icon', item.direction]">
                 <IconlyIcon :name="item.direction === 'in' ? 'south_west' : 'north_east'" decorative />
               </div>
               <div>
                 <b>{{ item.walletName }}</b>
-                <small>{{ item.actor }} / {{ item.time }}</small>
+                <small>{{ item.actor }} · {{ item.time }}</small>
               </div>
-              <strong :class="item.direction">{{ item.direction === 'in' ? '+' : '-' }}{{ item.amount }}</strong>
+              <strong :class="item.direction">{{ item.direction === 'in' ? '+' : '−' }}{{ item.amount }}</strong>
             </article>
           </div>
         </div>
@@ -686,6 +755,132 @@ watch(
           </button>
         </div>
       </form>
+    </div>
+
+    <div v-if="optionDetail.open && selectedOptionDetail" class="wallet-modal-backdrop" @click.self="closeOptionDetail">
+      <div class="wallet-modal option-detail-modal" :class="optionTone(selectedOptionDetail)">
+        <div class="modal-handle"></div>
+        <div class="option-detail-hero">
+          <span class="option-detail-icon">
+            <IconlyIcon :name="optionIcon(selectedOptionDetail)" decorative />
+          </span>
+          <div class="option-detail-copy">
+            <small>{{ optionStatus(selectedOptionDetail) }}</small>
+            <strong>{{ selectedOptionDetail.title }}</strong>
+            <em
+              v-if="canSeeOptionTexts(selectedOptionDetail) && optionSubtitle(selectedOptionDetail)"
+              class="option-detail-subtitle"
+            >{{ optionSubtitle(selectedOptionDetail) }}</em>
+          </div>
+          <button class="option-detail-close" type="button" aria-label="بستن" @click="closeOptionDetail">
+            <IconlyIcon name="close" decorative />
+          </button>
+        </div>
+
+        <div
+          v-if="canSeeOptionTexts(selectedOptionDetail) && (optionDescription(selectedOptionDetail) || optionRetention(selectedOptionDetail))"
+          class="option-detail-texts"
+        >
+          <p v-if="optionDescription(selectedOptionDetail)" class="option-detail-desc">
+            {{ optionDescription(selectedOptionDetail) }}
+          </p>
+          <p v-if="optionRetention(selectedOptionDetail)" class="option-detail-retention">
+            {{ optionRetention(selectedOptionDetail) }}
+          </p>
+        </div>
+
+        <template v-if="!optionDisabled(selectedOptionDetail)">
+          <div class="option-detail-prices">
+            <article>
+              <small>نقدی</small>
+              <strong>{{ selectedOptionDetail.cashAmount || selectedOptionDetail.cash_amount || selectedOptionDetail.totalAmount || selectedOptionDetail.total_amount || '—' }}</strong>
+            </article>
+            <article v-if="selectedOptionDetail.upfrontAmount || selectedOptionDetail.upfront_amount">
+              <small>پیش‌پرداخت</small>
+              <strong>{{ selectedOptionDetail.upfrontAmount || selectedOptionDetail.upfront_amount }}</strong>
+            </article>
+            <article v-if="selectedOptionDetail.installmentMonths || selectedOptionDetail.installment_months">
+              <small>اقساط</small>
+              <strong>{{ selectedOptionDetail.monthlyInstallmentAmount || selectedOptionDetail.monthly_installment_amount }} / {{ selectedOptionDetail.installmentMonths || selectedOptionDetail.installment_months }} ماه</strong>
+            </article>
+            <article v-if="selectedOptionDetail.annualSubscriptionAmountRaw">
+              <small>اشتراک سالانه</small>
+              <strong>{{ selectedOptionDetail.annualSubscriptionAmount }}</strong>
+            </article>
+          </div>
+
+          <div v-if="selectedOptionDetail.isActive || selectedOptionDetail.is_active" class="option-detail-live">
+            <article>
+              <small>پرداخت‌شده</small>
+              <strong>{{ selectedOptionDetail.paidAmount || selectedOptionDetail.paid_amount }}</strong>
+            </article>
+            <article>
+              <small>مانده</small>
+              <strong>{{ selectedOptionDetail.remainingAmount || selectedOptionDetail.remaining_amount }}</strong>
+            </article>
+            <article v-if="selectedOptionDetail.nextInstallmentDueAt || selectedOptionDetail.next_installment_due_at">
+              <small>سررسید بعدی</small>
+              <strong>{{ selectedOptionDetail.nextInstallmentDueAt || selectedOptionDetail.next_installment_due_at }}</strong>
+            </article>
+          </div>
+
+          <div v-if="state.wallet.error" class="wallet-alert danger in-modal">
+            {{ state.wallet.error }}
+          </div>
+
+          <div class="modal-actions option-detail-actions">
+            <button class="action-btn tone-soft" type="button" @click="closeOptionDetail">بستن</button>
+            <template v-if="!isSchematicWallet">
+              <button
+                v-if="selectedOptionDetail.canPayNextInstallment || selectedOptionDetail.can_pay_next_installment"
+                class="action-btn tone-primary"
+                type="button"
+                :disabled="state.wallet.submitting"
+                @click="payInstallmentFromDetail(selectedOptionDetail)"
+              >
+                پرداخت قسط {{ selectedOptionDetail.nextInstallmentAmount || selectedOptionDetail.next_installment_amount }}
+              </button>
+              <template v-else-if="!(selectedOptionDetail.isActive || selectedOptionDetail.is_active)">
+                <button
+                  class="action-btn tone-soft"
+                  type="button"
+                  :disabled="state.wallet.submitting"
+                  @click="openPurchase(selectedOptionDetail, 'installment')"
+                >
+                  خرید قسطی
+                </button>
+                <button
+                  class="action-btn tone-primary"
+                  type="button"
+                  :disabled="state.wallet.submitting"
+                  @click="openPurchase(selectedOptionDetail, 'cash')"
+                >
+                  <IconlyIcon name="shopping_cart_checkout" decorative />
+                  خرید نقدی
+                </button>
+              </template>
+            </template>
+            <div v-else class="option-detail-schematic">
+              <IconlyIcon name="visibility" decorative />
+              <b>نمایشی — بدون خرید واقعی</b>
+            </div>
+          </div>
+        </template>
+
+        <div v-else class="option-detail-locked">
+          <IconlyIcon name="lock" decorative />
+          <div>
+            <strong>
+              {{
+                optionInstallmentLocked(selectedOptionDetail)
+                  ? (selectedOptionDetail.installmentLockNotice || selectedOptionDetail.installment_lock_notice || 'این بخش به دلیل عدم پرداخت قسط قفل شده است.')
+                  : (selectedOptionDetail.disabledLabel || selectedOptionDetail.disabled_label || 'فعلا غیرفعال است')
+              }}
+            </strong>
+          </div>
+          <button class="action-btn tone-soft" type="button" @click="closeOptionDetail">بستن</button>
+        </div>
+      </div>
     </div>
 
     <div v-if="purchaseForm.open && selectedPurchaseOption" class="wallet-modal-backdrop" @click.self="closePurchase">
@@ -850,50 +1045,121 @@ watch(
 
 <style scoped>
 .wallet-page {
-  --wallet-navy: #111827;
-  --wallet-blue: var(--button-primary-bg, #17315d);
-  --wallet-action-bg: #34908B;
-  --wallet-action-shadow: 0 8px 20px rgba(52, 144, 139, 0.22);
-  --wallet-gold: #667085;
-  --wallet-ink: #344054;
-  --wallet-muted: #667085;
-  --wallet-line: #e4e7ec;
+  --wallet-ink: #143634;
+  --wallet-muted: #5f7a77;
+  --wallet-line: rgba(52, 144, 139, 0.14);
+  --wallet-jade: #34908b;
+  --wallet-ease: cubic-bezier(0.22, 1, 0.36, 1);
   display: grid;
-  gap: 18px;
+  gap: 20px;
   font-size: 13px;
   min-width: 0;
+  animation: wallet-page-in 0.55s var(--wallet-ease) both;
+}
+
+@keyframes wallet-page-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes wallet-orb-float {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(12px, -10px, 0) scale(1.08); }
+}
+
+@keyframes wallet-shine-sweep {
+  0% { transform: translateX(-120%) rotate(18deg); opacity: 0; }
+  35% { opacity: 0.55; }
+  100% { transform: translateX(180%) rotate(18deg); opacity: 0; }
+}
+
+@keyframes wallet-pulse-soft {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 168, 108, 0.28); }
+  50% { box-shadow: 0 0 0 10px rgba(201, 168, 108, 0); }
+}
+
+@keyframes wallet-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .wallet-hero {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(200px, 0.7fr);
+  gap: 22px;
   overflow: hidden;
-  min-height: 230px;
-  padding: 26px;
-  border: 1px solid rgba(52, 144, 139, 0.14);
-  border-radius: 22px;
+  min-height: 280px;
+  padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 28px;
+  color: #fff;
   background:
-    radial-gradient(circle at 100% 0%, rgba(72, 103, 183, 0.18), transparent 42%),
-    radial-gradient(circle at 0% 100%, rgba(52, 144, 139, 0.16), transparent 38%),
-    linear-gradient(135deg, #0f2744 0%, #1a3a5c 52%, #34908b 100%);
-  box-shadow: 0 18px 40px rgba(15, 39, 68, 0.18);
+    radial-gradient(ellipse 70% 80% at 100% -10%, rgba(201, 168, 108, 0.28), transparent 55%),
+    radial-gradient(ellipse 55% 70% at -5% 110%, rgba(52, 144, 139, 0.55), transparent 50%),
+    linear-gradient(145deg, #0b2f2d 0%, #145652 42%, #1f7a72 78%, #34908b 100%);
+  box-shadow:
+    0 24px 48px rgba(15, 63, 60, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .wallet-hero-visual {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(120deg, rgba(255, 255, 255, 0.08) 0%, transparent 38%),
-    repeating-linear-gradient(
-      -45deg,
-      rgba(255, 255, 255, 0.03) 0,
-      rgba(255, 255, 255, 0.03) 1px,
-      transparent 1px,
-      transparent 12px
-    );
   pointer-events: none;
+  overflow: hidden;
+}
+
+.wallet-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(2px);
+  animation: wallet-orb-float 8s ease-in-out infinite;
+}
+
+.wallet-orb-a {
+  width: 180px;
+  height: 180px;
+  top: -48px;
+  left: -36px;
+  background: radial-gradient(circle, rgba(201, 168, 108, 0.45), transparent 70%);
+}
+
+.wallet-orb-b {
+  width: 220px;
+  height: 220px;
+  right: -40px;
+  bottom: -70px;
+  background: radial-gradient(circle, rgba(120, 210, 200, 0.35), transparent 68%);
+  animation-delay: -2.5s;
+}
+
+.wallet-orb-c {
+  width: 120px;
+  height: 120px;
+  top: 38%;
+  left: 42%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.16), transparent 70%);
+  animation-delay: -4s;
+}
+
+.wallet-hero-shine {
+  position: absolute;
+  inset: -20% -40%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  animation: wallet-shine-sweep 5.5s var(--wallet-ease) infinite;
+}
+
+.wallet-hero-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(circle at 30% 40%, #000 20%, transparent 75%);
 }
 
 .wallet-hero-balance,
@@ -903,7 +1169,7 @@ watch(
 .wallet-ledger,
 .wallet-modal,
 .wallet-license-alert,
-.wallet-option-card {
+.wallet-option-tile {
   position: relative;
   z-index: 1;
 }
@@ -912,7 +1178,7 @@ watch(
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   color: #fff;
 }
 
@@ -923,120 +1189,185 @@ watch(
 }
 
 .wallet-hero-icon {
-  width: 52px;
-  height: 52px;
+  width: 54px;
+  height: 54px;
   display: grid;
   place-items: center;
-  border-radius: 16px;
+  border-radius: 18px;
   color: #fff;
-  background: rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .wallet-hero-labels {
   display: grid;
-  gap: 4px;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
 }
 
-.wallet-hero-labels span {
-  font-size: 12px;
+.wallet-hero-eyebrow {
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.82);
+  letter-spacing: 0.08em;
+  color: rgba(255, 245, 220, 0.88);
 }
 
 .wallet-hero-labels small {
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(255, 255, 255, 0.68);
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.wallet-hero-balance strong {
-  color: #fff;
-  font-size: clamp(2rem, 5vw, 3.6rem);
+.wallet-hero-chip {
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 11px;
   font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.04em;
-  text-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  color: #3d2f12;
+  background: linear-gradient(135deg, #f0d9a8, #c9a86c);
+  box-shadow: 0 8px 18px rgba(201, 168, 108, 0.35);
+  animation: wallet-pulse-soft 2.8s ease-in-out infinite;
 }
 
 .wallet-hero-caption {
-  margin: 0;
+  margin: 8px 0 0;
   color: rgba(255, 255, 255, 0.72);
   font-size: 12px;
   font-weight: 650;
 }
 
-.wallet-hero-balance small,
-.wallet-summary-card small,
-.wallet-tile small,
-.ledger-row small,
-.ledger-head span,
-.wallet-modal label span,
-.payment-card-box small,
-.payment-summary-box small {
-  color: var(--wallet-muted);
-  font-weight: 650;
+.wallet-hero-amount {
+  color: #fff !important;
+  font-size: clamp(2.2rem, 5.2vw, 3.8rem) !important;
+  font-weight: 850;
+  line-height: 1 !important;
+  letter-spacing: -0.04em;
+  text-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+  background: linear-gradient(180deg, #ffffff 20%, #f5e6c8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.wallet-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.wallet-hero-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(8px);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.wallet-hero-meta :deep(.iconly-shell),
+.wallet-hero-icon :deep(.iconly-shell),
+.wallet-action :deep(.iconly-shell) {
+  color: inherit;
 }
 
 .wallet-actions {
   display: grid;
   align-content: center;
   gap: 12px;
-  min-width: 170px;
 }
 
 .wallet-action {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 16px 18px;
-  border: 0;
-  border-radius: 12px;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 18px;
   color: #fff;
-  background: var(--wallet-blue);
-  box-shadow: none;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
   cursor: pointer;
+  transition: transform 0.22s var(--wallet-ease), background 0.22s ease, box-shadow 0.22s ease;
 }
 
-.wallet-action .iconly-shell,
-.wallet-action b {
-  color: inherit;
+.wallet-action:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
 }
 
 .wallet-action.deposit {
-  color: #fff;
-  background: var(--wallet-navy);
-}
-
-.wallet-action b {
-  font-size: 0.92rem;
-  font-weight: 750;
+  background: linear-gradient(135deg, rgba(201, 168, 108, 0.95), rgba(168, 130, 70, 0.92));
+  border-color: rgba(255, 236, 190, 0.45);
+  color: #2d220f;
 }
 
 .wallet-action.withdraw {
-  color: #fff;
-  background: var(--wallet-blue);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
+}
+
+.wallet-action-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.wallet-action.deposit .wallet-action-icon {
+  background: rgba(45, 34, 15, 0.12);
+  color: #2d220f;
+}
+
+.wallet-action-copy {
+  display: grid;
+  gap: 2px;
+  text-align: start;
+}
+
+.wallet-action-copy b {
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.wallet-action-copy small {
+  opacity: 0.78;
+  font-weight: 650;
 }
 
 .wallet-alert {
   padding: 14px 18px;
-  border-radius: 18px;
-  color: #254f85;
-  background: rgba(55, 99, 168, 0.1);
+  border-radius: 16px;
+  color: #1f5c59;
+  background: linear-gradient(135deg, rgba(52, 144, 139, 0.12), rgba(52, 144, 139, 0.05));
+  border: 1px solid rgba(52, 144, 139, 0.18);
   font-weight: 750;
 }
 
 .wallet-alert.danger {
-  color: var(--wallet-ink);
-  background: #f9fafb;
+  color: #9b3b2f;
+  background: linear-gradient(135deg, #fff5f3, #ffe8e3);
+  border-color: rgba(196, 90, 74, 0.2);
 }
 
 .wallet-alert.in-modal {
-  border: 1px solid #fecdca;
-  border-radius: 8px;
+  border-radius: 12px;
   color: #b42318 !important;
   background: #fffbfa !important;
+  border: 1px solid #fecdca;
 }
 
 .wallet-license-alert {
@@ -1044,30 +1375,38 @@ watch(
   align-items: center;
   gap: 12px;
   padding: 16px 18px;
-  border: 1px solid rgba(171, 92, 28, 0.18);
-  border-radius: 8px;
-  color: #7a3f14;
-  background: #f9fafb;
+  border: 1px solid rgba(196, 125, 42, 0.22);
+  border-radius: 18px;
+  color: #7a4a12;
+  background: linear-gradient(135deg, #fff8ec, #fff2d9);
+  animation: wallet-rise 0.5s var(--wallet-ease) both;
 }
 
 .wallet-license-alert.wallet-trial-alert {
-  border-color: rgba(52, 144, 139, 0.2);
+  border-color: rgba(52, 144, 139, 0.22);
   color: #1f5f5b;
-  background: rgba(52, 144, 139, 0.08);
+  background: linear-gradient(135deg, #eaf7f4, #d8efe9);
 }
 
-.wallet-license-alert.wallet-trial-alert .iconly-shell {
-  background: #34908B;
+.wallet-license-alert.wallet-installment-alert {
+  border-color: rgba(196, 90, 74, 0.22);
+  color: #8a3a2e;
+  background: linear-gradient(135deg, #fff4f1, #ffe6e0);
 }
 
 .wallet-license-alert .iconly-shell {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
+  border-radius: 14px;
   color: #fff;
-  background: var(--wallet-blue);
+  background: linear-gradient(145deg, #34908b, #1f6f6a);
+  flex-shrink: 0;
+}
+
+.wallet-license-alert.wallet-installment-alert .iconly-shell {
+  background: linear-gradient(145deg, #d97757, #c45a4a);
 }
 
 .wallet-license-alert div {
@@ -1075,191 +1414,386 @@ watch(
   gap: 4px;
 }
 
+.wallet-options-section {
+  display: grid;
+  gap: 12px;
+}
+
+.wallet-section-head.options-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wallet-section-head.options-head > div {
+  display: grid;
+  gap: 2px;
+}
+
+.wallet-section-head.options-head span {
+  color: var(--wallet-ink);
+  font-weight: 850;
+}
+
+.wallet-section-head.options-head small {
+  color: var(--wallet-muted);
+  font-weight: 650;
+}
+
+.wallet-section-head.options-head b {
+  min-width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(145deg, #1f6f6a, #34908b);
+  font-weight: 800;
+}
+
 .wallet-options-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.wallet-option-tile {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  min-height: 132px;
+  padding: 18px 14px 16px;
+  border: 1px solid rgba(52, 144, 139, 0.14);
+  border-radius: 22px;
+  color: var(--wallet-ink);
+  background: #ffffff;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: 0 10px 24px rgba(20, 70, 66, 0.06);
+  transition: transform 0.22s var(--wallet-ease), box-shadow 0.22s ease, border-color 0.22s ease;
+  animation: wallet-rise 0.5s var(--wallet-ease) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+.wallet-option-tile:hover {
+  transform: translateY(-4px) scale(1.02);
+  border-color: rgba(52, 144, 139, 0.28);
+  box-shadow: 0 16px 32px rgba(20, 70, 66, 0.1);
+}
+
+.wallet-option-tile.software,
+.wallet-option-tile.cloud,
+.wallet-option-tile.attendance,
+.wallet-option-tile.accounting {
+  color: var(--wallet-ink);
+  background: #ffffff;
+}
+
+.wallet-option-tile.active {
+  outline: 2px solid rgba(52, 144, 139, 0.45);
+  outline-offset: 2px;
+  border-color: rgba(52, 144, 139, 0.35);
+}
+
+.wallet-option-tile.disabled,
+.wallet-option-tile.locked {
+  opacity: 0.72;
+  filter: grayscale(0.25);
+}
+
+.wallet-option-tile-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  color: #1f6f6a;
+  background: rgba(52, 144, 139, 0.1);
+  border: 1px solid rgba(52, 144, 139, 0.16);
+}
+
+.wallet-option-tile-icon :deep(.iconly-shell),
+.option-detail-icon :deep(.iconly-shell),
+.option-detail-close :deep(.iconly-shell) {
+  --iconly-filter: brightness(0) saturate(100%) invert(36%) sepia(24%) saturate(980%) hue-rotate(131deg) brightness(92%) contrast(88%);
+  font-size: 22px;
+}
+
+.option-detail-icon :deep(.iconly-shell),
+.option-detail-close :deep(.iconly-shell) {
+  --iconly-filter: brightness(0) invert(1);
+}
+
+.wallet-option-tile strong {
+  color: var(--wallet-ink);
+  font-size: 0.92rem;
+  font-weight: 820;
+  line-height: 1.35;
+}
+
+.wallet-option-tile-status {
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #1f5c59;
+  background: rgba(52, 144, 139, 0.1);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.wallet-option-tile-glow {
+  display: none;
+}
+
+.option-detail-modal {
+  width: min(560px, 100%);
+  gap: 14px;
+}
+
+.option-detail-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 20px;
+  color: #fff;
+  background: linear-gradient(135deg, #145652, #34908b);
+}
+
+.option-detail-modal.cloud .option-detail-hero {
+  background: linear-gradient(135deg, #1a4b66, #4a9ab8);
+}
+
+.option-detail-modal.attendance .option-detail-hero {
+  background: linear-gradient(135deg, #145a4c, #39b08f);
+}
+
+.option-detail-modal.accounting .option-detail-hero {
+  background: linear-gradient(135deg, #6b4a1a, #c47d2a);
+}
+
+.option-detail-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  flex-shrink: 0;
+}
+
+.option-detail-copy {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.option-detail-copy small {
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 750;
+}
+
+.option-detail-copy strong {
+  font-size: 1.08rem;
+  font-weight: 850;
+}
+
+.option-detail-subtitle {
+  display: block;
+  margin: 0;
+  font-style: normal;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.5;
+}
+
+.option-detail-close {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+}
+
+.option-detail-texts {
+  display: grid;
+  gap: 10px;
+}
+
+.option-detail-desc {
+  margin: 0;
+  color: #3d5f5c;
+  line-height: 1.9;
+  font-weight: 650;
+}
+
+.option-detail-retention {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(52, 144, 139, 0.14);
+  color: #2d5c58;
+  background: rgba(52, 144, 139, 0.06);
+  line-height: 1.8;
+  font-weight: 700;
+}
+
+.option-detail-prices,
+.option-detail-live {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.option-detail-prices article,
+.option-detail-live article {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--wallet-line);
+  background: linear-gradient(180deg, #fff, #f3faf7);
+}
+
+.option-detail-prices small,
+.option-detail-live small {
+  color: var(--wallet-muted);
+  font-weight: 750;
+}
+
+.option-detail-prices strong,
+.option-detail-live strong {
+  color: var(--wallet-ink);
+  font-weight: 820;
+}
+
+.option-detail-actions {
+  flex-wrap: wrap;
+}
+
+.option-detail-schematic,
+.option-detail-locked {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  color: var(--wallet-ink);
+  background: rgba(20, 54, 52, 0.05);
+  font-weight: 800;
+}
+
+.option-detail-locked {
+  flex-wrap: wrap;
+}
+
+.wallet-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
-.wallet-option-card {
-  display: grid;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--wallet-line);
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: none;
-}
-
-.wallet-option-card.active {
-  background: #ffffff;
-}
-
-.wallet-option-card.disabled {
-  border-color: var(--wallet-line);
-  background: #fff;
-}
-
-.wallet-option-card.disabled .wallet-option-head .iconly-shell,
-.wallet-option-card.disabled .wallet-option-head small {
-  color: var(--wallet-blue);
-}
-
-.wallet-option-card.disabled strong {
-  color: var(--wallet-navy);
-}
-
-.wallet-option-head,
-.wallet-option-price,
-.wallet-option-actions,
-.wallet-option-disabled {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.wallet-option-head .iconly-shell {
-  color: var(--wallet-blue);
-}
-
-.wallet-option-head small {
-  color: var(--wallet-muted);
-  font-weight: 850;
-}
-
-.wallet-option-card strong {
-  color: var(--wallet-navy);
-}
-
-.wallet-option-card p {
-  min-height: 58px;
-  margin: 0;
-  color: var(--wallet-muted);
-  line-height: 1.8;
-}
-
-.wallet-option-retention {
-  display: block;
-  min-height: 48px;
-  padding: 10px 12px;
-  border: 1px solid #d0d5dd;
-  border-radius: 8px;
-  color: #344054;
-  background: #f9fafb;
-  line-height: 1.8;
-  font-weight: 700;
-}
-
-.wallet-option-price {
-  padding: 9px 10px;
-  border-radius: 8px;
-  background: #f9fafb;
-}
-
-.wallet-option-price span {
-  color: var(--wallet-muted);
-}
-
-.wallet-option-price b {
-  color: var(--wallet-ink);
-}
-
-.wallet-option-actions .action-btn {
-  min-height: 38px;
-  flex: 1;
-}
-
-.wallet-option-disabled {
-  min-height: 38px;
-  margin-top: auto;
-  padding: 11px 12px;
-  border-radius: 8px;
-  color: var(--wallet-navy);
-  background: #f9fafb;
-  font-weight: 800;
-}
-
-.wallet-option-disabled .iconly-shell {
-  color: var(--wallet-blue);
-}
-
-.wallet-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
 .wallet-summary-card {
+  position: relative;
+  overflow: hidden;
   display: grid;
   gap: 10px;
   padding: 18px;
-  min-height: 138px;
-  border: 1px solid var(--wallet-line);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: none;
+  min-height: 132px;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  color: #fff;
+  box-shadow: 0 16px 34px rgba(20, 70, 66, 0.12);
+  animation: wallet-rise 0.55s var(--wallet-ease) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+  transition: transform 0.22s var(--wallet-ease);
 }
 
-.wallet-summary-card small,
-.wallet-summary-card .iconly-shell,
-.wallet-summary-card strong {
-  color: inherit;
-}
+.wallet-summary-card:hover { transform: translateY(-3px); }
 
 .wallet-summary-card.primary {
-  color: #fff;
-  border-color: var(--wallet-blue);
-  background: var(--wallet-blue);
-}
-
-.wallet-summary-card.primary small {
-  color: rgba(255, 255, 255, 0.76);
+  background: linear-gradient(145deg, #0f4a46, #1f7a72 55%, #34908b);
 }
 
 .wallet-summary-card.main {
-  color: var(--wallet-navy);
-  border-color: var(--wallet-line);
-  background: #ffffff;
-}
-
-.wallet-summary-card.main small {
-  color: #486388;
+  background: linear-gradient(145deg, #1d4f6b, #2f6f8f 55%, #4a93b3);
 }
 
 .wallet-summary-card.sms {
-  color: var(--wallet-navy);
-  border-color: var(--wallet-line);
-  background: #ffffff;
-}
-
-.wallet-summary-card.sms small {
-  color: #41675d;
+  background: linear-gradient(145deg, #1d6b55, #2f9b7a 55%, #4db896);
 }
 
 .wallet-summary-card.deposit {
-  color: var(--wallet-navy);
-  border-color: var(--wallet-line);
-  background: #ffffff;
+  background: linear-gradient(145deg, #8a5a18, #c47d2a 55%, #d9a04a);
 }
 
-.wallet-summary-card.deposit small {
-  color: #8e6130;
+.wallet-summary-glow {
+  position: absolute;
+  inset: auto -20% -40% auto;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  filter: blur(8px);
+  pointer-events: none;
 }
 
+.wallet-summary-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.wallet-summary-card small,
+.wallet-summary-card strong,
 .wallet-summary-card .iconly-shell {
-  opacity: 0.96;
+  color: inherit;
+}
+
+.wallet-summary-card small {
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 700;
 }
 
 .wallet-summary-card strong {
-  font-size: 1.06rem;
-  font-weight: 740;
+  font-size: 1.12rem;
+  font-weight: 820;
+  letter-spacing: -0.02em;
 }
 
 .wallet-layout {
   display: grid;
-  grid-template-columns: 310px minmax(0, 1fr);
+  grid-template-columns: 320px minmax(0, 1fr);
   gap: 16px;
+}
+
+.wallet-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 4px 2px;
+  color: var(--wallet-ink);
+  font-weight: 850;
+}
+
+.wallet-section-head small {
+  color: var(--wallet-muted);
+  font-weight: 700;
 }
 
 .wallet-stack,
@@ -1269,54 +1803,106 @@ watch(
 }
 
 .wallet-tile {
+  position: relative;
+  overflow: hidden;
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 8px 12px;
-  align-items: center;
+  gap: 8px;
+  align-content: start;
   padding: 18px;
-  border: 1px solid var(--wallet-line);
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 22px;
   text-align: start;
-  color: var(--wallet-ink);
-  background: rgba(255, 255, 255, 0.68);
+  color: #fff;
   cursor: pointer;
+  box-shadow: 0 16px 32px rgba(15, 63, 60, 0.16);
+  transition: transform 0.22s var(--wallet-ease), box-shadow 0.22s ease;
+  animation: wallet-rise 0.55s var(--wallet-ease) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+.wallet-tile.is-main {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(201, 168, 108, 0.28), transparent 42%),
+    linear-gradient(145deg, #123f3c, #1f6f6a 55%, #2d8a84);
+}
+
+.wallet-tile.is-sms {
+  background:
+    radial-gradient(circle at 0% 100%, rgba(120, 200, 180, 0.3), transparent 45%),
+    linear-gradient(145deg, #164f5f, #247a8a 55%, #3498a8);
+}
+
+.wallet-tile:hover,
+.wallet-tile.is-active {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 20px 40px rgba(15, 63, 60, 0.22);
 }
 
 .wallet-tile.is-active {
-  border-color: var(--wallet-blue);
-  background: #fff;
-  color: var(--wallet-navy);
+  outline: 2px solid rgba(201, 168, 108, 0.75);
+  outline-offset: 2px;
 }
 
-.wallet-tile.is-active b,
-.wallet-tile.is-active strong,
-.wallet-tile.is-active .iconly-shell {
-  color: var(--wallet-navy);
+.wallet-tile-shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.14) 48%, transparent 62%);
+  pointer-events: none;
 }
 
-.wallet-tile.is-active small {
-  color: var(--wallet-muted);
+.wallet-tile-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.wallet-tile strong {
-  grid-column: 1 / -1;
-  font-size: 1.12rem;
-  font-weight: 740;
+.wallet-tile-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .wallet-tile b,
-.ledger-row b,
-.ledger-head b {
-  font-weight: 740;
+.wallet-tile strong,
+.wallet-tile .iconly-shell {
+  color: #fff;
+}
+
+.wallet-tile strong {
+  font-size: 1.28rem;
+  font-weight: 820;
+  letter-spacing: -0.02em;
+}
+
+.wallet-tile-ok,
+.wallet-tile-warn {
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 750;
+}
+
+.wallet-tile-ok {
+  color: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.wallet-tile-warn {
+  color: #5a3208;
+  background: linear-gradient(135deg, #f0d9a8, #c9a86c);
 }
 
 .wallet-ledger {
   min-height: 360px;
-  padding: 18px;
+  padding: 20px;
   border: 1px solid var(--wallet-line);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow: none;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(240, 249, 246, 0.94));
+  box-shadow: 0 16px 36px rgba(20, 70, 66, 0.07);
 }
 
 .ledger-head,
@@ -1329,77 +1915,97 @@ watch(
   gap: 14px;
 }
 
-.ledger-head {
-  margin-bottom: 14px;
+.ledger-head { margin-bottom: 16px; }
+.ledger-head > div { display: grid; gap: 2px; }
+
+.ledger-head span {
+  color: var(--wallet-ink);
+  font-weight: 850;
+  font-size: 0.98rem;
+}
+
+.ledger-head small {
+  color: var(--wallet-muted);
+  font-weight: 650;
 }
 
 .ledger-head b {
-  width: 34px;
-  height: 34px;
+  min-width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
   border-radius: 12px;
-  color: #f8f3e7;
-  background: var(--wallet-navy);
+  color: #fff;
+  background: linear-gradient(145deg, #1f6f6a, #34908b);
+  font-weight: 800;
 }
 
 .ledger-row {
   padding: 14px;
-  border-radius: 20px;
-  background: #f9fafb;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(52, 144, 139, 0.08);
+  box-shadow: 0 6px 16px rgba(20, 70, 66, 0.04);
+  animation: wallet-rise 0.45s var(--wallet-ease) both;
+  animation-delay: calc(var(--i, 0) * 35ms);
+  transition: transform 0.18s ease;
 }
 
+.ledger-row:hover { transform: translateX(-3px); }
+
 .ledger-icon {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
-  border-radius: 16px;
+  border-radius: 14px;
 }
 
 .ledger-icon.in {
-  color: var(--wallet-blue);
-  background: rgba(73, 114, 190, 0.12);
+  color: #1f7a5c;
+  background: linear-gradient(145deg, #dff7ec, #c7efdc);
 }
 
 .ledger-icon.out {
-  color: var(--wallet-blue);
-  background: rgba(224, 155, 88, 0.18);
+  color: #a85a1f;
+  background: linear-gradient(145deg, #ffefd8, #ffe0ba);
 }
 
 .ledger-row > div:nth-child(2) {
   flex: 1;
   display: grid;
   gap: 4px;
+  min-width: 0;
 }
 
-.ledger-row strong.in {
-  color: var(--wallet-blue);
+.ledger-row b {
+  color: var(--wallet-ink);
+  font-weight: 780;
 }
 
-.ledger-row strong.out {
-  color: var(--wallet-blue);
+.ledger-row small {
+  color: var(--wallet-muted);
+  font-weight: 650;
 }
+
+.ledger-row strong.in { color: #1f7a5c; }
+.ledger-row strong.out { color: #b4631e; }
 
 .wallet-empty,
 .wallet-loading {
   min-height: 280px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
-  color: rgba(24, 49, 83, 0.55);
-  background: rgba(255, 255, 255, 0.66);
+  gap: 10px;
+  border-radius: 20px;
+  color: rgba(31, 95, 91, 0.55);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(236, 247, 244, 0.85));
 }
 
-.wallet-empty.compact {
-  min-height: 240px;
-  background: #f9fafb;
-}
-
+.wallet-empty.compact { min-height: 220px; }
+.wallet-empty p { margin: 0; font-weight: 700; }
 .wallet-empty .iconly-shell,
-.wallet-loading .iconly-shell {
-  font-size: 2.55rem;
-}
+.wallet-loading .iconly-shell { font-size: 2.55rem; }
 
 .wallet-modal-backdrop {
   position: fixed;
@@ -1408,8 +2014,8 @@ watch(
   display: grid;
   place-items: center;
   padding: 18px;
-  background: rgba(24, 49, 83, 0.38);
-  backdrop-filter: none;
+  background: rgba(12, 40, 38, 0.48);
+  backdrop-filter: blur(8px);
 }
 
 .wallet-modal {
@@ -1417,23 +2023,15 @@ watch(
   display: grid;
   gap: 16px;
   padding: 22px;
-  border-radius: 12px;
-  background: #f8fbff;
-  box-shadow: none;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #ffffff, #f4faf8);
+  border: 1px solid rgba(52, 144, 139, 0.12);
+  box-shadow: 0 28px 60px rgba(12, 40, 38, 0.28);
 }
 
-.payment-guide-modal {
-  width: min(460px, 100%);
-}
-
-.payment-request-modal {
-  width: min(620px, 100%);
-}
-
-.purchase-modal {
-  width: min(680px, 100%);
-  overflow: hidden;
-}
+.payment-guide-modal { width: min(460px, 100%); }
+.payment-request-modal { width: min(620px, 100%); }
+.purchase-modal { width: min(680px, 100%); overflow: hidden; }
 
 .purchase-modal-head {
   display: flex;
@@ -1442,7 +2040,7 @@ watch(
   padding: 16px;
   border-radius: 18px;
   color: #fff;
-  background: var(--wallet-blue);
+  background: linear-gradient(135deg, #145652, #34908b);
 }
 
 .purchase-modal-head > .iconly-shell {
@@ -1451,24 +2049,13 @@ watch(
   display: grid;
   place-items: center;
   border-radius: 16px;
-  color: var(--wallet-navy);
-  background: #eff6ff;
+  color: #1f5c59;
+  background: #effaf6;
 }
 
-.purchase-modal-head div {
-  display: grid;
-  gap: 3px;
-}
-
-.purchase-modal-head small {
-  color: rgba(255, 255, 255, 0.72);
-  font-weight: 750;
-}
-
-.purchase-modal-head strong {
-  font-size: 1.05rem;
-  font-weight: 850;
-}
+.purchase-modal-head div { display: grid; gap: 3px; }
+.purchase-modal-head small { color: rgba(255, 255, 255, 0.72); font-weight: 750; }
+.purchase-modal-head strong { font-size: 1.05rem; font-weight: 850; }
 
 .purchase-copy {
   margin: 0;
@@ -1478,10 +2065,10 @@ watch(
 
 .purchase-copy.retention {
   padding: 12px 14px;
-  border: 1px solid #d0d5dd;
+  border: 1px solid rgba(52, 144, 139, 0.14);
   border-radius: 12px;
-  color: #344054;
-  background: #f9fafb;
+  color: #2d5c58;
+  background: rgba(52, 144, 139, 0.06);
   font-weight: 700;
 }
 
@@ -1497,30 +2084,23 @@ watch(
   gap: 7px;
   min-height: 112px;
   padding: 14px;
-  border: 1px solid rgba(32, 58, 105, 0.12);
+  border: 1px solid rgba(52, 144, 139, 0.14);
   border-radius: 18px;
   color: var(--wallet-ink);
   background: #fff;
   cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .purchase-plan-toggle button.active {
-  color: var(--wallet-navy);
-  border-color: #3264a9;
-  background: #eff6ff;
-  box-shadow: inset 0 0 0 2px rgba(50, 100, 169, 0.28);
+  color: #0f3f3c;
+  border-color: rgba(52, 144, 139, 0.45);
+  background: linear-gradient(180deg, #f2fbf8, #e4f5f0);
+  box-shadow: inset 0 0 0 2px rgba(52, 144, 139, 0.18);
+  transform: translateY(-1px);
 }
 
-.purchase-plan-toggle button.active .iconly-shell,
-.purchase-plan-toggle button.active b,
-.purchase-plan-toggle button.active small {
-  color: var(--wallet-navy);
-}
-
-.purchase-plan-toggle small {
-  color: inherit;
-  opacity: 0.72;
-}
+.purchase-plan-toggle small { color: inherit; opacity: 0.72; }
 
 .purchase-details-grid {
   display: grid;
@@ -1535,7 +2115,7 @@ watch(
   padding: 13px;
   border: 1px solid var(--wallet-line);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .purchase-details-grid small,
@@ -1546,7 +2126,7 @@ watch(
 
 .purchase-details-grid strong,
 .purchase-wallet-box strong {
-  color: var(--wallet-navy);
+  color: var(--wallet-ink);
 }
 
 .purchase-wallet-box {
@@ -1560,8 +2140,8 @@ watch(
   display: grid;
   place-items: center;
   border-radius: 14px;
-  color: var(--wallet-blue);
-  background: rgba(73, 114, 190, 0.12);
+  color: #fff;
+  background: linear-gradient(145deg, #34908b, #1f6f6a);
 }
 
 .modal-handle {
@@ -1569,32 +2149,36 @@ watch(
   height: 5px;
   margin: 0 auto;
   border-radius: 999px;
-  background: rgba(24, 49, 83, 0.18);
+  background: rgba(52, 144, 139, 0.25);
 }
 
 .modal-title {
   justify-content: flex-start;
-  color: var(--wallet-navy);
+  color: var(--wallet-ink);
   font-size: 0.98rem;
-  font-weight: 740;
+  font-weight: 780;
 }
 
-.wallet-modal label {
-  display: grid;
-  gap: 8px;
-}
+.wallet-modal label { display: grid; gap: 8px; }
 
 .wallet-modal input,
 .wallet-modal select,
 .wallet-modal textarea {
   width: 100%;
-  border: 1px solid rgba(32, 58, 105, 0.12);
-  border-radius: 18px;
+  border: 1px solid rgba(52, 144, 139, 0.16);
+  border-radius: 14px;
   padding: 12px 14px;
-  color: var(--wallet-navy);
-  background: rgba(255, 255, 255, 0.76);
+  color: var(--wallet-ink);
+  background: rgba(255, 255, 255, 0.9);
   font: inherit;
   outline: none;
+}
+
+.wallet-modal input:focus,
+.wallet-modal select:focus,
+.wallet-modal textarea:focus {
+  border-color: rgba(52, 144, 139, 0.45);
+  box-shadow: 0 0 0 4px rgba(52, 144, 139, 0.12);
 }
 
 .payment-card-box,
@@ -1602,40 +2186,55 @@ watch(
   display: grid;
   gap: 8px;
   padding: 18px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid var(--wallet-line);
+  border-radius: 16px;
+  background: linear-gradient(145deg, #0f3f3c, #1f6f6a);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.payment-card-box small,
+.payment-summary-box small {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 650;
 }
 
 .payment-card-box strong,
 .payment-summary-box b {
-  color: var(--wallet-navy);
-  font-size: 1.02rem;
-  font-weight: 740;
-  letter-spacing: 0.04em;
+  color: #fff;
+  font-size: 1.08rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
 }
 
 .payment-card-box span {
-  color: var(--wallet-ink);
+  color: #f0d9a8;
   font-weight: 700;
 }
 
 .wallet-modal .action-btn.tone-primary,
 .wallet-option-actions .action-btn.tone-primary {
   color: #fff !important;
-  background: var(--wallet-blue) !important;
+  background: linear-gradient(135deg, #1f6f6a, #34908b) !important;
+  box-shadow: 0 10px 22px rgba(52, 144, 139, 0.28) !important;
 }
 
 .wallet-modal .action-btn.tone-soft,
 .wallet-option-actions .action-btn.tone-soft {
-  color: var(--wallet-navy) !important;
-  background: rgba(55, 99, 168, 0.1) !important;
+  color: #1f5c59 !important;
+  background: rgba(52, 144, 139, 0.1) !important;
 }
 
 .payment-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+@media (max-width: 1100px) {
+  .wallet-summary-grid,
+  .wallet-options-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 980px) {
@@ -1645,51 +2244,37 @@ watch(
   }
 
   .wallet-actions {
-    min-width: 0;
-    width: 100%;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .wallet-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .wallet-options-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 640px) {
   .wallet-hero {
-    padding: 16px;
-    border-radius: 16px;
+    padding: 18px;
+    border-radius: 22px;
     min-height: 0;
   }
 
-  .wallet-hero-balance strong {
-    font-size: clamp(1.4rem, 8vw, 2.2rem);
+  .wallet-hero-amount {
+    font-size: clamp(1.6rem, 9vw, 2.4rem) !important;
     overflow-wrap: anywhere;
   }
 
-  .wallet-actions {
-    grid-template-columns: 1fr;
-  }
+  .wallet-hero-chip { display: none; }
 
-  .wallet-action {
-    width: 100%;
-  }
-
+  .wallet-actions,
   .wallet-summary-grid,
-  .wallet-options-grid,
   .purchase-details-grid,
   .payment-grid {
     grid-template-columns: 1fr;
   }
 
-  .ledger-row,
-  .modal-actions {
-    flex-wrap: wrap;
+  .wallet-options-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .ledger-row,
+  .modal-actions { flex-wrap: wrap; }
 
   .modal-actions .action-btn {
     width: 100%;
@@ -1699,183 +2284,22 @@ watch(
   .wallet-modal {
     gap: 12px;
     padding: 16px 12px;
-    border-radius: 20px 20px 0 0;
+    border-radius: 22px 22px 0 0;
     max-width: 100%;
   }
+}
 
-  .wallet-modal input,
-  .wallet-modal select,
-  .wallet-modal textarea {
-    border-radius: 14px;
-    padding: 10px 12px;
-    font-size: 12px;
-    box-sizing: border-box;
+@media (prefers-reduced-motion: reduce) {
+  .wallet-page,
+  .wallet-orb,
+  .wallet-hero-shine,
+  .wallet-hero-chip,
+  .wallet-summary-card,
+  .wallet-tile,
+  .wallet-option-tile,
+  .ledger-row {
+    animation: none !important;
   }
 }
 
-@media (max-width: 420px) {
-  .wallet-options-grid,
-  .purchase-plan-toggle,
-  .purchase-details-grid,
-  .payment-grid,
-  .wallet-summary-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Dashboard-aligned neutral navy theme. */
-.wallet-page {
-  --wallet-navy: #111827;
-  --wallet-blue: var(--button-primary-bg, #17315d);
-  --wallet-gold: #667085;
-  --wallet-ink: #344054;
-  --wallet-muted: #667085;
-  --wallet-line: #e4e7ec;
-}
-
-.wallet-hero,
-.wallet-summary-card,
-.wallet-tile,
-.wallet-ledger,
-.wallet-option-card,
-.wallet-modal,
-.wallet-license-alert,
-.purchase-details-grid article,
-.purchase-wallet-box,
-.payment-card-box,
-.payment-summary-box {
-  background: #ffffff;
-  border: 1px solid var(--wallet-line);
-  box-shadow: none;
-}
-
-.wallet-hero-balance .iconly-shell,
-.ledger-head b,
-.purchase-modal-head,
-.wallet-modal .action-btn.tone-primary,
-.wallet-option-actions .action-btn.tone-primary,
-.wallet-action,
-.wallet-action.deposit,
-.wallet-action.withdraw {
-  color: #ffffff !important;
-  background: #34908B !important;
-  background-image: none !important;
-  border-color: transparent !important;
-  box-shadow: 0 8px 20px rgba(52, 144, 139, 0.22) !important;
-}
-
-.wallet-action:hover:not(:disabled),
-.wallet-modal .action-btn.tone-primary:hover:not(:disabled),
-.wallet-option-actions .action-btn.tone-primary:hover:not(:disabled) {
-  color: #ffffff !important;
-  background: #2b7874 !important;
-  background-image: none !important;
-  border-color: transparent !important;
-  box-shadow: 0 10px 24px rgba(52, 144, 139, 0.26) !important;
-}
-
-.wallet-hero-balance strong,
-.wallet-option-card strong,
-.wallet-summary-card strong,
-.wallet-tile b,
-.wallet-tile strong,
-.ledger-row b,
-.ledger-head b,
-.payment-card-box strong,
-.payment-summary-box b,
-.purchase-details-grid strong,
-.purchase-wallet-box strong,
-.modal-title,
-.wallet-modal input,
-.wallet-modal select,
-.wallet-modal textarea {
-  color: var(--wallet-navy);
-}
-
-.wallet-hero-balance small,
-.wallet-summary-card small,
-.wallet-tile small,
-.ledger-row small,
-.ledger-head span,
-.wallet-option-card p,
-.wallet-option-price span,
-.wallet-modal label span,
-.payment-card-box small,
-.payment-summary-box small,
-.purchase-copy,
-.purchase-details-grid small,
-.purchase-wallet-box small {
-  color: var(--wallet-muted);
-}
-
-.wallet-summary-card.primary,
-.wallet-summary-card.main,
-.wallet-summary-card.sms,
-.wallet-summary-card.deposit,
-.wallet-tile.is-active {
-  color: var(--wallet-navy);
-  border-color: var(--wallet-line);
-  background: #ffffff;
-}
-
-.wallet-summary-card.primary small,
-.wallet-summary-card.main small,
-.wallet-summary-card.sms small,
-.wallet-summary-card.deposit small,
-.wallet-tile.is-active small {
-  color: var(--wallet-muted);
-}
-
-.wallet-summary-card .iconly-shell,
-.wallet-option-head .iconly-shell,
-.wallet-option-head small,
-.wallet-option-disabled .iconly-shell,
-.purchase-wallet-box .iconly-shell,
-.ledger-icon.in,
-.ledger-icon.out,
-.ledger-row strong.in,
-.ledger-row strong.out {
-  color: var(--wallet-blue);
-}
-
-.wallet-summary-card .iconly-shell,
-.wallet-option-head .iconly-shell,
-.purchase-wallet-box .iconly-shell,
-.ledger-icon.in,
-.ledger-icon.out {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-}
-
-.wallet-alert,
-.wallet-alert.danger,
-.wallet-license-alert,
-.wallet-option-price,
-.wallet-option-disabled,
-.ledger-row,
-.wallet-empty.compact,
-.wallet-modal .action-btn.tone-soft,
-.wallet-option-actions .action-btn.tone-soft {
-  color: var(--wallet-ink) !important;
-  background: #f9fafb !important;
-  border-color: var(--wallet-line);
-}
-
-.wallet-license-alert .iconly-shell,
-.purchase-modal-head > .iconly-shell {
-  color: var(--wallet-blue);
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-}
-
-.wallet-modal,
-.wallet-modal input,
-.wallet-modal select,
-.wallet-modal textarea {
-  background: #ffffff;
-}
-
-.modal-handle {
-  background: #e4e7ec;
-}
 </style>

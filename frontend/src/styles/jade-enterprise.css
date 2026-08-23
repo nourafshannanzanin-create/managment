@@ -4104,3 +4104,257 @@ body:has(.app-shell:not(.is-auth-route)),
   color: #ffffff !important;
 }
 
+/* ── Wallet premium visual (overrides flat-luxury locks) ── */
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-hero {
+  padding: 28px !important;
+  gap: 22px !important;
+  min-height: 280px !important;
+  border-radius: 28px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
+  background:
+    radial-gradient(ellipse 70% 80% at 100% -10%, rgba(201, 168, 108, 0.28), transparent 55%),
+    radial-gradient(ellipse 55% 70% at -5% 110%, rgba(52, 144, 139, 0.55), transparent 50%),
+    linear-gradient(145deg, #0b2f2d 0%, #145652 42%, #1f7a72 78%, #34908b 100%) !important;
+  background-image:
+    radial-gradient(ellipse 70% 80% at 100% -10%, rgba(201, 168, 108, 0.28), transparent 55%),
+    radial-gradient(ellipse 55% 70% at -5% 110%, rgba(52, 144, 139, 0.55), transparent 50%),
+    linear-gradient(145deg, #0b2f2d 0%, #145652 42%, #1f7a72 78%, #34908b 100%) !important;
+  box-shadow:
+    0 24px 48px rgba(15, 63, 60, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-hero::before,
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-hero::after {
+  content: none !important;
+  display: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-hero-amount,
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-hero strong.wallet-hero-amount {
+  font-size: clamp(2.2rem, 5.2vw, 3.8rem) !important;
+  line-height: 1 !important;
+  color: #fff !important;
+  background: linear-gradient(180deg, #ffffff 20%, #f5e6c8 100%) !important;
+  background-image: linear-gradient(180deg, #ffffff 20%, #f5e6c8 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-hero-caption,
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-hero-labels small,
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-hero-eyebrow,
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-hero-meta span {
+  color: rgba(255, 255, 255, 0.82) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-action {
+  border-radius: 18px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-action.deposit {
+  color: #2d220f !important;
+  background: linear-gradient(135deg, rgba(201, 168, 108, 0.95), rgba(168, 130, 70, 0.92)) !important;
+  background-image: linear-gradient(135deg, rgba(201, 168, 108, 0.95), rgba(168, 130, 70, 0.92)) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-action.withdraw {
+  color: #fff !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08)) !important;
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08)) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-summary-card {
+  color: #fff !important;
+  border: 0 !important;
+  border-radius: 20px !important;
+  box-shadow: 0 16px 34px rgba(20, 70, 66, 0.12) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-summary-card.primary {
+  background: linear-gradient(145deg, #0f4a46, #1f7a72 55%, #34908b) !important;
+  background-image: linear-gradient(145deg, #0f4a46, #1f7a72 55%, #34908b) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-summary-card.main {
+  background: linear-gradient(145deg, #1d4f6b, #2f6f8f 55%, #4a93b3) !important;
+  background-image: linear-gradient(145deg, #1d4f6b, #2f6f8f 55%, #4a93b3) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-summary-card.sms {
+  background: linear-gradient(145deg, #1d6b55, #2f9b7a 55%, #4db896) !important;
+  background-image: linear-gradient(145deg, #1d6b55, #2f9b7a 55%, #4db896) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-summary-card.deposit {
+  background: linear-gradient(145deg, #8a5a18, #c47d2a 55%, #d9a04a) !important;
+  background-image: linear-gradient(145deg, #8a5a18, #c47d2a 55%, #d9a04a) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-summary-card small,
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-summary-card strong,
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-summary-card .iconly-shell {
+  color: #fff !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-summary-card small {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-tile.is-main {
+  color: #fff !important;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(201, 168, 108, 0.28), transparent 42%),
+    linear-gradient(145deg, #123f3c, #1f6f6a 55%, #2d8a84) !important;
+  background-image:
+    radial-gradient(circle at 100% 0%, rgba(201, 168, 108, 0.28), transparent 42%),
+    linear-gradient(145deg, #123f3c, #1f6f6a 55%, #2d8a84) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-tile.is-sms {
+  color: #fff !important;
+  background:
+    radial-gradient(circle at 0% 100%, rgba(120, 200, 180, 0.3), transparent 45%),
+    linear-gradient(145deg, #164f5f, #247a8a 55%, #3498a8) !important;
+  background-image:
+    radial-gradient(circle at 0% 100%, rgba(120, 200, 180, 0.3), transparent 45%),
+    linear-gradient(145deg, #164f5f, #247a8a 55%, #3498a8) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-tile b,
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-tile strong,
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-tile .iconly-shell {
+  color: #fff !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-ledger {
+  border-radius: 24px !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(240, 249, 246, 0.94)) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(240, 249, 246, 0.94)) !important;
+  box-shadow: 0 16px 36px rgba(20, 70, 66, 0.07) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-option-tile.software,
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-option-tile.cloud,
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-option-tile.attendance,
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-option-tile.accounting {
+  color: #143634 !important;
+  background: #ffffff !important;
+  background-image: none !important;
+  border: 1px solid rgba(52, 144, 139, 0.14) !important;
+  box-shadow: 0 10px 24px rgba(20, 70, 66, 0.06) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-options-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-option-tile strong {
+  color: #143634 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-option-tile-status {
+  color: #1f5c59 !important;
+  background: rgba(52, 144, 139, 0.1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-option-tile .iconly-shell {
+  --iconly-filter: brightness(0) saturate(100%) invert(36%) sepia(24%) saturate(980%) hue-rotate(131deg) brightness(92%) contrast(88%) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-hero .iconly-shell,
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-close .iconly-shell {
+  --iconly-filter: brightness(0) invert(1) !important;
+}
+
+/* Override global strong/p/small !important so CEO/manager option texts stay visible */
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-hero,
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-hero strong,
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-hero small,
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-hero em,
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-subtitle {
+  color: #fff !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-hero small,
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-subtitle {
+  color: rgba(255, 255, 255, 0.84) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-desc,
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-retention,
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-texts p {
+  color: #2d5c58 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-prices small,
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-live small {
+  color: #5a7a76 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-prices strong,
+#app .app-shell:not(.is-auth-route) .wallet-page .option-detail-live strong {
+  color: #143634 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-option-card {
+  border-radius: 20px !important;
+  background: #ffffff !important;
+  background-image: none !important;
+  box-shadow: 0 10px 24px rgba(20, 70, 66, 0.06) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .ledger-row strong.in {
+  color: #1f7a5c !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .ledger-row strong.out {
+  color: #b4631e !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .ledger-icon.in {
+  color: #1f7a5c !important;
+  background: linear-gradient(145deg, #dff7ec, #c7efdc) !important;
+  background-image: linear-gradient(145deg, #dff7ec, #c7efdc) !important;
+  border: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .ledger-icon.out {
+  color: #a85a1f !important;
+  background: linear-gradient(145deg, #ffefd8, #ffe0ba) !important;
+  background-image: linear-gradient(145deg, #ffefd8, #ffe0ba) !important;
+  border: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .payment-card-box,
+#app .app-shell:not(.is-auth-route) .wallet-page .payment-summary-box {
+  color: #fff !important;
+  background: linear-gradient(145deg, #0f3f3c, #1f6f6a) !important;
+  background-image: linear-gradient(145deg, #0f3f3c, #1f6f6a) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-modal .action-btn.tone-primary,
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-option-actions .action-btn.tone-primary {
+  color: #fff !important;
+  background: linear-gradient(135deg, #1f6f6a, #34908b) !important;
+  background-image: linear-gradient(135deg, #1f6f6a, #34908b) !important;
+  box-shadow: 0 10px 22px rgba(52, 144, 139, 0.28) !important;
+}
+
+@media (max-width: 640px) {
+  #app .app-shell:not(.is-auth-route) .wallet-page .wallet-hero {
+    padding: 18px !important;
+    min-height: 0 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .wallet-page .wallet-hero-amount,
+  #app .app-shell:not(.is-auth-route) .wallet-page .wallet-hero strong.wallet-hero-amount {
+    font-size: clamp(1.6rem, 9vw, 2.4rem) !important;
+  }
+}
+
