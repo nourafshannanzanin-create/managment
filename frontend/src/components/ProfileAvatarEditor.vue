@@ -62,9 +62,9 @@ function onClear() {
         :size="size"
       />
       <div class="profile-avatar-editor-copy">
-        <strong>{{ title }}</strong>
+        <strong v-if="title">{{ title }}</strong>
         <p v-if="name" class="profile-avatar-name">{{ name }}</p>
-        <p>{{ description }}</p>
+        <p v-if="description">{{ description }}</p>
         <small v-if="fileLabel" class="profile-avatar-file" dir="ltr">{{ fileLabel }}</small>
       </div>
     </div>

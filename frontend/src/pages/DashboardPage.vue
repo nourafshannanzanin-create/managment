@@ -8,8 +8,6 @@ import NotificationsBell from '../components/NotificationsBell.vue'
 import PageHeader from '../components/PageHeader.vue'
 import ProfileAvatarEditor from '../components/ProfileAvatarEditor.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
-import { formatJalali, getTodayJalali } from '../utils/jalali'
-import { joinDisplayParts } from '../utils/text'
 import { isPendingWorkflowItem } from '../utils/status'
 import { notifyError, notifyInfo } from '../utils/notify'
 
@@ -32,7 +30,6 @@ const {
 const todayHoursLabel = ref('—')
 const attendancePunchOpen = ref(false)
 const avatarBusy = ref(false)
-const todayLabel = computed(() => formatJalali(getTodayJalali()))
 const currentRole = computed(() => String(state.currentUser.accessRole || ''))
 const isManagerDashboard = computed(() => ['admin', 'executive_manager', 'manager'].includes(currentRole.value))
 const currentUserName = computed(() => String(state.currentUser.name || '').trim())
@@ -121,15 +118,6 @@ const importantDocs = computed(() => {
 })
 
 const pageTitle = computed(() => (isManagerDashboard.value ? 'داشبورد مدیریتی' : 'داشبورد کاری'))
-const pageDescription = computed(() =>
-  isManagerDashboard.value
-    ? `امروز ${todayLabel.value} است. این نما، وضعیت درخواست‌ها، هزینه‌ها و تاییدها را به صورت خلاصه نشان می‌دهد.`
-    : `امروز ${todayLabel.value} است. حضور، پاداش/جریمه و موارد مهم شما اینجاست.`,
-)
-
-const heroTitle = computed(() =>
-  isManagerDashboard.value ? 'نمای زنده تصمیم‌ها و بار عملیاتی' : 'وضعیت امروز شما',
-)
 
 const quickFocus = computed(() => {
   if (isManagerDashboard.value) {
@@ -149,17 +137,17 @@ const quickFocus = computed(() => {
 const operationalSnapshot = computed(() => {
   if (isManagerDashboard.value) {
     return [
-      { label: 'کاربران فعال', value: state.users.length, detail: 'ساختار سازمانی', icon: 'groups' },
-      { label: 'واحدها', value: state.directories.departments.length, detail: 'بخش‌های ثبت شده', icon: 'apartment' },
-      { label: 'گزارش‌ها', value: state.reports.length, detail: 'خروجی آماده', icon: 'monitoring' },
-      { label: 'فعالیت‌ها', value: state.activities.length, detail: 'رخداد اخیر', icon: 'bolt' },
+      { label: 'کاربران فعال', value: state.users.length, icon: 'groups' },
+      { label: 'واحدها', value: state.directories.departments.length, icon: 'apartment' },
+      { label: 'گزارش‌ها', value: state.reports.length, icon: 'monitoring' },
+      { label: 'فعالیت‌ها', value: state.activities.length, icon: 'bolt' },
     ]
   }
   return [
-    { label: 'تیکت باز', value: openTicketsCount.value, detail: 'پشتیبانی', icon: 'support_agent' },
-    { label: 'گفتگوی جدید', value: chatUnreadCount.value || 0, detail: 'خوانده‌نشده', icon: 'forum' },
-    { label: 'اسناد مهم', value: importantDocs.value.length, detail: 'اولویت بالا', icon: 'priority_high' },
-    { label: 'اقدام باز', value: inboxApprovals.value.length, detail: 'نیازمند تصمیم', icon: 'task' },
+    { label: 'تیکت باز', value: openTicketsCount.value, icon: 'support_agent' },
+    { label: 'گفتگوی جدید', value: chatUnreadCount.value || 0, icon: 'forum' },
+    { label: 'اسناد مهم', value: importantDocs.value.length, icon: 'priority_high' },
+    { label: 'اقدام باز', value: inboxApprovals.value.length, icon: 'task' },
   ]
 })
 
@@ -172,37 +160,29 @@ const highlightedStats = computed(() => {
         id: 'monthly-expense',
         label: 'هزینه ماه جاری',
         value: monthlyExpense,
-        note: 'جمع ماه',
         icon: 'payments',
         tone: 'is-expense',
-        accent: 'مصارف',
       },
       {
         id: 'active-requests',
         label: 'درخواست‌های فعال',
         value: pendingRequests.value.length,
-        note: 'در انتظار تایید',
         icon: 'assignment',
         tone: 'is-request',
-        accent: 'جریان باز',
       },
       {
         id: 'pending-approvals',
         label: 'در انتظار تایید',
         value: inboxApprovals.value.length,
-        note: 'نیازمند تصمیم',
         icon: 'pending_actions',
         tone: 'is-approval',
-        accent: 'اقدام فوری',
       },
       {
         id: 'pending-expenses',
         label: 'هزینه‌های باز',
         value: pendingExpenses.value.length,
-        note: 'در انتظار تایید',
         icon: 'receipt_long',
         tone: 'is-success',
-        accent: 'نیازمند اقدام',
       },
     ]
   }
@@ -212,37 +192,29 @@ const highlightedStats = computed(() => {
       id: 'today-hours',
       label: 'ساعت حضور امروز',
       value: todayHoursLabel.value,
-      note: 'بر اساس ورود/خروج',
       icon: 'schedule',
       tone: 'is-request',
-      accent: 'حضور',
     },
     {
       id: 'my-bonus',
       label: 'پاداش',
       value: currentUserBonus.value,
-      note: 'جمع پاداش',
       icon: 'award_star',
       tone: 'is-success',
-      accent: 'پاداش',
     },
     {
       id: 'my-penalty',
       label: 'جریمه',
       value: currentUserPenalty.value,
-      note: 'جمع جریمه',
       icon: 'gavel',
       tone: 'is-approval',
-      accent: 'جریمه',
     },
     {
       id: 'open-tickets',
       label: 'تیکت باز',
       value: openTicketsCount.value,
-      note: 'پشتیبانی',
       icon: 'support_agent',
       tone: 'is-expense',
-      accent: 'پشتیبانی',
     },
   ]
 })
@@ -261,11 +233,7 @@ const actionCards = computed(() => {
       key: item.key,
       kind: 'important',
       tone: 'is-approval',
-      typeLabel: item.kind,
-      status: item.status,
       title: item.title,
-      subtitle: 'اولویت بالا',
-      meta: [item.kind, item.status || '-'],
       actionLabel: 'مشاهده',
       action: item.action,
     }))
@@ -277,12 +245,8 @@ const actionCards = computed(() => {
       key: `approval-${item.id}`,
       kind: 'approval',
       tone: 'is-approval',
-      typeLabel: 'تاییدیه',
-      status: item.status,
       title: item.title,
-      subtitle: joinDisplayParts([item.owner, item.department]),
-      meta: [item.type, item.risk, item.uploadedAt || '-'],
-      actionLabel: 'مشاهده و تصمیم',
+      actionLabel: 'مشاهده',
       action: () => openApprovalDetail(item.id),
     })
   })
@@ -291,12 +255,8 @@ const actionCards = computed(() => {
       key: `request-${item.id}`,
       kind: 'request',
       tone: 'is-request',
-      typeLabel: 'درخواست',
-      status: item.status,
       title: item.title,
-      subtitle: joinDisplayParts([item.owner, item.department]),
-      meta: [item.priority || '-', item.manager || '-', item.createdAt || item.deadline || '-'],
-      actionLabel: 'جزئیات درخواست',
+      actionLabel: 'مشاهده',
       action: () => openRequestDetail(item.id),
     })
   })
@@ -305,24 +265,13 @@ const actionCards = computed(() => {
       key: `expense-${item.id}`,
       kind: 'expense',
       tone: 'is-expense',
-      typeLabel: 'هزینه',
-      status: item.status,
       title: item.title,
-      subtitle: joinDisplayParts([item.owner, item.category]),
-      meta: [item.amount, item.department, item.submittedAt || '-'],
-      actionLabel: 'بررسی هزینه',
+      actionLabel: 'مشاهده',
       action: () => openExpenseDetail(item.id),
     })
   })
   return cards.slice(0, isManagerDashboard.value ? 10 : 8)
 })
-
-function statusClass(status) {
-  const text = String(status || '')
-  if (text.includes('رد')) return 'is-danger'
-  if (text.includes('تایید')) return 'is-success'
-  return 'is-warning'
-}
 
 function computeWorkedHours(events) {
   const sorted = [...(events || [])].sort(
@@ -411,7 +360,7 @@ async function onOwnAvatarClear() {
     <PageHeader
       eyebrow="مرکز عملیات"
       :title="pageTitle"
-      :description="pageDescription"
+      description=""
     >
       <template #actions>
         <NotificationsBell />
@@ -444,17 +393,13 @@ async function onOwnAvatarClear() {
             :avatar-file-name="state.currentUser.avatarFileName"
             size="lg"
             :busy="avatarBusy"
-            title="عکس پروفایل شما"
-            description="روی تغییر عکس بزنید؛ تصویر فشرده و در سرور ذخیره می‌شود."
+            title=""
+            description=""
             add-label="افزودن عکس"
             change-label="تغییر عکس"
             @select="onOwnAvatarSelect"
             @clear="onOwnAvatarClear"
           />
-        </div>
-        <div class="dashboard-stage-copy">
-          <span class="dashboard-stage-badge">{{ isManagerDashboard ? 'نمای زنده عملیات' : 'نمای کار روزانه' }}</span>
-          <h2 :class="{ 'is-single-line': !isManagerDashboard }">{{ heroTitle }}</h2>
         </div>
 
         <div class="dashboard-focus-ribbon">
@@ -487,7 +432,6 @@ async function onOwnAvatarClear() {
             <div class="dashboard-summary-copy">
               <strong>{{ item.value }}</strong>
               <span>{{ item.label }}</span>
-              <small>{{ item.detail }}</small>
             </div>
           </article>
         </div>
@@ -495,10 +439,7 @@ async function onOwnAvatarClear() {
 
       <article class="dashboard-metrics-panel">
         <div class="dashboard-section-head">
-          <div>
-            <span class="dashboard-section-kicker">مرور سریع</span>
-            <h3>{{ isManagerDashboard ? 'شاخص‌های کلیدی امروز' : 'وضعیت شخصی امروز' }}</h3>
-          </div>
+          <h3>{{ isManagerDashboard ? 'شاخص‌های کلیدی' : 'وضعیت امروز' }}</h3>
         </div>
         <div class="dashboard-metrics-grid">
           <article
@@ -507,13 +448,11 @@ async function onOwnAvatarClear() {
             :class="['dashboard-metric-card', item.tone]"
           >
             <div class="dashboard-metric-topline">
-              <span class="dashboard-metric-accent">{{ item.accent }}</span>
               <IconlyIcon :name="item.icon" class="dashboard-metric-icon" decorative />
             </div>
             <div class="dashboard-metric-main">
               <span class="dashboard-metric-label">{{ item.label }}</span>
               <strong>{{ item.value }}</strong>
-              <small>{{ item.note }}</small>
             </div>
           </article>
         </div>
@@ -523,23 +462,12 @@ async function onOwnAvatarClear() {
     <section class="dashboard-actions-shell">
       <article class="surface-block dashboard-actions-panel">
         <div class="dashboard-section-head dashboard-section-head-tight">
-          <div>
-            <span class="dashboard-section-kicker">{{ isManagerDashboard ? 'اولویت جاری' : 'اسناد مهم' }}</span>
-            <h3>{{ isManagerDashboard ? 'موارد قابل اقدام' : 'اولویت بالا برای شما' }}</h3>
-          </div>
+          <h3>{{ isManagerDashboard ? 'موارد قابل اقدام' : 'اولویت بالا' }}</h3>
         </div>
         <div v-if="actionCards.length" class="dashboard-queue-grid">
           <article v-for="item in actionCards" :key="item.key" :class="['dashboard-action-card', item.tone]">
-            <div class="dashboard-action-top">
-              <span class="dashboard-action-type">{{ item.typeLabel }}</span>
-              <span class="status-badge" :class="statusClass(item.status)">{{ item.status }}</span>
-            </div>
             <div class="dashboard-action-copy">
               <strong>{{ item.title }}</strong>
-              <small>{{ item.subtitle }}</small>
-            </div>
-            <div class="dashboard-action-meta">
-              <span v-for="(meta, idx) in item.meta" :key="idx">{{ meta }}</span>
             </div>
             <button class="dashboard-action-button" type="button" @click="item.action()">
               {{ item.actionLabel }}
@@ -553,10 +481,7 @@ async function onOwnAvatarClear() {
     <section class="dashboard-actions-shell">
       <article class="surface-block dashboard-actions-panel">
         <div class="dashboard-section-head dashboard-section-head-tight">
-          <div>
-            <span class="dashboard-section-kicker">تسکینگ</span>
-            <h3>وضعیت کارهای شما</h3>
-          </div>
+          <h3>تسکینگ</h3>
           <button class="action-btn tone-primary" type="button" @click="router.push('/tasking')">
             <IconlyIcon name="task_alt" decorative />
             <span>رفتن به تسکینگ</span>
@@ -576,7 +501,6 @@ async function onOwnAvatarClear() {
             <div class="dashboard-summary-copy">
               <strong>{{ item.value }}</strong>
               <span>{{ item.label }}</span>
-              <small>به‌روز از ماژول تسکینگ</small>
             </div>
           </article>
         </div>
@@ -809,12 +733,13 @@ async function onOwnAvatarClear() {
   min-width: 0;
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
-  padding: 8px 0;
-  border-radius: 0;
-  background: transparent;
-  backdrop-filter: none;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(52, 144, 139, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 14px rgba(31, 92, 89, 0.05);
 }
 
 .dashboard-focus-chip .iconly-shell,
@@ -842,15 +767,19 @@ async function onOwnAvatarClear() {
 }
 
 .dashboard-focus-chip strong {
-  font-size: 16px;
+  font-size: 0.95rem;
   color: var(--dashboard-navy);
-  line-height: 1;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-focus-chip span:last-child {
   margin-top: 5px;
   font-size: 10px;
   color: var(--dashboard-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dashboard-stage-summary {
@@ -865,18 +794,20 @@ async function onOwnAvatarClear() {
   min-width: 0;
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
-  padding: 8px 0;
-  border-radius: 0;
-  background: transparent;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(52, 144, 139, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 14px rgba(31, 92, 89, 0.05);
 }
 
 .dashboard-summary-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-  background: var(--surface, #fff);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(52, 144, 139, 0.08);
   color: #27467f;
 }
 
@@ -885,22 +816,23 @@ async function onOwnAvatarClear() {
 }
 
 .dashboard-summary-copy strong {
-  font-size: 18px;
-  line-height: 1;
+  font-size: 1.05rem;
+  line-height: 1.15;
   color: var(--dashboard-navy);
+  overflow-wrap: anywhere;
 }
 
 .dashboard-summary-copy span {
-  margin-top: 4px;
-  font-size: 11px;
+  margin-top: 3px;
+  font-size: 0.72rem;
   font-weight: 800;
   color: var(--dashboard-ink);
 }
 
 .dashboard-summary-copy small {
-  margin-top: 3px;
-  font-size: 10px;
-  line-height: 1.6;
+  margin-top: 2px;
+  font-size: 0.64rem;
+  line-height: 1.4;
   color: var(--dashboard-muted);
 }
 
@@ -922,8 +854,8 @@ async function onOwnAvatarClear() {
 }
 
 .dashboard-section-head h3 {
-  margin: 4px 0 0;
-  font-size: 16px;
+  margin: 0;
+  font-size: 15px;
   color: var(--dashboard-navy);
 }
 
@@ -940,18 +872,20 @@ async function onOwnAvatarClear() {
 }
 
 .dashboard-metric-card {
-  min-height: 156px;
-  padding: 16px;
-  border-radius: 12px;
+  min-height: 108px;
+  padding: 14px;
+  border-radius: 14px;
   display: grid;
-  gap: 14px;
-  background: var(--surface, #fff);
+  gap: 12px;
+  border: 1px solid rgba(52, 144, 139, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 14px rgba(31, 92, 89, 0.05);
 }
 
 .dashboard-metric-topline {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
 }
 
@@ -1048,9 +982,10 @@ async function onOwnAvatarClear() {
 }
 
 .dashboard-metric-card strong {
-  font-size: clamp(20px, 1.7vw, 26px);
-  line-height: 1;
+  font-size: clamp(1rem, 1.4vw, 1.35rem);
+  line-height: 1.15;
   color: var(--dashboard-navy);
+  overflow-wrap: anywhere;
 }
 
 .dashboard-metric-card small {
@@ -1060,35 +995,101 @@ async function onOwnAvatarClear() {
 }
 
 .dashboard-metric-card.is-expense {
-  background: var(--surface, #fff);
+  border-color: rgba(217, 119, 6, 0.24);
+  background: linear-gradient(155deg, rgba(255, 251, 235, 0.98), rgba(254, 243, 199, 0.94));
+  box-shadow: 0 6px 18px rgba(217, 119, 6, 0.1);
+}
+
+.dashboard-metric-card.is-expense .dashboard-metric-accent {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.18);
+}
+
+.dashboard-metric-card.is-expense .dashboard-metric-icon {
+  background: rgba(245, 158, 11, 0.2);
+  color: #d97706;
+}
+
+.dashboard-metric-card.is-expense strong {
+  color: #92400e;
 }
 
 .dashboard-metric-card.is-request {
-  background: var(--surface, #fff);
+  border-color: rgba(37, 99, 235, 0.22);
+  background: linear-gradient(155deg, rgba(239, 246, 255, 0.98), rgba(219, 234, 254, 0.94));
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.1);
+}
+
+.dashboard-metric-card.is-request .dashboard-metric-accent {
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.16);
+}
+
+.dashboard-metric-card.is-request .dashboard-metric-icon {
+  background: rgba(59, 130, 246, 0.18);
+  color: #2563eb;
+}
+
+.dashboard-metric-card.is-request strong {
+  color: #1e3a8a;
 }
 
 .dashboard-metric-card.is-approval {
-  background: var(--surface, #fff);
+  border-color: rgba(124, 58, 237, 0.22);
+  background: linear-gradient(155deg, rgba(245, 243, 255, 0.98), rgba(237, 233, 254, 0.94));
+  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.1);
+}
+
+.dashboard-metric-card.is-approval .dashboard-metric-accent {
+  color: #6d28d9;
+  background: rgba(139, 92, 246, 0.16);
+}
+
+.dashboard-metric-card.is-approval .dashboard-metric-icon {
+  background: rgba(139, 92, 246, 0.18);
+  color: #7c3aed;
+}
+
+.dashboard-metric-card.is-approval strong {
+  color: #5b21b6;
 }
 
 .dashboard-metric-card.is-success {
-  background: var(--surface, #fff);
+  border-color: rgba(22, 163, 74, 0.22);
+  background: linear-gradient(155deg, rgba(240, 253, 244, 0.98), rgba(220, 252, 231, 0.94));
+  box-shadow: 0 6px 18px rgba(22, 163, 74, 0.1);
+}
+
+.dashboard-metric-card.is-success .dashboard-metric-accent {
+  color: #15803d;
+  background: rgba(34, 197, 94, 0.16);
+}
+
+.dashboard-metric-card.is-success .dashboard-metric-icon {
+  background: rgba(34, 197, 94, 0.18);
+  color: #16a34a;
+}
+
+.dashboard-metric-card.is-success strong {
+  color: #166534;
 }
 
 .dashboard-queue-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
   margin-top: 16px;
 }
 
 .dashboard-action-card {
   min-width: 0;
   display: grid;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 12px;
-  background: var(--surface, #fff);
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(52, 144, 139, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 14px rgba(31, 92, 89, 0.05);
 }
 
 .dashboard-action-card.is-approval {
@@ -1169,20 +1170,21 @@ async function onOwnAvatarClear() {
   box-shadow: none;
 }
 
-@media (max-width: 1360px) {
+@media (min-width: 1241px) {
   .dashboard-queue-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
+@media (min-width: 1560px) {
+  .dashboard-queue-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 1240px) {
   .dashboard-stage-grid {
-  background-color: #041f78 !important;
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .dashboard-queue-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -1192,21 +1194,16 @@ async function onOwnAvatarClear() {
     align-items: start;
   }
 
-  .dashboard-focus-ribbon {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .dashboard-stage-summary,
-  .dashboard-metrics-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .dashboard-section-head {
-    display: grid;
-  }
-
+  .dashboard-metrics-grid,
   .dashboard-queue-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .dashboard-focus-ribbon {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
   }
 }
 
@@ -1229,6 +1226,10 @@ async function onOwnAvatarClear() {
   :deep(.page-header-copy) {
     min-width: 0;
     flex: 1 1 auto;
+  }
+
+  :deep(.page-header-description) {
+    display: none;
   }
 
   :deep(.page-header-title-row) {
@@ -1265,8 +1266,8 @@ async function onOwnAvatarClear() {
   .dashboard-stage-panel,
   .dashboard-metrics-panel,
   .dashboard-actions-panel {
-    padding: 16px;
-    border-radius: 12px;
+    padding: 14px 12px;
+    border-radius: 16px;
   }
 
   .dashboard-stage-copy h2,
@@ -1276,16 +1277,87 @@ async function onOwnAvatarClear() {
 
   .dashboard-stage-copy h2.is-single-line {
     white-space: normal;
+    font-size: 1.05rem;
+    line-height: 1.45;
   }
 
   .dashboard-focus-ribbon {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .dashboard-stage-summary,
   .dashboard-metrics-grid,
   .dashboard-queue-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .dashboard-focus-chip {
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 6px;
+    padding: 8px 10px;
+  }
+
+  .dashboard-focus-chip .iconly-shell {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    font-size: 13px;
+  }
+
+  .dashboard-focus-chip strong {
+    font-size: 0.82rem;
+    line-height: 1.15;
+  }
+
+  .dashboard-focus-chip span:last-child {
+    font-size: 0.62rem;
+    line-height: 1.3;
+  }
+
+  .dashboard-summary-card {
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .dashboard-summary-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .dashboard-summary-copy strong {
+    font-size: 1rem;
+  }
+
+  .dashboard-summary-copy span {
+    font-size: 0.72rem;
+  }
+
+  .dashboard-summary-copy small {
+    font-size: 0.64rem;
+  }
+
+  .dashboard-metric-card {
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .dashboard-metric-card strong {
+    font-size: 1.1rem;
+  }
+
+  .dashboard-section-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .dashboard-section-head .action-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 
@@ -1325,14 +1397,14 @@ async function onOwnAvatarClear() {
   border-radius: 20px;
 }
 
-/* Unified continuous dashboard: no boxed panels. */
+/* Unified dashboard cards — always 2-column peer grids on mobile. */
 .dashboard-page-premium {
   --dashboard-navy: #2a3348;
   --dashboard-ink: #2a3348;
   --dashboard-muted: #5f6b82;
   --dashboard-line: rgba(45, 55, 85, 0.12);
   --dashboard-shadow: none;
-  gap: 28px;
+  gap: 20px;
 }
 
 .dashboard-page-premium::before,
@@ -1340,45 +1412,47 @@ async function onOwnAvatarClear() {
   content: none;
 }
 
-:deep(.page-header),
-.dashboard-stage-panel,
-.dashboard-metrics-panel,
-.dashboard-actions-panel,
-.dashboard-summary-card,
-.dashboard-focus-chip,
-.dashboard-metric-card,
-.dashboard-action-card {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  backdrop-filter: none;
-  padding-left: 0;
-  padding-right: 0;
-}
-
 :deep(.page-header) {
   padding: 0 0 8px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   border: 0;
   border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .dashboard-stage-grid,
 .dashboard-actions-shell {
-  gap: 28px;
+  gap: 16px;
 }
 
 .dashboard-stage-panel,
 .dashboard-metrics-panel,
 .dashboard-actions-panel {
-  padding: 24px;
+  padding: 16px 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.dashboard-summary-card,
+.dashboard-focus-chip,
+.dashboard-metric-card,
+.dashboard-action-card {
+  min-width: 0;
+}
+
+.dashboard-summary-copy span,
+.dashboard-summary-copy small,
+.dashboard-metric-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 :deep(.page-eyebrow),
 .dashboard-stage-badge,
 .dashboard-section-kicker,
-.dashboard-metric-accent,
 .dashboard-action-type {
   padding: 0;
   color: var(--dashboard-muted);
@@ -1386,6 +1460,22 @@ async function onOwnAvatarClear() {
   border: 0;
   font-size: 11px;
   font-weight: 600;
+}
+
+.dashboard-metric-card .dashboard-metric-accent {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.dashboard-metric-card .dashboard-metric-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  font-size: 13px;
 }
 
 :deep(.page-header .action-btn),
@@ -1398,8 +1488,7 @@ async function onOwnAvatarClear() {
 }
 
 .dashboard-focus-chip .iconly-shell,
-.dashboard-summary-icon,
-.dashboard-metric-icon {
+.dashboard-summary-icon {
   background: transparent;
   border: 0;
   color: #4d5d8a;

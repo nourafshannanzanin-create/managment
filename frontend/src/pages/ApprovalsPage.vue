@@ -5,53 +5,25 @@ import { computed } from 'vue'
 import SectionHeading from '../components/SectionHeading.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { joinDisplayParts } from '../utils/text'
-import { rowToneForStatus, toneForStatus } from '../utils/status'
+import { rowToneForStatus, toneForStatus, workflowStatusBucket } from '../utils/status'
 
 const {
   downloadProtectedFile,
-  approvalHistory,
-  approvalInbox,
+  filteredApprovals,
   openApprovalDetail,
   openSignatureComposer,
   state,
 } = useWorkflowHub()
 
-const approvalStats = computed(() => [
-  {
-    label: 'در انتظار بررسی',
-    value: approvalInbox.value.length,
-    icon: 'pending_actions',
-    note: 'نیازمند اقدام',
-    tone: 'is-pending',
-  },
-  {
-    label: 'تایید شده',
-    value: approvalHistory.value.filter((item) => String(item.status || '').includes('تایید')).length,
-    icon: 'verified',
-    note: 'گردش کامل شده',
-    tone: 'is-approved',
-  },
-  {
-    label: 'رد شده',
-    value: approvalHistory.value.filter((item) => String(item.status || '').includes('رد')).length,
-    icon: 'cancel',
-    note: 'نیازمند بازبینی',
-    tone: 'is-rejected',
-  },
-  {
-    label: 'کل اسناد',
-    value: state.approvals.length,
-    icon: 'folder_copy',
-    note: 'نمای کلی پرونده‌ها',
-    tone: 'is-total',
-  },
-])
-
-function bucketTone(item) {
-  if (String(item.status || '').includes('رد')) return 'approval-state-rejected'
-  if (String(item.status || '').includes('تایید')) return 'approval-state-approved'
-  return 'approval-state-pending'
-}
+const approvalStats = computed(() => {
+  const rows = state.approvals
+  return [
+    { label: 'کل اسناد', value: rows.length, icon: 'folder_copy', tone: 'is-total' },
+    { label: 'در حال بررسی', value: rows.filter((item) => workflowStatusBucket(item, 'approval') === 'pending').length, icon: 'pending_actions', tone: 'is-pending' },
+    { label: 'تایید شده', value: rows.filter((item) => workflowStatusBucket(item, 'approval') === 'approved').length, icon: 'verified', tone: 'is-approved' },
+    { label: 'رد شده', value: rows.filter((item) => workflowStatusBucket(item, 'approval') === 'rejected').length, icon: 'cancel', tone: 'is-rejected' },
+  ]
+})
 
 async function handleDownload(item) {
   await downloadProtectedFile(item?.downloadUrl, item?.id || 'approval-document')
@@ -69,17 +41,14 @@ async function handleDownload(item) {
           </div>
           <IconlyIcon :name="item.icon" class="approval-metric-icon" decorative />
         </div>
-        <div class="approval-metric-bottom">
-          <small class="approval-metric-note">{{ item.note }}</small>
-        </div>
       </article>
     </section>
 
     <section class="surface-block">
       <div class="section-label-row">
         <SectionHeading
-          title="صف بررسی"
-          description="اسنادی که هنوز در جریان تایید هستند و نیاز به اقدام دارند."
+          title="فهرست تاییدیه‌ها"
+          :description="`${filteredApprovals.length} مورد با فیلترهای انتخاب‌شده`"
         />
         <button v-if="state.currentUser.canApproveDocuments" class="action-btn tone-soft" type="button" @click="openSignatureComposer">
           <IconlyIcon name="approval" decorative />
@@ -87,54 +56,22 @@ async function handleDownload(item) {
         </button>
       </div>
 
-      <div class="approval-board">
-        <article v-for="item in approvalInbox" :key="item.id" :class="['approval-card', 'approval-card-strong', bucketTone(item)]">
-          <div class="approval-card-head">
-            <div>
-              <strong>{{ item.title }}</strong>
-              <small>{{ joinDisplayParts([item.type, item.department]) }}</small>
-            </div>
-            <span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span>
-          </div>
-
-          <div class="list-card-actions">
-            <button v-if="item.downloadUrl" class="action-btn tone-soft" type="button" @click="handleDownload(item)">
-              <IconlyIcon name="download" decorative />
-              <span>دانلود فایل</span>
-            </button>
-            <button class="action-btn tone-primary" type="button" @click="openApprovalDetail(item.id)">
-              <IconlyIcon name="visibility" decorative />
-              <span>جزئیات و اقدام</span>
-            </button>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <section class="surface-block">
-      <div class="section-label-row">
-        <SectionHeading
-          title="تاریخچه تاییدها"
-          description="نسخه‌های بررسی‌شده با تفکیک واضح بین تایید و رد."
-        />
-      </div>
-
       <div class="table-shell">
         <table class="data-table">
           <thead>
             <tr>
               <th>عنوان</th>
+              <th>نوع</th>
               <th>ثبت‌کننده</th>
               <th>بخش</th>
-              <th>ارجاع‌گیرندگان</th>
               <th>وضعیت</th>
               <th>دانلود</th>
               <th>عملیات</th>
             </tr>
           </thead>
-          <tbody v-if="approvalHistory.length">
+          <tbody v-if="filteredApprovals.length">
             <tr
-              v-for="item in approvalHistory"
+              v-for="item in filteredApprovals"
               :key="item.id"
               :class="['table-click-row', rowToneForStatus(item.status)]"
               tabindex="0"
@@ -142,10 +79,13 @@ async function handleDownload(item) {
               @keydown.enter.prevent="openApprovalDetail(item.id)"
               @keydown.space.prevent="openApprovalDetail(item.id)"
             >
-              <td class="cell-mobile-primary"><strong>{{ item.title }}</strong></td>
+              <td class="cell-mobile-primary">
+                <strong>{{ item.title }}</strong>
+                <small>{{ joinDisplayParts([item.type, item.department]) }}</small>
+              </td>
+              <td class="cell-mobile-hide">{{ item.type || '-' }}</td>
               <td class="cell-mobile-hide">{{ item.owner }}</td>
               <td class="cell-mobile-hide">{{ item.department }}</td>
-              <td class="cell-mobile-hide">{{ (item.assignees || []).join('، ') || '-' }}</td>
               <td data-label="وضعیت"><span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span></td>
               <td class="cell-mobile-hide">
                 <button v-if="item.downloadUrl" class="table-link" type="button" @click.stop="handleDownload(item)">دانلود</button>
@@ -156,7 +96,7 @@ async function handleDownload(item) {
           </tbody>
           <tbody v-else>
             <tr>
-              <td colspan="7" class="table-empty">هنوز هیچ تاییدیه نهایی‌شده‌ای ثبت نشده است.</td>
+              <td colspan="7" class="table-empty">موردی با این فیلترها پیدا نشد.</td>
             </tr>
           </tbody>
         </table>
@@ -233,21 +173,6 @@ async function handleDownload(item) {
   color: var(--primary);
   box-shadow: none;
   font-size: 24px;
-}
-
-.approval-metric-bottom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(36, 59, 107, 0.08);
-}
-
-.approval-metric-note {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.8;
 }
 
 .approval-metric-card.is-pending::after {

@@ -32,6 +32,7 @@ class RequestType(models.TextChoices):
     OVERTIME = "overtime", "اضافه‌کار"
     REMOTE = "remote", "دورکاری"
     PURCHASE = "purchase", "خرید/تدارکات"
+    WORK_REPORT = "work_report", "گزارش کار"
 
 
 class RequestStatus(models.TextChoices):
@@ -429,6 +430,7 @@ class Request(models.Model):
     assigned_managers = models.ManyToManyField(User, blank=True, related_name="assigned_requests")
     assigned_employees = models.ManyToManyField(User, blank=True, related_name="employee_assigned_requests")
     deadline = models.DateField(blank=True, null=True)
+    type_payload = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
 

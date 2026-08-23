@@ -215,11 +215,14 @@ function handleHqOrganizationChange(event) {
       :person="activeFilters.person"
       :start-date="activeFilters.startDate"
       :end-date="activeFilters.endDate"
+      :status="activeFilters.status || ''"
+      :show-status-filter="['requests', 'expenses', 'approvals'].includes(activeFilterPage)"
       :people="activePeople"
       @update:query="setFilter('query', $event)"
       @update:person="setFilter('person', $event)"
       @update:start-date="setFilter('startDate', $event)"
       @update:end-date="setFilter('endDate', $event)"
+      @update:status="setFilter('status', $event)"
       @reset="resetFilters"
     />
   </header>
@@ -237,6 +240,10 @@ function handleHqOrganizationChange(event) {
   width: 100%;
   max-width: none;
   box-sizing: border-box;
+}
+
+.topbar-filters :deep(.modern-page-filters.has-status-filter) {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
 }
 
 .topbar-filters {

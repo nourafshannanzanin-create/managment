@@ -7,15 +7,24 @@ defineProps({
   person: { type: String, default: '' },
   startDate: { type: String, default: '' },
   endDate: { type: String, default: '' },
+  status: { type: String, default: '' },
   people: { type: Array, default: () => [] },
   dense: { type: Boolean, default: false },
+  showStatusFilter: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['update:query', 'update:person', 'update:startDate', 'update:endDate', 'reset'])
+const emit = defineEmits(['update:query', 'update:person', 'update:startDate', 'update:endDate', 'update:status', 'reset'])
+
+const workflowStatusOptions = [
+  { value: '', label: 'همه وضعیت‌ها' },
+  { value: 'pending', label: 'در حال بررسی' },
+  { value: 'approved', label: 'تایید شده' },
+  { value: 'rejected', label: 'رد شده' },
+]
 </script>
 
 <template>
-  <section :class="['page-filters', 'modern-page-filters', dense && 'is-dense']">
+  <section :class="['page-filters', 'modern-page-filters', dense && 'is-dense', showStatusFilter && 'has-status-filter']">
     <label class="field-shell compact-field filter-field is-search">
       <span class="filter-field-label">
         <IconlyIcon name="search" decorative />
@@ -76,6 +85,21 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
       </div>
     </label>
 
+    <label v-if="showStatusFilter" class="field-shell compact-field filter-field">
+      <span class="filter-field-label">
+        <IconlyIcon name="fact_check" decorative />
+        <span>وضعیت</span>
+      </span>
+      <div class="filter-field-control filter-select-wrap">
+        <select class="filter-select" :value="status" @change="emit('update:status', $event.target.value)">
+          <option v-for="item in workflowStatusOptions" :key="item.value || 'all'" :value="item.value">
+            {{ item.label }}
+          </option>
+        </select>
+        <IconlyIcon name="expand_more" class="filter-select-icon" decorative />
+      </div>
+    </label>
+
     <button class="action-btn tone-soft filter-reset-btn modern-filter-reset" type="button" @click="emit('reset')">
       <IconlyIcon name="restart_alt" decorative />
       <span>پاک کردن</span>
@@ -96,6 +120,10 @@ const emit = defineEmits(['update:query', 'update:person', 'update:startDate', '
   background: transparent;
   border: 0;
   box-sizing: border-box;
+}
+
+.modern-page-filters.has-status-filter {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
 }
 
 .filter-field {

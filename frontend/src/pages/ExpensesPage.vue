@@ -4,17 +4,17 @@ import { computed } from 'vue'
 
 import SectionHeading from '../components/SectionHeading.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
-import { rowToneForStatus, toneForStatus } from '../utils/status'
+import { rowToneForStatus, toneForStatus, workflowStatusBucket } from '../utils/status'
 
 const { filteredExpenses, openExpenseDetail, openProtectedFile, state } = useWorkflowHub()
 
 const expenseStats = computed(() => {
-  const summary = state.expenseSummary || []
+  const rows = state.expenses
   return [
-    { label: 'هزینه امروز', value: summary[0]?.value || '0', icon: 'today', note: 'ثبت روز جاری', tone: 'is-pending' },
-    { label: 'هزینه هفته', value: summary[1]?.value || '0', icon: 'date_range', note: 'هفتگی', tone: 'is-approved' },
-    { label: 'هزینه ماه', value: summary[2]?.value || '0', icon: 'calendar_month', note: 'جمع ماهانه', tone: 'is-total' },
-    { label: 'هزینه سال', value: summary[3]?.value || '0', icon: 'payments', note: 'جمع سالانه', tone: 'is-rejected' },
+    { label: 'کل هزینه‌ها', value: rows.length, icon: 'receipt_long', tone: 'is-total' },
+    { label: 'در حال بررسی', value: rows.filter((item) => workflowStatusBucket(item, 'expense') === 'pending').length, icon: 'pending_actions', tone: 'is-pending' },
+    { label: 'تایید شده', value: rows.filter((item) => workflowStatusBucket(item, 'expense') === 'approved').length, icon: 'verified', tone: 'is-approved' },
+    { label: 'رد شده', value: rows.filter((item) => workflowStatusBucket(item, 'expense') === 'rejected').length, icon: 'cancel', tone: 'is-rejected' },
   ]
 })
 
@@ -32,7 +32,6 @@ async function handleInvoiceOpen(item) {
           <IconlyIcon :name="item.icon" class="approval-metric-icon" decorative />
         </div>
         <strong>{{ item.value }}</strong>
-        <small class="approval-metric-note">{{ item.note }}</small>
       </article>
     </section>
 
@@ -40,7 +39,7 @@ async function handleInvoiceOpen(item) {
       <div class="section-label-row">
         <SectionHeading
           title="فهرست هزینه‌ها"
-          :description="`${filteredExpenses.length} ردیف مطابق فیلترهای هدر موجود است.`"
+          :description="`${filteredExpenses.length} مورد با فیلترهای انتخاب‌شده`"
         />
       </div>
 

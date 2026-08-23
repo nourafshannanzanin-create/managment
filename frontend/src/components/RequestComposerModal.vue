@@ -8,6 +8,11 @@ import ShamsiDatePicker from './ShamsiDatePicker.vue'
 import TimePicker from './TimePicker.vue'
 import UserAvatar from './UserAvatar.vue'
 import { formatFileSize } from '../utils/uploads'
+import {
+  REQUEST_TYPE_OPTIONS,
+  defaultTitleForRequestType,
+  requestTypeConfig,
+} from '../utils/requestTypeConfig'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const props = defineProps({
@@ -44,16 +49,7 @@ async function onAttachmentChange(event) {
   }
 }
 
-const requestTypeOptions = [
-  { value: 'general', label: 'عمومی' },
-  { value: 'leave_hourly', label: 'مرخصی ساعتی' },
-  { value: 'leave_daily', label: 'مرخصی روزانه' },
-  { value: 'mission', label: 'مأموریت' },
-  { value: 'overtime', label: 'اضافه‌کار' },
-  { value: 'remote', label: 'دورکاری' },
-  { value: 'purchase', label: 'خرید/تدارکات' },
-]
-
+const typeConfig = computed(() => requestTypeConfig(props.form.requestType || 'general'))
 const isLeaveHourly = computed(() => props.form.requestType === 'leave_hourly')
 const isLeaveDaily = computed(() => props.form.requestType === 'leave_daily')
 const isLeave = computed(() => isLeaveHourly.value || isLeaveDaily.value)
@@ -62,6 +58,15 @@ const computedLeaveHours = computed(() => {
   if (!isLeaveHourly.value) return 0
   const start = String(props.form.leaveStartTime || '')
   const end = String(props.form.leaveEndTime || '')
+  const [sh, sm] = start.split(':').map(Number)
+  const [eh, em] = end.split(':').map(Number)
+  if ([sh, sm, eh, em].some((item) => Number.isNaN(item))) return 0
+  return Math.max(0, Math.round((((eh * 60 + em) - (sh * 60 + sm)) / 60) * 100) / 100)
+})
+
+const computedOvertimeHours = computed(() => {
+  const start = String(props.form.overtimeStartTime || '')
+  const end = String(props.form.overtimeEndTime || '')
   const [sh, sm] = start.split(':').map(Number)
   const [eh, em] = end.split(':').map(Number)
   if ([sh, sm, eh, em].some((item) => Number.isNaN(item))) return 0
@@ -83,6 +88,37 @@ const leaveSummaryRows = computed(() => {
       { label: 'تا ساعت', value: props.form.leaveEndTime || '—' },
       { label: 'جمع ساعات', value: `${computedLeaveHours.value} ساعت` },
     )
+  }
+  return rows
+})
+
+const typeSummaryRows = computed(() => {
+  const config = typeConfig.value
+  const rows = [{ label: 'نوع', value: REQUEST_TYPE_OPTIONS.find((item) => item.value === props.form.requestType)?.label || '—' }]
+
+  if (config.showPeriod) {
+    rows.push(
+      { label: config.periodStartLabel || 'از تاریخ', value: props.form.periodStartDate || '—' },
+      { label: config.periodEndLabel || 'تا تاریخ', value: props.form.periodEndDate || '—' },
+    )
+  }
+  if (config.showLocation && props.form.location) {
+    rows.push({ label: config.locationLabel || 'محل', value: props.form.location })
+  }
+  if (config.showOvertime) {
+    rows.push(
+      { label: 'تاریخ', value: props.form.overtimeDate || '—' },
+      { label: 'از ساعت', value: props.form.overtimeStartTime || '—' },
+      { label: 'تا ساعت', value: props.form.overtimeEndTime || '—' },
+      { label: 'جمع ساعات', value: `${computedOvertimeHours.value} ساعت` },
+    )
+  }
+  if (config.showPurchase) {
+    if (props.form.purchaseItem) rows.push({ label: 'کالا / خدمت', value: props.form.purchaseItem })
+    if (props.form.estimatedAmount) rows.push({ label: 'مبلغ تقریبی', value: props.form.estimatedAmount })
+  }
+  if (config.showDeadline && props.form.deadline) {
+    rows.push({ label: config.deadlineLabel || 'تاریخ', value: props.form.deadline })
   }
   return rows
 })
@@ -136,9 +172,12 @@ function openReferral() {
 
 watch(
   () => props.form.requestType,
-  (next) => {
-    if ((next === 'leave_hourly' || next === 'leave_daily') && !String(props.form.title || '').trim()) {
-      props.form.title = next === 'leave_daily' ? 'مرخصی روزانه' : 'مرخصی ساعتی'
+  (next, prev) => {
+    const defaultTitle = defaultTitleForRequestType(next)
+    const prevDefault = defaultTitleForRequestType(prev)
+    const currentTitle = String(props.form.title || '').trim()
+    if (defaultTitle && (!currentTitle || currentTitle === prevDefault)) {
+      props.form.title = defaultTitle
     }
   },
 )
@@ -146,17 +185,27 @@ watch(
 
 <template>
   <BaseModal :open="open" size="detail" @close="$emit('close')">
-    <div class="detail-layout">
+    <div class="detail-layout request-composer-shell">
       <div class="modal-headline">
         <p class="page-eyebrow">درخواست جدید</p>
         <h2>ثبت و ارجاع درخواست</h2>
       </div>
 
+      <section class="request-type-banner">
+        <div class="request-type-banner-copy">
+          <IconlyIcon :name="REQUEST_TYPE_OPTIONS.find((item) => item.value === form.requestType)?.icon || 'assignment'" decorative />
+          <div>
+            <strong>{{ REQUEST_TYPE_OPTIONS.find((item) => item.value === form.requestType)?.label }}</strong>
+            <small>{{ typeConfig.summaryTitle }}</small>
+          </div>
+        </div>
+      </section>
+
       <div class="modal-grid two-col request-composer-grid">
         <label class="field-shell">
           <span>نوع درخواست</span>
           <select v-model="form.requestType">
-            <option v-for="item in requestTypeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
+            <option v-for="item in REQUEST_TYPE_OPTIONS" :key="item.value" :value="item.value">{{ item.label }}</option>
           </select>
         </label>
 
@@ -183,10 +232,56 @@ watch(
           </button>
         </label>
 
-        <label :class="['field-shell', fieldHasError('description') && 'has-error']">
-          <span>تاریخ</span>
+        <label v-if="typeConfig.showDeadline" :class="['field-shell', fieldHasError('description') && 'has-error']">
+          <span>{{ typeConfig.deadlineLabel || 'تاریخ' }}</span>
           <ShamsiDatePicker v-model="form.deadline" model-type="jalali" placeholder="1405/04/01" />
         </label>
+
+        <template v-if="typeConfig.showPeriod">
+          <label :class="['field-shell', fieldHasError('periodStartDate') && 'has-error']">
+            <span>{{ typeConfig.periodStartLabel || 'از تاریخ' }}</span>
+            <ShamsiDatePicker v-model="form.periodStartDate" model-type="jalali" placeholder="1405/04/01" />
+          </label>
+          <label class="field-shell">
+            <span>{{ typeConfig.periodEndLabel || 'تا تاریخ' }}</span>
+            <ShamsiDatePicker v-model="form.periodEndDate" model-type="jalali" placeholder="1405/04/07" />
+          </label>
+        </template>
+
+        <label v-if="typeConfig.showLocation" class="field-shell">
+          <span>{{ typeConfig.locationLabel || 'محل' }}</span>
+          <input v-model="form.location" type="text" placeholder="مثلاً شعبه مرکزی یا شهر مقصد" />
+        </label>
+
+        <template v-if="typeConfig.showOvertime">
+          <label :class="['field-shell', fieldHasError('overtimeDate') && 'has-error']">
+            <span>تاریخ اضافه‌کار</span>
+            <ShamsiDatePicker v-model="form.overtimeDate" model-type="jalali" placeholder="1405/04/01" />
+          </label>
+          <label class="field-shell">
+            <span>از ساعت</span>
+            <TimePicker v-model="form.overtimeStartTime" :clearable="false" placeholder="انتخاب ساعت شروع" />
+          </label>
+          <label class="field-shell">
+            <span>تا ساعت</span>
+            <TimePicker v-model="form.overtimeEndTime" :clearable="false" placeholder="انتخاب ساعت پایان" />
+          </label>
+          <div class="field-shell">
+            <span>جمع ساعات</span>
+            <strong class="leave-hours-value">{{ computedOvertimeHours }} ساعت</strong>
+          </div>
+        </template>
+
+        <template v-if="typeConfig.showPurchase">
+          <label class="field-shell">
+            <span>کالا / خدمت</span>
+            <input v-model="form.purchaseItem" type="text" placeholder="نام کالا یا خدمت مورد نیاز" />
+          </label>
+          <label class="field-shell">
+            <span>مبلغ تقریبی (ریال)</span>
+            <input v-model="form.estimatedAmount" type="text" inputmode="numeric" placeholder="مثلاً ۵۰۰۰۰۰۰" />
+          </label>
+        </template>
 
         <template v-if="isLeave">
           <label :class="['field-shell', fieldHasError('leaveStartDate') && 'has-error']">
@@ -223,6 +318,16 @@ watch(
           </div>
         </section>
 
+        <section v-else-if="typeSummaryRows.length > 1" class="leave-summary-card full-width-field">
+          <div class="section-label-row"><div><h3>{{ typeConfig.summaryTitle }}</h3></div></div>
+          <div class="leave-summary-grid">
+            <article v-for="row in typeSummaryRows" :key="row.label">
+              <span>{{ row.label }}</span>
+              <strong>{{ row.value }}</strong>
+            </article>
+          </div>
+        </section>
+
         <label class="field-shell priority-field">
           <span>اولویت</span>
           <div class="segmented-row priority-strip">
@@ -244,7 +349,7 @@ watch(
           />
           <IconlyIcon name="attach_file" decorative />
           <strong>{{ state.fileUploadPreparing ? 'در حال آماده‌سازی فایل...' : 'افزودن پیوست' }}</strong>
-          <small>اختیاری — حداکثر ۸ مگابایت</small>
+          <small>{{ typeConfig.attachmentHint || 'اختیاری — حداکثر ۸ مگابایت' }}</small>
         </label>
 
         <div v-if="form.attachments.length" class="file-list attachment-list">
@@ -260,8 +365,8 @@ watch(
         </div>
 
         <label :class="['field-shell full-width-field', fieldHasError('description') && 'has-error']">
-          <span>توضیحات</span>
-          <textarea v-model="form.description" rows="5"></textarea>
+          <span>{{ typeConfig.descriptionLabel || 'توضیحات' }}</span>
+          <textarea v-model="form.description" rows="5" :placeholder="typeConfig.descriptionPlaceholder || ''" />
         </label>
       </div>
 
@@ -332,15 +437,37 @@ watch(
 </template>
 
 <style scoped>
+.request-composer-shell {
+  gap: 14px;
+}
+
+.request-type-banner {
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(52, 144, 139, 0.16);
+  background: linear-gradient(135deg, rgba(52, 144, 139, 0.1), rgba(72, 103, 183, 0.06));
+}
+
+.request-type-banner-copy {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.request-type-banner-copy strong {
+  display: block;
+  color: #1f3b55;
+  font-size: 0.98rem;
+}
+
+.request-type-banner-copy small {
+  color: #5f7a76;
+  font-size: 12px;
+}
+
 .compact-upload {
   grid-column: 1 / -1;
   width: 100%;
-}
-
-.inline-error {
-  margin: 0;
-  color: #b42318;
-  font-size: 0.92rem;
 }
 
 .request-flow-note {

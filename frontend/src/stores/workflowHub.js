@@ -11,6 +11,8 @@ import { cleanDisplayText } from '../utils/text'
 import { prepareUploadFile, UPLOAD_LIMITS, validateUploadFile } from '../utils/uploads'
 
 import { personAvatarUrl, resolveAvatarUrl, resolveApiOrigin } from '../utils/avatar'
+import { matchesWorkflowStatusFilter } from '../utils/status'
+import { buildRequestTypePayload, requestTypeConfig } from '../utils/requestTypeConfig'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 const API_ORIGIN = (() => {
@@ -95,6 +97,14 @@ function createRequestForm() {
     leaveEndDate: formatJalali(getTodayJalali()),
     leaveStartTime: '09:00',
     leaveEndTime: '13:00',
+    periodStartDate: formatJalali(getTodayJalali()),
+    periodEndDate: formatJalali(getTodayJalali()),
+    location: '',
+    overtimeDate: formatJalali(getTodayJalali()),
+    overtimeStartTime: '17:00',
+    overtimeEndTime: '19:00',
+    purchaseItem: '',
+    estimatedAmount: '',
     deadline: formatJalali(getTodayJalali()),
     attachments: [],
   }
@@ -406,9 +416,9 @@ const state = reactive({
   documentSubmitting: false,
   fileUploadPreparing: false,
   filters: {
-    requests: { query: '', person: '', startDate: '', endDate: '' },
-    expenses: { query: '', person: '', startDate: '', endDate: '' },
-    approvals: { query: '', person: '', startDate: '', endDate: '' },
+    requests: { query: '', person: '', startDate: '', endDate: '', status: '' },
+    expenses: { query: '', person: '', startDate: '', endDate: '', status: '' },
+    approvals: { query: '', person: '', startDate: '', endDate: '', status: '' },
     reports: { query: '', person: '', startDate: '', endDate: '' },
     users: { query: '', person: '', startDate: '', endDate: '' },
   },
@@ -1012,7 +1022,8 @@ const filteredRequests = computed(() => {
   return state.requests.filter((item) =>
     matchesQuery(item, ['title', 'owner', 'manager', 'department', 'status', 'id', 'description'], query) &&
     matchesPerson(item, ['owner', 'manager'], filter.person) &&
-    inDateRange(item.deadlineIso || item.createdAtIso, filter.startDate, filter.endDate),
+    inDateRange(item.deadlineIso || item.createdAtIso, filter.startDate, filter.endDate) &&
+    matchesWorkflowStatusFilter(item, filter.status, 'request'),
   )
 })
 
@@ -1022,7 +1033,8 @@ const filteredExpenses = computed(() => {
   return state.expenses.filter((item) =>
     matchesQuery(item, ['title', 'description', 'category', 'owner', 'status', 'id', 'department'], query) &&
     matchesPerson(item, ['owner'], filter.person) &&
-    inDateRange(item.createdAtIso, filter.startDate, filter.endDate),
+    inDateRange(item.createdAtIso, filter.startDate, filter.endDate) &&
+    matchesWorkflowStatusFilter(item, filter.status, 'expense'),
   )
 })
 
@@ -1032,7 +1044,8 @@ const filteredApprovals = computed(() => {
   return state.approvals.filter((item) =>
     matchesQuery(item, ['title', 'type', 'owner', 'department', 'status', 'id', 'summary'], query) &&
     matchesPerson(item, ['owner'], filter.person) &&
-    inDateRange(item.uploadedAtIso, filter.startDate, filter.endDate),
+    inDateRange(item.uploadedAtIso, filter.startDate, filter.endDate) &&
+    matchesWorkflowStatusFilter(item, filter.status, 'approval'),
   )
 })
 
@@ -1346,29 +1359,35 @@ async function softLiveSync(options = {}) {
   const previous = state.liveSync.initialized ? captureInboxSnapshot() : null
   try {
     state.liveSync.tick = Number(state.liveSync.tick || 0) + 1
-    // Always refresh badge sources (even when tab is backgrounded) so notifs stay alive.
-    await loadChatUnreadConversations()
-    await loadTaskingDashboard(true, '', { soft: true, quiet: true }).catch(() => {})
+    // Keep badge sources fresh without serial waterfalls.
+    const jobs = [
+      loadChatUnreadConversations(),
+      loadTaskingDashboard(true, '', { soft: true, quiet: true }).catch(() => {}),
+    ]
 
     if (
       options.includeSupport !== false &&
       (state.currentUser.isHq || state.currentUser.canUseHq || state.currentUser.accessRole === 'admin')
     ) {
       if (state.liveSync.tick % 2 === 0 || options.forceSupport) {
-        await loadSupportTickets(true, {
-          soft: true,
-          notifyNew: Boolean(state.liveSync.initialized && (state.currentUser.isHq || state.currentUser.canUseHq)),
-        })
+        jobs.push(
+          loadSupportTickets(true, {
+            soft: true,
+            notifyNew: Boolean(state.liveSync.initialized && (state.currentUser.isHq || state.currentUser.canUseHq)),
+          }),
+        )
       }
     }
 
-    // Bootstrap feeds request/expense/approval badges — keep it frequent enough for counters.
+    // Bootstrap summary only every other tick (and not forced on first paint).
     const shouldBootstrap =
       options.includeBootstrap === true ||
-      (options.includeBootstrap !== false && state.liveSync.tick % 2 === 0)
+      (options.includeBootstrap !== false && state.liveSync.initialized && state.liveSync.tick % 3 === 0)
     if (shouldBootstrap) {
-      await loadBootstrapData(true, { soft: true })
+      jobs.push(loadBootstrapData(true, { soft: true }))
     }
+
+    await Promise.all(jobs)
 
     const next = captureInboxSnapshot()
     if (state.liveSync.initialized && previous) {
@@ -1449,7 +1468,7 @@ async function loadBootstrapCollections(options = {}) {
     users: normalizeUser,
   }
 
-  for (const section of BOOTSTRAP_COLLECTION_SECTIONS) {
+  async function loadSection(section) {
     let offset = 0
     let hasMore = true
     const accumulated = []
@@ -1473,6 +1492,9 @@ async function loadBootstrapCollections(options = {}) {
 
     replaceItems(state[section], accumulated)
   }
+
+  // Parallel section loads — sequential waterfall was a major startup delay.
+  await Promise.all(BOOTSTRAP_COLLECTION_SECTIONS.map((section) => loadSection(section)))
 }
 
 async function loadBootstrapData(force = false, options = {}) {
@@ -1491,12 +1513,14 @@ async function loadBootstrapData(force = false, options = {}) {
   try {
     const response = await authorizedFetch(appendBootstrapQuery('/bootstrap', { mode: 'summary' }))
     const payload = repairPayload(await response.json())
-    hydrateBootstrap(payload, { collections: !soft })
-    if (!soft) {
-      await loadBootstrapCollections()
-    } else {
-      await loadBootstrapCollections({ soft: true })
-    }
+    // Summary payload has empty collections — never wipe existing lists with [].
+    hydrateBootstrap(payload, { collections: false })
+    // Unlock UI as soon as summary is ready; collections fill in right after.
+    state.bootstrapLoaded = true
+    state.sessionReady = true
+    if (!soft) state.appLoading = false
+
+    await loadBootstrapCollections({ soft })
     if (soft) {
       trackExpenseInboxNotifications(previousExpenseInboxIds)
     } else {
@@ -1504,7 +1528,6 @@ async function loadBootstrapData(force = false, options = {}) {
         .filter((item) => item.canApprove)
         .map((item) => String(item.id))
     }
-    state.bootstrapLoaded = true
     void loadChatUnreadConversations()
   } catch (error) {
     if (!soft) setLastError(error, 'خطا در بارگذاری')
@@ -2247,17 +2270,14 @@ async function restoreSession() {
     return
   }
   await loadBootstrapData(true)
-  try {
-    await loadSupportTickets(true)
-  } catch (error) {
+  // Non-blocking extras — don't keep the global loader waiting on support/reports.
+  void loadSupportTickets(true).catch((error) => {
     state.lastError = error.message || state.lastError
-  }
+  })
   if (canViewReports.value) {
-    try {
-      await loadReports(true)
-    } catch (error) {
+    void loadReports(true).catch((error) => {
       state.lastError = error.message || state.lastError
-    }
+    })
   }
 }
 
@@ -2394,7 +2414,9 @@ export function useWorkflowHub() {
 
   function resetPageFilters(page) {
     if (!state.filters[page]) return
-    Object.assign(state.filters[page], { query: '', person: '', startDate: '', endDate: '' })
+    const reset = { query: '', person: '', startDate: '', endDate: '' }
+    if ('status' in state.filters[page]) reset.status = ''
+    Object.assign(state.filters[page], reset)
   }
 
   function hqScopedPath(path) {
@@ -2638,6 +2660,18 @@ export function useWorkflowHub() {
         throw createValidationError('حداقل یک مدیر ارجاع گیرنده باید انتخاب شود.', [{ field: 'manager', message: 'از بخش ارجاع گیرنده یک مدیر انتخاب کنید.' }])
       }
 
+      const requestType = state.requestForm.requestType || 'general'
+      const typeConfig = requestTypeConfig(requestType)
+      if (typeConfig.requiresDescription && !String(state.requestForm.description || '').trim()) {
+        throw createValidationError('شرح درخواست الزامی است.', [{ field: 'description', message: `${typeConfig.descriptionLabel} را وارد کنید.` }])
+      }
+      if ((requestType === 'work_report' || requestType === 'mission' || requestType === 'remote') && (!state.requestForm.periodStartDate || !state.requestForm.periodEndDate)) {
+        throw createValidationError('بازه تاریخ الزامی است.', [{ field: 'periodStartDate', message: 'بازه تاریخ را مشخص کنید.' }])
+      }
+      if (requestType === 'overtime' && !state.requestForm.overtimeDate) {
+        throw createValidationError('تاریخ اضافه‌کار الزامی است.', [{ field: 'overtimeDate', message: 'تاریخ اضافه‌کار را مشخص کنید.' }])
+      }
+
       const formData = new FormData()
       const primaryManagerId = state.directories.managers.find((item) => item.slug === state.requestForm.manager)?.id
       const managerAssigneeIds = (state.requestForm.managerAssigneeIds || [])
@@ -2650,10 +2684,10 @@ export function useWorkflowHub() {
       formData.append('managerAssigneeIds', managerAssigneeIds.join(','))
       formData.append('employeeAssigneeIds', state.requestForm.employeeAssigneeIds.join(','))
       formData.append('priority', state.requestForm.priority)
-      formData.append('requestType', state.requestForm.requestType || 'general')
+      formData.append('requestType', requestType)
+      formData.append('typePayload', JSON.stringify(buildRequestTypePayload(state.requestForm)))
       formData.append('action', 'refer')
       if (state.requestForm.deadline) formData.append('deadline', jalaliToIso(state.requestForm.deadline))
-      const requestType = state.requestForm.requestType || 'general'
       if (requestType === 'leave_hourly' || requestType === 'leave_daily') {
         const startIso = jalaliToIso(state.requestForm.leaveStartDate)
         const endIso = jalaliToIso(state.requestForm.leaveEndDate || state.requestForm.leaveStartDate)

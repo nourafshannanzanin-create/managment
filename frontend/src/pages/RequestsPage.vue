@@ -4,16 +4,19 @@ import { computed } from 'vue'
 
 import SectionHeading from '../components/SectionHeading.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
-import { rowToneForStatus, toneForStatus } from '../utils/status'
+import { rowToneForStatus, toneForStatus, workflowStatusBucket } from '../utils/status'
 
-const { filteredRequests, openRequestDetail } = useWorkflowHub()
+const { filteredRequests, openRequestDetail, state } = useWorkflowHub()
 
-const requestStats = computed(() => [
-  { label: 'کل درخواست‌ها', value: filteredRequests.value.length, icon: 'assignment', note: 'در این نما', tone: 'is-total' },
-  { label: 'در حال بررسی', value: filteredRequests.value.filter((item) => String(item.status || '').includes('بررسی')).length, icon: 'pending_actions', note: 'نیازمند اقدام', tone: 'is-pending' },
-  { label: 'تایید شده', value: filteredRequests.value.filter((item) => String(item.status || '').includes('تایید')).length, icon: 'verified', note: 'گردش کامل شده', tone: 'is-approved' },
-  { label: 'فوری و بحرانی', value: filteredRequests.value.filter((item) => ['high', 'critical'].includes(item.priority)).length, icon: 'warning', note: 'اولویت بالا', tone: 'is-rejected' },
-])
+const requestStats = computed(() => {
+  const rows = state.requests
+  return [
+    { label: 'کل درخواست‌ها', value: rows.length, icon: 'assignment', tone: 'is-total' },
+    { label: 'در حال بررسی', value: rows.filter((item) => workflowStatusBucket(item, 'request') === 'pending').length, icon: 'pending_actions', tone: 'is-pending' },
+    { label: 'تایید شده', value: rows.filter((item) => workflowStatusBucket(item, 'request') === 'approved').length, icon: 'verified', tone: 'is-approved' },
+    { label: 'رد شده', value: rows.filter((item) => workflowStatusBucket(item, 'request') === 'rejected').length, icon: 'cancel', tone: 'is-rejected' },
+  ]
+})
 
 function priorityLabel(priority) {
   return {
@@ -34,7 +37,6 @@ function priorityLabel(priority) {
           <IconlyIcon :name="item.icon" class="approval-metric-icon" decorative />
         </div>
         <strong>{{ item.value }}</strong>
-        <small class="approval-metric-note">{{ item.note }}</small>
       </article>
     </section>
 
@@ -42,7 +44,7 @@ function priorityLabel(priority) {
       <div class="section-label-row">
         <SectionHeading
           title="فهرست درخواست‌ها"
-          :description="`${filteredRequests.length} ردیف مطابق فیلترهای هدر پیدا شد.`"
+          :description="`${filteredRequests.length} مورد با فیلترهای انتخاب‌شده`"
         />
       </div>
 

@@ -34,10 +34,14 @@ onMounted(() => {
   void loadTaskingDashboard(false).catch(() => {})
 })
 
+function isNavActive(path) {
+  if (route.path === path) return true
+  return path !== '/dashboard' && route.path.startsWith(`${path}/`)
+}
+
 const navItems = computed(() => {
   const items = []
 
-  // HQ supporters: ticket-focused navigation
   if (state.currentUser.isHq && !state.currentUser.isHqAdmin) {
     items.push({ to: '/hq', label: 'میز پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
     items.push({ to: '/chat', label: 'گفتگو', icon: 'forum', badge: chatUnreadCount.value })
@@ -96,45 +100,52 @@ const navItems = computed(() => {
 </script>
 
 <template>
-  <aside :class="['shell-sidebar', mobileMenuOpen && 'is-open']" @pointerdown="unlockTicketAlerts">
-    <div class="sidebar-brand">
-      <div class="brand-copy">
-        <strong>{{ organizationTitle }}</strong>
-        <small class="brand-subtitle">مرکز مدیریت</small>
-      </div>
-      <div class="brand-mark">
-        <img src="/logo/green.webp" alt="کارنومند" width="36" height="36" decoding="async" style="width:36px;height:36px;object-fit:contain;border-radius:10px;" />
+  <aside :class="['shell-sidebar', 'sidebar-luxe', mobileMenuOpen && 'is-open']" @pointerdown="unlockTicketAlerts">
+    <div class="sidebar-brand-card">
+      <div class="sidebar-brand-glow" aria-hidden="true" />
+      <div class="sidebar-brand-inner">
+        <div class="brand-mark-luxe">
+          <img src="/logo/green.webp" alt="کارنومند" width="40" height="40" decoding="async" />
+        </div>
+        <div class="brand-copy">
+          <strong>{{ organizationTitle }}</strong>
+          <small class="brand-subtitle">مرکز مدیریت کارنومند</small>
+        </div>
       </div>
     </div>
 
     <div class="sidebar-section-label">منوی اصلی</div>
 
-    <nav class="sidebar-nav" aria-label="ناوبری اصلی">
+    <nav class="sidebar-nav sidebar-nav-luxe" aria-label="ناوبری اصلی">
       <RouterLink
         v-for="item in navItems"
         :key="item.to"
         :to="item.to"
-        :class="['nav-link', route.path === item.to && 'is-active']"
-        :aria-current="route.path === item.to ? 'page' : undefined"
+        :class="['nav-link', 'nav-link-luxe', isNavActive(item.to) && 'is-active']"
+        :aria-current="isNavActive(item.to) ? 'page' : undefined"
         @click="mobileMenuOpen ? toggleSidebar() : undefined"
       >
-        <IconlyIcon :name="item.icon" decorative />
+        <span class="nav-link-icon-wrap" aria-hidden="true">
+          <IconlyIcon :name="item.icon" decorative />
+        </span>
         <span class="nav-link-label">{{ item.label }}</span>
         <span v-if="item.badgeLabel" class="nav-link-badge">{{ item.badgeLabel }}</span>
       </RouterLink>
     </nav>
 
-    <div class="sidebar-user-card">
-      <UserAvatar :person="state.currentUser" :name="state.currentUser.name" size="sm" />
-      <div class="sidebar-user-copy">
-        <strong>{{ state.currentUser.name || 'کاربر' }}</strong>
-        <small>{{ state.currentUser.jobTitle || state.currentUser.role || '' }}</small>
+    <footer class="sidebar-footer-luxe">
+      <div class="sidebar-user-card">
+        <UserAvatar :person="state.currentUser" :name="state.currentUser.name" size="sm" />
+        <div class="sidebar-user-copy">
+          <strong>{{ state.currentUser.name || 'کاربر' }}</strong>
+          <small>{{ state.currentUser.jobTitle || state.currentUser.role || '' }}</small>
+        </div>
       </div>
-    </div>
 
-    <button class="action-btn tone-soft sidebar-logout" type="button" @click="logout">
-      <IconlyIcon name="logout" decorative />
-      <span>خروج از سامانه</span>
-    </button>
+      <button class="sidebar-logout sidebar-logout-luxe" type="button" @click="logout">
+        <IconlyIcon name="logout" decorative />
+        <span>خروج از سامانه</span>
+      </button>
+    </footer>
   </aside>
 </template>

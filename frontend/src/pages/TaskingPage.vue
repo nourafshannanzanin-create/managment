@@ -346,9 +346,28 @@ const capacitySubtitle = computed(() => {
   return `${minutesLabel(workedDurationMinutes.value)} از ${minutesLabel(targetDurationMinutes.value)} کارکرد ثبت شده`
 })
 
-const displayDate = computed(() => {
-  if (isSuperviseView.value) return shamsiDateLabel(jalaliToIso(superviseDateJalali.value) || state.tasking.date)
-  return shamsiDateLabel(state.tasking.date)
+const headerDateJalali = computed({
+  get() {
+    if (isSuperviseView.value) return superviseDateJalali.value
+    const iso = String(state.tasking.date || '').slice(0, 10)
+    return iso ? (isoToJalali(iso) || formatJalali(getTodayJalali())) : formatJalali(getTodayJalali())
+  },
+  set(value) {
+    const normalized = String(value || '').trim()
+    if (isSuperviseView.value) {
+      superviseDateJalali.value = normalized || formatJalali(getTodayJalali())
+      return
+    }
+    if (!normalized) {
+      state.tasking.date = ''
+      void loadTaskingDashboard(true)
+      return
+    }
+    const iso = jalaliToIso(normalized) || ''
+    if (!iso) return
+    state.tasking.date = iso
+    void loadTaskingDashboard(true, iso)
+  },
 })
 
 const superviseStats = computed(() => {
@@ -389,7 +408,6 @@ const metricCards = computed(() => {
         key: 'today',
         label: 'کارهای روز',
         value: String(stats.todayCount || 0),
-        hint: selectedSuperviseUser.value ? `برنامه ${selectedSuperviseUser.value.name}` : 'برنامه روز فیلترشده',
         icon: 'assignment',
         tone: 'is-info',
       },
@@ -397,7 +415,6 @@ const metricCards = computed(() => {
         key: 'remaining',
         label: 'باقی‌مانده هدف',
         value: minutesLabel(stats.remainingMinutes ?? cap.remainingTargetMinutes ?? remainingTargetMinutes.value),
-        hint: 'تا رسیدن به ظرفیت هدف',
         icon: 'schedule',
         tone: ['is-complete', 'is-good'].includes(capacityAccent.value) ? 'is-success' : 'is-warning',
       },
@@ -405,7 +422,6 @@ const metricCards = computed(() => {
         key: 'action',
         label: 'نیازمند اقدام',
         value: String(stats.needsAction || 0),
-        hint: 'بررسی، تأخیر یا پیگیری',
         icon: 'pending_actions',
         tone: Number(stats.needsAction || 0) > 0 ? 'is-warning' : 'is-idle',
       },
@@ -413,7 +429,6 @@ const metricCards = computed(() => {
         key: 'done',
         label: 'تکمیل‌شده',
         value: String(stats.completedToday || 0),
-        hint: 'بسته و تأییدشده',
         icon: 'verified',
         tone: 'is-success',
       },
@@ -424,7 +439,6 @@ const metricCards = computed(() => {
       key: 'today',
       label: 'کارهای امروز',
       value: String(state.tasking.stats.todayCount || 0),
-      hint: 'برنامه روز جاری',
       icon: 'assignment',
       tone: 'is-info',
     },
@@ -432,7 +446,6 @@ const metricCards = computed(() => {
       key: 'remaining',
       label: 'باقی‌مانده هدف',
       value: minutesLabel(state.tasking.stats.remainingMinutes ?? remainingTargetMinutes.value),
-      hint: 'تا رسیدن به ظرفیت هدف',
       icon: 'schedule',
       tone: ['is-complete', 'is-good'].includes(capacityAccent.value) ? 'is-success' : 'is-warning',
     },
@@ -440,7 +453,6 @@ const metricCards = computed(() => {
       key: 'action',
       label: 'نیازمند اقدام',
       value: String(state.tasking.stats.needsAction || 0),
-      hint: 'پذیرش، بررسی یا پیگیری',
       icon: 'pending_actions',
       tone: Number(state.tasking.stats.needsAction || 0) > 0 ? 'is-warning' : 'is-idle',
     },
@@ -448,7 +460,6 @@ const metricCards = computed(() => {
       key: 'done',
       label: 'تکمیل امروز',
       value: String(state.tasking.stats.completedToday || 0),
-      hint: 'بسته و تأییدشده',
       icon: 'verified',
       tone: 'is-success',
     },
@@ -712,30 +723,42 @@ function quickStart(task, stopOther = false) {
 
 <template>
   <section class="page-shell enterprise-page tasking-page">
-    <PageHeader
-      title="تسکینگ"
-      :description="isSuperviseView ? 'نظارت بر کار تیم با فیلتر کارمند و تاریخ' : 'برنامه روزانه، زمان اجرا و وضعیت کارهای شما'"
-    >
-      <template #actions>
-        <div class="tasking-header-actions">
-          <div class="date-nav">
-            <button class="icon-btn date-nav-btn" type="button" aria-label="روز قبل" @click="shiftDate(-1)">
-              &lt;
+    <div class="tasking-page-header">
+      <PageHeader
+        title="تسکینگ"
+        :description="isSuperviseView ? 'نظارت بر کار تیم با فیلتر کارمند و تاریخ' : 'برنامه روزانه، زمان اجرا و وضعیت کارهای شما'"
+      />
+
+      <div class="tasking-header-bar">
+        <div class="tasking-date-rail" aria-label="انتخاب تاریخ">
+          <div class="date-nav-group" role="group" aria-label="پیمایش تاریخ">
+            <button class="date-nav-btn" type="button" aria-label="روز قبل" @click="shiftDate(-1)">
+              <svg class="date-nav-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
             </button>
-            <button class="action-btn tone-soft" type="button" @click="goToday">امروز</button>
-            <button class="icon-btn date-nav-btn" type="button" aria-label="روز بعد" @click="shiftDate(1)">
-              &gt;
+            <button class="date-today-btn" type="button" @click="goToday">امروز</button>
+            <button class="date-nav-btn" type="button" aria-label="روز بعد" @click="shiftDate(1)">
+              <svg class="date-nav-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
             </button>
-            <strong>{{ displayDate }}</strong>
-            <span v-if="isSuperviseView" class="supervise-filter-pill">{{ superviseFilterLabel }}</span>
           </div>
-          <button class="action-btn tone-primary" type="button" @click="openTaskComposer">
-            <IconlyIcon name="plus" decorative />
-            <span>تسک جدید</span>
-          </button>
+          <div class="tasking-date-picker-wrap">
+            <ShamsiDatePicker
+              v-model="headerDateJalali"
+              model-type="jalali"
+              placeholder="انتخاب تاریخ"
+            />
+          </div>
+          <span v-if="isSuperviseView" class="supervise-filter-pill is-compact">{{ superviseFilterLabel }}</span>
         </div>
-      </template>
-    </PageHeader>
+        <button class="action-btn tone-primary tasking-new-btn" type="button" @click="openTaskComposer">
+          <IconlyIcon name="plus" decorative />
+          <span class="tasking-new-btn-label">تسک جدید</span>
+        </button>
+      </div>
+    </div>
 
     <section v-if="state.tasking.activeTimer && !isSuperviseView" class="active-timer-banner">
       <IconlyIcon name="timer" decorative />
@@ -755,42 +778,40 @@ function quickStart(task, stopOther = false) {
               <small>درصد</small>
             </div>
           </div>
-          <span class="capacity-ring-caption">پیشرفت امروز</span>
+          <span class="capacity-ring-caption">پیشرفت</span>
         </div>
 
         <div class="capacity-body">
           <div class="capacity-head">
-            <div>
-              <p class="capacity-eyebrow">
-                {{ isSuperviseView ? 'ظرفیت نظارت' : 'ظرفیت امروز' }}
-                <span v-if="isSuperviseView" class="supervise-filter-pill is-inline">{{ superviseFilterLabel }}</span>
-              </p>
-              <h3>{{ capacityHeadline }}</h3>
-              <p class="capacity-subtitle">{{ capacitySubtitle }}</p>
-            </div>
+            <p class="capacity-eyebrow">{{ isSuperviseView ? 'ظرفیت نظارت' : 'ظرفیت امروز' }}</p>
+            <h3 class="capacity-title">{{ capacityHeadline }}</h3>
+            <p v-if="isSuperviseView" class="capacity-filter-note">{{ superviseFilterLabel }}</p>
+            <p class="capacity-subtitle">{{ capacitySubtitle }}</p>
           </div>
 
           <div class="capacity-progress-list">
             <div class="capacity-progress-item">
-              <div class="capacity-progress-head">
+              <div class="capacity-progress-top">
                 <span class="capacity-progress-label">
                   <i class="capacity-dot is-planned"></i>
                   برنامه‌ریزی‌شده
                 </span>
-                <strong>{{ formatDurationRatioFa(capacity.plannedMinutes, capacity.targetMinutes) }} · {{ Math.round(plannedProgressPercent) }}٪</strong>
+                <span class="capacity-progress-pct">{{ Math.round(plannedProgressPercent) }}٪</span>
               </div>
+              <p class="capacity-progress-meta">{{ formatDurationRatioFa(capacity.plannedMinutes, capacity.targetMinutes) }}</p>
               <div class="capacity-track">
                 <span class="capacity-fill is-planned" :style="{ width: plannedBarWidth }"></span>
               </div>
             </div>
             <div class="capacity-progress-item">
-              <div class="capacity-progress-head">
+              <div class="capacity-progress-top">
                 <span class="capacity-progress-label">
                   <i class="capacity-dot is-actual"></i>
                   کارکرد تایمر
                 </span>
-                <strong>{{ formatDurationRatioFa(workedDurationMinutes, targetDurationMinutes) }} · {{ progressPercentDisplay }}٪</strong>
+                <span class="capacity-progress-pct">{{ progressPercentDisplay }}٪</span>
               </div>
+              <p class="capacity-progress-meta">{{ formatDurationRatioFa(workedDurationMinutes, targetDurationMinutes) }}</p>
               <div class="capacity-track">
                 <span class="capacity-fill is-actual" :style="{ width: progressBarWidth }"></span>
               </div>
@@ -800,19 +821,19 @@ function quickStart(task, stopOther = false) {
       </div>
 
       <div class="capacity-stats">
-        <article>
+        <article class="capacity-stat-card">
           <small>ساعت مؤثر</small>
           <strong>{{ minutesLabel(capacity.effectiveWorkMinutes) }}</strong>
         </article>
-        <article>
+        <article class="capacity-stat-card">
           <small>ظرفیت هدف</small>
           <strong>{{ minutesLabel(capacity.targetMinutes) }}</strong>
         </article>
-        <article>
+        <article class="capacity-stat-card">
           <small>برنامه‌ریزی</small>
           <strong>{{ minutesLabel(capacity.plannedMinutes) }}</strong>
         </article>
-        <article :class="capacityAccent">
+        <article class="capacity-stat-card" :class="capacityAccent">
           <small>کارکرد</small>
           <strong>{{ minutesLabel(workedDurationMinutes) }}</strong>
         </article>
@@ -827,7 +848,6 @@ function quickStart(task, stopOther = false) {
         </div>
         <span class="tasking-metric-label">{{ card.label }}</span>
         <strong>{{ card.value }}</strong>
-        <small>{{ card.hint }}</small>
       </article>
     </section>
 
@@ -1035,18 +1055,147 @@ function quickStart(task, stopOther = false) {
 </template>
 
 <style scoped>
-.tasking-header-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+.tasking-page-header {
+  display: grid;
+  gap: 0;
+  padding: 14px 16px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(52, 144, 139, 0.14);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 251, 250, 0.96));
+  box-shadow: 0 8px 22px rgba(31, 92, 89, 0.06);
+}
+
+.tasking-page-header :deep(.page-header) {
+  padding: 0 !important;
+  margin: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+}
+
+.tasking-page-header :deep(.page-header-row) {
   align-items: center;
 }
-.date-nav {
+
+.tasking-page-header :deep(.page-header-title-row h1) {
+  font-size: clamp(1.15rem, 2vw, 1.55rem);
+}
+
+.tasking-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(52, 144, 139, 0.1);
+}
+
+.tasking-date-rail {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
+
+.tasking-date-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.date-nav-group {
+  display: inline-flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  border: 1px solid rgba(52, 144, 139, 0.16);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.date-nav-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-inline-start: 1px solid rgba(52, 144, 139, 0.12);
+  border-radius: 0;
+  color: #1f5c59;
+  background: #fff;
+  cursor: pointer;
+}
+
+.date-nav-group .date-nav-btn:first-child {
+  border-inline-start: 0;
+}
+
+.date-nav-btn :deep(.iconly-shell) {
+  font-size: 18px;
+}
+
+.date-nav-arrow {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.date-today-btn {
+  flex-shrink: 0;
+  min-height: 36px;
+  min-width: 56px;
+  padding: 0 12px;
+  border: 0;
+  border-inline-start: 1px solid rgba(52, 144, 139, 0.12);
+  border-radius: 0;
+  color: #1f5c59;
+  background: rgba(52, 144, 139, 0.08);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tasking-date-picker-wrap {
+  flex-shrink: 0;
+  min-width: 132px;
+  max-width: 168px;
+}
+
+.tasking-date-picker-wrap :deep(.shamsi-picker),
+.tasking-date-picker-wrap :deep(.shamsi-picker-input-wrap) {
+  width: 100%;
+  height: 36px;
+  min-height: 36px;
+}
+
+.tasking-date-picker-wrap :deep(.shamsi-picker-input) {
+  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 144, 139, 0.16);
+  background: rgba(52, 144, 139, 0.08);
+  color: #143634;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding-inline: 10px;
+}
+
+.tasking-new-btn {
+  flex-shrink: 0;
+  min-height: 40px;
+  padding-inline: 14px;
+  white-space: nowrap;
+}
+
 .supervise-filter-pill {
   display: inline-flex;
   align-items: center;
@@ -1059,17 +1208,16 @@ function quickStart(task, stopOther = false) {
   font-weight: 800;
   white-space: nowrap;
 }
+
+.supervise-filter-pill.is-compact {
+  flex-shrink: 0;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .supervise-filter-pill.is-inline {
   margin-inline-start: 8px;
-}
-.date-nav-btn {
-  width: 38px;
-  height: 38px;
-  font-size: 22px;
-  font-weight: 800;
-  line-height: 1;
-  color: #1f5c59;
-  border-radius: 12px;
 }
 .active-timer-banner,
 .capacity-hero {
@@ -1088,24 +1236,25 @@ function quickStart(task, stopOther = false) {
 }
 .capacity-hero {
   display: grid;
-  gap: 16px;
-  padding: 20px;
+  gap: 14px;
+  padding: 16px;
 }
 .capacity-hero-grid {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 24px;
-  align-items: center;
+  gap: 16px;
+  align-items: start;
 }
 .capacity-ring-block {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   justify-items: center;
   flex-shrink: 0;
+  width: 88px;
 }
 .capacity-ring {
-  width: 112px;
-  height: 112px;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -1113,98 +1262,130 @@ function quickStart(task, stopOther = false) {
   box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.04);
 }
 .capacity-ring-core {
-  width: 84px;
-  height: 84px;
+  width: 66px;
+  height: 66px;
   border-radius: 50%;
   background: #fff;
-  display: grid;
-  place-items: center;
-  gap: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 .capacity-ring-core strong {
-  font-size: 1.75rem;
+  font-size: 1.25rem;
   line-height: 1;
   color: #134e4a;
   font-variant-numeric: tabular-nums;
-  font-weight: 900;
+  font-weight: 850;
 }
 .capacity-ring-core small {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: #64748b;
-  margin-top: 2px;
 }
 .capacity-ring-caption {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   color: #64748b;
+  text-align: center;
 }
 .capacity-body {
   display: grid;
-  gap: 16px;
+  gap: 12px;
   min-width: 0;
 }
-.capacity-head h3 {
-  margin: 4px 0 0;
-  font-size: 1.25rem;
+.capacity-head {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.capacity-title {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.35;
   color: #134e4a;
-  font-weight: 900;
+  font-weight: 850;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .capacity-eyebrow {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   color: #64748b;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+  letter-spacing: 0.01em;
+}
+.capacity-filter-note {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1f5c59;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .capacity-subtitle {
-  margin: 6px 0 0;
-  font-size: 13px;
-  line-height: 1.6;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
   color: #64748b;
 }
 .capacity-progress-list {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 .capacity-progress-item {
   display: grid;
-  gap: 8px;
+  gap: 4px;
+  min-width: 0;
 }
-.capacity-progress-head {
+.capacity-progress-top {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
 }
 .capacity-progress-label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
   font-weight: 700;
   color: #334155;
+  white-space: nowrap;
+}
+.capacity-progress-pct {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 850;
+  color: #134e4a;
+  font-variant-numeric: tabular-nums;
+}
+.capacity-progress-meta {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 700;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .capacity-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 .capacity-dot.is-planned { background: #34908b; }
 .capacity-dot.is-actual { background: #16a34a; }
-.capacity-progress-head strong {
-  font-size: 13px;
-  font-weight: 800;
-  color: #134e4a;
-  font-variant-numeric: tabular-nums;
-}
 .capacity-track {
-  height: 12px;
+  height: 8px;
   border-radius: 999px;
   background: #eef2f1;
   overflow: hidden;
@@ -1217,46 +1398,53 @@ function quickStart(task, stopOther = false) {
   min-width: 0;
   transition: width 0.25s ease;
   will-change: width;
-  background: #34908b !important;
 }
 .capacity-fill.is-planned {
-  background: linear-gradient(90deg, #16a34a, #86efac);
+  background: linear-gradient(90deg, #34908b, #7dd3c7) !important;
 }
 .capacity-fill.is-actual {
-  background: linear-gradient(90deg, #16a34a, #4ade80);
+  background: linear-gradient(90deg, #16a34a, #4ade80) !important;
 }
 .capacity-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  padding-top: 4px;
+  gap: 8px;
+  padding-top: 12px;
   border-top: 1px solid rgba(52, 144, 139, 0.08);
 }
-.capacity-stats article {
+.capacity-stat-card {
   display: grid;
-  gap: 4px;
-  padding: 10px 12px;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 10px;
   border-radius: 12px;
   background: #f8fafb;
 }
-.capacity-stats article small {
-  font-size: 11px;
+.capacity-stat-card small {
+  font-size: 10px;
   font-weight: 700;
   color: #64748b;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.capacity-stats article strong {
-  font-size: 1rem;
-  font-weight: 900;
+.capacity-stat-card strong {
+  font-size: 0.82rem;
+  font-weight: 850;
+  line-height: 1.25;
   color: #134e4a;
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.capacity-stats article.is-started strong { color: #34908b; }
-.capacity-stats article.is-mid strong { color: #d97706; }
-.capacity-stats article.is-good strong,
-.capacity-stats article.is-complete strong { color: #16a34a; }
+.capacity-stat-card.is-started strong { color: #34908b; }
+.capacity-stat-card.is-mid strong { color: #d97706; }
+.capacity-stat-card.is-good strong,
+.capacity-stat-card.is-complete strong { color: #16a34a; }
 .capacity-stat-strip small,
-.tasking-metric-label,
-.tasking-metric-card small {
+.tasking-metric-label {
   color: var(--muted, #64748b);
 }
 .task-day-groups {
@@ -1303,7 +1491,7 @@ function quickStart(task, stopOther = false) {
   border: 1px solid rgba(52, 144, 139, 0.12);
   display: grid;
   gap: 8px;
-  min-height: 132px;
+  min-height: 108px;
   transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 .tasking-metric-card:hover {
@@ -1326,14 +1514,13 @@ function quickStart(task, stopOther = false) {
 .tasking-metric-card.is-danger .tasking-metric-accent { background: #dc2626; }
 .tasking-metric-card.is-success .tasking-metric-accent { background: #16a34a; }
 .tasking-metric-card.is-idle .tasking-metric-accent { background: #94a3b8; }
-.tasking-metric-label { font-size: 12px; font-weight: 800; }
+.tasking-metric-label { font-size: 12px; font-weight: 800; color: var(--muted, #64748b); }
 .tasking-metric-card strong {
-  font-size: 1.7rem;
-  line-height: 1;
+  font-size: 1.25rem;
+  line-height: 1.15;
   color: #134e4a;
   font-variant-numeric: tabular-nums;
 }
-.tasking-metric-card small { font-size: 12px; }
 .tasking-toolbar {
   display: flex;
   justify-content: space-between;
@@ -1630,7 +1817,6 @@ function quickStart(task, stopOther = false) {
   justify-items: center;
 }
 @media (max-width: 920px) {
-  .capacity-hero-grid,
   .active-timer-banner { grid-template-columns: 1fr; }
   .active-timer-banner { flex-direction: column; align-items: stretch; }
   .capacity-stats,
@@ -1638,18 +1824,80 @@ function quickStart(task, stopOther = false) {
   .task-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
+  .tasking-page-header {
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .tasking-header-bar {
+    margin-top: 10px;
+    padding-top: 10px;
+    gap: 8px;
+  }
+
+  .tasking-new-btn-label {
+    display: none;
+  }
+
+  .tasking-date-picker-wrap {
+    min-width: 118px;
+    max-width: 140px;
+  }
+
+  .tasking-new-btn {
+    width: 40px;
+    min-width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .supervise-filter-pill.is-compact {
+    max-width: 140px;
+    font-size: 10px;
+    min-height: 28px;
+    padding-inline: 8px;
+  }
+
   .capacity-hero {
-    padding: 14px;
+    padding: 12px;
     gap: 12px;
   }
+
   .capacity-hero-grid {
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 14px;
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 12px;
   }
-  .capacity-ring { width: 88px; height: 88px; }
-  .capacity-ring-core { width: 66px; height: 66px; }
-  .capacity-ring-core strong { font-size: 1.35rem; }
-  .capacity-subtitle { display: none; }
+
+  .capacity-ring-block {
+    width: 72px;
+  }
+
+  .capacity-ring {
+    width: 72px;
+    height: 72px;
+  }
+
+  .capacity-ring-core {
+    width: 54px;
+    height: 54px;
+  }
+
+  .capacity-ring-core strong {
+    font-size: 1.05rem;
+  }
+
+  .capacity-title {
+    font-size: 0.92rem;
+  }
+
+  .capacity-subtitle {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: normal;
+  }
+
   .capacity-stats,
   .tasking-metric-grid,
   .task-card-grid {
@@ -1657,20 +1905,13 @@ function quickStart(task, stopOther = false) {
     gap: 10px;
   }
   .capacity-stats article,
+  .capacity-stat-card,
   .tasking-metric-card {
     min-width: 0;
     padding: 12px;
   }
   .task-card-footer { flex-direction: column; align-items: stretch; }
   .task-card-actions { flex-wrap: wrap; }
-  .date-nav-btn {
-    width: 36px;
-    height: 36px;
-    font-size: 20px;
-    font-weight: 800;
-    line-height: 1;
-    color: #1f5c59;
-  }
   .tasking-toolbar {
     display: grid;
     gap: 10px;

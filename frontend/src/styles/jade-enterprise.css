@@ -3345,29 +3345,98 @@ body:has(.app-shell:not(.is-auth-route)),
     gap: 10px !important;
   }
 
-  /* Quick focus chips stay on one row (3 items) */
-  #app .app-shell:not(.is-auth-route) .dashboard-focus-ribbon {
+  #app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-focus-ribbon {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     gap: 6px !important;
   }
 
-  #app .app-shell:not(.is-auth-route) .dashboard-focus-chip {
-    padding: 6px !important;
-    gap: 6px !important;
+  #app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-focus-chip,
+  #app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-summary-card,
+  #app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-action-card {
+    min-width: 0 !important;
+    border-radius: 14px !important;
+    border: 1px solid rgba(52, 144, 139, 0.12) !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    box-shadow: 0 4px 14px rgba(31, 92, 89, 0.05) !important;
   }
 
-  #app .app-shell:not(.is-auth-route) .dashboard-focus-chip .iconly-shell {
-    width: 28px !important;
-    height: 28px !important;
-    border-radius: 8px !important;
+  #app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-card.is-expense {
+    border-color: rgba(217, 119, 6, 0.24) !important;
+    background-color: #fffbeb !important;
+    background-image: linear-gradient(155deg, rgba(255, 251, 235, 0.98), rgba(254, 243, 199, 0.94)) !important;
+    box-shadow: 0 6px 18px rgba(217, 119, 6, 0.1) !important;
   }
 
-  #app .app-shell:not(.is-auth-route) .dashboard-focus-chip strong {
-    font-size: 0.95rem !important;
+  #app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-card.is-request {
+    border-color: rgba(37, 99, 235, 0.22) !important;
+    background-color: #eff6ff !important;
+    background-image: linear-gradient(155deg, rgba(239, 246, 255, 0.98), rgba(219, 234, 254, 0.94)) !important;
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.1) !important;
   }
 
-  #app .app-shell:not(.is-auth-route) .dashboard-focus-chip span:last-child {
-    font-size: 0.62rem !important;
+  #app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-card.is-approval {
+    border-color: rgba(124, 58, 237, 0.22) !important;
+    background-color: #f5f3ff !important;
+    background-image: linear-gradient(155deg, rgba(245, 243, 255, 0.98), rgba(237, 233, 254, 0.94)) !important;
+    box-shadow: 0 6px 18px rgba(124, 58, 237, 0.1) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-card.is-success {
+    border-color: rgba(22, 163, 74, 0.22) !important;
+    background-color: #f0fdf4 !important;
+    background-image: linear-gradient(155deg, rgba(240, 253, 244, 0.98), rgba(220, 252, 231, 0.94)) !important;
+    box-shadow: 0 6px 18px rgba(22, 163, 74, 0.1) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-card {
+    min-width: 0 !important;
+    border-radius: 14px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-focus-chip {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-focus-chip .iconly-shell {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 10px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-focus-chip strong {
+    font-size: 0.92rem !important;
+    line-height: 1.2 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-focus-chip span:last-child {
+    font-size: 0.68rem !important;
+    line-height: 1.35 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-summary-copy strong,
+  #app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-card strong {
+    font-size: 1rem !important;
+    line-height: 1.15 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav {
+    z-index: 55 !important;
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    border-top: 1px solid rgba(52, 144, 139, 0.12) !important;
+    box-shadow: 0 -8px 28px rgba(20, 70, 66, 0.08) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav a {
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-link.is-active {
+    color: #1f6f6a !important;
+    background: transparent !important;
+    box-shadow: none !important;
   }
 
   #app .app-shell:not(.is-auth-route) .dashboard-stage-grid,
@@ -4355,6 +4424,564 @@ body:has(.app-shell:not(.is-auth-route)),
   #app .app-shell:not(.is-auth-route) .wallet-page .wallet-hero-amount,
   #app .app-shell:not(.is-auth-route) .wallet-page .wallet-hero strong.wallet-hero-amount {
     font-size: clamp(1.6rem, 9vw, 2.4rem) !important;
+  }
+}
+
+/* Tasking page — unified header with horizontal date rail */
+#app .app-shell:not(.is-auth-route) .tasking-page .tasking-page-header .page-header {
+  display: block !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .tasking-page .tasking-page-header .page-header-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .tasking-page .tasking-page-header .page-header-tools {
+  display: flex !important;
+  width: auto !important;
+  grid-template-columns: unset !important;
+}
+
+#app .app-shell:not(.is-auth-route) .tasking-page .tasking-header-bar .action-btn {
+  width: auto !important;
+  min-height: 40px !important;
+}
+
+@media (max-width: 920px) {
+  #app .app-shell:not(.is-auth-route) .tasking-page .tasking-page-header .page-header {
+    display: block !important;
+    flex-direction: row !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .tasking-page-header .page-header-tools {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    width: auto !important;
+    grid-template-columns: unset !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .tasking-header-bar {
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .tasking-header-bar .action-btn {
+    width: auto !important;
+    flex-shrink: 0 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .tasking-date-picker-wrap .shamsi-picker-input-wrap {
+    width: 100% !important;
+    min-height: 36px !important;
+    height: 36px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .tasking-date-picker-wrap .shamsi-picker-input {
+    min-height: 36px !important;
+    height: 36px !important;
+    font-size: 0.78rem !important;
+  }
+}
+
+/* Tasking page — capacity hero compact typography */
+#app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero .capacity-title {
+  font-size: 1rem !important;
+  font-weight: 850 !important;
+  line-height: 1.35 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero .capacity-subtitle,
+#app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero .capacity-filter-note,
+#app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero .capacity-progress-meta {
+  font-size: 11px !important;
+  line-height: 1.45 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero .capacity-ring-core strong {
+  font-size: 1.25rem !important;
+  font-weight: 850 !important;
+  line-height: 1 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero .capacity-stat-card strong {
+  font-size: 0.82rem !important;
+  font-weight: 850 !important;
+  line-height: 1.25 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero .capacity-stat-card small {
+  font-size: 10px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .tasking-page .tasking-metric-card strong {
+  font-size: 1.25rem !important;
+  font-weight: 850 !important;
+  line-height: 1.15 !important;
+}
+
+@media (max-width: 640px) {
+  #app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero .capacity-title {
+    font-size: 0.92rem !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero .capacity-ring-core strong {
+    font-size: 1.05rem !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .capacity-hero .capacity-stat-card strong {
+    font-size: 0.78rem !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-page .tasking-metric-card strong {
+    font-size: 1.1rem !important;
+  }
+}
+
+/* Dashboard metric cards — colored tones (override global background-image reset) */
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-card.is-expense {
+  border-color: rgba(217, 119, 6, 0.24) !important;
+  background-color: #fffbeb !important;
+  background-image: linear-gradient(155deg, rgba(255, 251, 235, 0.98), rgba(254, 243, 199, 0.94)) !important;
+  box-shadow: 0 6px 18px rgba(217, 119, 6, 0.1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-card.is-request {
+  border-color: rgba(37, 99, 235, 0.22) !important;
+  background-color: #eff6ff !important;
+  background-image: linear-gradient(155deg, rgba(239, 246, 255, 0.98), rgba(219, 234, 254, 0.94)) !important;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-card.is-approval {
+  border-color: rgba(124, 58, 237, 0.22) !important;
+  background-color: #f5f3ff !important;
+  background-image: linear-gradient(155deg, rgba(245, 243, 255, 0.98), rgba(237, 233, 254, 0.94)) !important;
+  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-card.is-success {
+  border-color: rgba(22, 163, 74, 0.22) !important;
+  background-color: #f0fdf4 !important;
+  background-image: linear-gradient(155deg, rgba(240, 253, 244, 0.98), rgba(220, 252, 231, 0.94)) !important;
+  box-shadow: 0 6px 18px rgba(22, 163, 74, 0.1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-card.is-expense strong {
+  color: #92400e !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-card.is-request strong {
+  color: #1e3a8a !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-card.is-approval strong {
+  color: #5b21b6 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .dashboard-page-premium .dashboard-metric-card.is-success strong {
+  color: #166534 !important;
+}
+
+/* ── Luxe navigation (sidebar + mobile dock) ── */
+#app .app-shell:not(.is-auth-route) .shell-sidebar.sidebar-luxe {
+  padding: 18px 14px 16px !important;
+  gap: 14px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(244, 250, 249, 0.96) 100%) !important;
+  border-inline-start: 1px solid rgba(52, 144, 139, 0.1) !important;
+  box-shadow:
+    12px 0 40px rgba(31, 92, 89, 0.06),
+    inset -1px 0 0 rgba(255, 255, 255, 0.8) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .sidebar-brand-card {
+  position: relative !important;
+  overflow: hidden !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(52, 144, 139, 0.14) !important;
+  background:
+    linear-gradient(135deg, rgba(52, 144, 139, 0.14) 0%, rgba(72, 103, 183, 0.08) 100%) !important;
+  box-shadow: 0 10px 28px rgba(31, 92, 89, 0.08) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .sidebar-brand-glow {
+  position: absolute !important;
+  inset: -30% auto auto -20% !important;
+  width: 120px !important;
+  height: 120px !important;
+  border-radius: 999px !important;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.55), transparent 68%) !important;
+  pointer-events: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .sidebar-brand-inner {
+  position: relative !important;
+  z-index: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 14px 12px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .brand-mark-luxe {
+  flex: 0 0 auto !important;
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 14px !important;
+  display: grid !important;
+  place-items: center !important;
+  background: rgba(255, 255, 255, 0.88) !important;
+  border: 1px solid rgba(52, 144, 139, 0.12) !important;
+  box-shadow: 0 6px 16px rgba(31, 92, 89, 0.1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .brand-mark-luxe img {
+  width: 34px !important;
+  height: 34px !important;
+  object-fit: contain !important;
+  border-radius: 10px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .brand-copy strong {
+  display: block !important;
+  color: #1a3f3c !important;
+  font-size: 1.02rem !important;
+  font-weight: 850 !important;
+  line-height: 1.35 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .brand-subtitle {
+  display: block !important;
+  margin-top: 2px !important;
+  color: #5f7a76 !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .sidebar-section-label {
+  padding: 2px 10px 0 !important;
+  color: #7a9490 !important;
+  font-size: 10px !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.08em !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .sidebar-nav-luxe {
+  gap: 6px !important;
+  padding: 0 2px 8px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe {
+  min-height: 46px !important;
+  padding: 8px 10px !important;
+  gap: 10px !important;
+  border: 1px solid transparent !important;
+  border-radius: 14px !important;
+  border-right: 0 !important;
+  color: #4d6662 !important;
+  font-size: 0.92rem !important;
+  font-weight: 700 !important;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-icon-wrap {
+  flex: 0 0 auto !important;
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 11px !important;
+  display: grid !important;
+  place-items: center !important;
+  background: rgba(52, 144, 139, 0.08) !important;
+  transition: background-color 0.18s ease, transform 0.18s ease !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe .iconly-shell {
+  --iconly-filter: brightness(0) saturate(100%) invert(34%) sepia(12%) saturate(620%) hue-rotate(104deg) brightness(94%) contrast(88%) !important;
+  font-size: 18px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe:hover {
+  color: #1f5c59 !important;
+  background: rgba(255, 255, 255, 0.82) !important;
+  border-color: rgba(52, 144, 139, 0.12) !important;
+  box-shadow: 0 6px 18px rgba(31, 92, 89, 0.06) !important;
+  transform: translateY(-1px) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe:hover .nav-link-icon-wrap {
+  background: rgba(52, 144, 139, 0.14) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe.is-active {
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #34908b 0%, #2a7a72 100%) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 10px 24px rgba(45, 122, 110, 0.28) !important;
+  font-weight: 800 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe.is-active::before,
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe.is-active::after {
+  display: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe.is-active .nav-link-icon-wrap {
+  background: rgba(255, 255, 255, 0.18) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe.is-active .iconly-shell {
+  --iconly-filter: brightness(0) invert(1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-label {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-badge {
+  margin-inline-start: auto !important;
+  min-width: 20px !important;
+  height: 20px !important;
+  padding: 0 6px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff !important;
+  font-size: 0.68rem !important;
+  font-weight: 850 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe:not(.is-active) .nav-link-badge {
+  background: #e11d48 !important;
+  color: #fff !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .sidebar-footer-luxe {
+  display: grid !important;
+  gap: 10px !important;
+  margin-top: auto !important;
+  padding-top: 4px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .sidebar-user-card {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 12px !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(52, 144, 139, 0.12) !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  box-shadow: 0 8px 20px rgba(31, 92, 89, 0.05) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .sidebar-user-copy {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 2px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .sidebar-user-copy strong {
+  color: #1a3f3c !important;
+  font-size: 0.88rem !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .sidebar-user-copy small {
+  color: #6a8581 !important;
+  font-size: 0.72rem !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .sidebar-logout-luxe {
+  width: 100% !important;
+  min-height: 44px !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(186, 26, 26, 0.12) !important;
+  color: #9f1239 !important;
+  background: rgba(255, 255, 255, 0.65) !important;
+  font-weight: 750 !important;
+  gap: 8px !important;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .sidebar-logout-luxe:hover {
+  color: #be123c !important;
+  background: rgba(254, 242, 242, 0.95) !important;
+  border-color: rgba(225, 29, 72, 0.22) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe {
+  display: none !important;
+}
+
+@media (max-width: 920px) {
+  #app .app-shell:not(.is-auth-route) .shell-sidebar.sidebar-luxe {
+    width: min(320px, 88vw) !important;
+    padding: 16px 14px calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(246, 251, 250, 0.98) 100%) !important;
+    box-shadow: -12px 0 48px rgba(20, 70, 66, 0.14) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe {
+    display: block !important;
+    position: fixed !important;
+    inset-inline: 10px !important;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 55 !important;
+    width: auto !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-nav-inner {
+    display: grid !important;
+    grid-template-columns: repeat(var(--nav-count, 5), minmax(0, 1fr)) !important;
+    gap: 4px !important;
+    padding: 8px 8px 6px !important;
+    border-radius: 22px !important;
+    border: 1px solid rgba(52, 144, 139, 0.16) !important;
+    background: rgba(255, 255, 255, 0.94) !important;
+    box-shadow:
+      0 14px 40px rgba(20, 70, 66, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(18px) !important;
+    -webkit-backdrop-filter: blur(18px) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-link {
+    position: relative !important;
+    min-height: 54px !important;
+    padding: 4px 2px 2px !important;
+    border-radius: 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    color: #607874 !important;
+    text-decoration: none !important;
+    transition: color 0.16s ease, background-color 0.16s ease !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-icon-slot {
+    position: relative !important;
+    width: 34px !important;
+    height: 30px !important;
+    display: grid !important;
+    place-items: center !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-icon-ring {
+    width: 32px !important;
+    height: 32px !important;
+    display: grid !important;
+    place-items: center !important;
+    border-radius: 12px !important;
+    background: rgba(52, 144, 139, 0.07) !important;
+    transition: background-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-link .iconly-shell {
+    font-size: 18px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-label {
+    font-size: 10px !important;
+    font-weight: 780 !important;
+    color: inherit !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-link.is-active {
+    color: #1f6f6a !important;
+    background: rgba(52, 144, 139, 0.08) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-link.is-active::before {
+    display: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-link.is-active .mobile-bottom-icon-ring {
+    background: linear-gradient(135deg, rgba(52, 144, 139, 0.22), rgba(72, 103, 183, 0.14)) !important;
+    box-shadow: 0 6px 14px rgba(45, 122, 110, 0.16) !important;
+    transform: translateY(-2px) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-badge {
+    top: -3px !important;
+    inset-inline-end: -5px !important;
+    min-width: 18px !important;
+    height: 18px !important;
+    background: linear-gradient(135deg, #f43f5e, #e11d48) !important;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.96) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .shell-content {
+    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-page-luxe.show-thread .chat-composer {
+    position: fixed !important;
+    inset-inline: 10px !important;
+    bottom: calc(102px + env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 60 !important;
+    min-height: auto !important;
+    max-height: none !important;
+    height: auto !important;
+    padding: 8px 10px !important;
+    border-radius: 16px !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    box-shadow: 0 10px 28px rgba(31, 92, 89, 0.12) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-page-luxe.show-thread .chat-composer-shell {
+    min-height: 48px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-page-luxe.show-thread .chat-composer input {
+    min-height: 36px !important;
+    height: 36px !important;
+    max-height: 36px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-page-luxe.show-thread .chat-attach-btn,
+  #app .app-shell:not(.is-auth-route) .chat-page-luxe.show-thread .chat-send-btn {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-page-luxe.show-thread .chat-messages {
+    padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
 

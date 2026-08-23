@@ -1648,9 +1648,7 @@ def ensure_hq_control_user() -> None:
         },
     )
     update_fields = []
-    if not created and not verify_password("m11051386M!@", user.password_hash):
-        user.password_hash = get_password_hash("m11051386M!@")
-        update_fields.append("password_hash")
+    # Never verify/rehash the HQ password on every request — that alone costs hundreds of ms.
     if user.role != UserRole.ADMIN:
         user.role = UserRole.ADMIN
         update_fields.append("role")
@@ -1663,6 +1661,26 @@ def ensure_hq_control_user() -> None:
     if update_fields:
         user.save(update_fields=update_fields)
     OrganizationMembership.objects.update_or_create(user=user, defaults={"organization": organization, "display_title": "HQ"})
+
+
+_STARTUP_READY = False
+
+
+def startup_ready():
+    """Run expensive DB ensure/seed work once per process — not on every login/bootstrap."""
+    global _STARTUP_READY
+    if _STARTUP_READY:
+        return
+    if env_bool("WORKFLOW_AUTO_INIT_DB", True) and not workflow_tables_exist():
+        call_command("migrate", interactive=False, verbosity=0)
+    if not workflow_tables_exist():
+        return
+    if env_bool("WORKFLOW_AUTO_SEED_DB", True) and not User.objects.exists():
+        seed_demo_data()
+    ensure_required_login_users()
+    ensure_user_memberships()
+    ensure_hq_control_user()
+    _STARTUP_READY = True
 
 
 def require_auth(view_func):
@@ -1699,18 +1717,6 @@ def methods(*allowed_methods):
         return wrapped
 
     return decorator
-
-
-def startup_ready():
-    if env_bool("WORKFLOW_AUTO_INIT_DB", True) and not workflow_tables_exist():
-        call_command("migrate", interactive=False, verbosity=0)
-    if not workflow_tables_exist():
-        return
-    if env_bool("WORKFLOW_AUTO_SEED_DB", True) and not User.objects.exists():
-        seed_demo_data()
-    ensure_required_login_users()
-    ensure_user_memberships()
-    ensure_hq_control_user()
 
 
 @methods("GET")
@@ -1980,7 +1986,6 @@ def bootstrap_view(request: HttpRequest):
 @require_auth
 @methods("GET")
 def bootstrap_collections_view(request: HttpRequest):
-    startup_ready()
     organization_id = request.GET.get("organizationId")
     selected_organization_id = int(organization_id) if organization_id and organization_id.isdigit() else None
     section = (request.GET.get("section") or "").strip().lower()
@@ -4003,11 +4008,30 @@ def requests_view(request: HttpRequest):
         return json_error("کارمندان ارجاعی باید از میان کارمندان مجاز انتخاب شوند.", status=422)
     if manager:
         assigned_managers = [item for item in assigned_managers if item.slug != manager.slug]
+    type_payload = {}
+    raw_type_payload = request.POST.get("typePayload") or request.POST.get("type_payload") or ""
+    if raw_type_payload:
+        try:
+            parsed_payload = json.loads(raw_type_payload) if isinstance(raw_type_payload, str) else dict(raw_type_payload)
+            if isinstance(parsed_payload, dict):
+                type_payload = {str(key): str(value).strip() for key, value in parsed_payload.items() if value is not None and str(value).strip()}
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return json_error("اطلاعات تکمیلی درخواست معتبر نیست.", status=422)
+    if request_type == RequestType.WORK_REPORT:
+        if not type_payload.get("periodStartDate") or not type_payload.get("periodEndDate"):
+            return json_error("بازه گزارش کار الزامی است.", status=422)
+    if request_type == RequestType.MISSION and (not type_payload.get("periodStartDate") or not type_payload.get("periodEndDate")):
+        return json_error("بازه مأموریت الزامی است.", status=422)
+    if request_type == RequestType.REMOTE and (not type_payload.get("periodStartDate") or not type_payload.get("periodEndDate")):
+        return json_error("بازه دورکاری الزامی است.", status=422)
+    if request_type == RequestType.OVERTIME and not type_payload.get("overtimeDate"):
+        return json_error("تاریخ اضافه‌کار الزامی است.", status=422)
     request_obj = Request.objects.create(
         code=next_code("REQ"),
         title=title or "درخواست جدید",
         description=description or "",
         request_type=request_type,
+        type_payload=type_payload,
         priority=priority,
         status=status_by_action[request_action],
         department=department,

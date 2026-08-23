@@ -30,12 +30,23 @@ def ensure_default_organization() -> Organization:
 
 
 def ensure_user_memberships() -> None:
+    """Create missing memberships in bulk — never re-scan every user on every request."""
     organization = ensure_default_organization()
-    for user in User.objects.all():
-        OrganizationMembership.objects.get_or_create(
-            user=user,
-            defaults={"organization": organization, "display_title": user.job_title},
-        )
+    existing_ids = set(OrganizationMembership.objects.values_list("user_id", flat=True))
+    missing = list(User.objects.exclude(id__in=existing_ids).only("id", "job_title"))
+    if not missing:
+        return
+    OrganizationMembership.objects.bulk_create(
+        [
+            OrganizationMembership(
+                user=user,
+                organization=organization,
+                display_title=user.job_title or "",
+            )
+            for user in missing
+        ],
+        ignore_conflicts=True,
+    )
 
 
 def get_user_organization(user: User) -> Organization:

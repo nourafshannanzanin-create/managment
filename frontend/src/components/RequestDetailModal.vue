@@ -7,6 +7,7 @@ import DecisionAssigneesList from './DecisionAssigneesList.vue'
 import UserAvatar from './UserAvatar.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatTehranDateTime } from '../utils/jalali'
+import { typePayloadSummaryRows } from '../utils/requestTypeConfig'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -54,6 +55,7 @@ const {
 const decisions = computed(() => props.request?.decisions || [])
 const attachments = computed(() => props.request?.attachments || [])
 const requestNotes = computed(() => props.request?.notes || [])
+const typeDetailRows = computed(() => typePayloadSummaryRows(props.request?.requestType, props.request?.typePayload || {}))
 const canEdit = computed(() => Boolean(props.request?.canEdit))
 const canRefer = computed(() => Boolean(props.request?.canRefer || canApproveSelectedRequest.value))
 const canDelete = computed(() => Boolean(props.request?.canDelete))
@@ -194,11 +196,22 @@ async function submitNote() {
 
       <section class="detail-summary-grid">
         <article><span>کد</span><strong>{{ request.id }}</strong></article>
+        <article><span>نوع درخواست</span><strong>{{ request.requestTypeLabel || 'عمومی' }}</strong></article>
         <article><span>ثبت کننده</span><strong>{{ request.owner }}</strong></article>
         <article><span>بخش</span><strong>{{ request.department }}</strong></article>
         <article><span>وضعیت</span><strong>{{ request.status }}</strong></article>
         <article><span>اولویت</span><strong>{{ request.priority }}</strong></article>
         <article><span>تاریخ</span><strong>{{ request.deadline || request.createdAt || '-' }}</strong></article>
+      </section>
+
+      <section v-if="typeDetailRows.length" class="surface-inline detail-section">
+        <div class="section-label-row"><div><h3>جزئیات {{ request.requestTypeLabel || 'درخواست' }}</h3></div></div>
+        <div class="detail-summary-grid">
+          <article v-for="row in typeDetailRows" :key="row.label">
+            <span>{{ row.label }}</span>
+            <strong>{{ row.value }}</strong>
+          </article>
+        </div>
       </section>
 
       <section v-if="request.leave" class="surface-inline detail-section">
@@ -213,7 +226,7 @@ async function submitNote() {
       </section>
 
       <section class="surface-inline detail-section">
-        <div class="section-label-row"><div><h3>شرح درخواست</h3></div></div>
+        <div class="section-label-row"><div><h3>{{ request.requestType === 'work_report' ? 'شرح فعالیت‌ها' : 'شرح درخواست' }}</h3></div></div>
         <template v-if="editing">
           <label class="field-shell"><span>عنوان</span><input v-model="editForm.title" type="text" /></label>
           <label class="field-shell"><span>اولویت</span>

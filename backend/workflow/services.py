@@ -951,9 +951,21 @@ def serialize_user(user: User) -> dict:
             membership = None
     organization = membership.organization if membership else get_user_organization(user)
     try:
-        section_access = set(
-            user.section_access_grants.filter(organization=organization).values_list("section_key", flat=True)
-        ) if organization is not None else set()
+        # Prefer prefetched relation; .filter() would force a new query per user.
+        prefetched = getattr(user, "_prefetched_objects_cache", {})
+        if "section_access_grants" in prefetched:
+            org_id = organization.id if organization is not None else None
+            section_access = {
+                grant.section_key
+                for grant in user.section_access_grants.all()
+                if org_id is None or grant.organization_id == org_id
+            }
+        elif organization is not None:
+            section_access = set(
+                user.section_access_grants.filter(organization=organization).values_list("section_key", flat=True)
+            )
+        else:
+            section_access = set()
     except Exception:
         section_access = set()
     bonus_amount = Decimal(user.bonus_amount or 0)
@@ -1050,6 +1062,7 @@ REQUEST_TYPE_LABELS = {
     RequestType.OVERTIME: "اضافه‌کار",
     RequestType.REMOTE: "دورکاری",
     RequestType.PURCHASE: "خرید/تدارکات",
+    RequestType.WORK_REPORT: "گزارش کار",
 }
 
 
@@ -1116,6 +1129,7 @@ def serialize_request(request_obj: Request) -> dict:
         "employeeAssigneeIds": [item.id for item in request_obj.assigned_employees.all()],
         "requestType": request_type,
         "requestTypeLabel": REQUEST_TYPE_LABELS.get(request_type, request_type),
+        "typePayload": request_obj.type_payload or {},
         "leave": serialize_leave_request(leave),
         "priority": priority_label(request_obj.priority),
         "priorityValue": request_obj.priority,
@@ -1977,6 +1991,7 @@ def _bootstrap_collection_querysets(user: User, hq_selected_organization: Organi
         users_qs = (
             User.objects.filter(organization_membership__organization=hq_selected_organization)
             .select_related("department", "manager", "organization_membership__organization")
+            .prefetch_related("entrusted_items", "section_access_grants")
             .order_by("created_at")
         )
         user_ids = users_qs.values_list("id", flat=True)
@@ -2027,7 +2042,7 @@ def _bootstrap_collection_querysets(user: User, hq_selected_organization: Organi
     requests_qs = visible_requests(user)
     expenses_qs = visible_expenses(user)
     approvals_qs = visible_approvals(user)
-    users_qs = visible_users(user).select_related("department", "manager", "organization_membership__organization").prefetch_related("entrusted_items").order_by("created_at")
+    users_qs = visible_users(user).select_related("department", "manager", "organization_membership__organization").prefetch_related("entrusted_items", "section_access_grants").order_by("created_at")
     return requests_qs, expenses_qs, approvals_qs, users_qs
 
 
@@ -2183,12 +2198,23 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None, *, m
         _annotate_bootstrap_collection_items(user, "expenses", expenses_list)
 
     departments = list(visible_department_catalog())
-    directory_users_qs = list(
-        organization_users(user)
-        .select_related("department", "manager", "organization_membership__organization")
-        .prefetch_related("entrusted_items")
-        .order_by("created_at")
-    )
+    if summary_mode:
+        # Keep summary payload lean — full user directory comes from /bootstrap/collections.
+        directory_users_qs = list(
+            organization_users(user)
+            .filter(role__in=[UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER, UserRole.MANAGER])
+            .select_related("department", "manager", "organization_membership__organization")
+            .order_by("created_at")[:100]
+        )
+        directory_users_payload: list = []
+    else:
+        directory_users_qs = list(
+            organization_users(user)
+            .select_related("department", "manager", "organization_membership__organization")
+            .prefetch_related("entrusted_items", "section_access_grants")
+            .order_by("created_at")
+        )
+        directory_users_payload = [serialize_user(item) for item in directory_users_qs]
     activity_user_ids = users_qs.values_list("id", flat=True) if not _bootstrap_has_empty_scope(user, hq_selected_organization) else []
     activities = list(
         AuditLog.objects.filter(actor_id__in=activity_user_ids).select_related("actor").order_by("-created_at")[:6]
@@ -2293,7 +2319,7 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None, *, m
                 for item in directory_users_qs
                 if item.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER, UserRole.MANAGER}
             ],
-            "users": [serialize_user(item) for item in directory_users_qs],
+            "users": directory_users_payload,
         },
     }
 

@@ -19,6 +19,27 @@ const {
 } = useWorkflowHub()
 const isLicenseLocked = computed(() => Boolean(state.currentUser.licenseStatus?.isLocked || state.currentUser.licenseStatus?.is_locked))
 
+const MOBILE_LABELS = {
+  '/dashboard': 'خانه',
+  '/tasking': 'تسک',
+  '/chat': 'گفتگو',
+  '/requests': 'درخواست',
+  '/approvals': 'تأیید',
+  '/expenses': 'هزینه',
+  '/wallet': 'کیف',
+  '/support': 'پشتیبان',
+  '/hq': 'HQ',
+}
+
+function mobileLabel(item) {
+  return MOBILE_LABELS[item.to] || item.label
+}
+
+function isNavActive(path) {
+  if (route.path === path) return true
+  return path !== '/dashboard' && route.path.startsWith(`${path}/`)
+}
+
 const items = computed(() => {
   if (state.currentUser.isHq && !state.currentUser.isHqAdmin) {
     return [
@@ -54,7 +75,6 @@ const items = computed(() => {
   ]
 
   if (state.currentUser.canAccessExpenses !== false && Number(expenseInboxCount.value || 0) > 0) {
-    // Prefer showing expense badge when actionable items exist.
     navItems[4] = { to: '/expenses', label: 'هزینه', icon: 'receipt_long', badge: expenseInboxCount.value }
   }
 
@@ -64,137 +84,35 @@ const items = computed(() => {
 
   return navItems.slice(0, 5).map((item) => ({
     ...item,
+    shortLabel: mobileLabel(item),
     badgeLabel: formatBadgeCount(item.badge),
   }))
 })
 </script>
 
 <template>
-  <nav class="mobile-bottom-nav" aria-label="ناوبری موبایل" @pointerdown="unlockTicketAlerts">
-    <RouterLink
-      v-for="item in items"
-      :key="item.to + '-' + item.label"
-      :to="item.to"
-      :class="['mobile-bottom-link', route.path === item.to && 'is-active']"
-    >
-      <span class="mobile-bottom-icon-wrap">
-        <IconlyIcon :name="item.icon" decorative />
-        <span v-if="item.badgeLabel" class="mobile-bottom-badge">{{ item.badgeLabel }}</span>
-      </span>
-      <small>{{ item.label }}</small>
-    </RouterLink>
+  <nav
+    class="mobile-bottom-nav mobile-bottom-nav-luxe"
+    aria-label="ناوبری موبایل"
+    :style="{ '--nav-count': items.length }"
+    @pointerdown="unlockTicketAlerts"
+  >
+    <div class="mobile-bottom-nav-inner">
+      <RouterLink
+        v-for="item in items"
+        :key="item.to"
+        :to="item.to"
+        :class="['mobile-bottom-link', isNavActive(item.to) && 'is-active']"
+        :aria-current="isNavActive(item.to) ? 'page' : undefined"
+      >
+        <span class="mobile-bottom-icon-slot" aria-hidden="true">
+          <span class="mobile-bottom-icon-ring">
+            <IconlyIcon :name="item.icon" decorative />
+          </span>
+          <span v-if="item.badgeLabel" class="mobile-bottom-badge">{{ item.badgeLabel }}</span>
+        </span>
+        <span class="mobile-bottom-label">{{ item.shortLabel }}</span>
+      </RouterLink>
+    </div>
   </nav>
 </template>
-
-<style scoped>
-.mobile-bottom-nav {
-  display: none;
-}
-
-@media (max-width: 920px) {
-  .mobile-bottom-nav {
-    position: fixed;
-    inset-inline: 0;
-    bottom: 0;
-    z-index: 55;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-    gap: 2px;
-    width: 100%;
-    max-width: none;
-    max-height: none;
-    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
-    overflow: visible;
-    background: #f7fbfa;
-    border: 0;
-    border-top: 1px solid rgba(52, 144, 139, 0.14);
-    border-radius: 0;
-    box-shadow: 0 -6px 20px rgba(40, 110, 105, 0.08);
-    backdrop-filter: none;
-    transform: none;
-    left: auto;
-    transition: opacity 0.18s ease, visibility 0.18s ease;
-  }
-
-  .mobile-bottom-link {
-    position: relative;
-    min-width: 0;
-    min-height: 52px;
-    padding: 6px 4px;
-    border-radius: 12px;
-    display: grid;
-    justify-items: center;
-    align-content: center;
-    gap: 2px;
-    color: #45605c;
-    text-decoration: none;
-    background: transparent;
-    transition: background-color 0.16s ease, color 0.16s ease;
-  }
-
-  .mobile-bottom-icon-wrap {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 22px;
-  }
-
-  .mobile-bottom-link :deep(.iconly-shell) {
-    font-size: 18px;
-  }
-
-  .mobile-bottom-badge {
-    position: absolute;
-    top: -7px;
-    inset-inline-end: -10px;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
-    border-radius: 999px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: #e11d48;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 800;
-    line-height: 1;
-    box-shadow: 0 0 0 2px #f7fbfa;
-  }
-
-  .mobile-bottom-link small {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 1.2;
-  }
-
-  .mobile-bottom-link.is-active {
-    color: #34908B;
-    background: #dcefec;
-    box-shadow: none;
-  }
-}
-
-@media (max-width: 420px) {
-  .mobile-bottom-link small {
-    font-size: 8.5px;
-  }
-  .mobile-bottom-link {
-    padding: 5px 2px;
-    min-height: 48px;
-  }
-  .mobile-bottom-link :deep(.iconly-shell) {
-    font-size: 16px;
-  }
-  .mobile-bottom-icon-wrap {
-    width: 24px;
-    height: 20px;
-  }
-}
-</style>

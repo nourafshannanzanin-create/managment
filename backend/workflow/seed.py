@@ -63,6 +63,7 @@ REQUIRED_LOGIN_USERS = [
 
 @transaction.atomic
 def ensure_required_login_users() -> None:
+    """Ensure demo/login users exist. Never re-hash passwords on every call."""
     for payload in REQUIRED_LOGIN_USERS:
         department, _ = Department.objects.get_or_create(
             code=payload["department_code"],
@@ -72,22 +73,41 @@ def ensure_required_login_users() -> None:
             code=payload["organization_code"],
             defaults={"name": payload["organization_name"]},
         )
-        user, _ = User.objects.update_or_create(
-            slug=payload["slug"],
-            defaults={
-                "full_name": payload["full_name"],
-                "email": payload["email"],
-                "phone": "",
-                "password_hash": get_password_hash(payload["password"]),
-                "password_plain": payload["password"],
-                "role": payload["role"],
-                "job_title": payload["job_title"],
-                "avatar": payload["avatar"],
-                "bio": "",
-                "is_active": True,
-                "department": department,
-            },
-        )
+        user = User.objects.filter(slug=payload["slug"]).first()
+        if user is None:
+            user = User.objects.create(
+                slug=payload["slug"],
+                full_name=payload["full_name"],
+                email=payload["email"],
+                phone="",
+                password_hash=get_password_hash(payload["password"]),
+                password_plain=payload["password"],
+                role=payload["role"],
+                job_title=payload["job_title"],
+                avatar=payload["avatar"],
+                bio="",
+                is_active=True,
+                department=department,
+            )
+        else:
+            update_fields = []
+            if user.full_name != payload["full_name"]:
+                user.full_name = payload["full_name"]
+                update_fields.append("full_name")
+            if user.email != payload["email"]:
+                user.email = payload["email"]
+                update_fields.append("email")
+            if user.role != payload["role"]:
+                user.role = payload["role"]
+                update_fields.append("role")
+            if not user.is_active:
+                user.is_active = True
+                update_fields.append("is_active")
+            if user.department_id != department.id:
+                user.department = department
+                update_fields.append("department")
+            if update_fields:
+                user.save(update_fields=update_fields)
         OrganizationMembership.objects.update_or_create(
             user=user,
             defaults={"organization": organization, "display_title": payload["job_title"]},

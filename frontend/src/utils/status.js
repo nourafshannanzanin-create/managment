@@ -37,6 +37,27 @@ export function isPendingWorkflowItem(item, kind = 'generic') {
   return label.includes('انتظار') || label.includes('بررسی') || label.includes('امضا')
 }
 
+/** Classify item into pending | approved | rejected for list filters. */
+export function workflowStatusBucket(item, kind = 'generic') {
+  const value = statusValueOf(item)
+  const label = statusLabelOf(item)
+
+  if (value === 'rejected' || label.includes('رد') || label.includes('لغو')) return 'rejected'
+  if (value === 'approved' || (label.includes('تایید') && !label.includes('انتظار') && !label.includes('بررسی'))) {
+    return 'approved'
+  }
+  if (isPendingWorkflowItem(item, kind)) return 'pending'
+  if (label.includes('بررسی') || label.includes('انتظار') || label.includes('امضا')) return 'pending'
+  if (label.includes('تایید')) return 'approved'
+  return 'pending'
+}
+
+export function matchesWorkflowStatusFilter(item, filterValue, kind = 'generic') {
+  const selected = String(filterValue || '').trim()
+  if (!selected || selected === 'all') return true
+  return workflowStatusBucket(item, kind) === selected
+}
+
 /** Map workflow status labels to row/badge tone classes. */
 export function toneForStatus(status) {
   const label = String(status || '')

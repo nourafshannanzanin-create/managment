@@ -247,7 +247,12 @@ watch(trialRemainingSeconds, (value, previous) => {
 async function refreshRouteData(path, { soft = false } = {}) {
   if (!state.authToken || path === '/login') return
 
-  await loadBootstrapData(true, { soft: soft || state.bootstrapLoaded })
+  // Avoid re-downloading the whole bootstrap on every navigation when already loaded.
+  if (!state.bootstrapLoaded || soft === false) {
+    await loadBootstrapData(true, { soft: soft || state.bootstrapLoaded })
+  } else if (!soft) {
+    await loadBootstrapData(true, { soft: true })
+  }
 
   if (isLicenseLocked.value && !licenseSafeRoutes.has(path)) {
     await hub.navigateTo('/wallet')
@@ -267,7 +272,6 @@ async function refreshRouteData(path, { soft = false } = {}) {
   }
 
   if (path === '/expenses') {
-    await loadBootstrapData(true, { soft: true })
     return
   }
 
@@ -320,12 +324,14 @@ onMounted(async () => {
   window.addEventListener('keydown', unlockTicketAlerts, { once: true })
 
   await restoreSession()
-  await refreshRouteData(route.path, { soft: false })
+  // Route extras only — bootstrap already loaded in restoreSession.
+  await refreshRouteData(route.path, { soft: true })
   if (state.currentUser.isHq) {
     unlockTicketAlerts()
   }
-  await softLiveSync({ includeSupport: true })
   startLiveSync()
+  // Background badge sync — never block first paint.
+  void softLiveSync({ includeSupport: true, includeBootstrap: false })
 })
 
 onUnmounted(() => {
