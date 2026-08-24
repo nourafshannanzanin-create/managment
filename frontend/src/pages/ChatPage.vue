@@ -461,9 +461,9 @@ watch(newChatMode, (mode) => {
 })
 
 onMounted(async () => {
+  startLiveRefresh()
   await loadConversations()
   await loadUsers()
-  startLiveRefresh()
 })
 
 onBeforeUnmount(() => {

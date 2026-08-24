@@ -825,9 +825,58 @@ function fallbackFilenameFromUrl(rawUrl = '', fallback = 'download') {
   }
 }
 
+const DEFAULT_FETCH_TIMEOUT_MS = 30000
+
+function mergeAbortSignals(signals = []) {
+  const active = signals.filter(Boolean)
+  if (!active.length) return undefined
+  if (active.length === 1) return active[0]
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function') {
+    return AbortSignal.any(active)
+  }
+  const controller = new AbortController()
+  for (const signal of active) {
+    if (signal.aborted) {
+      controller.abort(signal.reason)
+      break
+    }
+    signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true })
+  }
+  return controller.signal
+}
+
+async function fetchWithTimeout(url, options = {}) {
+  const { timeout = DEFAULT_FETCH_TIMEOUT_MS, signal: outerSignal, ...rest } = options
+  const timeoutMs = Number(timeout)
+  let timer = null
+  let timeoutController = null
+  if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
+    timeoutController = new AbortController()
+    timer = window.setTimeout(() => timeoutController.abort(), timeoutMs)
+  }
+  try {
+    return await fetch(url, {
+      ...rest,
+      signal: mergeAbortSignals([outerSignal, timeoutController?.signal]),
+    })
+  } catch (error) {
+    if (timeoutController?.signal?.aborted && (!outerSignal || !outerSignal.aborted)) {
+      throw new AppError({
+        status: 408,
+        title: 'پاسخ طولانی شد',
+        message: 'سرور به‌موقع پاسخ نداد. اتصال را بررسی کنید و دوباره تلاش کنید.',
+        suggestion: 'اگر چند تب باز دارید ببندید و صفحه را تازه کنید.',
+      })
+    }
+    throw error
+  } finally {
+    if (timer) window.clearTimeout(timer)
+  }
+}
+
 async function authorizedFetchUrl(rawUrl, options = {}) {
   const requestUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : resolveAssetUrl(rawUrl)
-  const response = await fetch(requestUrl, {
+  const response = await fetchWithTimeout(requestUrl, {
     ...options,
     headers: {
       ...(options.headers || {}),
@@ -860,7 +909,7 @@ async function authorizedFetchUrl(rawUrl, options = {}) {
 
 async function downloadProtectedFile(rawUrl, fallbackName = 'download') {
   if (!rawUrl) return
-  const response = await authorizedFetchUrl(rawUrl)
+  const response = await authorizedFetchUrl(rawUrl, { timeout: 180000 })
   const blob = await response.blob()
   const disposition = response.headers.get('Content-Disposition') || ''
   const fileName = parseDownloadFilename(disposition) || fallbackFilenameFromUrl(rawUrl, fallbackName)
@@ -877,7 +926,7 @@ async function downloadProtectedFile(rawUrl, fallbackName = 'download') {
 
 async function openProtectedFile(rawUrl, fallbackName = 'preview') {
   if (!rawUrl) return
-  const response = await authorizedFetchUrl(rawUrl)
+  const response = await authorizedFetchUrl(rawUrl, { timeout: 180000 })
   const blob = await response.blob()
   const objectUrl = URL.createObjectURL(blob)
   const popup = window.open(objectUrl, '_blank', 'noopener,noreferrer')
@@ -1149,7 +1198,7 @@ function setRequestManager(value) {
 }
 
 async function authorizedFetch(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetchWithTimeout(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
       ...(options.headers || {}),

@@ -229,6 +229,31 @@ const globalLoading = computed(() =>
   signatureState.loading
 )
 
+const bootstrapBlocking = computed(() =>
+  Boolean(state.authToken) && (
+    (!state.sessionReady && !state.bootstrapLoaded) ||
+    (state.appLoading && !state.bootstrapLoaded) ||
+    state.loginPending
+  ),
+)
+
+let loadingWatchdogTimer = null
+watch(bootstrapBlocking, (blocked) => {
+  if (loadingWatchdogTimer) {
+    window.clearTimeout(loadingWatchdogTimer)
+    loadingWatchdogTimer = null
+  }
+  if (!blocked) return
+  loadingWatchdogTimer = window.setTimeout(() => {
+    state.appLoading = false
+    state.loginPending = false
+    state.sessionReady = true
+    if (!state.bootstrapLoaded) {
+      state.lastError = 'بارگذاری اولیه طولانی شد. صفحه را تازه کنید یا اتصال را بررسی کنید.'
+    }
+  }, 45000)
+})
+
 watch(showTrialBanner, (active) => {
   if (active) {
     trialExpiryHandled = false
@@ -323,13 +348,16 @@ onMounted(async () => {
   window.addEventListener('pointerdown', unlockTicketAlerts, { once: true })
   window.addEventListener('keydown', unlockTicketAlerts, { once: true })
 
+  // Attach live stream before awaits so navigation mid-load cannot leak listeners.
+  if (state.authToken) startLiveSync()
+
   await restoreSession()
   // Route extras only — bootstrap already loaded in restoreSession.
   await refreshRouteData(route.path, { soft: true })
   if (state.currentUser.isHq) {
     unlockTicketAlerts()
   }
-  startLiveSync()
+  if (state.authToken) startLiveSync()
   // Background badge sync — never block first paint.
   void softLiveSync({ includeSupport: true, includeBootstrap: false })
 })
@@ -337,6 +365,10 @@ onMounted(async () => {
 onUnmounted(() => {
   stopLiveSync()
   stopTrialCountdown()
+  if (loadingWatchdogTimer) {
+    window.clearTimeout(loadingWatchdogTimer)
+    loadingWatchdogTimer = null
+  }
   window.removeEventListener('pointerdown', unlockTicketAlerts)
   window.removeEventListener('keydown', unlockTicketAlerts)
 })

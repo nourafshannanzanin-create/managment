@@ -102,11 +102,11 @@ function startTaskingLive() {
 }
 
 onMounted(async () => {
+  startTaskingLive()
   await loadTaskingDashboard(true)
   timerHandle = window.setInterval(() => {
     timerTick.value += 1
   }, 1000)
-  startTaskingLive()
 })
 
 onUnmounted(() => {

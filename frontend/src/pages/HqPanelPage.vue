@@ -582,13 +582,12 @@ onMounted(async () => {
 
   if (!isHqAdmin.value) activeTab.value = 'tickets'
 
+  startHqLive()
   await Promise.all([
     loadHqPanel(true, { soft: false }).catch(() => {}),
     loadSupportTickets(true, { soft: false }).catch(() => loadHqTickets(true)),
     isHqAdmin.value ? loadHqTeam(true).catch(() => {}) : Promise.resolve(),
   ])
-
-  startHqLive()
 })
 
 onUnmounted(() => {

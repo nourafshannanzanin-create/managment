@@ -469,6 +469,7 @@ onMounted(async () => {
     return
   }
 
+  startSupportLive()
   await loadSupportTickets(true)
   await ensureActiveTicket()
 
@@ -476,8 +477,6 @@ onMounted(async () => {
     openWalletPaymentTicketModal()
     router.replace({ path: route.path, query: {} })
   }
-
-  startSupportLive()
 })
 
 onBeforeUnmount(() => {
