@@ -6,8 +6,8 @@ import DurationPicker from './DurationPicker.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import IconlyIcon from './base/IconlyIcon.vue'
 import UserAvatar from './UserAvatar.vue'
-import { useWorkflowHub } from '../stores/workflowHub'
 import { formatDurationFa } from '../utils/duration'
+import { useWorkflowHub } from '../stores/workflowHub'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -41,7 +41,35 @@ const localError = ref('')
 const observerPickerOpen = ref(false)
 const selectedObservers = ref([])
 
-const assigneeOptions = computed(() => state.tasking.assigneeOptions || [])
+const assigneeOptions = computed(() => {
+  const me = Number(state.currentUser.id)
+  const source = [
+    ...(state.tasking.assigneeOptions || []),
+    ...(state.users || []),
+    ...(state.directories?.users || []),
+  ]
+  const seen = new Set()
+  return source
+    .filter((user) => {
+      const id = Number(user?.id)
+      if (!id || seen.has(id)) return false
+      seen.add(id)
+      return Boolean(user.name || user.fullName || user.full_name)
+    })
+    .map((user) => ({
+      ...user,
+      name: user.name || user.fullName || user.full_name || 'کاربر',
+      isSelf: Number(user.id) === me,
+    }))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'fa'))
+})
+
+function assigneeLabel(user) {
+  const role = user.jobTitle || user.department || 'بدون سمت'
+  const selfSuffix = user.isSelf ? ' (خودم)' : ''
+  const capacity = user.capacityToday != null ? ` (${user.capacityToday}٪)` : ''
+  return `${user.name}${selfSuffix} — ${role}${capacity}`
+}
 const observerMembers = computed(() => {
   const me = Number(state.currentUser.id)
   const assignee = Number(form.assigneeId || 0)
@@ -110,13 +138,17 @@ watch(
 )
 
 watch(
-  async () => {
-    if (!props.open || estimatedMinutes.value <= 0 || !form.assigneeId) return
+  [() => props.open, () => form.assigneeId, estimatedMinutes],
+  async ([open, assigneeId, minutes]) => {
+    if (!open || Number(minutes) <= 0 || !assigneeId) {
+      preview.value = null
+      return
+    }
     busyPreview.value = true
     try {
       preview.value = await previewTaskSchedule({
-        assigneeId: Number(form.assigneeId),
-        estimatedMinutes: estimatedMinutes.value,
+        assigneeId: Number(assigneeId),
+        estimatedMinutes: Number(minutes),
       })
     } catch {
       preview.value = null
@@ -153,10 +185,15 @@ async function submit() {
     localError.value = 'عنوان تسک الزامی است.'
     return
   }
+  if (!Number(form.assigneeId)) {
+    localError.value = 'مسئول انجام را انتخاب کنید.'
+    return
+  }
   if (estimatedMinutes.value <= 0) {
     localError.value = 'زمان تخمینی باید بیشتر از صفر باشد.'
     return
   }
+  if (state.tasking.submitting) return
   try {
     const task = await createTaskingTask(
       {
@@ -175,8 +212,8 @@ async function submit() {
     emit('created', task)
     closeTaskComposer()
     emit('close')
-  } catch {
-    // ErrorNotice via store
+  } catch (error) {
+    localError.value = error?.message || state.lastError || 'ثبت تسک ناموفق بود.'
   }
 }
 </script>
@@ -209,7 +246,7 @@ async function submit() {
         <span>مسئول انجام *</span>
         <select v-model="form.assigneeId">
           <option v-for="user in assigneeOptions" :key="user.id" :value="String(user.id)">
-            {{ user.name }} — {{ user.jobTitle || user.department || 'بدون سمت' }} ({{ user.capacityToday || 0 }}٪)
+            {{ assigneeLabel(user) }}
           </option>
         </select>
       </label>

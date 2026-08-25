@@ -26,6 +26,35 @@ const API_ORIGIN = (() => {
 })()
 const TOKEN_KEY = 'workflow-hub-token'
 const SUPPORT_SEEN_KEY = 'workflow-hub-support-seen'
+const SESSION_EXPIRED_FLAG = 'workflow-hub-session-expired'
+
+let sessionExpiryRedirectInFlight = false
+
+/** Full-page jump to the real login screen (username + password), same as a fresh visit. */
+function goToLoginScreen({ sessionExpired = false } = {}) {
+  if (typeof window === 'undefined') return
+  const currentPath = window.location.pathname || ''
+  if (currentPath === '/login' || currentPath.startsWith('/attendance/')) return
+  if (sessionExpired) {
+    try {
+      sessionStorage.setItem(SESSION_EXPIRED_FLAG, '1')
+    } catch {
+      // ignore private-mode failures
+    }
+  }
+  window.location.replace('/login')
+}
+
+/** Clear auth and open the normal login page when the session is invalid/expired. */
+function handleUnauthorizedSession() {
+  if (sessionExpiryRedirectInFlight) {
+    clearSessionState()
+    return
+  }
+  sessionExpiryRedirectInFlight = true
+  clearSessionState()
+  goToLoginScreen({ sessionExpired: true })
+}
 
 function createCurrentUser() {
   return {
@@ -885,7 +914,7 @@ async function authorizedFetchUrl(rawUrl, options = {}) {
   })
 
   if (response.status === 401) {
-    clearSessionState()
+    handleUnauthorizedSession()
     throw new AppError({
       status: 401,
       title: 'نشست منقضی شده است',
@@ -992,6 +1021,12 @@ function clearSessionState() {
   selectedState.requestId = ''
   selectedState.expenseId = ''
   selectedState.approvalId = ''
+  Object.keys(modalState).forEach((key) => {
+    modalState[key] = false
+  })
+  state.mobileMenuOpen = false
+  state.appLoading = false
+  state.loginPending = false
   localStorage.removeItem(TOKEN_KEY)
 }
 
@@ -1216,7 +1251,7 @@ async function authorizedFetch(path, options = {}) {
   })
 
   if (response.status === 401) {
-    clearSessionState()
+    handleUnauthorizedSession()
     throw new AppError({
       status: 401,
       title: 'نشست منقضی شده است',
@@ -2325,9 +2360,19 @@ async function restoreSession() {
   state.sessionReady = false
   if (!state.authToken) {
     state.sessionReady = true
+    const path = typeof window !== 'undefined' ? window.location.pathname || '' : ''
+    if (path && path !== '/login' && path !== '/' && !path.startsWith('/attendance/')) {
+      goToLoginScreen()
+    }
     return
   }
-  await loadBootstrapData(true)
+  try {
+    await loadBootstrapData(true)
+  } catch {
+    // 401 already triggers goToLoginScreen via handleUnauthorizedSession.
+    state.sessionReady = true
+    return
+  }
   // Non-blocking extras — don't keep the global loader waiting on support/reports.
   void loadSupportTickets(true).catch((error) => {
     state.lastError = error.message || state.lastError
@@ -2440,7 +2485,7 @@ export function useWorkflowHub() {
   if (singleton) return singleton
 
   function ensureAuthenticatedRedirect() {
-    if (!state.authToken) router.push('/')
+    if (!state.authToken) goToLoginScreen()
   }
 
   async function logout() {
@@ -2452,7 +2497,7 @@ export function useWorkflowHub() {
       // Local session cleanup must still happen if the server cannot record logout.
     } finally {
       clearSessionState()
-      router.push('/')
+      goToLoginScreen()
     }
   }
 
@@ -3500,11 +3545,45 @@ async function removeUserEntrustedItem(userId, itemId) {
     state.tasking.submitting = true
     clearLastError()
     try {
+      const safePayload = {
+        ...(payload || {}),
+        title: String(payload?.title || '').trim(),
+        assigneeId: Number(payload?.assigneeId || payload?.assignee_id || state.currentUser.id || 0) || undefined,
+        estimatedMinutes: Number(payload?.estimatedMinutes || payload?.estimated_minutes || 0),
+        observerIds: Array.isArray(payload?.observerIds)
+          ? payload.observerIds.map((id) => Number(id)).filter(Boolean)
+          : [],
+      }
+      if (!safePayload.title) {
+        throw new AppError({
+          status: 422,
+          title: 'عنوان الزامی است',
+          message: 'عنوان تسک را وارد کنید.',
+        })
+      }
+      if (!safePayload.assigneeId) {
+        throw new AppError({
+          status: 422,
+          title: 'مسئول نامعتبر',
+          message: 'مسئول انجام تسک را انتخاب کنید.',
+        })
+      }
+      if (safePayload.estimatedMinutes <= 0) {
+        throw new AppError({
+          status: 422,
+          title: 'زمان نامعتبر',
+          message: 'زمان تخمینی باید بیشتر از صفر باشد.',
+        })
+      }
+      if (safePayload.departmentId === '' || safePayload.departmentId == null) {
+        delete safePayload.departmentId
+      }
+
       const hasFiles = Array.isArray(files) && files.length > 0
       let response
       if (hasFiles) {
         const formData = new FormData()
-        Object.entries(payload || {}).forEach(([key, value]) => {
+        Object.entries(safePayload).forEach(([key, value]) => {
           if (value === undefined || value === null || value === '') return
           if (Array.isArray(value)) {
             formData.append(key, JSON.stringify(value))
@@ -3517,16 +3596,23 @@ async function removeUserEntrustedItem(userId, itemId) {
           formData.append(key, String(value))
         })
         files.forEach((file) => formData.append('attachments', file))
-        response = await authorizedFetch('/tasking/tasks', { method: 'POST', body: formData })
+        response = await authorizedFetch('/tasking/tasks', { method: 'POST', body: formData, timeout: 60000 })
       } else {
         response = await authorizedFetch('/tasking/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload || {}),
+          body: JSON.stringify(safePayload),
+          timeout: 60000,
         })
       }
       const task = repairPayload(await response.json())
-      await loadTaskingDashboard(true)
+      notifySuccess(task?.code ? `تسک ${task.code} ثبت شد.` : 'تسک با موفقیت ثبت شد.')
+      try {
+        await loadTaskingDashboard(true)
+      } catch {
+        // Task is already created — don't treat a slow dashboard refresh as create failure.
+        void loadTaskingDashboard(true)
+      }
       return task
     } catch (error) {
       setLastError(error, 'ثبت تسک ناموفق بود.')
@@ -3735,6 +3821,7 @@ async function removeUserEntrustedItem(userId, itemId) {
     logout,
     restoreSession,
     ensureAuthenticatedRedirect,
+    handleUnauthorizedSession,
     loadBootstrapData,
     softLiveSync,
     loadReports,

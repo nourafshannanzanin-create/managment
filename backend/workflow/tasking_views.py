@@ -48,6 +48,10 @@ def _handle_tasking_error(exc: Exception):
         return json_error(exc.message, status=exc.status)
     if isinstance(exc, ValueError):
         return json_error(str(exc), status=422)
+    from django.db import IntegrityError
+
+    if isinstance(exc, IntegrityError):
+        return json_error("ثبت تسک به‌خاطر داده نامعتبر انجام نشد. بخش و مسئول را بررسی کنید.", status=422)
     raise exc
 
 

@@ -297,3 +297,166 @@
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
+
+/* —— Simple mobile bottom nav + clean counters —— */
+@media (max-width: 920px) {
+  #app .app-shell:not(.is-auth-route) {
+    --mobile-dock-offset: 0px;
+    --mobile-dock-height: 56px;
+    --mobile-dock-stack: calc(var(--mobile-dock-offset) + var(--mobile-dock-height) + env(safe-area-inset-bottom, 0px));
+    --mobile-composer-bottom: calc(var(--mobile-dock-stack) + 8px);
+    --mobile-composer-reserve: calc(var(--mobile-composer-bottom) + 64px);
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-simple {
+    display: block !important;
+    position: fixed !important;
+    inset-inline: 0 !important;
+    bottom: 0 !important;
+    z-index: 55 !important;
+    width: 100% !important;
+    padding: 0 !important;
+    background: #fff !important;
+    border-top: 1px solid rgba(52, 144, 139, 0.14) !important;
+    box-shadow: 0 -4px 16px rgba(20, 70, 66, 0.06) !important;
+    backdrop-filter: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-simple .mobile-bottom-nav-inner {
+    display: grid !important;
+    grid-template-columns: repeat(var(--nav-count, 5), minmax(0, 1fr)) !important;
+    gap: 0 !important;
+    padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px)) !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-simple .mobile-bottom-link {
+    min-height: 48px !important;
+    padding: 4px 2px 2px !important;
+    border-radius: 8px !important;
+    gap: 2px !important;
+    color: #607874 !important;
+    background: transparent !important;
+    text-decoration: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-simple .mobile-bottom-link.is-active {
+    color: #1f5c59 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-simple .mobile-bottom-link.is-active::before {
+    content: '' !important;
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    inset-inline: 20% !important;
+    height: 2px !important;
+    border-radius: 999px !important;
+    background: #34908b !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-simple .mobile-bottom-icon-slot {
+    position: relative !important;
+    width: 24px !important;
+    height: 24px !important;
+    display: grid !important;
+    place-items: center !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-simple .mobile-bottom-link .iconly-shell {
+    font-size: 20px !important;
+    color: inherit !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-simple .mobile-bottom-label {
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+    color: inherit !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  /* Unified count badges */
+  #app .app-shell:not(.is-auth-route) .mobile-bottom-badge,
+  #app .app-shell:not(.is-auth-route) .tasking-tab-badge,
+  #app .app-shell:not(.is-auth-route) .chat-unread,
+  #app .app-shell:not(.is-auth-route) .nav-link-badge {
+    position: absolute !important;
+    top: -5px !important;
+    inset-inline-end: -7px !important;
+    min-width: 16px !important;
+    height: 16px !important;
+    padding: 0 4px !important;
+    border-radius: 999px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #e11d48 !important;
+    background-image: none !important;
+    color: #fff !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    box-shadow: 0 0 0 1.5px #fff !important;
+    letter-spacing: 0 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-tab-badge.is-sub,
+  #app .app-shell:not(.is-auth-route) .nav-link-badge.is-mini {
+    position: static !important;
+    top: auto !important;
+    inset-inline-end: auto !important;
+    min-width: 18px !important;
+    height: 18px !important;
+    flex: 0 0 auto !important;
+    box-shadow: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-tab-badge.is-main {
+    top: 2px !important;
+    inset-inline-end: 2px !important;
+    min-width: 16px !important;
+    height: 16px !important;
+    font-size: 9px !important;
+    padding: 0 3px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-unread {
+    position: static !important;
+    min-width: 20px !important;
+    height: 20px !important;
+    padding: 0 5px !important;
+    font-size: 11px !important;
+    background: #e11d48 !important;
+    box-shadow: none !important;
+    flex: 0 0 auto !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-list-item.has-unread {
+    border-color: rgba(225, 29, 72, 0.22) !important;
+    background: rgba(255, 247, 248, 0.96) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-list-item.has-unread .chat-list-copy strong {
+    color: #1f5c59 !important;
+    font-weight: 800 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .chat-list-item.has-unread .chat-list-copy p {
+    color: #45605c !important;
+    font-weight: 600 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .shell-content {
+    padding-bottom: calc(var(--mobile-dock-stack, 56px) + 8px) !important;
+  }
+}

@@ -3,20 +3,27 @@ import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed } from 'vue'
 
 import SectionHeading from '../components/SectionHeading.vue'
+import WorkflowStatusFilter from '../components/WorkflowStatusFilter.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { rowToneForStatus, toneForStatus, workflowStatusBucket } from '../utils/status'
 
-const { filteredRequests, openRequestDetail, state } = useWorkflowHub()
+const { filteredRequests, openRequestDetail, state, updatePageFilter } = useWorkflowHub()
+
+const activeStatus = computed(() => String(state.filters.requests.status || ''))
 
 const requestStats = computed(() => {
   const rows = state.requests
   return [
-    { label: 'کل درخواست‌ها', value: rows.length, icon: 'assignment', tone: 'is-total' },
-    { label: 'در حال بررسی', value: rows.filter((item) => workflowStatusBucket(item, 'request') === 'pending').length, icon: 'pending_actions', tone: 'is-pending' },
-    { label: 'تایید شده', value: rows.filter((item) => workflowStatusBucket(item, 'request') === 'approved').length, icon: 'verified', tone: 'is-approved' },
-    { label: 'رد شده', value: rows.filter((item) => workflowStatusBucket(item, 'request') === 'rejected').length, icon: 'cancel', tone: 'is-rejected' },
+    { key: '', label: 'کل درخواست‌ها', value: rows.length, icon: 'assignment', tone: 'is-total' },
+    { key: 'pending', label: 'در حال بررسی', value: rows.filter((item) => workflowStatusBucket(item, 'request') === 'pending').length, icon: 'pending_actions', tone: 'is-pending' },
+    { key: 'approved', label: 'تایید شده', value: rows.filter((item) => workflowStatusBucket(item, 'request') === 'approved').length, icon: 'verified', tone: 'is-approved' },
+    { key: 'rejected', label: 'رد شده', value: rows.filter((item) => workflowStatusBucket(item, 'request') === 'rejected').length, icon: 'cancel', tone: 'is-rejected' },
   ]
 })
+
+function setStatusFilter(value) {
+  updatePageFilter('requests', 'status', value)
+}
 
 function priorityLabel(priority) {
   return {
@@ -31,13 +38,19 @@ function priorityLabel(priority) {
 <template>
   <section class="page-shell enterprise-page">
     <section class="metric-grid metric-grid-4">
-      <article v-for="item in requestStats" :key="item.label" :class="['metric-card', 'approval-metric-card', item.tone]">
+      <button
+        v-for="item in requestStats"
+        :key="item.label"
+        type="button"
+        :class="['metric-card', 'approval-metric-card', 'is-filterable', item.tone, activeStatus === item.key && 'is-selected']"
+        @click="setStatusFilter(item.key)"
+      >
         <div class="metric-card-headline">
           <span class="metric-label">{{ item.label }}</span>
           <IconlyIcon :name="item.icon" class="approval-metric-icon" decorative />
         </div>
         <strong>{{ item.value }}</strong>
-      </article>
+      </button>
     </section>
 
     <section class="surface-block">
@@ -47,6 +60,8 @@ function priorityLabel(priority) {
           :description="`${filteredRequests.length} مورد با فیلترهای انتخاب‌شده`"
         />
       </div>
+
+      <WorkflowStatusFilter page="requests" />
 
       <div class="table-shell">
         <table class="data-table">
@@ -97,3 +112,17 @@ function priorityLabel(priority) {
     </section>
   </section>
 </template>
+
+<style scoped>
+.metric-card.is-filterable {
+  width: 100%;
+  text-align: right;
+  cursor: pointer;
+  font: inherit;
+}
+
+.metric-card.is-filterable.is-selected {
+  outline: 2px solid rgba(52, 144, 139, 0.45);
+  outline-offset: 1px;
+}
+</style>

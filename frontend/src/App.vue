@@ -329,6 +329,10 @@ watch(
       return
     }
     stopLiveSync()
+    if (isAuthRoute.value || route.name === 'public-attendance') return
+    if (route.path !== '/login') {
+      window.location.replace('/login')
+    }
   },
 )
 

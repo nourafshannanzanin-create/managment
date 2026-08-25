@@ -4,6 +4,7 @@ import UserAvatar from '../components/UserAvatar.vue'
 import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { formatTehranDateTime } from '../utils/jalali'
+import { formatBadgeCount } from '../utils/badges'
 import { createLiveEventSource, parseLiveEvent } from '../utils/live'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -69,6 +70,11 @@ async function chatFetch(path, options = {}) {
     headers['Content-Type'] = 'application/json'
   }
   const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers })
+  if (response.status === 401) {
+    const { handleUnauthorizedSession } = useWorkflowHub()
+    handleUnauthorizedSession()
+    throw new Error('نشست منقضی شده است')
+  }
   if (!response.ok) {
     let detail = 'خطا در ارتباط با سرور'
     try {
@@ -629,7 +635,7 @@ onBeforeUnmount(() => {
         <button
           v-for="item in filteredConversations"
           :key="item.id"
-          :class="['chat-list-item', selectedId === item.id && 'is-active']"
+          :class="['chat-list-item', selectedId === item.id && 'is-active', Number(item.unreadCount) > 0 && 'has-unread']"
           type="button"
           @click="openConversation(item.id)"
         >
@@ -650,7 +656,7 @@ onBeforeUnmount(() => {
             <p>{{ item.lastPreview || item.lastMessage?.body || (item.lastMessage?.attachment ? 'پیوست' : 'گفتگو را شروع کنید') }}</p>
             <small v-if="isGroupConversation(item)" class="chat-group-meta">{{ conversationSubtitle(item) }}</small>
           </div>
-          <span v-if="item.unreadCount" class="chat-unread">{{ item.unreadCount }}</span>
+          <span v-if="Number(item.unreadCount) > 0" class="chat-unread">{{ formatBadgeCount(item.unreadCount) }}</span>
         </button>
         <div v-if="!loadingList && !filteredConversations.length" class="chat-empty">
           هنوز گفتگویی ندارید. با «چت جدید» شروع کنید.
@@ -1345,6 +1351,21 @@ onBeforeUnmount(() => {
   background: linear-gradient(180deg, #34908b, #4867b7);
 }
 
+.chat-list-item.has-unread {
+  border-color: rgba(225, 29, 72, 0.2);
+  background: rgba(255, 247, 248, 0.92);
+}
+
+.chat-list-item.has-unread .chat-list-copy strong {
+  font-weight: 800;
+  color: #1f5c59;
+}
+
+.chat-list-item.has-unread .chat-list-copy p {
+  color: #45605c;
+  font-weight: 600;
+}
+
 .chat-avatar {
   width: 42px;
   height: 42px;
@@ -1384,17 +1405,18 @@ onBeforeUnmount(() => {
 }
 
 .chat-unread {
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
   border-radius: 999px;
-  display: inline-grid;
-  place-items: center;
-  background: linear-gradient(135deg, #34908b, #2d7a6e);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e11d48;
   color: #fff;
   font-size: 11px;
-  font-weight: 800;
-  box-shadow: 0 4px 12px rgba(45, 122, 110, 0.28);
+  font-weight: 700;
+  flex: 0 0 auto;
 }
 
 .chat-thread-empty {
@@ -1872,10 +1894,12 @@ onBeforeUnmount(() => {
 
 .chat-bubble.is-mine {
   align-self: flex-start;
-  background: linear-gradient(145deg, #34908b, #2d7a6e);
+  background: #1f5c59;
+  background-image: linear-gradient(145deg, #1f5c59 0%, #174a47 100%);
   color: #fff;
   border-bottom-right-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 20px rgba(31, 92, 89, 0.28);
 }
 
 .chat-bubble.is-mine,
@@ -2074,9 +2098,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 920px) {
   .chat-page-luxe {
-    grid-template-columns: 1fr;
-    height: calc(100dvh - 56px - 76px - env(safe-area-inset-bottom, 0px));
-    max-height: calc(100dvh - 56px - 76px - env(safe-area-inset-bottom, 0px));
+    flex: 1 1 auto;
     min-height: 0;
     border-radius: 0;
     border: 0;
@@ -2095,43 +2117,12 @@ onBeforeUnmount(() => {
     background: transparent;
   }
 
-  .chat-page-luxe.show-thread .chat-composer {
-    position: fixed;
-    inset-inline: 10px;
-    bottom: calc(102px + env(safe-area-inset-bottom, 0px));
-    z-index: 60;
-    border-top: 0;
-    border-radius: 16px;
-    border: 1px solid rgba(52, 144, 139, 0.14);
-    box-shadow: 0 10px 28px rgba(31, 92, 89, 0.12);
-    background: rgba(255, 255, 255, 0.96);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-  }
-
-  .chat-page-luxe.show-thread .chat-messages {
-    padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
-  }
-
-  .chat-page-luxe.show-thread .chat-sidebar {
-    display: none;
-  }
-
-  .chat-page-luxe:not(.show-thread) .chat-thread {
-    display: none;
-  }
-
-  .chat-page-luxe.show-thread .chat-thread {
-    display: grid;
-  }
-
-  .chat-page-luxe:not(.show-thread) .chat-sidebar {
-    display: flex;
-    flex-direction: column;
-  }
-
   .chat-back-btn {
     display: inline-flex;
+  }
+
+  .chat-group-panel {
+    inset: 64px 0 var(--mobile-composer-reserve, 140px) 0;
   }
 }
 </style>

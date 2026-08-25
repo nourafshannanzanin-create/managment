@@ -334,8 +334,10 @@ watch(isTodayMode, (today) => {
                 {{ person.hasOpenShift ? 'شیفت باز' : 'بسته' }}
               </span>
             </td>
-            <td class="person-open-cell">
-              <IconlyIcon name="chevron_left" decorative />
+            <td class="person-open-cell" title="اطلاعات بیشتر">
+              <span class="person-open-btn" aria-hidden="true">
+                <IconlyIcon name="visibility" decorative />
+              </span>
             </td>
           </tr>
           <tr v-if="!people.length">
@@ -357,6 +359,16 @@ watch(isTodayMode, (today) => {
           <h2>{{ selectedPerson.userName }}</h2>
           <p>{{ personMetaLine(selectedPerson) || '—' }}</p>
         </div>
+        <button
+          class="attendance-person-close"
+          type="button"
+          aria-label="بستن"
+          title="بستن"
+          @click="closePerson"
+        >
+          <IconlyIcon name="close" decorative />
+          <span>بستن</span>
+        </button>
       </header>
 
       <section class="attendance-person-metrics">
@@ -660,9 +672,23 @@ watch(isTodayMode, (today) => {
 }
 
 .person-open-cell {
-  color: var(--muted, #45605c);
-  width: 36px;
+  width: 44px;
   text-align: center;
+}
+
+.person-open-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(52, 144, 139, 0.1);
+  color: #1f5c59;
+  border: 1px solid rgba(52, 144, 139, 0.14);
+}
+
+.person-open-btn :deep(.iconly-shell) {
+  font-size: 16px;
 }
 
 .attendance-person-modal {
@@ -673,7 +699,7 @@ watch(isTodayMode, (today) => {
 
 .attendance-person-hero {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
 }
@@ -698,6 +724,34 @@ watch(isTodayMode, (today) => {
 .attendance-person-title p {
   color: var(--muted, #45605c);
   font-size: 12px;
+}
+
+.attendance-person-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(52, 144, 139, 0.18);
+  border-radius: 12px;
+  background: #fff;
+  color: #1f5c59;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex: 0 0 auto;
+  box-shadow: 0 4px 12px rgba(31, 92, 89, 0.06);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.attendance-person-close:hover {
+  background: rgba(52, 144, 139, 0.08);
+  border-color: rgba(52, 144, 139, 0.28);
+}
+
+.attendance-person-close :deep(.iconly-shell) {
+  font-size: 16px;
 }
 
 .attendance-person-metrics {
@@ -924,6 +978,16 @@ watch(isTodayMode, (today) => {
   .attendance-person-metrics,
   .attendance-today-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .attendance-person-hero {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .attendance-person-close {
+    grid-column: 1 / -1;
+    justify-content: center;
+    width: 100%;
   }
 
   .attendance-person-actions,

@@ -112,6 +112,11 @@ async function apiFetch(path, options = {}) {
   if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json'
   if (!isPublic.value) headers.Authorization = `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`
   const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers })
+  if (response.status === 401 && !isPublic.value) {
+    const { handleUnauthorizedSession } = useWorkflowHub()
+    handleUnauthorizedSession()
+    throw new Error('نشست منقضی شده است')
+  }
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(payload.detail || payload.message || 'درخواست ناموفق بود.')
   return payload
@@ -416,17 +421,35 @@ onMounted(() => {
         <h1>ورود و خروج پرسنل</h1>
       </div>
       <div class="attendance-summary">
-        <article>
-          <span>حاضر</span>
-          <strong>{{ fa(dashboard.summary?.presentCount) }}</strong>
+        <article class="attendance-summary-tile is-present-summary">
+          <span class="attendance-summary-icon" aria-hidden="true">
+            <IconlyIcon name="groups" decorative />
+          </span>
+          <div class="attendance-summary-body">
+            <span>حاضر</span>
+            <strong>{{ fa(dashboard.summary?.presentCount) }}</strong>
+            <small>در شیفت</small>
+          </div>
         </article>
-        <article>
-          <span>خارج</span>
-          <strong>{{ fa(dashboard.summary?.absentCount) }}</strong>
+        <article class="attendance-summary-tile is-away-summary">
+          <span class="attendance-summary-icon" aria-hidden="true">
+            <IconlyIcon name="logout" decorative />
+          </span>
+          <div class="attendance-summary-body">
+            <span>خارج</span>
+            <strong>{{ fa(dashboard.summary?.absentCount) }}</strong>
+            <small>خارج از شیفت</small>
+          </div>
         </article>
-        <article>
-          <span>ساعت امروز</span>
-          <strong>{{ fa(dashboard.summary?.todayWorkedHours) }}</strong>
+        <article class="attendance-summary-tile is-hours-summary">
+          <span class="attendance-summary-icon" aria-hidden="true">
+            <IconlyIcon name="graph" decorative />
+          </span>
+          <div class="attendance-summary-body">
+            <span>ساعت امروز</span>
+            <strong>{{ formatHours(dashboard.summary?.todayWorkedHours) }}</strong>
+            <small>مجموع کارکرد</small>
+          </div>
         </article>
       </div>
     </section>
@@ -467,47 +490,94 @@ onMounted(() => {
 
     <section class="attendance-layout">
       <div class="attendance-users">
-        <article v-for="user in filteredUsers" :key="user.id" class="attendance-user-card">
-          <div class="attendance-user-head">
-            <UserAvatar
-              :name="user.name"
-              :avatar="user.avatar"
-              :avatar-url="user.avatarUrl || user.avatar_url"
-              size="md"
-            />
-            <div class="attendance-user-identity">
-              <strong>{{ user.name }}</strong>
-              <small>{{ user.role }} · {{ user.department }}</small>
+        <article
+          v-for="user in filteredUsers"
+          :key="user.id"
+          :class="['attendance-staff-card', user.status === 'in' ? 'is-present' : 'is-away']"
+        >
+          <div class="attendance-staff-banner" aria-hidden="true" />
+
+          <header class="attendance-staff-head">
+            <div class="attendance-staff-identity">
+              <UserAvatar
+                :name="user.name"
+                :avatar="user.avatar"
+                :avatar-url="user.avatarUrl || user.avatar_url"
+                size="md"
+              />
+              <div class="attendance-staff-copy">
+                <strong>{{ user.name }}</strong>
+                <small>{{ user.role }} · {{ user.department }}</small>
+              </div>
             </div>
-            <div class="attendance-user-tools">
-              <span :class="['status-badge', eventTone(user.status)]">{{ statusLabel(user.status) }}</span>
-              <button class="icon-btn" type="button" title="کپی لینک" @click="copyLink(user)">
-                <IconlyIcon name="content_copy" decorative />
+            <span :class="['attendance-staff-status', eventTone(user.status)]">
+              <span class="attendance-staff-status-dot" aria-hidden="true" />
+              {{ statusLabel(user.status) }}
+            </span>
+          </header>
+
+          <section class="attendance-staff-stats" aria-label="خلاصه امروز">
+            <article class="attendance-staff-stat is-events">
+              <span class="attendance-staff-stat-icon" aria-hidden="true">
+                <IconlyIcon name="fingerprint" decorative />
+              </span>
+              <div class="attendance-staff-stat-body">
+                <span>ثبت امروز</span>
+                <strong>{{ fa(user.todayEventsCount) }}</strong>
+                <small>ورود / خروج</small>
+              </div>
+            </article>
+            <article class="attendance-staff-stat is-hours">
+              <span class="attendance-staff-stat-icon" aria-hidden="true">
+                <IconlyIcon name="graph" decorative />
+              </span>
+              <div class="attendance-staff-stat-body">
+                <span>ساعت امروز</span>
+                <strong>{{ formatHours(user.todayWorkedHours) }}</strong>
+                <small>کارکرد خالص</small>
+              </div>
+            </article>
+          </section>
+
+          <div class="attendance-staff-linkbar">
+            <div class="attendance-staff-link-copy">
+              <span>لینک اختصاصی پرسنل</span>
+              <code class="attendance-staff-link" :title="attendanceLink(user)">{{ attendanceLink(user) }}</code>
+            </div>
+            <button class="attendance-staff-icon-btn" type="button" title="کپی لینک" @click="copyLink(user)">
+              <IconlyIcon name="content_copy" decorative />
+            </button>
+            <a class="attendance-staff-icon-btn" title="باز کردن لینک" :href="attendanceLink(user)" target="_blank" rel="noreferrer">
+              <IconlyIcon name="open_in_new" decorative />
+            </a>
+          </div>
+
+          <footer class="attendance-staff-footer">
+            <label class="attendance-staff-time">
+              <span>ساعت ورود / خروج</span>
+              <input v-model="punchTime" type="time" />
+            </label>
+            <div class="attendance-staff-actions">
+              <button
+                class="attendance-staff-punch is-in"
+                type="button"
+                :disabled="submitting || user.status === 'in'"
+                @click="submitManagerEvent(user, 'in')"
+              >
+                <IconlyIcon name="login" decorative />
+                <span>ثبت ورود</span>
               </button>
-              <a class="icon-btn" title="باز کردن لینک" :href="attendanceLink(user)" target="_blank" rel="noreferrer">
-                <IconlyIcon name="open_in_new" decorative />
-              </a>
+              <button
+                class="attendance-staff-punch is-out"
+                type="button"
+                :disabled="submitting || user.status !== 'in'"
+                @click="submitManagerEvent(user, 'out')"
+              >
+                <IconlyIcon name="logout" decorative />
+                <span>ثبت خروج</span>
+              </button>
             </div>
-          </div>
-          <div class="attendance-mini-grid">
-            <span>ثبت امروز <b>{{ fa(user.todayEventsCount) }}</b></span>
-            <span>ساعت امروز <b>{{ fa(user.todayWorkedHours) }}</b></span>
-          </div>
-          <code class="attendance-link">{{ attendanceLink(user) }}</code>
-          <label class="field-shell attendance-time-field">
-            <span>ساعت ورود / خروج</span>
-            <input v-model="punchTime" type="time" />
-          </label>
-          <div class="attendance-actions">
-            <button class="action-btn tone-primary" type="button" :disabled="submitting || user.status === 'in'" @click="submitManagerEvent(user, 'in')">
-              <IconlyIcon name="login" decorative />
-              <span>ثبت ورود</span>
-            </button>
-            <button class="action-btn tone-soft" type="button" :disabled="submitting || user.status !== 'in'" @click="submitManagerEvent(user, 'out')">
-              <IconlyIcon name="logout" decorative />
-              <span>ثبت خروج</span>
-            </button>
-          </div>
+          </footer>
         </article>
       </div>
 
@@ -674,13 +744,25 @@ onMounted(() => {
           </header>
 
           <div class="public-quick-stats">
-            <article>
-              <span>ثبت امروز</span>
-              <strong>{{ fa(publicUser.todayEventsCount) }}</strong>
+            <article class="is-events">
+              <span class="public-quick-stat-icon" aria-hidden="true">
+                <IconlyIcon name="fingerprint" decorative />
+              </span>
+              <div>
+                <span>ثبت امروز</span>
+                <strong>{{ fa(publicUser.todayEventsCount) }}</strong>
+                <small>ورود / خروج</small>
+              </div>
             </article>
-            <article>
-              <span>ساعت امروز</span>
-              <strong>{{ fa(publicUser.todayWorkedHours) }}</strong>
+            <article class="is-hours">
+              <span class="public-quick-stat-icon" aria-hidden="true">
+                <IconlyIcon name="graph" decorative />
+              </span>
+              <div>
+                <span>ساعت امروز</span>
+                <strong>{{ formatHours(publicUser.todayWorkedHours) }}</strong>
+                <small>کارکرد خالص</small>
+              </div>
             </article>
           </div>
 
@@ -719,9 +801,14 @@ onMounted(() => {
                 :disabled="submitting || !workplaceConfigured || publicUser.status === 'in'"
                 @click="submitPublicEvent('in')"
               >
-                <IconlyIcon name="login" size="xl" decorative />
-                <strong>{{ submitting && publicUser.status !== 'in' ? 'در حال ثبت...' : 'ثبت ورود' }}</strong>
-                <small>{{ publicUser.status === 'in' ? 'الان حاضر هستید' : 'شروع شیفت' }}</small>
+                <span class="attendance-punch-glow" aria-hidden="true" />
+                <span class="attendance-punch-icon">
+                  <IconlyIcon name="login" size="xl" decorative />
+                </span>
+                <span class="attendance-punch-copy">
+                  <strong>{{ submitting && publicUser.status !== 'in' ? 'در حال ثبت...' : 'ثبت ورود' }}</strong>
+                  <small>{{ publicUser.status === 'in' ? 'الان حاضر هستید' : 'شروع شیفت کاری' }}</small>
+                </span>
               </button>
               <button
                 class="attendance-punch-btn is-out"
@@ -729,9 +816,14 @@ onMounted(() => {
                 :disabled="submitting || !workplaceConfigured || publicUser.status !== 'in'"
                 @click="submitPublicEvent('out')"
               >
-                <IconlyIcon name="logout" size="xl" decorative />
-                <strong>{{ submitting && publicUser.status === 'in' ? 'در حال ثبت...' : 'ثبت خروج' }}</strong>
-                <small>{{ publicUser.status === 'in' ? 'پایان شیفت' : 'ابتدا ورود ثبت کنید' }}</small>
+                <span class="attendance-punch-glow" aria-hidden="true" />
+                <span class="attendance-punch-icon">
+                  <IconlyIcon name="logout" size="xl" decorative />
+                </span>
+                <span class="attendance-punch-copy">
+                  <strong>{{ submitting && publicUser.status === 'in' ? 'در حال ثبت...' : 'ثبت خروج' }}</strong>
+                  <small>{{ publicUser.status === 'in' ? 'پایان شیفت کاری' : 'ابتدا ورود ثبت کنید' }}</small>
+                </span>
               </button>
             </div>
           </div>
@@ -776,10 +868,11 @@ onMounted(() => {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
   gap: 18px;
-  padding: 24px;
-  border-radius: 12px;
-  background: var(--surface, #fff);
-  border: 1px solid var(--line);
+  padding: 22px;
+  border-radius: 24px;
+  background: rgba(52, 144, 139, 0.06);
+  border: 1px solid rgba(52, 144, 139, 0.12);
+  box-shadow: none;
   min-width: 0;
 }
 
@@ -794,42 +887,119 @@ onMounted(() => {
 }
 
 .attendance-summary,
-.attendance-mini-grid,
 .public-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
 
-.attendance-summary article,
-.attendance-mini-grid span,
+.attendance-summary-tile,
 .public-stats article {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
   min-width: 0;
-  padding: 14px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.76);
-  border: 1px solid var(--line);
+  min-height: 92px;
+  padding: 14px 14px 14px 12px;
+  border-radius: 18px;
+  background: rgba(52, 144, 139, 0.06);
+  border: 1px solid rgba(52, 144, 139, 0.12);
+  box-shadow: none;
+  overflow: hidden;
 }
 
-.attendance-summary span,
+.attendance-summary-tile::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  top: 16px;
+  bottom: 16px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #34908b, #1f5c59);
+}
+
+.attendance-summary-tile.is-present-summary {
+  background: rgba(31, 138, 112, 0.08);
+  border-color: rgba(31, 138, 112, 0.16);
+}
+
+.attendance-summary-tile.is-present-summary::after {
+  background: linear-gradient(180deg, #2bb89a, #1f8a70);
+}
+
+.attendance-summary-tile.is-away-summary {
+  background: rgba(200, 115, 42, 0.08);
+  border-color: rgba(200, 115, 42, 0.16);
+}
+
+.attendance-summary-tile.is-away-summary::after {
+  background: linear-gradient(180deg, #e0a35d, #c8732a);
+}
+
+.attendance-summary-tile.is-hours-summary {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(52, 144, 139, 0.18), transparent 46%),
+    linear-gradient(160deg, #ffffff 0%, #eaf6f5 100%);
+}
+
+.attendance-summary-icon {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(31, 92, 89, 0.08);
+  color: #1f5c59;
+  box-shadow: none;
+}
+
+.attendance-summary-tile.is-present-summary .attendance-summary-icon {
+  background: rgba(31, 138, 112, 0.14);
+  color: #145f52;
+}
+
+.attendance-summary-tile.is-away-summary .attendance-summary-icon {
+  background: rgba(200, 115, 42, 0.14);
+  color: #8a4b12;
+}
+
+.attendance-summary-body {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.attendance-summary-body span,
 .public-stats span {
   display: block;
-  color: var(--muted);
+  color: #5f7a76;
   font-size: 12px;
+  font-weight: 750;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.attendance-summary strong,
+.attendance-summary-body strong,
 .public-stats strong {
   display: block;
-  margin-top: 8px;
-  color: var(--primary);
-  font-size: clamp(1.1rem, 3vw, 1.5rem);
-  line-height: 1.2;
+  color: #123735;
+  font-size: clamp(1.25rem, 2.6vw, 1.7rem);
+  font-weight: 900;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
   overflow-wrap: anywhere;
+}
+
+.attendance-summary-body small {
+  display: block;
+  color: #7a9490;
+  font-size: 10px;
+  font-weight: 650;
 }
 
 .attendance-tabs { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -870,9 +1040,8 @@ onMounted(() => {
   padding: 14px;
   border-radius: 18px;
   border: 1px solid rgba(52, 144, 139, 0.14);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 251, 250, 0.92));
-  box-shadow: 0 10px 28px rgba(31, 92, 89, 0.06);
+  background: rgba(52, 144, 139, 0.04);
+  box-shadow: none;
 }
 
 .attendance-toolbar > * { min-width: 0; }
@@ -1291,76 +1460,357 @@ onMounted(() => {
 .attendance-users {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+.attendance-staff-card {
+  position: relative;
+  display: grid;
   gap: 14px;
   min-width: 0;
+  padding: 0;
+  border-radius: 22px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(52, 144, 139, 0.12);
+  box-shadow: none;
+  backdrop-filter: blur(8px);
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
-.attendance-user-card {
-  display: grid;
+.attendance-staff-card:hover {
+  border-color: rgba(52, 144, 139, 0.22);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.attendance-staff-banner {
+  height: 6px;
+  background: linear-gradient(90deg, #9bb5b1, #c5d4d1);
+}
+
+.attendance-staff-card.is-present .attendance-staff-banner {
+  background: linear-gradient(90deg, #1f8a70, #34908b 55%, #2bb89a);
+}
+
+.attendance-staff-card.is-away .attendance-staff-banner {
+  background: linear-gradient(90deg, #c8732a, #e0a35d 60%, #f0c48a);
+}
+
+.attendance-staff-head,
+.attendance-staff-stats,
+.attendance-staff-linkbar,
+.attendance-staff-footer {
+  padding-inline: 16px;
+}
+
+.attendance-staff-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+}
+
+.attendance-staff-identity {
+  display: flex;
+  align-items: center;
   gap: 12px;
   min-width: 0;
-  padding: 16px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid var(--line);
 }
 
-.attendance-user-head {
+.attendance-staff-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.attendance-staff-copy strong,
+.attendance-staff-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attendance-staff-copy strong {
+  color: #152523;
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+
+.attendance-staff-copy small {
+  color: #5f7a76;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.attendance-staff-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.attendance-staff-status.is-success {
+  background: rgba(31, 138, 112, 0.12);
+  color: #145f52;
+  border: 1px solid rgba(31, 138, 112, 0.2);
+}
+
+.attendance-staff-status.is-warning {
+  background: rgba(200, 115, 42, 0.12);
+  color: #8a4b12;
+  border: 1px solid rgba(200, 115, 42, 0.22);
+}
+
+.attendance-staff-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.attendance-staff-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.attendance-staff-stat {
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas:
-    "avatar identity"
-    "tools tools";
-  gap: 10px 12px;
   align-items: center;
+  gap: 10px;
   min-width: 0;
+  min-height: 86px;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(52, 144, 139, 0.06);
+  border: 1px solid rgba(52, 144, 139, 0.1);
+  box-shadow: none;
+  overflow: hidden;
 }
 
-.attendance-user-head :deep(.user-avatar-face) {
-  grid-area: avatar;
-  flex-shrink: 0;
+.attendance-staff-stat.is-events {
+  background: rgba(31, 138, 112, 0.08);
+  border-color: rgba(31, 138, 112, 0.14);
 }
 
-.attendance-user-identity {
-  grid-area: identity;
+.attendance-staff-stat.is-hours {
+  background: rgba(52, 144, 139, 0.08);
+  border-color: rgba(52, 144, 139, 0.14);
+}
+
+.attendance-staff-stat-icon {
+  width: 42px;
+  height: 42px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(31, 92, 89, 0.08);
+  color: #1f5c59;
+  box-shadow: none;
+}
+
+.attendance-staff-stat.is-events .attendance-staff-stat-icon {
+  background: rgba(31, 138, 112, 0.12);
+  color: #145f52;
+}
+
+.attendance-staff-stat.is-hours .attendance-staff-stat-icon {
+  background: rgba(52, 144, 139, 0.12);
+  color: #1f5c59;
+}
+
+.attendance-staff-stat-body {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.attendance-staff-stat-body span {
+  color: #5f7a76;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.attendance-staff-stat-body strong {
+  color: #123735;
+  font-size: clamp(1.15rem, 2.4vw, 1.45rem);
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.attendance-staff-stat-body small {
+  color: #7a9490;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.attendance-staff-linkbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  margin-inline: 16px;
+  border-radius: 14px;
+  background: rgba(31, 92, 89, 0.05);
+  border: 1px solid rgba(52, 144, 139, 0.12);
+}
+
+.attendance-staff-link-copy {
   min-width: 0;
   display: grid;
   gap: 2px;
 }
 
-.attendance-user-tools {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  flex-wrap: wrap;
-  gap: 6px;
-  min-width: 0;
+.attendance-staff-link-copy > span {
+  color: #5f7a76;
+  font-size: 10px;
+  font-weight: 750;
 }
 
-.attendance-user-tools .icon-btn {
-  width: 36px;
-  height: 36px;
+.attendance-staff-link {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: ltr;
+  text-align: left;
+  color: #2b7874;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.attendance-staff-icon-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid rgba(52, 144, 139, 0.14);
+  background: #fff;
+  color: #1f5c59;
+  cursor: pointer;
+  text-decoration: none;
   flex: 0 0 auto;
 }
 
-.attendance-user-head strong,
-.attendance-user-head small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.attendance-staff-icon-btn:hover {
+  background: rgba(52, 144, 139, 0.08);
 }
 
-.attendance-user-identity strong,
-.attendance-user-identity small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.attendance-staff-footer {
+  display: grid;
+  gap: 10px;
+  padding: 0 16px 16px;
 }
 
-.attendance-user-head small { color: var(--muted); }
+.attendance-staff-time {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.attendance-staff-time span {
+  color: #5f7a76;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.attendance-staff-time input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 144, 139, 0.16);
+  background: #f7fbfa;
+  color: #152523;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.attendance-staff-time input:focus {
+  outline: 2px solid rgba(52, 144, 139, 0.22);
+  border-color: #34908b;
+  background: #fff;
+}
+
+.attendance-staff-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.attendance-staff-punch {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: none;
+  backdrop-filter: blur(6px);
+  transition: background 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
+}
+
+.attendance-staff-punch.is-in {
+  background: rgba(43, 184, 154, 0.14);
+  border-color: rgba(31, 138, 112, 0.28);
+  color: #145f52;
+}
+
+.attendance-staff-punch.is-out {
+  background: rgba(224, 122, 95, 0.14);
+  border-color: rgba(196, 90, 74, 0.28);
+  color: #9a3f34;
+}
+
+.attendance-staff-punch:hover:not(:disabled) {
+  filter: none;
+}
+
+.attendance-staff-punch.is-in:hover:not(:disabled) {
+  background: rgba(43, 184, 154, 0.22);
+  border-color: rgba(31, 138, 112, 0.36);
+}
+
+.attendance-staff-punch.is-out:hover:not(:disabled) {
+  background: rgba(224, 122, 95, 0.22);
+  border-color: rgba(196, 90, 74, 0.36);
+}
+
+.attendance-staff-punch:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.attendance-staff-punch.is-in :deep(.iconly-shell) {
+  --iconly-filter: brightness(0) saturate(100%) invert(32%) sepia(28%) saturate(1200%) hue-rotate(128deg) brightness(92%) contrast(92%);
+  font-size: 16px;
+  color: #145f52;
+}
+
+.attendance-staff-punch.is-out :deep(.iconly-shell) {
+  --iconly-filter: brightness(0) saturate(100%) invert(38%) sepia(42%) saturate(900%) hue-rotate(330deg) brightness(95%) contrast(92%);
+  font-size: 16px;
+  color: #9a3f34;
+}
 
 .status-badge {
   max-width: 100%;
@@ -1369,51 +1819,6 @@ onMounted(() => {
   font-size: 11px;
   font-weight: 750;
   white-space: nowrap;
-}
-
-.attendance-mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.attendance-mini-grid span { overflow: hidden; }
-.attendance-mini-grid b {
-  display: block;
-  margin-top: 6px;
-  color: var(--primary);
-  overflow-wrap: anywhere;
-}
-
-.attendance-link {
-  display: block;
-  max-width: 100%;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(36, 59, 107, 0.05);
-  color: var(--primary);
-  direction: ltr;
-  text-align: left;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.attendance-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.attendance-actions .action-btn {
-  width: 100%;
-  min-width: 0;
-  justify-content: center;
-}
-
-.attendance-actions .action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.attendance-time-field {
-  margin: 0;
 }
 
 .report-time-edit {
@@ -1564,9 +1969,9 @@ onMounted(() => {
   gap: 14px;
   padding: clamp(16px, 4vw, 24px);
   border-radius: clamp(16px, 4vw, 22px);
-  background: rgba(247, 251, 250, 0.94);
-  border: 1px solid var(--line);
-  box-shadow: 0 18px 40px rgba(31, 92, 89, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(52, 144, 139, 0.12);
+  box-shadow: none;
   min-width: 0;
   backdrop-filter: blur(10px);
 }
@@ -1649,30 +2054,73 @@ onMounted(() => {
 .public-quick-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .public-quick-stats article {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
   min-width: 0;
-  padding: 14px 12px;
-  border-radius: 16px;
-  background: var(--primary-container);
-  border: 1px solid var(--line);
-  text-align: center;
+  min-height: 92px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(52, 144, 139, 0.06);
+  border: 1px solid rgba(52, 144, 139, 0.12);
+  box-shadow: none;
+  overflow: hidden;
+  text-align: start;
+}
+
+.public-quick-stats article.is-events {
+  background: rgba(31, 138, 112, 0.08);
+  border-color: rgba(31, 138, 112, 0.14);
+}
+
+.public-quick-stats article.is-hours {
+  background: rgba(52, 144, 139, 0.08);
+  border-color: rgba(52, 144, 139, 0.14);
+}
+
+.public-quick-stat-icon {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(31, 92, 89, 0.08);
+  color: #1f5c59;
+}
+
+.public-quick-stats article > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
 }
 
 .public-quick-stats span {
   display: block;
-  color: var(--muted);
+  color: #5f7a76;
   font-size: 12px;
+  font-weight: 750;
 }
 
 .public-quick-stats strong {
   display: block;
-  margin-top: 6px;
-  color: var(--on-primary-container);
-  font-size: clamp(1.15rem, 4vw, 1.45rem);
+  color: #123735;
+  font-size: clamp(1.2rem, 4vw, 1.55rem);
   line-height: 1.2;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.public-quick-stats small {
+  display: block;
+  color: #7a9490;
+  font-size: 10px;
+  font-weight: 650;
 }
 
 .location-status-card {
@@ -1720,60 +2168,122 @@ onMounted(() => {
 .attendance-punch-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .attendance-punch-btn {
-  min-height: 96px;
+  position: relative;
+  isolation: isolate;
+  min-height: 118px;
   display: grid;
-  place-items: center;
-  gap: 4px;
-  padding: 14px 10px;
-  border-radius: 16px;
+  justify-items: center;
+  align-content: center;
+  gap: 10px;
+  padding: 18px 12px;
+  border-radius: 22px;
   border: 1px solid transparent;
-  color: #fff;
   cursor: pointer;
   font: inherit;
   text-align: center;
-  transition: transform 140ms ease, opacity 140ms ease;
+  overflow: hidden;
+  box-shadow: none;
+  backdrop-filter: blur(8px);
+  transition: background 180ms ease, border-color 180ms ease, opacity 180ms ease;
   -webkit-tap-highlight-color: transparent;
 }
 
-.attendance-punch-btn:active:not(:disabled) {
-  transform: scale(0.98);
+.attendance-punch-glow {
+  display: none;
 }
 
-.attendance-punch-btn strong {
-  font-size: clamp(0.95rem, 3.6vw, 1.05rem);
-}
-
-.attendance-punch-btn small {
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 0.76rem;
-  line-height: 1.4;
-}
-
-.attendance-punch-btn.is-in {
-  background: var(--button-primary-bg);
-  border-color: var(--primary-strong);
-  box-shadow: 0 10px 24px rgba(52, 144, 139, 0.28);
-}
-
-.attendance-punch-btn.is-out {
-  background: var(--button-danger-bg);
-  border-color: #a8483c;
-  box-shadow: 0 10px 24px rgba(196, 90, 74, 0.22);
-}
-
-.attendance-punch-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+.attendance-punch-icon {
+  position: relative;
+  z-index: 1;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   box-shadow: none;
 }
 
-.attendance-punch-btn :deep(.iconly-shell) {
-  --iconly-filter: brightness(0) saturate(100%) invert(100%);
-  font-size: clamp(24px, 6vw, 28px);
+.attendance-punch-copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.attendance-punch-btn:hover:not(:disabled) {
+  transform: none;
+}
+
+.attendance-punch-btn:active:not(:disabled) {
+  transform: none;
+}
+
+.attendance-punch-btn strong {
+  font-size: clamp(0.98rem, 3.6vw, 1.12rem);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.attendance-punch-btn small {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.attendance-punch-btn.is-in {
+  background: rgba(43, 184, 154, 0.14);
+  border-color: rgba(31, 138, 112, 0.28);
+  color: #145f52;
+}
+
+.attendance-punch-btn.is-in .attendance-punch-icon {
+  background: rgba(31, 138, 112, 0.12);
+  border-color: rgba(31, 138, 112, 0.2);
+}
+
+.attendance-punch-btn.is-in small {
+  color: rgba(20, 95, 82, 0.72);
+}
+
+.attendance-punch-btn.is-out {
+  background: rgba(224, 122, 95, 0.14);
+  border-color: rgba(196, 90, 74, 0.28);
+  color: #9a3f34;
+}
+
+.attendance-punch-btn.is-out .attendance-punch-icon {
+  background: rgba(196, 90, 74, 0.12);
+  border-color: rgba(196, 90, 74, 0.2);
+}
+
+.attendance-punch-btn.is-out small {
+  color: rgba(154, 63, 52, 0.72);
+}
+
+.attendance-punch-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  filter: grayscale(0.18);
+  transform: none;
+}
+
+.attendance-punch-btn.is-in :deep(.iconly-shell) {
+  --iconly-filter: brightness(0) saturate(100%) invert(32%) sepia(28%) saturate(1200%) hue-rotate(128deg) brightness(92%) contrast(92%);
+  font-size: clamp(22px, 5.5vw, 26px);
+  color: #145f52;
+}
+
+.attendance-punch-btn.is-out :deep(.iconly-shell) {
+  --iconly-filter: brightness(0) saturate(100%) invert(38%) sepia(42%) saturate(900%) hue-rotate(330deg) brightness(95%) contrast(92%);
+  font-size: clamp(22px, 5.5vw, 26px);
+  color: #9a3f34;
 }
 
 .public-note { display: grid; gap: 8px; min-width: 0; }
@@ -1828,9 +2338,15 @@ onMounted(() => {
   }
 
   .attendance-punch-btn {
-    min-height: 132px;
-    padding: 18px 14px;
-    gap: 6px;
+    min-height: 148px;
+    padding: 22px 16px;
+    gap: 12px;
+  }
+
+  .attendance-punch-icon {
+    width: 58px;
+    height: 58px;
+    border-radius: 18px;
   }
 }
 
@@ -1914,7 +2430,7 @@ onMounted(() => {
   .report-summary-grid,
   .report-summary-grid-wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .attendance-tab { flex: 1 1 calc(50% - 5px); }
-  .attendance-actions { grid-template-columns: 1fr 1fr; }
+  .attendance-staff-actions { grid-template-columns: 1fr 1fr; }
   .report-hero-actions { width: 100%; }
   .report-hero-actions .action-btn { flex: 1 1 calc(50% - 4px); }
   .report-view-tab { flex: 0 0 auto; width: auto; text-align: center; white-space: nowrap; }
@@ -1925,9 +2441,9 @@ onMounted(() => {
   .attendance-summary,
   .attendance-users,
   .report-summary-grid,
-  .report-summary-grid-wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .report-summary-grid-wide { grid-template-columns: 1fr; }
 
-  .attendance-actions { grid-template-columns: 1fr 1fr; }
+  .attendance-staff-actions { grid-template-columns: 1fr; }
 }
 
 .attendance-tabs,
@@ -1942,5 +2458,283 @@ onMounted(() => {
 .report-view-tabs::-webkit-scrollbar,
 .report-range-bar::-webkit-scrollbar {
   display: none;
+}
+</style>
+
+<style>
+/* Attendance cards & summaries — unscoped locks beat jade flat overrides */
+#app .app-shell:not(.is-auth-route) .attendance-hero {
+  display: grid !important;
+  gap: 18px !important;
+  padding: 22px !important;
+  border-radius: 24px !important;
+  background: rgba(52, 144, 139, 0.06) !important;
+  background-image: none !important;
+  border: 1px solid rgba(52, 144, 139, 0.12) !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-summary {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-summary-tile {
+  position: relative !important;
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-height: 92px !important;
+  padding: 14px 14px 14px 12px !important;
+  border-radius: 18px !important;
+  background: rgba(52, 144, 139, 0.06) !important;
+  background-image: none !important;
+  border: 1px solid rgba(52, 144, 139, 0.12) !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-summary-tile.is-present-summary {
+  background: rgba(31, 138, 112, 0.08) !important;
+  background-image: none !important;
+  border-color: rgba(31, 138, 112, 0.16) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-summary-tile.is-away-summary {
+  background: rgba(200, 115, 42, 0.08) !important;
+  background-image: none !important;
+  border-color: rgba(200, 115, 42, 0.16) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-summary-icon {
+  width: 44px !important;
+  height: 44px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  border-radius: 14px !important;
+  background: rgba(31, 92, 89, 0.08) !important;
+  color: #1f5c59 !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-summary-body span,
+#app .app-shell:not(.is-auth-route) .attendance-summary-body small,
+#app .app-shell:not(.is-auth-route) .attendance-staff-stat-body span,
+#app .app-shell:not(.is-auth-route) .attendance-staff-stat-body small,
+#app .app-shell:not(.is-auth-route) .attendance-staff-link-copy > span {
+  color: #5f7a76 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-summary-body strong,
+#app .app-shell:not(.is-auth-route) .attendance-staff-stat-body strong {
+  color: #123735 !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-summary-body strong {
+  font-size: clamp(1.25rem, 2.6vw, 1.7rem) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-card {
+  position: relative !important;
+  display: grid !important;
+  gap: 14px !important;
+  padding: 0 !important;
+  border-radius: 22px !important;
+  overflow: hidden !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  background-image: none !important;
+  border: 1px solid rgba(52, 144, 139, 0.12) !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-banner {
+  display: block !important;
+  height: 6px !important;
+  background: linear-gradient(90deg, #9bb5b1, #c5d4d1) !important;
+  background-image: linear-gradient(90deg, #9bb5b1, #c5d4d1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-card.is-present .attendance-staff-banner {
+  background: linear-gradient(90deg, #1f8a70, #34908b 55%, #2bb89a) !important;
+  background-image: linear-gradient(90deg, #1f8a70, #34908b 55%, #2bb89a) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-card.is-away .attendance-staff-banner {
+  background: linear-gradient(90deg, #c8732a, #e0a35d 60%, #f0c48a) !important;
+  background-image: linear-gradient(90deg, #c8732a, #e0a35d 60%, #f0c48a) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-stats {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-stat {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-height: 86px !important;
+  padding: 12px !important;
+  border-radius: 18px !important;
+  background: rgba(52, 144, 139, 0.06) !important;
+  background-image: none !important;
+  border: 1px solid rgba(52, 144, 139, 0.1) !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-stat.is-events {
+  background: rgba(31, 138, 112, 0.08) !important;
+  background-image: none !important;
+  border-color: rgba(31, 138, 112, 0.14) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-stat.is-hours {
+  background: rgba(52, 144, 139, 0.08) !important;
+  background-image: none !important;
+  border-color: rgba(52, 144, 139, 0.14) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-stat-icon {
+  width: 42px !important;
+  height: 42px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  border-radius: 14px !important;
+  background: rgba(31, 92, 89, 0.08) !important;
+  color: #1f5c59 !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-stat-body strong {
+  font-size: clamp(1.15rem, 2.4vw, 1.45rem) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-status.is-success {
+  background: rgba(31, 138, 112, 0.12) !important;
+  color: #145f52 !important;
+  border: 1px solid rgba(31, 138, 112, 0.2) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-status.is-warning {
+  background: rgba(200, 115, 42, 0.12) !important;
+  color: #8a4b12 !important;
+  border: 1px solid rgba(200, 115, 42, 0.22) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-linkbar {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto auto !important;
+  gap: 8px !important;
+  align-items: center !important;
+  padding: 10px 12px !important;
+  margin-inline: 16px !important;
+  border-radius: 14px !important;
+  background: rgba(31, 92, 89, 0.05) !important;
+  border: 1px solid rgba(52, 144, 139, 0.12) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-punch.is-in {
+  background: rgba(43, 184, 154, 0.14) !important;
+  background-image: none !important;
+  border: 1px solid rgba(31, 138, 112, 0.28) !important;
+  color: #145f52 !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-punch.is-out {
+  background: rgba(224, 122, 95, 0.14) !important;
+  background-image: none !important;
+  border: 1px solid rgba(196, 90, 74, 0.28) !important;
+  color: #9a3f34 !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-punch.is-in,
+#app .app-shell:not(.is-auth-route) .attendance-staff-punch.is-in span {
+  color: #145f52 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-punch.is-out,
+#app .app-shell:not(.is-auth-route) .attendance-staff-punch.is-out span {
+  color: #9a3f34 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-punch.is-in .iconly-shell,
+#app .app-shell:not(.is-auth-route) .attendance-staff-punch.is-in .iconly-img {
+  --iconly-filter: brightness(0) saturate(100%) invert(32%) sepia(28%) saturate(1200%) hue-rotate(128deg) brightness(92%) contrast(92%) !important;
+  filter: brightness(0) saturate(100%) invert(32%) sepia(28%) saturate(1200%) hue-rotate(128deg) brightness(92%) contrast(92%) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-punch.is-out .iconly-shell,
+#app .app-shell:not(.is-auth-route) .attendance-staff-punch.is-out .iconly-img {
+  --iconly-filter: brightness(0) saturate(100%) invert(38%) sepia(42%) saturate(900%) hue-rotate(330deg) brightness(95%) contrast(92%) !important;
+  filter: brightness(0) saturate(100%) invert(38%) sepia(42%) saturate(900%) hue-rotate(330deg) brightness(95%) contrast(92%) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-punch-btn.is-in {
+  background: rgba(43, 184, 154, 0.14) !important;
+  background-image: none !important;
+  border-color: rgba(31, 138, 112, 0.28) !important;
+  color: #145f52 !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-punch-btn.is-out {
+  background: rgba(224, 122, 95, 0.14) !important;
+  background-image: none !important;
+  border-color: rgba(196, 90, 74, 0.28) !important;
+  color: #9a3f34 !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-punch-btn.is-in :where(span, strong, small) {
+  color: #145f52 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-punch-btn.is-out :where(span, strong, small) {
+  color: #9a3f34 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-punch-btn.is-in small {
+  color: rgba(20, 95, 82, 0.72) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-punch-btn.is-out small {
+  color: rgba(154, 63, 52, 0.72) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-punch-btn.is-in .iconly-shell,
+#app .app-shell:not(.is-auth-route) .attendance-punch-btn.is-in .iconly-img {
+  --iconly-filter: brightness(0) saturate(100%) invert(32%) sepia(28%) saturate(1200%) hue-rotate(128deg) brightness(92%) contrast(92%) !important;
+  filter: brightness(0) saturate(100%) invert(32%) sepia(28%) saturate(1200%) hue-rotate(128deg) brightness(92%) contrast(92%) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-punch-btn.is-out .iconly-shell,
+#app .app-shell:not(.is-auth-route) .attendance-punch-btn.is-out .iconly-img {
+  --iconly-filter: brightness(0) saturate(100%) invert(38%) sepia(42%) saturate(900%) hue-rotate(330deg) brightness(95%) contrast(92%) !important;
+  filter: brightness(0) saturate(100%) invert(38%) sepia(42%) saturate(900%) hue-rotate(330deg) brightness(95%) contrast(92%) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-punch-icon {
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-staff-time input {
+  min-height: 44px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(52, 144, 139, 0.16) !important;
+  background: #f7fbfa !important;
+}
+
+@media (max-width: 720px) {
+  #app .app-shell:not(.is-auth-route) .attendance-summary {
+    grid-template-columns: 1fr !important;
+  }
 }
 </style>

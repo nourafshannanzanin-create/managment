@@ -3,20 +3,27 @@ import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed } from 'vue'
 
 import SectionHeading from '../components/SectionHeading.vue'
+import WorkflowStatusFilter from '../components/WorkflowStatusFilter.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { rowToneForStatus, toneForStatus, workflowStatusBucket } from '../utils/status'
 
-const { filteredExpenses, openExpenseDetail, openProtectedFile, state } = useWorkflowHub()
+const { filteredExpenses, openExpenseDetail, openProtectedFile, state, updatePageFilter } = useWorkflowHub()
+
+const activeStatus = computed(() => String(state.filters.expenses.status || ''))
 
 const expenseStats = computed(() => {
   const rows = state.expenses
   return [
-    { label: 'کل هزینه‌ها', value: rows.length, icon: 'receipt_long', tone: 'is-total' },
-    { label: 'در حال بررسی', value: rows.filter((item) => workflowStatusBucket(item, 'expense') === 'pending').length, icon: 'pending_actions', tone: 'is-pending' },
-    { label: 'تایید شده', value: rows.filter((item) => workflowStatusBucket(item, 'expense') === 'approved').length, icon: 'verified', tone: 'is-approved' },
-    { label: 'رد شده', value: rows.filter((item) => workflowStatusBucket(item, 'expense') === 'rejected').length, icon: 'cancel', tone: 'is-rejected' },
+    { key: '', label: 'کل هزینه‌ها', value: rows.length, icon: 'receipt_long', tone: 'is-total' },
+    { key: 'pending', label: 'در حال بررسی', value: rows.filter((item) => workflowStatusBucket(item, 'expense') === 'pending').length, icon: 'pending_actions', tone: 'is-pending' },
+    { key: 'approved', label: 'تایید شده', value: rows.filter((item) => workflowStatusBucket(item, 'expense') === 'approved').length, icon: 'verified', tone: 'is-approved' },
+    { key: 'rejected', label: 'رد شده', value: rows.filter((item) => workflowStatusBucket(item, 'expense') === 'rejected').length, icon: 'cancel', tone: 'is-rejected' },
   ]
 })
+
+function setStatusFilter(value) {
+  updatePageFilter('expenses', 'status', value)
+}
 
 async function handleInvoiceOpen(item) {
   await openProtectedFile(item?.invoiceUrl, item?.id || 'expense-invoice')
@@ -26,13 +33,19 @@ async function handleInvoiceOpen(item) {
 <template>
   <section v-if="state.currentUser.canAccessExpenses !== false" class="page-shell enterprise-page">
     <section class="metric-grid metric-grid-4">
-      <article v-for="item in expenseStats" :key="item.label" :class="['metric-card', 'approval-metric-card', item.tone]">
+      <button
+        v-for="item in expenseStats"
+        :key="item.label"
+        type="button"
+        :class="['metric-card', 'approval-metric-card', 'is-filterable', item.tone, activeStatus === item.key && 'is-selected']"
+        @click="setStatusFilter(item.key)"
+      >
         <div class="metric-card-headline">
           <span class="metric-label">{{ item.label }}</span>
           <IconlyIcon :name="item.icon" class="approval-metric-icon" decorative />
         </div>
         <strong>{{ item.value }}</strong>
-      </article>
+      </button>
     </section>
 
     <section class="surface-block">
@@ -42,6 +55,8 @@ async function handleInvoiceOpen(item) {
           :description="`${filteredExpenses.length} مورد با فیلترهای انتخاب‌شده`"
         />
       </div>
+
+      <WorkflowStatusFilter page="expenses" />
 
       <div class="table-shell">
         <table class="data-table">
@@ -100,3 +115,17 @@ async function handleInvoiceOpen(item) {
     </article>
   </section>
 </template>
+
+<style scoped>
+.metric-card.is-filterable {
+  width: 100%;
+  text-align: right;
+  cursor: pointer;
+  font: inherit;
+}
+
+.metric-card.is-filterable.is-selected {
+  outline: 2px solid rgba(52, 144, 139, 0.45);
+  outline-offset: 1px;
+}
+</style>
