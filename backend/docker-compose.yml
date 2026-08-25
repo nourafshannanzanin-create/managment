@@ -4,6 +4,11 @@ services:
   db:
     image: mysql:8.0
     restart: unless-stopped
+    logging: &rotated-json-log
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
@@ -24,6 +29,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    logging: *rotated-json-log
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -36,6 +42,7 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    logging: *rotated-json-log
     environment:
       WORKFLOW_APP_NAME: ${WORKFLOW_APP_NAME:-Workflow Hub API}
       WORKFLOW_API_V1_PREFIX: ${WORKFLOW_API_V1_PREFIX:-/api/v1}
@@ -65,9 +72,15 @@ services:
       WORKFLOW_STATIC_ROOT: ${WORKFLOW_STATIC_ROOT:-staticfiles}
       WORKFLOW_AUTO_INIT_DB: ${WORKFLOW_AUTO_INIT_DB:-true}
       WORKFLOW_AUTO_SEED_DB: ${WORKFLOW_AUTO_SEED_DB:-false}
+      WORKFLOW_RUN_MIGRATIONS: ${WORKFLOW_RUN_MIGRATIONS:-true}
       WORKFLOW_DB_WAIT_TIMEOUT: ${WORKFLOW_DB_WAIT_TIMEOUT:-90}
       WORKFLOW_CACHE_BACKEND: ${WORKFLOW_CACHE_BACKEND:-redis}
       WORKFLOW_REDIS_URL: ${WORKFLOW_REDIS_URL:-redis://redis:6379/1}
+      WORKFLOW_LIVE_MAX_SUBSCRIBERS: ${WORKFLOW_LIVE_MAX_SUBSCRIBERS:-200}
+      WORKFLOW_LIVE_MAX_REPLAY_EVENTS: ${WORKFLOW_LIVE_MAX_REPLAY_EVENTS:-500}
+      WORKFLOW_LIVE_OUTBOX_ENABLED: ${WORKFLOW_LIVE_OUTBOX_ENABLED:-false}
+      WORKFLOW_IDEMPOTENCY_ENABLED: ${WORKFLOW_IDEMPOTENCY_ENABLED:-false}
+      WORKFLOW_IDEMPOTENCY_ENFORCE: ${WORKFLOW_IDEMPOTENCY_ENFORCE:-false}
       WORKFLOW_DB_CONN_MAX_AGE: ${WORKFLOW_DB_CONN_MAX_AGE:-60}
       WORKFLOW_PUBLIC_APP_URL: ${WORKFLOW_PUBLIC_APP_URL:-https://carnomand.ir}
       WORKFLOW_NESHAN_SERVICE_KEY: ${WORKFLOW_NESHAN_SERVICE_KEY:-}
@@ -109,6 +122,7 @@ services:
         VITE_NESHAN_SERVICE_KEY: ${VITE_NESHAN_SERVICE_KEY:-}
         VITE_NESHAN_REVERSE_URL: ${VITE_NESHAN_REVERSE_URL:-https://api.neshan.org/v5/reverse}
     restart: unless-stopped
+    logging: *rotated-json-log
     depends_on:
       backend:
         condition: service_started
@@ -123,6 +137,7 @@ services:
   gateway-nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
+    logging: *rotated-json-log
     depends_on:
       backend:
         condition: service_started

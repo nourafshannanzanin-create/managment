@@ -9,16 +9,17 @@ import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
 
-from django.db import close_old_connections, connection
+from django.db import close_old_connections, connection, transaction
 from django.http import JsonResponse, StreamingHttpResponse
 from django.utils import timezone
 
-from workflow.models import User
+from workflow.models import LiveOutbox, User
 from workflow.security import decode_token
 
 
 HEARTBEAT_SECONDS = 25
 MAX_QUEUE_SIZE = 100
+MAX_REPLAY_EVENTS = int(os.getenv("WORKFLOW_LIVE_MAX_REPLAY_EVENTS", "500"))
 LIVE_MAX_SUBSCRIBERS = int(os.getenv("WORKFLOW_LIVE_MAX_SUBSCRIBERS", "200"))
 LIVE_REDIS_CHANNEL = os.getenv("WORKFLOW_LIVE_REDIS_CHANNEL", "workflow:live:events")
 
@@ -28,6 +29,13 @@ _subscribers: set["_LiveSubscriber"] = set()
 _subscribers_lock = threading.Lock()
 _redis_listener_started = False
 _redis_listener_lock = threading.Lock()
+
+
+def _env_enabled(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 @dataclass(frozen=True)
@@ -55,7 +63,8 @@ def _user_organization_id(user: User) -> int | None:
 def _can_receive_event(subscriber: _LiveSubscriber, event: dict) -> bool:
     data = event.get("data") or {}
     if not data:
-        return True
+        # An unscoped event must never be exposed to a tenant user.
+        return subscriber.is_hq
     if subscriber.is_hq:
         return True
 
@@ -172,17 +181,100 @@ def _ensure_redis_listener() -> None:
     thread.start()
 
 
-def publish_live_event(event_type: str, data: dict | None = None) -> None:
-    event = {
-        "id": uuid.uuid4().hex,
-        "type": event_type,
-        "data": data or {},
-        "created_at": timezone.now().isoformat(),
+def _event_from_outbox(row: LiveOutbox) -> dict:
+    return {
+        # `id` preserves compatibility with current clients; `event_id` is
+        # explicit for new consumers and is a monotonic reconnect cursor.
+        "id": str(row.id),
+        "event_id": str(row.id),
+        "type": row.event_type,
+        "event_type": row.event_type,
+        "entity": row.entity_type,
+        "entity_id": row.entity_id,
+        "action": row.action,
+        "tenant_id": str(row.tenant_id) if row.tenant_id is not None else None,
+        "actor_user_id": str(row.actor_user_id) if row.actor_user_id is not None else None,
+        "version": row.version or row.created_at.isoformat(),
+        "occurred_at": row.created_at.isoformat(),
+        "data": row.payload or {},
         "_origin": os.getpid(),
     }
+
+
+def _publish_outbox_row(row_id: int) -> None:
+    # The callback runs after commit.  A missing row is harmless (for example
+    # after controlled retention cleanup) because DB reconciliation remains
+    # the source of truth.
+    row = LiveOutbox.objects.filter(pk=row_id).first()
+    if row is None:
+        return
+    event = _event_from_outbox(row)
     _deliver_local(event)
     # Strip origin for wire format consumers; redis listener filters on it.
     _redis_publish(event)
+
+
+def _publish_legacy_event(event_type: str, payload: dict) -> None:
+    """Safe dark-deploy fallback while the additive outbox table is absent."""
+    event = {
+        "id": uuid.uuid4().hex,
+        "event_id": None,
+        "type": event_type,
+        "event_type": event_type,
+        "data": payload,
+        "occurred_at": timezone.now().isoformat(),
+        "_origin": os.getpid(),
+    }
+    _deliver_local(event)
+    _redis_publish(event)
+
+
+def record_live_event(
+    event_type: str,
+    data: dict | None = None,
+    *,
+    tenant_id: int | None = None,
+    entity_type: str = "entity",
+    entity_id: str | int = "",
+    action: str = "updated",
+    actor_user_id: int | None = None,
+    version: str = "",
+) -> LiveOutbox | None:
+    """Persist an invalidation in the mutation transaction and publish on commit."""
+    if not _env_enabled("WORKFLOW_LIVE_OUTBOX_ENABLED"):
+        # Do not touch the new table before its migration has been explicitly
+        # applied. The legacy event remains an invalidation signal only.
+        transaction.on_commit(lambda: _publish_legacy_event(event_type, data or {}))
+        return None
+    row = LiveOutbox.objects.create(
+        tenant_id=tenant_id,
+        event_type=event_type,
+        entity_type=entity_type,
+        entity_id=str(entity_id),
+        action=action,
+        actor_user_id=actor_user_id,
+        version=version,
+        payload=data or {},
+    )
+    transaction.on_commit(lambda row_id=row.id: _publish_outbox_row(row_id))
+    return row
+
+
+def publish_live_event(event_type: str, data: dict | None = None) -> LiveOutbox | None:
+    """Compatibility API for callers outside model signals.
+
+    New code should pass explicit scope through ``record_live_event``.
+    """
+    payload = data or {}
+    return record_live_event(
+        event_type,
+        payload,
+        tenant_id=payload.get("organization_id"),
+        entity_type=event_type.split(".", 1)[0],
+        entity_id=payload.get("code") or payload.get("id") or "",
+        action="created" if event_type.endswith(".created") else "updated",
+        actor_user_id=payload.get("user_id") or payload.get("actor_user_id"),
+    )
 
 
 def _subscribe(user: User) -> _LiveSubscriber | None:
@@ -224,7 +316,40 @@ def _authenticate_live_user(request):
     )
 
 
-def _event_stream(user: User) -> Iterator[str]:
+def _parse_cursor(raw: str | None) -> int | None:
+    try:
+        value = int(str(raw or "").strip())
+    except (TypeError, ValueError):
+        return None
+    return value if value >= 0 else None
+
+
+def _replay_events(subscriber: _LiveSubscriber, last_event_id: int | None) -> Iterator[dict]:
+    if last_event_id is None or not _env_enabled("WORKFLOW_LIVE_OUTBOX_ENABLED"):
+        return
+    candidates = list(LiveOutbox.objects.filter(pk__gt=last_event_id).order_by("id")[: MAX_REPLAY_EVENTS + 1])
+    if len(candidates) > MAX_REPLAY_EVENTS:
+        yield {
+            "id": str(candidates[-1].id),
+            "event_id": str(candidates[-1].id),
+            "type": "system.full_resync_required",
+            "event_type": "system.full_resync_required",
+            "data": {"reason": "replay_limit"},
+            "_origin": os.getpid(),
+        }
+        return
+    for row in candidates:
+        event = _event_from_outbox(row)
+        if _can_receive_event(subscriber, event):
+            yield event
+
+
+def _sse_frame(event: dict) -> str:
+    wire = {key: value for key, value in event.items() if key != "_origin"}
+    return f"id: {wire['id']}\nevent: {wire.get('type', 'message')}\ndata: {_encode(wire)}\n\n"
+
+
+def _event_stream(user: User, last_event_id: int | None) -> Iterator[str]:
     # Register after stream starts so rejected connections do not consume slots.
     close_old_connections()
     subscriber = _subscribe(user)
@@ -238,6 +363,8 @@ def _event_stream(user: User) -> Iterator[str]:
         connection.close()
         yield "retry: 5000\n\n"
         yield f"data: {_encode({'type': 'live.connected', 'data': {}})}\n\n"
+        for event in _replay_events(subscriber, last_event_id):
+            yield _sse_frame(event)
         while True:
             try:
                 event = subscriber.queue.get(timeout=HEARTBEAT_SECONDS)
@@ -246,8 +373,7 @@ def _event_stream(user: User) -> Iterator[str]:
                 continue
             if not _can_receive_event(subscriber, event):
                 continue
-            wire = {key: value for key, value in event.items() if key != "_origin"}
-            yield f"id: {wire['id']}\ndata: {_encode(wire)}\n\n"
+            yield _sse_frame(event)
     finally:
         _unsubscribe(subscriber)
         close_old_connections()
@@ -260,7 +386,16 @@ def live_events_view(request):
     if user is None:
         return JsonResponse({"detail": "توکن نامعتبر است."}, status=401)
 
-    response = StreamingHttpResponse(_event_stream(user), content_type="text/event-stream")
+    cursor = _parse_cursor(request.headers.get("Last-Event-ID"))
+    if cursor is None:
+        # EventSource cannot set custom headers on a fresh connection.  The
+        # client also carries its per-tab cursor as a query parameter for a
+        # close/reopen caused by visibility changes or a soft reload.
+        cursor = _parse_cursor(request.GET.get("last_event_id"))
+    response = StreamingHttpResponse(
+        _event_stream(user, cursor),
+        content_type="text/event-stream",
+    )
     response["Cache-Control"] = "no-cache"
     response["X-Accel-Buffering"] = "no"
     return response

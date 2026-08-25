@@ -54,6 +54,24 @@ VITE_NESHAN_REVERSE_URL=https://api.neshan.org/v5/reverse
 
 ## 2. بالا آوردن Docker
 
+### Controlled dark deploy for realtime migrations
+
+For migrations `0036_live_outbox` and `0037_idempotency_record`, do not rely
+on the entrypoint's automatic migration path. Before the first deploy set:
+
+```env
+WORKFLOW_RUN_MIGRATIONS=false
+WORKFLOW_LIVE_OUTBOX_ENABLED=false
+WORKFLOW_IDEMPOTENCY_ENABLED=false
+WORKFLOW_IDEMPOTENCY_ENFORCE=false
+```
+
+Take a verified database backup, run `showmigrations`, `migrate --plan`, and
+`check` against the **production database**, then deploy the image. Run
+`migrate --noinput` manually only after the plan has been approved. Enable the
+outbox and then idempotency flags in separate limited-tenant canaries; the
+database rollback path is never a destructive rollback.
+
 ```bash
 cd /mnt/newvolume/PRG/carnomand
 DOCKER_BUILDKIT=1 docker compose --env-file .env.production up -d --build

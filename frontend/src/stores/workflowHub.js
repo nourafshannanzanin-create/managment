@@ -1197,12 +1197,21 @@ function setRequestManager(value) {
     .filter((item) => allowedIds.includes(item))
 }
 
+function newIdempotencyKey() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`
+}
+
 async function authorizedFetch(path, options = {}) {
+  const { idempotencyKey, ...requestOptions } = options
+  const method = String(requestOptions.method || 'GET').toUpperCase()
+  const mutation = !['GET', 'HEAD', 'OPTIONS'].includes(method)
   const response = await fetchWithTimeout(`${API_BASE_URL}${path}`, {
-    ...options,
+    ...requestOptions,
     headers: {
-      ...(options.headers || {}),
+      ...(requestOptions.headers || {}),
       ...(state.authToken ? { Authorization: `Bearer ${state.authToken}` } : {}),
+      ...(mutation ? { 'Idempotency-Key': idempotencyKey || newIdempotencyKey() } : {}),
     },
   })
 

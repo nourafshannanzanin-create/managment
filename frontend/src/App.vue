@@ -190,7 +190,7 @@ function startLiveSync() {
   liveStream?.addEventListener('open', scheduleLiveSync)
   liveStream?.addEventListener('message', (event) => {
     const payload = parseLiveEvent(event.data)
-    if (!payload?.type || !workflowLiveTypes.has(payload.type)) return
+    if (!payload?.type || (payload.type !== 'system.full_resync_required' && !workflowLiveTypes.has(payload.type))) return
     scheduleLiveSync()
   })
   liveSyncTimer = window.setInterval(() => {
@@ -214,19 +214,7 @@ async function handleTrialExpiry() {
 const globalLoading = computed(() =>
   (!state.sessionReady && !state.bootstrapLoaded) ||
   (state.appLoading && !state.bootstrapLoaded) ||
-  state.loginPending ||
-  requestDetailState.loading ||
-  expenseDetailState.loading ||
-  approvalDetailState.loading ||
-  state.requestSubmitting ||
-  state.expenseSubmitting ||
-  state.userSubmitting ||
-  state.documentSubmitting ||
-  state.fileUploadPreparing ||
-  state.support.detailLoading ||
-  state.support.submitting ||
-  state.wallet.submitting ||
-  signatureState.loading
+  state.loginPending
 )
 
 const bootstrapBlocking = computed(() =>

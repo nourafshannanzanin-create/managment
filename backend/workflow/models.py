@@ -528,6 +528,9 @@ class ExpenseNote(TimeStampedModel):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="expense_notes")
     parent = models.ForeignKey("self", on_delete=models.CASCADE, blank=True, null=True, related_name="replies")
     body = models.TextField()
+    # Kept in the model because migration 0032 already created this column;
+    # omitting it would make a later migration attempt a destructive drop.
+    updated_at = models.DateTimeField(auto_now=True)
     edited_at = models.DateTimeField(blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True)
 
@@ -978,5 +981,58 @@ class TaskActivity(TimeStampedModel):
         db_table = "task_activities"
         indexes = [
             models.Index(fields=["task", "-created_at"], name="idx_task_activity_date"),
+        ]
+
+
+class LiveOutbox(models.Model):
+    """Durable, short-retention live invalidations.
+
+    This table is deliberately not an audit log and contains no sensitive
+    entity representation.  It makes Redis/SSE loss recoverable: clients can
+    replay a bounded cursor, then reconcile their derived state from the API.
+    """
+
+    tenant_id = models.BigIntegerField(blank=True, null=True)
+    event_type = models.CharField(max_length=80)
+    entity_type = models.CharField(max_length=40)
+    entity_id = models.CharField(max_length=100)
+    action = models.CharField(max_length=24, default="updated")
+    actor_user_id = models.BigIntegerField(blank=True, null=True)
+    version = models.CharField(max_length=64, blank=True, default="")
+    payload = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        db_table = "live_outbox"
+        indexes = [
+            models.Index(fields=["tenant_id", "id"], name="idx_live_outbox_tenant_id"),
+        ]
+
+
+class IdempotencyRecord(models.Model):
+    """Stores the result of one authenticated unsafe HTTP request.
+
+    The unique key is scoped to user + method + path so a retry after a lost
+    response cannot create a second request, payment, or state transition.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="idempotency_records")
+    key = models.CharField(max_length=128)
+    method = models.CharField(max_length=10)
+    path = models.CharField(max_length=255)
+    request_hash = models.CharField(max_length=64)
+    status_code = models.PositiveSmallIntegerField(blank=True, null=True)
+    response_body = models.TextField(blank=True, default="")
+    content_type = models.CharField(max_length=120, blank=True, default="application/json")
+    completed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "idempotency_records"
+        constraints = [
+            models.UniqueConstraint(fields=["user", "key", "method", "path"], name="uq_idempotency_user_key_route"),
+        ]
+        indexes = [
+            models.Index(fields=["created_at"], name="idx_idempotency_created"),
         ]
 

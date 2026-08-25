@@ -2,6 +2,14 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000
 const seenEventIds = new Map()
 const SEEN_EVENT_TTL_MS = 5 * 60 * 1000
 const HIDDEN_CLOSE_MS = 2 * 60 * 1000
+const LAST_EVENT_STORAGE_KEY = 'workflow.live.lastEventId'
+const LIVE_EVENT_TYPES = [
+  'request.created', 'request.updated', 'expense.created', 'expense.updated',
+  'document.created', 'document.updated', 'support.ticket.created',
+  'support.ticket.updated', 'support.message.created', 'chat.message.created',
+  'task.created', 'task.updated', 'task.comment.created', 'attendance.created',
+  'wallet.transaction.created', 'wallet.transaction.updated', 'system.full_resync_required',
+]
 
 let sharedSource = null
 let sharedToken = ''
@@ -15,7 +23,27 @@ function liveUrl(token) {
   const base = API_BASE_URL.replace(/\/$/, '')
   const url = new URL(`${base}/live/events`, window.location.origin)
   url.searchParams.set('token', token)
+  const lastEventId = readLastEventId()
+  if (lastEventId) url.searchParams.set('last_event_id', lastEventId)
   return url.toString()
+}
+
+function readLastEventId() {
+  try {
+    return sessionStorage.getItem(LAST_EVENT_STORAGE_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+function rememberEventId(event) {
+  const id = String(event?.lastEventId || '').trim()
+  if (!id) return
+  try {
+    sessionStorage.setItem(LAST_EVENT_STORAGE_KEY, id)
+  } catch {
+    // Private browsing/storage restrictions must not break live updates.
+  }
 }
 
 function clearHiddenCloseTimer() {
@@ -39,8 +67,21 @@ function fanOut(type, event) {
 
 function bindSourceEvents(source) {
   source.addEventListener('open', (event) => fanOut('open', event))
-  source.addEventListener('message', (event) => fanOut('message', event))
+  source.addEventListener('message', (event) => {
+    rememberEventId(event)
+    fanOut('message', event)
+  })
   source.addEventListener('error', (event) => fanOut('error', event))
+  // Named SSE events do not reach EventSource's "message" listener.  Fan
+  // them into the existing consumer contract while retaining standard SSE
+  // `event:` frames and their Last-Event-ID reconnect behaviour.
+  for (const type of LIVE_EVENT_TYPES) {
+    source.addEventListener(type, (event) => {
+      rememberEventId(event)
+      fanOut(type, event)
+      fanOut('message', event)
+    })
+  }
 }
 
 function destroySharedSocket() {

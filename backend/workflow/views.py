@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import math
 import mimetypes
 import os
@@ -61,6 +62,7 @@ from workflow.models import (
     ExpenseNote,
     ExpenseStatus,
     FeaturePurchase,
+    IdempotencyRecord,
     LeaveRequest,
     OrganizationMembership,
     OrganizationPreference,
@@ -1701,9 +1703,71 @@ def require_auth(view_func):
         attach_user(request, user)
         if env_bool("WORKFLOW_ENFORCE_LICENSE_LOCK", False) and user_license_locked(user) and not license_safe_path(request.path):
             return json_error("برای استفاده از نرم افزار باید خرید اصلی ثبت و تایید شود.", status=402)
-        return view_func(request, *args, **kwargs)
+        return _run_idempotent_request(request, view_func, *args, **kwargs)
 
     return wrapped
+
+
+def _idempotency_replay(record: IdempotencyRecord) -> HttpResponse:
+    response = HttpResponse(
+        record.response_body.encode("utf-8"),
+        status=record.status_code,
+        content_type=record.content_type or "application/json",
+    )
+    response["Idempotency-Replayed"] = "true"
+    return response
+
+
+def _run_idempotent_request(request: HttpRequest, view_func, *args, **kwargs):
+    """Execute unsafe authenticated endpoints exactly once per client key.
+
+    Existing integrations can be rolled out safely: absent keys continue to
+    work until ``WORKFLOW_IDEMPOTENCY_ENFORCE`` is enabled, while keys sent by
+    the current frontend are protected immediately.
+    """
+    if request.method in {"GET", "HEAD", "OPTIONS"} or not env_bool("WORKFLOW_IDEMPOTENCY_ENABLED", False):
+        return view_func(request, *args, **kwargs)
+    key = (request.headers.get("Idempotency-Key") or "").strip()
+    if not key:
+        if env_bool("WORKFLOW_IDEMPOTENCY_ENFORCE", False):
+            return json_error("Idempotency-Key برای عملیات ثبت الزامی است.", status=400)
+        return view_func(request, *args, **kwargs)
+    if len(key) > 128:
+        return json_error("Idempotency-Key نامعتبر است.", status=400)
+
+    request_hash = hashlib.sha256(request.body).hexdigest()
+    identity = {
+        "user": request.current_user,
+        "key": key,
+        "method": request.method,
+        "path": request.path,
+    }
+    try:
+        with transaction.atomic():
+            record = IdempotencyRecord.objects.create(**identity, request_hash=request_hash)
+            response = view_func(request, *args, **kwargs)
+            if getattr(response, "streaming", False):
+                # Unsafe streaming responses are not used by this API; avoid
+                # pretending they are replayable if one is introduced later.
+                record.delete()
+                return response
+            response_body = bytes(response.content).decode("utf-8", errors="replace")
+            record.status_code = response.status_code
+            record.response_body = response_body
+            record.content_type = response.get("Content-Type", "application/json")[:120]
+            record.completed_at = timezone.now()
+            record.save(update_fields=["status_code", "response_body", "content_type", "completed_at"])
+            response["Idempotency-Replayed"] = "false"
+            return response
+    except IntegrityError:
+        record = IdempotencyRecord.objects.filter(**identity).first()
+        if record is None:
+            return json_error("ثبت هم‌زمان عملیات را دوباره امتحان کنید.", status=409)
+        if record.request_hash != request_hash:
+            return json_error("این Idempotency-Key برای درخواست دیگری استفاده شده است.", status=409)
+        if record.completed_at is None:
+            return json_error("این عملیات هنوز در حال پردازش است.", status=409)
+        return _idempotency_replay(record)
 
 
 def methods(*allowed_methods):

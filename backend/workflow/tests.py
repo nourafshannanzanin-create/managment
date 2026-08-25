@@ -219,6 +219,10 @@ class RegistrationTests(TestCase):
                 "managerUsername": "test-manager",
                 "managerPhone": "09120000000",
                 "managerPassword": "secret123",
+                "provinceId": "23",
+                "provinceName": "تهران",
+                "cityId": "2301",
+                "cityName": "تهران",
                 "documents": SimpleUploadedFile("license.pdf", b"test-license", content_type="application/pdf"),
             },
         )
