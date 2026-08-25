@@ -93,6 +93,11 @@ async function authFetch(path, options = {}) {
   const headers = { ...(options.headers || {}) }
   if (state.authToken) headers.Authorization = `Bearer ${state.authToken}`
   const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers })
+  if (response.status === 401) {
+    const { handleUnauthorizedSession } = useWorkflowHub()
+    handleUnauthorizedSession()
+    throw new Error('نشست منقضی شده است')
+  }
   if (options.expectBlob) {
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}))
@@ -275,7 +280,13 @@ watch(activeTab, (tab) => {
               </p>
             </div>
           </div>
-          <span :class="['status-badge status-badge-lg', eventTone(publicUser.status)]">{{ statusLabel(publicUser.status) }}</span>
+          <div class="attendance-punch-head-actions">
+            <span :class="['status-badge status-badge-lg', eventTone(publicUser.status)]">{{ statusLabel(publicUser.status) }}</span>
+            <button class="attendance-punch-close" type="button" aria-label="بستن" title="بستن" @click="emit('close')">
+              <IconlyIcon name="close" decorative />
+              <span>بستن</span>
+            </button>
+          </div>
         </header>
 
         <div class="chip-row attendance-tabs">
@@ -329,9 +340,14 @@ watch(activeTab, (tab) => {
               :disabled="submitting || locationBusy || !workplaceConfigured || publicUser.status === 'in'"
               @click="submitPublicEvent('in')"
             >
-              <IconlyIcon name="login" size="xl" decorative />
-              <strong>{{ locationBusy && publicUser.status !== 'in' ? 'در حال بررسی...' : 'ثبت ورود' }}</strong>
-              <small>{{ publicUser.status === 'in' ? 'الان حاضر هستید' : 'شروع شیفت' }}</small>
+              <span class="attendance-punch-glow" aria-hidden="true" />
+              <span class="attendance-punch-icon">
+                <IconlyIcon name="login" size="xl" decorative />
+              </span>
+              <span class="attendance-punch-copy">
+                <strong>{{ locationBusy && publicUser.status !== 'in' ? 'در حال بررسی...' : 'ثبت ورود' }}</strong>
+                <small>{{ publicUser.status === 'in' ? 'الان حاضر هستید' : 'شروع شیفت کاری' }}</small>
+              </span>
             </button>
             <button
               class="attendance-punch-btn is-out"
@@ -339,9 +355,14 @@ watch(activeTab, (tab) => {
               :disabled="submitting || locationBusy || !workplaceConfigured || publicUser.status !== 'in'"
               @click="submitPublicEvent('out')"
             >
-              <IconlyIcon name="logout" size="xl" decorative />
-              <strong>{{ locationBusy && publicUser.status === 'in' ? 'در حال بررسی...' : 'ثبت خروج' }}</strong>
-              <small>{{ publicUser.status === 'in' ? 'پایان شیفت' : 'ابتدا ورود ثبت کنید' }}</small>
+              <span class="attendance-punch-glow" aria-hidden="true" />
+              <span class="attendance-punch-icon">
+                <IconlyIcon name="logout" size="xl" decorative />
+              </span>
+              <span class="attendance-punch-copy">
+                <strong>{{ locationBusy && publicUser.status === 'in' ? 'در حال بررسی...' : 'ثبت خروج' }}</strong>
+                <small>{{ publicUser.status === 'in' ? 'پایان شیفت کاری' : 'ابتدا ورود ثبت کنید' }}</small>
+              </span>
             </button>
           </div>
 
@@ -483,6 +504,41 @@ watch(activeTab, (tab) => {
   gap: 12px;
 }
 
+.attendance-punch-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.attendance-punch-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(52, 144, 139, 0.18);
+  border-radius: 12px;
+  background: #fff;
+  color: #1f5c59;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.attendance-punch-close:hover {
+  background: rgba(52, 144, 139, 0.08);
+  border-color: rgba(52, 144, 139, 0.28);
+}
+
+.attendance-punch-close :deep(.iconly-shell) {
+  font-size: 16px;
+}
+
 .attendance-punch-identity {
   display: flex;
   align-items: center;
@@ -517,22 +573,38 @@ watch(activeTab, (tab) => {
 }
 
 .public-quick-stats article {
-  padding: 12px;
-  border-radius: 14px;
-  background: rgba(52, 144, 139, 0.08);
+  position: relative;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(52, 144, 139, 0.06);
   border: 1px solid rgba(52, 144, 139, 0.12);
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.public-quick-stats article::before {
+  content: '';
+  position: absolute;
+  inset-inline: 18%;
+  top: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, #34908b, transparent);
 }
 
 .public-quick-stats span {
   display: block;
-  color: var(--muted, #5c6780);
+  color: #5f7a76;
   font-size: 12px;
+  font-weight: 700;
 }
 
 .public-quick-stats strong {
   display: block;
   margin-top: 4px;
-  font-size: 1.15rem;
+  color: #1f5c59;
+  font-size: 1.2rem;
+  font-weight: 800;
 }
 
 .report-toolbar {
@@ -686,35 +758,113 @@ watch(activeTab, (tab) => {
 }
 
 .attendance-punch-btn {
+  position: relative;
+  isolation: isolate;
+  min-height: 124px;
   display: grid;
-  gap: 6px;
   justify-items: center;
+  align-content: center;
+  gap: 10px;
   padding: 18px 12px;
-  border: 0;
-  border-radius: 16px;
-  color: #fff;
+  border: 1px solid transparent;
+  border-radius: 22px;
   cursor: pointer;
+  font: inherit;
+  text-align: center;
+  overflow: hidden;
+  box-shadow: none;
+  backdrop-filter: blur(8px);
+  transition: background 180ms ease, border-color 180ms ease, opacity 180ms ease;
+}
+
+.attendance-punch-glow {
+  display: none;
+}
+
+.attendance-punch-icon {
+  position: relative;
+  z-index: 1;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: none;
+}
+
+.attendance-punch-copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.attendance-punch-btn:hover:not(:disabled) {
+  transform: none;
 }
 
 .attendance-punch-btn.is-in {
-  background: #1f8a70;
+  background: rgba(43, 184, 154, 0.14);
+  border-color: rgba(31, 138, 112, 0.28);
+  color: #145f52;
+}
+
+.attendance-punch-btn.is-in .attendance-punch-icon {
+  background: rgba(31, 138, 112, 0.12);
+  border-color: rgba(31, 138, 112, 0.2);
 }
 
 .attendance-punch-btn.is-out {
-  background: #c2410c;
+  background: rgba(224, 122, 95, 0.14);
+  border-color: rgba(196, 90, 74, 0.28);
+  color: #9a3f34;
+}
+
+.attendance-punch-btn.is-out .attendance-punch-icon {
+  background: rgba(196, 90, 74, 0.12);
+  border-color: rgba(196, 90, 74, 0.2);
 }
 
 .attendance-punch-btn:disabled {
-  opacity: 0.55;
+  opacity: 0.42;
   cursor: not-allowed;
+  filter: grayscale(0.18);
+  box-shadow: none;
+  transform: none;
 }
 
 .attendance-punch-btn strong {
-  font-size: 1.05rem;
+  font-size: 1.08rem;
+  font-weight: 800;
 }
 
-.attendance-punch-btn small {
-  opacity: 0.9;
+.attendance-punch-btn.is-in small {
+  color: rgba(20, 95, 82, 0.72);
+  opacity: 1;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.attendance-punch-btn.is-out small {
+  color: rgba(154, 63, 52, 0.72);
+  opacity: 1;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.attendance-punch-btn.is-in :deep(.iconly-shell) {
+  --iconly-filter: brightness(0) saturate(100%) invert(32%) sepia(28%) saturate(1200%) hue-rotate(128deg) brightness(92%) contrast(92%);
+  font-size: 24px;
+  color: #145f52;
+}
+
+.attendance-punch-btn.is-out :deep(.iconly-shell) {
+  --iconly-filter: brightness(0) saturate(100%) invert(38%) sepia(42%) saturate(900%) hue-rotate(330deg) brightness(95%) contrast(92%);
+  font-size: 24px;
+  color: #9a3f34;
 }
 
 .public-note,
@@ -807,6 +957,21 @@ watch(activeTab, (tab) => {
   .public-quick-stats,
   .report-footer-grid {
     grid-template-columns: 1fr;
+  }
+
+  .attendance-punch-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .attendance-punch-head-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .attendance-punch-close {
+    flex: 1;
+    justify-content: center;
   }
 
   .report-toolbar {

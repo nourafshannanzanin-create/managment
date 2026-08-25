@@ -1085,13 +1085,27 @@ def create_task(actor: User, payload: dict, files=None) -> Task:
             review_required = False
     status = TaskStatus.PENDING_ACCEPTANCE if requires_acceptance else TaskStatus.SCHEDULED
 
+    raw_department = payload.get("departmentId") if "departmentId" in payload else payload.get("department_id")
+    department_id = assignee.department_id
+    if raw_department not in (None, "", 0, "0"):
+        if str(raw_department).isdigit():
+            dept = Department.objects.filter(pk=int(raw_department)).exclude(code__in=["hq-control", "hq"]).first()
+            if dept is None:
+                raise TaskingError("بخش انتخاب‌شده معتبر نیست.")
+            department_id = dept.id
+        else:
+            dept = Department.objects.filter(code=str(raw_department)).exclude(code__in=["hq-control", "hq"]).first()
+            if dept is None:
+                raise TaskingError("بخش انتخاب‌شده معتبر نیست.")
+            department_id = dept.id
+
     task = Task.objects.create(
         organization=organization,
         code=next_code("TSK"),
         title=title,
         description=(payload.get("description") or "").strip(),
         category=(payload.get("category") or "").strip()[:80],
-        department_id=payload.get("departmentId") or payload.get("department_id") or assignee.department_id,
+        department_id=department_id,
         creator=actor,
         owner=assignee,
         direct_manager_snapshot=assignee.manager,
@@ -1171,8 +1185,12 @@ def create_task(actor: User, payload: dict, files=None) -> Task:
     if requires_acceptance:
         log_activity(task, actor, "assigned", f"به {assignee.full_name} ارجاع شد.")
     else:
-        schedule_task(task, settings_obj=settings_obj)
-        log_activity(task, actor, "scheduled", "برنامه زمانی تسک محاسبه شد.")
+        try:
+            schedule_task(task, settings_obj=settings_obj)
+            log_activity(task, actor, "scheduled", "برنامه زمانی تسک محاسبه شد.")
+        except Exception:
+            # Never fail task creation just because scheduling could not place segments yet.
+            log_activity(task, actor, "created", "تسک ثبت شد؛ زمان‌بندی بعداً محاسبه می‌شود.")
 
     return Task.objects.select_related("owner", "creator", "department").prefetch_related(
         "allocations", "assignments", "observers", "attachments", "time_entries"
@@ -1716,6 +1734,13 @@ def dashboard_payload(user: User, focus_date: date | None = None, supervise_owne
         serialize_task(item, user, focus_date=today)
         for item in my_tasks.filter(allocations__work_date__gt=today).exclude(status__in=closed_statuses).distinct()[:50]
     ]
+    # Scheduled/open tasks without a future allocation still belong in "پیش‌رو"
+    upcoming_ids = {item["id"] for item in upcoming}
+    today_ids = {item["id"] for item in today_tasks}
+    orphan_open = my_tasks.filter(
+        status__in=[TaskStatus.SCHEDULED, TaskStatus.UPCOMING, TaskStatus.PAUSED, TaskStatus.BLOCKED]
+    ).exclude(id__in=upcoming_ids | today_ids).order_by("-updated_at")[:50]
+    upcoming.extend(serialize_task(item, user, focus_date=today) for item in orphan_open)
     in_progress = [serialize_task(item, user, focus_date=today) for item in my_tasks.filter(status__in=[TaskStatus.IN_PROGRESS, TaskStatus.PAUSED])]
     pending_review = [serialize_task(item, user, focus_date=today) for item in my_tasks.filter(status=TaskStatus.PENDING_REVIEW)]
     changes = [serialize_task(item, user, focus_date=today) for item in my_tasks.filter(status=TaskStatus.CHANGES_REQUESTED)]
@@ -1847,6 +1872,15 @@ def dashboard_payload(user: User, focus_date: date | None = None, supervise_owne
     elif is_manager(user) or user.role in {UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER}:
         team_qs = team_qs.exclude(id=user.id)
 
+    # Full org roster for task composer (managers need every employee + self).
+    # Do NOT call capacity_for_day per user here — that N+1 made dashboard/create refresh hang.
+    assignee_options_qs = (
+        organization_users(user)
+        .filter(is_active=True, is_deleted=False)
+        .select_related("department", "manager")
+        .order_by("full_name")
+    )
+
     if supervise_owner_id:
         focus_owner = team_qs.filter(pk=supervise_owner_id).first()
         if focus_owner is not None:
@@ -1952,9 +1986,9 @@ def dashboard_payload(user: User, focus_date: date | None = None, supervise_owne
         "assigneeOptions": [
             {
                 **serialize_user_brief(item),
-                "capacityToday": capacity_for_day(item, settings_obj, today)["utilizationPercent"],
+                "capacityToday": None,
             }
-            for item in team_qs[:300]
+            for item in assignee_options_qs[:500]
         ],
         "superviseFocus": supervise_focus,
     }

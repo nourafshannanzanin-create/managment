@@ -3,6 +3,7 @@ import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed } from 'vue'
 
 import SectionHeading from '../components/SectionHeading.vue'
+import WorkflowStatusFilter from '../components/WorkflowStatusFilter.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { joinDisplayParts } from '../utils/text'
 import { rowToneForStatus, toneForStatus, workflowStatusBucket } from '../utils/status'
@@ -13,17 +14,24 @@ const {
   openApprovalDetail,
   openSignatureComposer,
   state,
+  updatePageFilter,
 } = useWorkflowHub()
+
+const activeStatus = computed(() => String(state.filters.approvals.status || ''))
 
 const approvalStats = computed(() => {
   const rows = state.approvals
   return [
-    { label: 'کل اسناد', value: rows.length, icon: 'folder_copy', tone: 'is-total' },
-    { label: 'در حال بررسی', value: rows.filter((item) => workflowStatusBucket(item, 'approval') === 'pending').length, icon: 'pending_actions', tone: 'is-pending' },
-    { label: 'تایید شده', value: rows.filter((item) => workflowStatusBucket(item, 'approval') === 'approved').length, icon: 'verified', tone: 'is-approved' },
-    { label: 'رد شده', value: rows.filter((item) => workflowStatusBucket(item, 'approval') === 'rejected').length, icon: 'cancel', tone: 'is-rejected' },
+    { key: '', label: 'کل اسناد', value: rows.length, icon: 'folder_copy', tone: 'is-total' },
+    { key: 'pending', label: 'در حال بررسی', value: rows.filter((item) => workflowStatusBucket(item, 'approval') === 'pending').length, icon: 'pending_actions', tone: 'is-pending' },
+    { key: 'approved', label: 'تایید شده', value: rows.filter((item) => workflowStatusBucket(item, 'approval') === 'approved').length, icon: 'verified', tone: 'is-approved' },
+    { key: 'rejected', label: 'رد شده', value: rows.filter((item) => workflowStatusBucket(item, 'approval') === 'rejected').length, icon: 'cancel', tone: 'is-rejected' },
   ]
 })
+
+function setStatusFilter(value) {
+  updatePageFilter('approvals', 'status', value)
+}
 
 async function handleDownload(item) {
   await downloadProtectedFile(item?.downloadUrl, item?.id || 'approval-document')
@@ -33,7 +41,13 @@ async function handleDownload(item) {
 <template>
   <section class="page-shell enterprise-page">
     <section class="metric-grid metric-grid-4">
-      <article v-for="item in approvalStats" :key="item.label" :class="['metric-card', 'approval-metric-card', item.tone]">
+      <button
+        v-for="item in approvalStats"
+        :key="item.label"
+        type="button"
+        :class="['metric-card', 'approval-metric-card', 'is-filterable', item.tone, activeStatus === item.key && 'is-selected']"
+        @click="setStatusFilter(item.key)"
+      >
         <div class="approval-metric-top">
           <div class="approval-metric-copy">
             <span class="metric-label approval-metric-label">{{ item.label }}</span>
@@ -41,7 +55,7 @@ async function handleDownload(item) {
           </div>
           <IconlyIcon :name="item.icon" class="approval-metric-icon" decorative />
         </div>
-      </article>
+      </button>
     </section>
 
     <section class="surface-block">
@@ -55,6 +69,8 @@ async function handleDownload(item) {
           <span>بارگذاری مهر</span>
         </button>
       </div>
+
+      <WorkflowStatusFilter page="approvals" />
 
       <div class="table-shell">
         <table class="data-table">
@@ -122,6 +138,18 @@ async function handleDownload(item) {
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
+.approval-metric-card.is-filterable {
+  width: 100%;
+  text-align: right;
+  cursor: pointer;
+  font: inherit;
+}
+
+.approval-metric-card.is-filterable.is-selected {
+  outline: 2px solid rgba(52, 144, 139, 0.45);
+  outline-offset: 1px;
+}
+
 .approval-metric-card:hover {
   transform: translateY(-3px);
   box-shadow: none;
@@ -175,55 +203,19 @@ async function handleDownload(item) {
   font-size: 24px;
 }
 
-.approval-metric-card.is-pending::after {
-  background: #d9a441;
-}
+.approval-metric-card.is-pending::after { background: #d9a441; }
+.approval-metric-card.is-pending { border-color: rgba(217, 164, 65, 0.14); }
+.approval-metric-card.is-pending .approval-metric-icon { background: var(--surface, #fff); color: #b57900; }
 
-.approval-metric-card.is-pending {
-  border-color: rgba(217, 164, 65, 0.14);
-}
+.approval-metric-card.is-approved::after { background: #22956d; }
+.approval-metric-card.is-approved { border-color: rgba(34, 149, 109, 0.14); }
+.approval-metric-card.is-approved .approval-metric-icon { background: var(--surface, #fff); color: #1b7a59; }
 
-.approval-metric-card.is-pending .approval-metric-icon {
-  background: var(--surface, #fff);
-  color: #b57900;
-}
+.approval-metric-card.is-rejected::after { background: #cd5c5c; }
+.approval-metric-card.is-rejected { border-color: rgba(205, 92, 92, 0.14); }
+.approval-metric-card.is-rejected .approval-metric-icon { background: var(--surface, #fff); color: #b44646; }
 
-.approval-metric-card.is-approved::after {
-  background: #22956d;
-}
-
-.approval-metric-card.is-approved {
-  border-color: rgba(34, 149, 109, 0.14);
-}
-
-.approval-metric-card.is-approved .approval-metric-icon {
-  background: var(--surface, #fff);
-  color: #1b7a59;
-}
-
-.approval-metric-card.is-rejected::after {
-  background: #cd5c5c;
-}
-
-.approval-metric-card.is-rejected {
-  border-color: rgba(205, 92, 92, 0.14);
-}
-
-.approval-metric-card.is-rejected .approval-metric-icon {
-  background: var(--surface, #fff);
-  color: #b44646;
-}
-
-.approval-metric-card.is-total::after {
-  background: #4867b7;
-}
-
-.approval-metric-card.is-total {
-  border-color: rgba(72, 103, 183, 0.14);
-}
-
-.approval-metric-card.is-total .approval-metric-icon {
-  background: var(--surface, #fff);
-  color: #39549a;
-}
+.approval-metric-card.is-total::after { background: #4867b7; }
+.approval-metric-card.is-total { border-color: rgba(72, 103, 183, 0.14); }
+.approval-metric-card.is-total .approval-metric-icon { background: var(--surface, #fff); color: #39549a; }
 </style>

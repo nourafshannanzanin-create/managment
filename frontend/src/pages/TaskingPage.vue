@@ -471,11 +471,11 @@ const counts = computed(() => state.tasking.counts || {})
 const upcomingPool = computed(() => {
   const mine = state.tasking.mine || {}
   const map = new Map()
-  const hidden = new Set(['completed', 'cancelled', 'pending_review', 'pending_acceptance', 'draft'])
-  ;[...(mine.today || []), ...(mine.upcoming || []), ...(mine.inProgress || [])].forEach((task) => {
+  const openStatuses = new Set(['scheduled', 'upcoming', 'in_progress', 'paused', 'changes_requested', 'blocked'])
+  ;[...(mine.today || []), ...(mine.upcoming || []), ...(mine.inProgress || []), ...(mine.all || [])].forEach((task) => {
     if (!task?.id) return
     const status = String(task.status || '').toLowerCase()
-    if (hidden.has(status)) return
+    if (!openStatuses.has(status)) return
     map.set(task.id, task)
   })
   return [...map.values()]
@@ -706,6 +706,14 @@ async function resetSuperviseFilters() {
 
 async function openTask(task) {
   await loadTaskDetail(task.id)
+}
+
+function onTaskCreated(task) {
+  mainTab.value = Number(task?.assignee?.id || task?.owner?.id) === Number(state.currentUser.id)
+    ? 'mine'
+    : 'assignments'
+  subTab.value = mainTab.value === 'mine' ? 'upcoming' : 'outbound'
+  query.value = ''
 }
 
 function quickAccept(task) {
@@ -1044,7 +1052,11 @@ function quickStart(task, stopOther = false) {
       </div>
     </section>
 
-    <TaskComposerModal :open="modalState.taskComposer" @close="closeTaskComposer" />
+    <TaskComposerModal
+      :open="modalState.taskComposer"
+      @close="closeTaskComposer"
+      @created="onTaskCreated"
+    />
     <TaskDetailModal
       :open="modalState.taskDetail"
       :task="state.tasking.selectedTask"
@@ -1418,13 +1430,14 @@ function quickStart(task, stopOther = false) {
   min-width: 0;
   transition: width 0.25s ease;
   will-change: width;
+  background: #34908B !important;
 }
-.capacity-fill.is-planned {
+/* .capacity-fill.is-planned {
   background: linear-gradient(90deg, #34908b, #7dd3c7) !important;
 }
 .capacity-fill.is-actual {
   background: linear-gradient(90deg, #16a34a, #4ade80) !important;
-}
+} */
 .capacity-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1720,10 +1733,10 @@ function quickStart(task, stopOther = false) {
   background: #e11d48;
   color: #fff !important;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
   flex: 0 0 auto;
-  box-shadow: 0 0 0 2px #f7fbfa;
+  box-shadow: 0 0 0 1.5px #f7fbfa;
 }
 .chip-btn.is-active .tasking-tab-badge {
   box-shadow: 0 0 0 2px #dcefec;

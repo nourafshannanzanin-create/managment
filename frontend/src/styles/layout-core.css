@@ -8,8 +8,15 @@
   --layout-block: 20px;
   --topbar-pad-y: 10px;
   --filter-control-h: 40px;
-  --chat-composer-h: 40px;
-  --chat-control-h: 32px;
+  --chat-control-h: 36px;
+  --chat-composer-shell-min-h: 52px;
+  /* Mobile floating dock: 10px offset + 68px inner + safe-area */
+  --mobile-dock-offset: 0px;
+  --mobile-dock-height: 56px;
+  --mobile-dock-stack: calc(var(--mobile-dock-offset) + var(--mobile-dock-height) + env(safe-area-inset-bottom, 0px));
+  --mobile-composer-gap: 8px;
+  --mobile-composer-bottom: calc(var(--mobile-dock-stack) + var(--mobile-composer-gap));
+  --mobile-composer-reserve: calc(var(--mobile-composer-bottom) + var(--chat-composer-shell-min-h) + 16px);
 }
 
 /* —— Shell content frame —— */
@@ -143,7 +150,7 @@
 }
 
 /* —— Chat page layout —— */
-#app .app-shell:not(.is-auth-route) .chat-page {
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) {
   display: grid !important;
   grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) !important;
   gap: 0 !important;
@@ -156,62 +163,83 @@
   overflow: hidden !important;
 }
 
-#app .app-shell:not(.is-auth-route) .chat-sidebar,
-#app .app-shell:not(.is-auth-route) .chat-thread {
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) .chat-sidebar,
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) .chat-thread {
   min-height: 0 !important;
   height: 100% !important;
+}
+
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) .chat-thread-frame {
   display: grid !important;
-  grid-template-rows: auto auto minmax(0, 1fr) auto !important;
+  grid-template-rows: auto minmax(0, 1fr) auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
 }
 
-#app .app-shell:not(.is-auth-route) .chat-thread:not(:has(.chat-composer)) {
-  grid-template-rows: auto minmax(0, 1fr) !important;
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) .chat-messages {
+  min-height: 0 !important;
+  overflow: auto !important;
 }
 
-#app .app-shell:not(.is-auth-route) form.chat-composer {
+/* Chat composer — nested shell structure (form > .chat-composer-shell) */
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) form.chat-composer {
+  display: block !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 10px 12px 12px !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  inset: auto !important;
+  z-index: 2 !important;
+  flex-shrink: 0 !important;
+  border-top: 1px solid rgba(52, 144, 139, 0.1) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.94)) !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) form.chat-composer:has(.chat-pending-file) {
+  height: auto !important;
+  max-height: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) .chat-composer-shell {
   display: grid !important;
   grid-template-columns: auto minmax(0, 1fr) auto !important;
   align-items: center !important;
-  gap: 6px !important;
+  gap: 8px !important;
   width: 100% !important;
-  margin: 0 !important;
-  padding: 4px 8px !important;
-  min-height: var(--chat-composer-h) !important;
-  height: var(--chat-composer-h) !important;
-  max-height: var(--chat-composer-h) !important;
+  min-height: var(--chat-composer-shell-min-h) !important;
+  padding: 6px 8px !important;
   box-sizing: border-box !important;
-  border-top: 1px solid rgba(52, 144, 139, 0.12) !important;
-  background: rgba(255, 255, 255, 0.96) !important;
 }
 
-#app .app-shell:not(.is-auth-route) form.chat-composer:has(.chat-pending-file) {
-  height: auto !important;
-  max-height: none !important;
-  min-height: var(--chat-composer-h) !important;
-  padding-block: 6px !important;
-}
-
-#app .app-shell:not(.is-auth-route) .chat-composer-main {
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) .chat-composer-main {
   min-width: 0 !important;
   display: grid !important;
   gap: 4px !important;
 }
 
-#app .app-shell:not(.is-auth-route) form.chat-composer input[type='text'] {
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) form.chat-composer input[type='text'] {
   width: 100% !important;
   height: var(--chat-control-h) !important;
   min-height: var(--chat-control-h) !important;
   max-height: var(--chat-control-h) !important;
   margin: 0 !important;
-  padding: 0 10px !important;
-  border-radius: 10px !important;
+  padding: 0 12px !important;
+  border: 1px solid rgba(52, 144, 139, 0.12) !important;
+  border-radius: 12px !important;
   box-sizing: border-box !important;
   line-height: var(--chat-control-h) !important;
-  font-size: 0.84rem !important;
+  font-size: 0.88rem !important;
+  background: rgba(248, 252, 251, 0.9) !important;
+  color: #1d3f3b !important;
 }
 
-#app .app-shell:not(.is-auth-route) button.chat-attach-btn,
-#app .app-shell:not(.is-auth-route) .chat-attach-btn {
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) button.chat-attach-btn,
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) .chat-attach-btn {
   width: var(--chat-control-h) !important;
   height: var(--chat-control-h) !important;
   min-width: var(--chat-control-h) !important;
@@ -220,62 +248,60 @@
   max-height: var(--chat-control-h) !important;
   padding: 0 !important;
   margin: 0 !important;
-  border: 0 !important;
-  border-radius: 10px !important;
-  background: rgba(52, 144, 139, 0.12) !important;
+  border: 1px solid rgba(52, 144, 139, 0.14) !important;
+  border-radius: 12px !important;
+  background: rgba(52, 144, 139, 0.1) !important;
   color: #1f5c59 !important;
   display: inline-grid !important;
   place-items: center !important;
   box-shadow: none !important;
 }
 
-#app .app-shell:not(.is-auth-route) button.chat-send-btn,
-#app .app-shell:not(.is-auth-route) .chat-send-btn {
-  width: auto !important;
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) button.chat-send-btn,
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) .chat-send-btn {
+  width: var(--chat-control-h) !important;
   height: var(--chat-control-h) !important;
   min-width: var(--chat-control-h) !important;
   min-height: var(--chat-control-h) !important;
   max-height: var(--chat-control-h) !important;
-  padding: 0 12px !important;
+  padding: 0 !important;
   margin: 0 !important;
   border: 0 !important;
-  border-radius: 10px !important;
-  background: #34908b !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, #34908b, #1f5c59) !important;
   color: #fff !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 0 !important;
-  box-shadow: none !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  box-shadow: 0 8px 18px rgba(45, 122, 110, 0.24) !important;
   font-size: 0.8rem !important;
   font-weight: 700 !important;
 }
 
-#app .app-shell:not(.is-auth-route) button.chat-send-btn span:not(.iconly-shell),
-#app .app-shell:not(.is-auth-route) .chat-send-btn > span:last-child {
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) button.chat-send-btn span:not(.iconly-shell),
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) .chat-send-btn > span:last-child {
   display: none !important;
 }
 
-#app .app-shell:not(.is-auth-route) button.chat-send-btn .iconly-shell,
-#app .app-shell:not(.is-auth-route) .chat-send-btn .iconly-shell,
-#app .app-shell:not(.is-auth-route) button.chat-attach-btn .iconly-shell,
-#app .app-shell:not(.is-auth-route) .chat-attach-btn .iconly-shell {
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) button.chat-send-btn .iconly-shell,
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) .chat-send-btn .iconly-shell,
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) button.chat-attach-btn .iconly-shell,
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) .chat-attach-btn .iconly-shell {
   font-size: 15px !important;
   width: 16px !important;
   height: 16px !important;
 }
 
-#app .app-shell:not(.is-auth-route) button.chat-send-btn .iconly-img,
-#app .app-shell:not(.is-auth-route) .chat-send-btn .iconly-img {
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) button.chat-send-btn .iconly-img,
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) .chat-send-btn .iconly-img {
   filter: brightness(0) invert(1) !important;
 }
 
-#app .app-shell:not(.is-auth-route) .chat-sidebar-head,
-#app .app-shell:not(.is-auth-route) .chat-thread-head {
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) .chat-sidebar-head,
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) .chat-thread-head {
   padding: 12px 14px 8px !important;
 }
 
-#app .app-shell:not(.is-auth-route) .chat-search {
+#app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) .chat-search {
   margin: 0 12px 8px !important;
 }
 
@@ -298,29 +324,58 @@
     --layout-block: 14px;
   }
 
-  #app .app-shell:not(.is-auth-route) .chat-page {
+  /* Chat page: full-bleed; composer manages dock offset only in thread view */
+  #app .app-shell:not(.is-auth-route) .shell-content-body:has(.chat-page-luxe),
+  #app .app-shell:not(.is-auth-route) .shell-content-body:has(.chat-page) {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    padding-inline: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe):not(.show-thread) .chat-sidebar-body {
+    padding-bottom: calc(var(--mobile-dock-stack) + 8px) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe) {
+    flex: 1 1 auto !important;
     grid-template-columns: 1fr !important;
-    height: calc(100dvh - 56px - 76px - env(safe-area-inset-bottom, 0px)) !important;
-    max-height: calc(100dvh - 56px - 76px - env(safe-area-inset-bottom, 0px)) !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
     border-radius: 0 !important;
+    border: 0 !important;
   }
 
-  #app .app-shell:not(.is-auth-route) .chat-page:not(.show-thread) .chat-thread {
+  #app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe):not(.show-thread) .chat-thread {
     display: none !important;
   }
 
-  #app .app-shell:not(.is-auth-route) .chat-page.show-thread .chat-sidebar {
+  #app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe).show-thread .chat-sidebar {
     display: none !important;
   }
 
-  #app .app-shell:not(.is-auth-route) .chat-page:not(.show-thread) .chat-sidebar {
-    display: grid !important;
-    grid-template-rows: auto auto auto minmax(0, 1fr) !important;
+  #app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe):not(.show-thread) .chat-sidebar {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
   }
 
-  #app .app-shell:not(.is-auth-route) .chat-page.show-thread .chat-thread {
+  #app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe).show-thread .chat-thread {
     display: grid !important;
-    grid-template-rows: auto minmax(0, 1fr) auto !important;
+    height: 100% !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe).show-thread .chat-thread-frame {
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
   }
 
   #app .app-shell:not(.is-auth-route) .chat-back-btn {
@@ -329,16 +384,30 @@
     gap: 4px;
   }
 
-  #app .app-shell:not(.is-auth-route) .chat-page.show-thread form.chat-composer {
+  /* Mobile thread: composer floats above bottom dock */
+  #app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe).show-thread form.chat-composer {
     position: fixed !important;
-    inset-inline: 0 !important;
-    bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
-    z-index: 56 !important;
-    box-shadow: 0 -8px 24px rgba(31, 92, 89, 0.08) !important;
+    inset-inline: 8px !important;
+    bottom: var(--mobile-composer-bottom) !important;
+    z-index: 60 !important;
+    padding: 8px 10px !important;
+    border: 1px solid rgba(52, 144, 139, 0.14) !important;
+    border-radius: 16px !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    box-shadow: 0 10px 28px rgba(31, 92, 89, 0.12) !important;
   }
 
-  #app .app-shell:not(.is-auth-route) .chat-page.show-thread .chat-messages {
-    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+  #app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe).show-thread .chat-composer-shell {
+    border: 1px solid rgba(52, 144, 139, 0.14) !important;
+    border-radius: 14px !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) :is(.chat-page, .chat-page-luxe).show-thread .chat-messages {
+    padding-bottom: var(--mobile-composer-reserve) !important;
   }
 
   #app .app-shell:not(.is-auth-route) .page-filters.modern-page-filters.topbar-filters,

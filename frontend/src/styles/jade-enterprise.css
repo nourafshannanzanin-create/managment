@@ -578,8 +578,6 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .wallet-panel,
 #app .app-shell:not(.is-auth-route) .support-hero,
 #app .app-shell:not(.is-auth-route) .support-panel,
-#app .app-shell:not(.is-auth-route) .attendance-hero,
-#app .app-shell:not(.is-auth-route) .attendance-user-card,
 #app .app-shell:not(.is-auth-route) .attendance-feed,
 #app .app-shell:not(.is-auth-route) .attendance-report-panel,
 #app .app-shell:not(.is-auth-route) .report-table-card,
@@ -825,13 +823,13 @@ body:has(.app-shell:not(.is-auth-route)),
 }
 
 /* Wallet, support, attendance, user and approval detail polish */
-#app .app-shell:not(.is-auth-route) :where(.wallet-hero, .support-hero, .attendance-hero, .approval-hero, .user-hero) {
+#app .app-shell:not(.is-auth-route) :where(.wallet-hero, .support-hero, .approval-hero, .user-hero) {
   position:relative !important;
   overflow:hidden !important;
   padding:28px !important;
 }
 
-#app .app-shell:not(.is-auth-route) :where(.wallet-hero, .support-hero, .attendance-hero, .approval-hero, .user-hero)::before {
+#app .app-shell:not(.is-auth-route) :where(.wallet-hero, .support-hero, .approval-hero, .user-hero)::before {
   content:'' !important;
   position:absolute !important;
   inset:auto auto -90px -90px !important;
@@ -842,7 +840,7 @@ body:has(.app-shell:not(.is-auth-route)),
   filter:blur(14px) !important;
 }
 
-#app .app-shell:not(.is-auth-route) :where(.compact-user-card, .attendance-user-card, .recipient-card, .department-card, .dashboard-action-card, .list-card) {
+#app .app-shell:not(.is-auth-route) :where(.compact-user-card, .recipient-card, .department-card, .dashboard-action-card, .list-card) {
   border-radius:18px !important;
 }
 
@@ -917,19 +915,77 @@ body:has(.app-shell:not(.is-auth-route)),
   color:var(--on-surface) !important;
 }
 
-.modal-shell .attendance-punch-btn,
-.modal-shell .attendance-punch-btn strong,
-.modal-shell .attendance-punch-btn small,
-.modal-shell .attendance-punch-btn span,
-.modal-shell .attendance-punch-btn .iconly-shell {
-  color:#fff !important;
+.modal-shell .attendance-punch-btn {
+  position: relative !important;
+  isolation: isolate !important;
+  min-height: 124px !important;
+  border-radius: 22px !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(8px) !important;
 }
 
-.modal-shell .attendance-punch-btn .iconly-shell,
-.modal-shell .attendance-punch-btn .iconly-shell .iconly-img {
-  --iconly-filter: brightness(0) invert(1) !important;
-  filter: brightness(0) invert(1) !important;
-  color:#fff !important;
+.modal-shell .attendance-punch-btn.is-in {
+  background: rgba(43, 184, 154, 0.14) !important;
+  background-image: none !important;
+  border: 1px solid rgba(31, 138, 112, 0.28) !important;
+  color: #145f52 !important;
+}
+
+.modal-shell .attendance-punch-btn.is-in :where(strong, span, small) {
+  color: #145f52 !important;
+}
+
+.modal-shell .attendance-punch-btn.is-in small {
+  color: rgba(20, 95, 82, 0.72) !important;
+}
+
+.modal-shell .attendance-punch-btn.is-out {
+  background: rgba(224, 122, 95, 0.14) !important;
+  background-image: none !important;
+  border: 1px solid rgba(196, 90, 74, 0.28) !important;
+  color: #9a3f34 !important;
+}
+
+.modal-shell .attendance-punch-btn.is-out :where(strong, span, small) {
+  color: #9a3f34 !important;
+}
+
+.modal-shell .attendance-punch-btn.is-out small {
+  color: rgba(154, 63, 52, 0.72) !important;
+}
+
+.modal-shell .attendance-punch-icon {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 16px !important;
+  display: grid !important;
+  place-items: center !important;
+  box-shadow: none !important;
+}
+
+.modal-shell .attendance-punch-btn.is-in .attendance-punch-icon {
+  background: rgba(31, 138, 112, 0.12) !important;
+  border: 1px solid rgba(31, 138, 112, 0.2) !important;
+}
+
+.modal-shell .attendance-punch-btn.is-out .attendance-punch-icon {
+  background: rgba(196, 90, 74, 0.12) !important;
+  border: 1px solid rgba(196, 90, 74, 0.2) !important;
+}
+
+.modal-shell .attendance-punch-btn.is-in .iconly-shell,
+.modal-shell .attendance-punch-btn.is-in .iconly-shell .iconly-img {
+  --iconly-filter: brightness(0) saturate(100%) invert(32%) sepia(28%) saturate(1200%) hue-rotate(128deg) brightness(92%) contrast(92%) !important;
+  filter: brightness(0) saturate(100%) invert(32%) sepia(28%) saturate(1200%) hue-rotate(128deg) brightness(92%) contrast(92%) !important;
+  color: #145f52 !important;
+}
+
+.modal-shell .attendance-punch-btn.is-out .iconly-shell,
+.modal-shell .attendance-punch-btn.is-out .iconly-shell .iconly-img {
+  --iconly-filter: brightness(0) saturate(100%) invert(38%) sepia(42%) saturate(900%) hue-rotate(330deg) brightness(95%) contrast(92%) !important;
+  filter: brightness(0) saturate(100%) invert(38%) sepia(42%) saturate(900%) hue-rotate(330deg) brightness(95%) contrast(92%) !important;
+  color: #9a3f34 !important;
 }
 
 .modal-shell :where(.page-eyebrow, .approval-surface-kicker) {
@@ -1039,17 +1095,24 @@ body:has(.app-shell:not(.is-auth-route)),
   --iconly-filter: brightness(0) saturate(100%) invert(36%) sepia(17%) saturate(697%) hue-rotate(104deg) brightness(91%) contrast(88%);
 }
 
-.modal-shell .attendance-punch-btn,
-.modal-shell .attendance-punch-btn *,
-.modal-shell .attendance-punch-btn strong,
-.modal-shell .attendance-punch-btn small {
-  color: #ffffff !important;
+.modal-shell .attendance-punch-btn.is-in :where(strong, span, small) {
+  color: #145f52 !important;
 }
 
-.modal-shell .attendance-punch-btn .iconly-shell,
-.modal-shell .attendance-punch-btn .iconly-img {
-  --iconly-filter: brightness(0) invert(1) !important;
-  filter: brightness(0) invert(1) !important;
+.modal-shell .attendance-punch-btn.is-out :where(strong, span, small) {
+  color: #9a3f34 !important;
+}
+
+.modal-shell .attendance-punch-btn.is-in .iconly-shell,
+.modal-shell .attendance-punch-btn.is-in .iconly-img {
+  --iconly-filter: brightness(0) saturate(100%) invert(32%) sepia(28%) saturate(1200%) hue-rotate(128deg) brightness(92%) contrast(92%) !important;
+  filter: brightness(0) saturate(100%) invert(32%) sepia(28%) saturate(1200%) hue-rotate(128deg) brightness(92%) contrast(92%) !important;
+}
+
+.modal-shell .attendance-punch-btn.is-out .iconly-shell,
+.modal-shell .attendance-punch-btn.is-out .iconly-img {
+  --iconly-filter: brightness(0) saturate(100%) invert(38%) sepia(42%) saturate(900%) hue-rotate(330deg) brightness(95%) contrast(92%) !important;
+  filter: brightness(0) saturate(100%) invert(38%) sepia(42%) saturate(900%) hue-rotate(330deg) brightness(95%) contrast(92%) !important;
 }
 
 @media (max-width: 1220px) {
@@ -1218,8 +1281,6 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .wallet-panel,
 #app .app-shell:not(.is-auth-route) .support-hero,
 #app .app-shell:not(.is-auth-route) .support-panel,
-#app .app-shell:not(.is-auth-route) .attendance-hero,
-#app .app-shell:not(.is-auth-route) .attendance-user-card,
 #app .app-shell:not(.is-auth-route) .attendance-feed,
 #app .app-shell:not(.is-auth-route) .attendance-report-panel,
 #app .app-shell:not(.is-auth-route) .report-table-card,
@@ -1332,8 +1393,6 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .wallet-panel,
 #app .app-shell:not(.is-auth-route) .support-hero,
 #app .app-shell:not(.is-auth-route) .support-panel,
-#app .app-shell:not(.is-auth-route) .attendance-hero,
-#app .app-shell:not(.is-auth-route) .attendance-user-card,
 #app .app-shell:not(.is-auth-route) .attendance-feed,
 #app .app-shell:not(.is-auth-route) .attendance-report-panel,
 #app .app-shell:not(.is-auth-route) .attendance-table-wrap,
@@ -1536,7 +1595,6 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .user-status-panel,
 #app .app-shell:not(.is-auth-route) .user-finance-panel,
 #app .app-shell:not(.is-auth-route) .wallet-summary-card,
-#app .app-shell:not(.is-auth-route) .attendance-user-card,
 #app .app-shell:not(.is-auth-route) .attendance-feed {
   background: #f3f9f7 !important;
   box-shadow: 0 10px 28px rgba(40, 110, 105, 0.1) !important;
@@ -1791,7 +1849,6 @@ body:has(.app-shell:not(.is-auth-route)),
 
 #app .app-shell:not(.is-auth-route) .wallet-hero,
 #app .app-shell:not(.is-auth-route) .support-hero,
-#app .app-shell:not(.is-auth-route) .attendance-hero,
 #app .app-shell:not(.is-auth-route) .user-hero {
   background: #dcefec !important;
 }
@@ -2480,8 +2537,6 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .wallet-panel,
 #app .app-shell:not(.is-auth-route) .support-hero,
 #app .app-shell:not(.is-auth-route) .support-panel,
-#app .app-shell:not(.is-auth-route) .attendance-hero,
-#app .app-shell:not(.is-auth-route) .attendance-user-card,
 #app .app-shell:not(.is-auth-route) .attendance-feed,
 #app .app-shell:not(.is-auth-route) .attendance-report-panel,
 #app .app-shell:not(.is-auth-route) .attendance-table-wrap,
@@ -2685,7 +2740,6 @@ body:has(.app-shell:not(.is-auth-route)),
 
 #app .app-shell:not(.is-auth-route) .wallet-hero,
 #app .app-shell:not(.is-auth-route) .support-hero,
-#app .app-shell:not(.is-auth-route) .attendance-hero,
 #app .app-shell:not(.is-auth-route) .user-hero {
   padding: 14px !important;
   gap: 8px !important;
@@ -2718,7 +2772,6 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .quick-action-card,
 #app .app-shell:not(.is-auth-route) .wallet-hero,
 #app .app-shell:not(.is-auth-route) .support-hero,
-#app .app-shell:not(.is-auth-route) .attendance-hero,
 #app .app-shell:not(.is-auth-route) .user-hero,
 #app .app-shell:not(.is-auth-route) .wallet-panel,
 #app .app-shell:not(.is-auth-route) .support-panel,
@@ -2758,7 +2811,6 @@ body:has(.app-shell:not(.is-auth-route)),
 
 #app .app-shell:not(.is-auth-route) .wallet-hero,
 #app .app-shell:not(.is-auth-route) .support-hero,
-#app .app-shell:not(.is-auth-route) .attendance-hero,
 #app .app-shell:not(.is-auth-route) .user-hero {
   background: #dcefec !important;
 }
@@ -3176,7 +3228,7 @@ body:has(.app-shell:not(.is-auth-route)),
   }
 
   #app .app-shell:not(.is-auth-route) .shell-content-body {
-    padding: 12px 12px calc(108px + env(safe-area-inset-bottom, 0px)) !important;
+    padding: 12px 12px calc(72px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   #app .app-shell:not(.is-auth-route) .topbar-shell {
@@ -3881,38 +3933,14 @@ body:has(.app-shell:not(.is-auth-route)),
   max-width: none !important;
 }
 
-#app .app-shell:not(.is-auth-route) .chat-composer {
-  min-height: 34px !important;
-  max-height: 34px !important;
-  padding: 2px 6px !important;
-  gap: 4px !important;
-}
-
-#app .app-shell:not(.is-auth-route) .chat-composer:has(.chat-pending-file) {
-  max-height: none !important;
-}
-
-#app .app-shell:not(.is-auth-route) .chat-composer input {
-  min-height: 26px !important;
-  height: 26px !important;
-  max-height: 26px !important;
-  padding: 0 8px !important;
-}
-
 #app .app-shell:not(.is-auth-route) .chat-send-btn.action-btn,
 #app .app-shell:not(.is-auth-route) .chat-send-btn {
-  min-height: 26px !important;
-  height: 26px !important;
-  padding: 0 10px !important;
-  border-radius: 8px !important;
+  border-radius: 12px !important;
 }
 
 #app .app-shell:not(.is-auth-route) .chat-attach-btn.icon-btn,
 #app .app-shell:not(.is-auth-route) .chat-attach-btn {
-  width: 26px !important;
-  height: 26px !important;
-  min-width: 26px !important;
-  min-height: 26px !important;
+  border-radius: 12px !important;
 }
 
 /* Solid green surfaces => white label/icon */
@@ -3922,7 +3950,6 @@ body:has(.app-shell:not(.is-auth-route)),
   .chat-bubble.is-mine,
   .chat-send-btn,
   .nav-link-badge,
-  .attendance-punch-btn.is-in,
   .report-tab.is-active
 ),
 #app .app-shell:not(.is-auth-route) :where(
@@ -3931,7 +3958,6 @@ body:has(.app-shell:not(.is-auth-route)),
   .chat-bubble.is-mine,
   .chat-send-btn,
   .nav-link-badge,
-  .attendance-punch-btn.is-in,
   .report-tab.is-active
 ) :where(span, strong, small, p, label) {
   color: #ffffff !important;
@@ -3943,14 +3969,12 @@ body:has(.app-shell:not(.is-auth-route)),
   .chat-bubble.is-mine,
   .chat-send-btn,
   .nav-link-badge,
-  .attendance-punch-btn.is-in,
   .report-tab.is-active
 ) .iconly-shell,
 #app .app-shell:not(.is-auth-route) :where(
   .action-btn.tone-primary,
   .tone-primary,
-  .chat-send-btn,
-  .attendance-punch-btn.is-in
+  .chat-send-btn
 ) .iconly-img {
   --iconly-filter: brightness(0) invert(1) !important;
   filter: brightness(0) invert(1) !important;
@@ -3997,12 +4021,101 @@ body:has(.app-shell:not(.is-auth-route)),
 }
 
 #app .app-shell:not(.is-auth-route) .attendance-user-card {
+  position: relative !important;
   display: grid !important;
-  gap: 12px !important;
+  gap: 14px !important;
   min-width: 0 !important;
   min-height: 0 !important;
-  padding: 16px !important;
-  overflow: visible !important;
+  padding: 18px 16px 16px !important;
+  border-radius: 20px !important;
+  overflow: hidden !important;
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 251, 250, 0.96) 100%) !important;
+  background-image:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 251, 250, 0.96) 100%) !important;
+  border: 1px solid rgba(52, 144, 139, 0.14) !important;
+  box-shadow:
+    0 14px 32px rgba(31, 92, 89, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-user-card.is-present {
+  border-color: rgba(52, 144, 139, 0.32) !important;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(52, 144, 139, 0.12), transparent 42%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(236, 247, 244, 0.96) 100%) !important;
+  background-image:
+    radial-gradient(circle at 100% 0%, rgba(52, 144, 139, 0.12), transparent 42%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(236, 247, 244, 0.96) 100%) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-user-card-accent {
+  position: absolute !important;
+  inset-inline-start: 0 !important;
+  top: 14px !important;
+  bottom: 14px !important;
+  width: 3px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(180deg, #34908b, #1f5c59) !important;
+  opacity: 0.55 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-user-card.is-present .attendance-user-card-accent {
+  opacity: 1 !important;
+  box-shadow: 0 0 12px rgba(52, 144, 139, 0.35) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-mini-grid span {
+  display: grid !important;
+  gap: 4px !important;
+  padding: 10px 12px !important;
+  border-radius: 14px !important;
+  background: rgba(52, 144, 139, 0.07) !important;
+  border: 1px solid rgba(52, 144, 139, 0.1) !important;
+  color: #5f7a76 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-mini-grid b {
+  color: #1f5c59 !important;
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-punch-btn.is-in {
+  background: rgba(43, 184, 154, 0.14) !important;
+  background-image: none !important;
+  border-color: rgba(31, 138, 112, 0.28) !important;
+  color: #145f52 !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-punch-btn.is-out {
+  background: rgba(224, 122, 95, 0.14) !important;
+  background-image: none !important;
+  border-color: rgba(196, 90, 74, 0.28) !important;
+  color: #9a3f34 !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-punch-icon {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 16px !important;
+  display: grid !important;
+  place-items: center !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-punch-btn.is-in .attendance-punch-icon {
+  background: rgba(31, 138, 112, 0.12) !important;
+  border: 1px solid rgba(31, 138, 112, 0.2) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-punch-btn.is-out .attendance-punch-icon {
+  background: rgba(196, 90, 74, 0.12) !important;
+  border: 1px solid rgba(196, 90, 74, 0.2) !important;
 }
 
 #app .app-shell:not(.is-auth-route) .attendance-user-head {
@@ -4051,7 +4164,6 @@ body:has(.app-shell:not(.is-auth-route)),
   word-break: break-word !important;
 }
 
-#app .app-shell:not(.is-auth-route) .attendance-hero,
 #app .app-shell:not(.is-auth-route) .attendance-feed,
 #app .app-shell:not(.is-auth-route) .attendance-report-panel {
   min-width: 0 !important;
@@ -4164,6 +4276,14 @@ body:has(.app-shell:not(.is-auth-route)),
   width: 26px !important;
   height: 26px !important;
   filter: brightness(0) invert(1) !important;
+}
+
+#app .app-shell:not(.is-auth-route) .chat-bubble.is-mine {
+  background: #1f5c59 !important;
+  background-image: linear-gradient(145deg, #1f5c59 0%, #174a47 100%) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 20px rgba(31, 92, 89, 0.28) !important;
+  color: #ffffff !important;
 }
 
 #app .app-shell:not(.is-auth-route) .chat-bubble.is-mine,
@@ -4835,7 +4955,8 @@ body:has(.app-shell:not(.is-auth-route)),
   border-color: rgba(225, 29, 72, 0.22) !important;
 }
 
-#app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe {
+#app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe,
+#app .app-shell:not(.is-auth-route) .mobile-bottom-nav-simple {
   display: none !important;
 }
 
@@ -4849,139 +4970,11 @@ body:has(.app-shell:not(.is-auth-route)),
   }
 
   #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe {
-    display: block !important;
-    position: fixed !important;
-    inset-inline: 10px !important;
-    bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
-    z-index: 55 !important;
-    width: auto !important;
-    padding: 0 !important;
-    background: transparent !important;
-    border: 0 !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-nav-inner {
-    display: grid !important;
-    grid-template-columns: repeat(var(--nav-count, 5), minmax(0, 1fr)) !important;
-    gap: 4px !important;
-    padding: 8px 8px 6px !important;
-    border-radius: 22px !important;
-    border: 1px solid rgba(52, 144, 139, 0.16) !important;
-    background: rgba(255, 255, 255, 0.94) !important;
-    box-shadow:
-      0 14px 40px rgba(20, 70, 66, 0.14),
-      inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
-    backdrop-filter: blur(18px) !important;
-    -webkit-backdrop-filter: blur(18px) !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-link {
-    position: relative !important;
-    min-height: 54px !important;
-    padding: 4px 2px 2px !important;
-    border-radius: 16px !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 4px !important;
-    color: #607874 !important;
-    text-decoration: none !important;
-    transition: color 0.16s ease, background-color 0.16s ease !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-icon-slot {
-    position: relative !important;
-    width: 34px !important;
-    height: 30px !important;
-    display: grid !important;
-    place-items: center !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-icon-ring {
-    width: 32px !important;
-    height: 32px !important;
-    display: grid !important;
-    place-items: center !important;
-    border-radius: 12px !important;
-    background: rgba(52, 144, 139, 0.07) !important;
-    transition: background-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-link .iconly-shell {
-    font-size: 18px !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-label {
-    font-size: 10px !important;
-    font-weight: 780 !important;
-    color: inherit !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-link.is-active {
-    color: #1f6f6a !important;
-    background: rgba(52, 144, 139, 0.08) !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-link.is-active::before {
     display: none !important;
   }
 
-  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-link.is-active .mobile-bottom-icon-ring {
-    background: linear-gradient(135deg, rgba(52, 144, 139, 0.22), rgba(72, 103, 183, 0.14)) !important;
-    box-shadow: 0 6px 14px rgba(45, 122, 110, 0.16) !important;
-    transform: translateY(-2px) !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe .mobile-bottom-badge {
-    top: -3px !important;
-    inset-inline-end: -5px !important;
-    min-width: 18px !important;
-    height: 18px !important;
-    background: linear-gradient(135deg, #f43f5e, #e11d48) !important;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.96) !important;
-  }
-
   #app .app-shell:not(.is-auth-route) .shell-content {
-    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)) !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .chat-page-luxe.show-thread .chat-composer {
-    position: fixed !important;
-    inset-inline: 10px !important;
-    bottom: calc(102px + env(safe-area-inset-bottom, 0px)) !important;
-    z-index: 60 !important;
-    min-height: auto !important;
-    max-height: none !important;
-    height: auto !important;
-    padding: 8px 10px !important;
-    border-radius: 16px !important;
-    background: rgba(255, 255, 255, 0.96) !important;
-    box-shadow: 0 10px 28px rgba(31, 92, 89, 0.12) !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .chat-page-luxe.show-thread .chat-composer-shell {
-    min-height: 48px !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .chat-page-luxe.show-thread .chat-composer input {
-    min-height: 36px !important;
-    height: 36px !important;
-    max-height: 36px !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .chat-page-luxe.show-thread .chat-attach-btn,
-  #app .app-shell:not(.is-auth-route) .chat-page-luxe.show-thread .chat-send-btn {
-    width: 36px !important;
-    height: 36px !important;
-    min-width: 36px !important;
-    min-height: 36px !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .chat-page-luxe.show-thread .chat-messages {
-    padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(var(--mobile-dock-stack, 56px) + 8px) !important;
   }
 
   #app .app-shell:not(.is-auth-route) .tasking-page {

@@ -92,7 +92,7 @@ const items = computed(() => {
 
 <template>
   <nav
-    class="mobile-bottom-nav mobile-bottom-nav-luxe"
+    class="mobile-bottom-nav mobile-bottom-nav-simple"
     aria-label="ناوبری موبایل"
     :style="{ '--nav-count': items.length }"
     @pointerdown="unlockTicketAlerts"
@@ -106,9 +106,7 @@ const items = computed(() => {
         :aria-current="isNavActive(item.to) ? 'page' : undefined"
       >
         <span class="mobile-bottom-icon-slot" aria-hidden="true">
-          <span class="mobile-bottom-icon-ring">
-            <IconlyIcon :name="item.icon" decorative />
-          </span>
+          <IconlyIcon :name="item.icon" decorative />
           <span v-if="item.badgeLabel" class="mobile-bottom-badge">{{ item.badgeLabel }}</span>
         </span>
         <span class="mobile-bottom-label">{{ item.shortLabel }}</span>

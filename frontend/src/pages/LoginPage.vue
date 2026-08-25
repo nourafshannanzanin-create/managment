@@ -9,6 +9,8 @@ import { useWorkflowHub } from '../stores/workflowHub'
 
 const REMEMBER_KEY = 'workflow-hub-remember-login'
 
+const SESSION_EXPIRED_FLAG = 'workflow-hub-session-expired'
+
 const route = useRoute()
 
 const form = reactive({
@@ -17,6 +19,7 @@ const form = reactive({
   remember: false,
 })
 
+const sessionExpiredNotice = ref(false)
 const signupOpen = ref(false)
 const registrationSent = ref(false)
 const signup = reactive({
@@ -118,6 +121,19 @@ watch(
 onMounted(() => {
   loadRememberedLogin()
   syncSignupQuery()
+  try {
+    if (sessionStorage.getItem(SESSION_EXPIRED_FLAG) === '1') {
+      sessionExpiredNotice.value = true
+      sessionStorage.removeItem(SESSION_EXPIRED_FLAG)
+    }
+  } catch {
+    // ignore
+  }
+  // Prefer focusing password when username is already remembered.
+  window.setTimeout(() => {
+    const targetId = form.email.trim() ? 'login-password' : 'login-email'
+    document.getElementById(targetId)?.focus?.()
+  }, 40)
 })
 watch(() => route.query.signup, syncSignupQuery)
 watch(() => route.query.register, syncSignupQuery)
@@ -151,6 +167,10 @@ watch(() => route.query.register, syncSignupQuery)
           <span>دسترسی سامانه</span>
           <h2>حساب سازمانی</h2>
         </div>
+
+        <p v-if="sessionExpiredNotice" class="session-expired-note">
+          نشست قبلی به پایان رسیده است. برای ادامه، دوباره وارد شوید.
+        </p>
 
         <form class="stitch-form" @submit.prevent="handleLogin">
           <label class="stitch-field-group" for="login-email">
@@ -344,6 +364,7 @@ watch(() => route.query.register, syncSignupQuery)
 .stitch-footer-note { margin: 22px 0 0; color: rgba(255,255,255,.78); text-align: center; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.01em; }
 .registration-documents small { color: #70809a; font-size: 12px; }
 .registration-success { margin: 0; padding: 12px 14px; border: 0; border-radius: 14px; background: rgba(32, 132, 94, .18); color: #e8fff4; font-size: 13px; font-weight: 800; line-height: 1.8; }
+.session-expired-note { margin: 0 0 14px; padding: 12px 14px; border: 0; border-radius: 14px; background: rgba(245, 158, 11, .16); color: #fff7ed; font-size: 13px; font-weight: 800; line-height: 1.8; }
 @media (min-width: 980px) { .stitch-brand-panel { display: flex; } }
 @media (max-width: 720px) {
   .stitch-login-page { padding: 16px; background-position: center; }
