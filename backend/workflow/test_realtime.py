@@ -4,11 +4,12 @@ import queue
 import os
 from unittest.mock import patch
 
+from django.db import transaction
 from django.http import JsonResponse
 from django.test import RequestFactory, TestCase
 
 from workflow.live import _LiveSubscriber, _replay_events, record_live_event
-from workflow.models import IdempotencyRecord, LiveOutbox, Organization, OrganizationMembership, User, UserRole
+from workflow.models import IdempotencyRecord, LiveOutbox, Organization, OrganizationMembership, Request, RequestPriority, User, UserRole
 from workflow.security import get_password_hash
 from workflow.views import _run_idempotent_request
 
@@ -17,7 +18,12 @@ class LiveOutboxTests(TestCase):
     def setUp(self):
         self.environment = patch.dict(
             os.environ,
-            {"WORKFLOW_LIVE_OUTBOX_ENABLED": "true", "WORKFLOW_IDEMPOTENCY_ENABLED": "true"},
+            {
+                "WORKFLOW_LIVE_OUTBOX_ENABLED": "true",
+                "WORKFLOW_LIVE_REPLAY_ENABLED": "true",
+                "WORKFLOW_LIVE_V2_ENABLED": "true",
+                "WORKFLOW_IDEMPOTENCY_ENABLED": "true",
+            },
         )
         self.environment.start()
         self.addCleanup(self.environment.stop)
@@ -72,6 +78,21 @@ class LiveOutboxTests(TestCase):
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["tenant_id"], str(self.organization.id))
         self.assertTrue(events[0]["event_id"].isdigit())
+
+    def test_rollback_discards_the_business_row_and_its_outbox_row(self):
+        with transaction.atomic():
+            request = Request.objects.create(
+                code="REQ-LIVE-ROLLBACK",
+                title="Rollback check",
+                description="must not persist",
+                request_type="general",
+                priority=RequestPriority.LOW,
+                requester=self.user,
+            )
+            transaction.set_rollback(True)
+
+        self.assertFalse(Request.objects.filter(pk=request.pk).exists())
+        self.assertFalse(LiveOutbox.objects.filter(entity_id=str(request.pk)).exists())
 
     def test_idempotency_replays_the_original_unsafe_response(self):
         request_factory = RequestFactory()

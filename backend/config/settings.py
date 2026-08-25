@@ -95,6 +95,12 @@ DATABASES = {
         "OPTIONS": {
             "charset": "utf8mb4",
             "connect_timeout": env_int("WORKFLOW_DB_CONNECT_TIMEOUT", 10),
+            "init_command": "SET SESSION sql_mode = '{}'".format(
+                os.getenv(
+                    "WORKFLOW_DB_SQL_MODE",
+                    "STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION",
+                )
+            ),
         },
     }
 }

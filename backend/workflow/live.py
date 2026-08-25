@@ -8,8 +8,10 @@ import threading
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import timedelta
 
 from django.db import close_old_connections, connection, transaction
+from django.db.models import Q
 from django.http import JsonResponse, StreamingHttpResponse
 from django.utils import timezone
 
@@ -20,6 +22,7 @@ from workflow.security import decode_token
 HEARTBEAT_SECONDS = 25
 MAX_QUEUE_SIZE = 100
 MAX_REPLAY_EVENTS = int(os.getenv("WORKFLOW_LIVE_MAX_REPLAY_EVENTS", "500"))
+MAX_REPLAY_AGE_HOURS = int(os.getenv("WORKFLOW_LIVE_MAX_REPLAY_AGE_HOURS", "72"))
 LIVE_MAX_SUBSCRIBERS = int(os.getenv("WORKFLOW_LIVE_MAX_SUBSCRIBERS", "200"))
 LIVE_REDIS_CHANNEL = os.getenv("WORKFLOW_LIVE_REDIS_CHANNEL", "workflow:live:events")
 
@@ -36,6 +39,17 @@ def _env_enabled(name: str, default: bool = False) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _replay_enabled() -> bool:
+    return all(
+        _env_enabled(name)
+        for name in (
+            "WORKFLOW_LIVE_OUTBOX_ENABLED",
+            "WORKFLOW_LIVE_REPLAY_ENABLED",
+            "WORKFLOW_LIVE_V2_ENABLED",
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -126,7 +140,14 @@ def _redis_client():
     try:
         import redis
 
-        return redis.Redis.from_url(url, decode_responses=True)
+        return redis.Redis.from_url(
+            url,
+            decode_responses=True,
+            socket_keepalive=True,
+            health_check_interval=30,
+            socket_connect_timeout=2,
+            socket_timeout=2,
+        )
     except Exception:
         return None
 
@@ -146,33 +167,39 @@ def _ensure_redis_listener() -> None:
     with _redis_listener_lock:
         if _redis_listener_started:
             return
-        client = _redis_client()
-        if client is None:
+        if _redis_client() is None:
             return
         _redis_listener_started = True
 
     def _loop() -> None:
         while True:
             try:
-                pubsub = client.pubsub(ignore_subscribe_messages=True)
-                pubsub.subscribe(LIVE_REDIS_CHANNEL)
-                for message in pubsub.listen():
-                    if not message or message.get("type") != "message":
-                        continue
-                    raw = message.get("data")
-                    if isinstance(raw, bytes):
-                        raw = raw.decode("utf-8", errors="ignore")
-                    if not raw:
-                        continue
-                    try:
-                        event = json.loads(raw)
-                    except Exception:
-                        continue
-                    # Avoid double-delivery when publisher is this same process:
-                    # publishers already delivered locally; only apply remote events.
-                    if event.get("_origin") == os.getpid():
-                        continue
-                    _deliver_local(event)
+                client = _redis_client()
+                if client is None:
+                    raise RuntimeError("Redis client unavailable")
+                # `listen()` converts an idle channel into a socket timeout
+                # when finite request timeouts are enabled. Polling keeps an
+                # idle channel quiet and reconnects only after real failures.
+                with client.pubsub(ignore_subscribe_messages=True) as pubsub:
+                    pubsub.subscribe(LIVE_REDIS_CHANNEL)
+                    while True:
+                        message = pubsub.get_message(timeout=1.0)
+                        if not message or message.get("type") != "message":
+                            continue
+                        raw = message.get("data")
+                        if isinstance(raw, bytes):
+                            raw = raw.decode("utf-8", errors="ignore")
+                        if not raw:
+                            continue
+                        try:
+                            event = json.loads(raw)
+                        except (TypeError, ValueError):
+                            continue
+                        # Avoid double-delivery when publisher is this same process:
+                        # publishers already delivered locally; only apply remote events.
+                        if event.get("_origin") == os.getpid():
+                            continue
+                        _deliver_local(event)
             except Exception:
                 logger.debug("live redis listener restarting", exc_info=True)
                 threading.Event().wait(2)
@@ -246,6 +273,8 @@ def record_live_event(
         # applied. The legacy event remains an invalidation signal only.
         transaction.on_commit(lambda: _publish_legacy_event(event_type, data or {}))
         return None
+    if not connection.in_atomic_block:
+        raise RuntimeError("LiveOutbox must be written inside the business transaction.")
     row = LiveOutbox.objects.create(
         tenant_id=tenant_id,
         event_type=event_type,
@@ -325,9 +354,36 @@ def _parse_cursor(raw: str | None) -> int | None:
 
 
 def _replay_events(subscriber: _LiveSubscriber, last_event_id: int | None) -> Iterator[dict]:
-    if last_event_id is None or not _env_enabled("WORKFLOW_LIVE_OUTBOX_ENABLED"):
+    if last_event_id is None or not _replay_enabled():
         return
-    candidates = list(LiveOutbox.objects.filter(pk__gt=last_event_id).order_by("id")[: MAX_REPLAY_EVENTS + 1])
+    if subscriber.is_hq:
+        scoped = LiveOutbox.objects.all()
+    elif subscriber.organization_id is not None:
+        scoped = LiveOutbox.objects.filter(tenant_id=subscriber.organization_id)
+    else:
+        scoped = LiveOutbox.objects.filter(Q(actor_user_id=subscriber.user_id) | Q(tenant_id__isnull=True))
+
+    newest = scoped.order_by("-id").only("id").first()
+    oldest = scoped.order_by("id").only("id", "created_at").first()
+    stale_cursor = bool(
+        oldest
+        and last_event_id < oldest.id - 1
+        and oldest.created_at < timezone.now() - timedelta(hours=MAX_REPLAY_AGE_HOURS)
+    )
+    invalid_cursor = bool(newest and last_event_id > newest.id)
+    if stale_cursor or invalid_cursor:
+        reason = "cursor_expired" if stale_cursor else "cursor_invalid"
+        yield {
+            "id": str(newest.id if newest else last_event_id),
+            "event_id": str(newest.id if newest else last_event_id),
+            "type": "system.full_resync_required",
+            "event_type": "system.full_resync_required",
+            "data": {"reason": reason},
+            "_origin": os.getpid(),
+        }
+        return
+
+    candidates = list(scoped.filter(pk__gt=last_event_id).order_by("id")[: MAX_REPLAY_EVENTS + 1])
     if len(candidates) > MAX_REPLAY_EVENTS:
         yield {
             "id": str(candidates[-1].id),

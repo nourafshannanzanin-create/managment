@@ -1,4 +1,6 @@
-from django.db import models
+import os
+
+from django.db import connection, models, transaction
 from django.utils import timezone
 from uuid import uuid4
 from datetime import time as dt_time
@@ -119,6 +121,17 @@ class TimeStampedModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+class TransactionalLiveModelMixin:
+    """Keep live invalidations in the same transaction as their model save."""
+
+    def save(self, *args, **kwargs):
+        enabled = os.getenv("WORKFLOW_LIVE_OUTBOX_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+        if enabled and not connection.in_atomic_block:
+            with transaction.atomic():
+                return super().save(*args, **kwargs)
+        return super().save(*args, **kwargs)
 
 
 class Organization(TimeStampedModel):
@@ -257,7 +270,7 @@ class Wallet(TimeStampedModel):
         ]
 
 
-class WalletTransaction(TimeStampedModel):
+class WalletTransaction(TransactionalLiveModelMixin, TimeStampedModel):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="wallet_transactions")
     wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name="transactions")
     actor = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="wallet_transactions")
@@ -299,7 +312,7 @@ class FeaturePurchase(TimeStampedModel):
         ]
 
 
-class AttendanceEvent(TimeStampedModel):
+class AttendanceEvent(TransactionalLiveModelMixin, TimeStampedModel):
     EVENT_IN = "in"
     EVENT_OUT = "out"
     SOURCE_MANAGER = "manager"
@@ -323,7 +336,7 @@ class AttendanceEvent(TimeStampedModel):
         ]
 
 
-class SupportTicket(TimeStampedModel):
+class SupportTicket(TransactionalLiveModelMixin, TimeStampedModel):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="support_tickets")
     requester = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="support_tickets")
     subject = models.CharField(max_length=180)
@@ -358,7 +371,7 @@ class SupportTicket(TimeStampedModel):
         ]
 
 
-class SupportMessage(TimeStampedModel):
+class SupportMessage(TransactionalLiveModelMixin, TimeStampedModel):
     ticket = models.ForeignKey(SupportTicket, on_delete=models.CASCADE, related_name="messages")
     sender = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="support_messages")
     sender_name = models.CharField(max_length=120)
@@ -417,7 +430,7 @@ class UserSignature(models.Model):
         db_table = "user_signatures"
 
 
-class Request(models.Model):
+class Request(TransactionalLiveModelMixin, models.Model):
     code = models.CharField(max_length=40, unique=True, db_index=True)
     title = models.CharField(max_length=180)
     description = models.TextField()
@@ -491,7 +504,7 @@ class RequestApprovalAssignment(TimeStampedModel):
         ]
 
 
-class Expense(models.Model):
+class Expense(TransactionalLiveModelMixin, models.Model):
     code = models.CharField(max_length=40, unique=True, db_index=True)
     title = models.CharField(max_length=180)
     amount = models.DecimalField(max_digits=18, decimal_places=2)
@@ -571,7 +584,7 @@ class ApprovalNote(TimeStampedModel):
         ]
 
 
-class Document(models.Model):
+class Document(TransactionalLiveModelMixin, models.Model):
     code = models.CharField(max_length=40, unique=True, db_index=True)
     title = models.CharField(max_length=180)
     description = models.TextField(blank=True)
@@ -667,7 +680,7 @@ class DirectConversationMember(models.Model):
         ]
 
 
-class DirectMessage(TimeStampedModel):
+class DirectMessage(TransactionalLiveModelMixin, TimeStampedModel):
     conversation = models.ForeignKey(DirectConversation, on_delete=models.CASCADE, related_name="messages")
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="direct_messages")
     body = models.TextField(blank=True, default="")
@@ -764,7 +777,7 @@ class TaskingSettings(models.Model):
         db_table = "tasking_settings"
 
 
-class Task(models.Model):
+class Task(TransactionalLiveModelMixin, models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="tasks")
     code = models.CharField(max_length=40, unique=True, db_index=True)
     title = models.CharField(max_length=220)
@@ -916,7 +929,7 @@ class TaskReview(TimeStampedModel):
         ]
 
 
-class TaskComment(TimeStampedModel):
+class TaskComment(TransactionalLiveModelMixin, TimeStampedModel):
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="comments")
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="task_comments")
     parent = models.ForeignKey("self", on_delete=models.CASCADE, blank=True, null=True, related_name="replies")
