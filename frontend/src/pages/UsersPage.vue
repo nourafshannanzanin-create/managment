@@ -1,5 +1,7 @@
 <script setup>
 import IconlyIcon from '../components/base/IconlyIcon.vue'
+import InfiniteScrollSentinel from '../components/InfiniteScrollSentinel.vue'
+import { useInfiniteList } from '../composables/useInfiniteList'
 import { computed, markRaw, reactive, ref, watch } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
@@ -11,7 +13,7 @@ import UserEntrustedPanel from '../components/UserEntrustedPanel.vue'
 import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { useWorkflowHub } from '../stores/workflowHub'
 
-const { availableManagerDirectory, openUserComposer, state, updateUser, addUserEntrustedItem, removeUserEntrustedItem } = useWorkflowHub()
+const { availableManagerDirectory, openUserComposer, state, updateUser, addUserEntrustedItem, removeUserEntrustedItem , loadMoreBootstrapCollection } = useWorkflowHub()
 
 const searchQuery = ref('')
 const activeCategory = ref('all')
@@ -110,6 +112,19 @@ const filteredUsers = computed(() => {
     return matchesCategory && matchesQuery
   })
 })
+
+const usersPaging = computed(() => state.collectionPaging?.users || { total: 0, hasMore: false, loading: false })
+const {
+  items: visibleUsers,
+  hasMore: hasMoreUsers,
+  loadingMore: loadingMoreUsers,
+  loadMore: loadMoreUsers,
+} = useInfiniteList(filteredUsers, {
+  resetKey: computed(() => JSON.stringify(state.filters.users || {})),
+  hasMoreRemote: computed(() => Boolean(usersPaging.value.hasMore)),
+  onLoadMore: () => loadMoreBootstrapCollection('users'),
+})
+
 
 const userStats = computed(() => [
   { label: 'کل کاربران', value: state.users.length, icon: 'group', note: '', tone: 'is-total' },
@@ -341,9 +356,9 @@ function userManagerOptions(userId) {
     </section>
 
     <section class="surface-block users-grid-panel">
-      <div v-if="filteredUsers.length" class="user-directory-grid">
+      <div v-if="visibleUsers.length" class="user-directory-grid">
         <button
-          v-for="item in filteredUsers"
+          v-for="item in visibleUsers"
           :key="item.id || item.username"
           class="compact-user-card"
           type="button"
@@ -372,6 +387,13 @@ function userManagerOptions(userId) {
           </div>
         </button>
       </div>
+      <InfiniteScrollSentinel
+        :disabled="!hasMoreUsers || loadingMoreUsers"
+        @reach-end="loadMoreUsers"
+      >
+        <small v-if="loadingMoreUsers" class="list-loading-more">در حال بارگذاری...</small>
+        <small v-else-if="hasMoreUsers" class="list-loading-more">برای ادامه اسکرول کنید</small>
+      </InfiniteScrollSentinel>
 
       <div v-else class="empty-state-inline">
         <IconlyIcon name="group_off" decorative />

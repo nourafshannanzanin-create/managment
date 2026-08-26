@@ -3,15 +3,17 @@ import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, onMounted, reactive, watch } from 'vue'
 
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
+import InfiniteScrollSentinel from '../components/InfiniteScrollSentinel.vue'
 import { formatAmountInput } from '../utils/amount'
 import { formatJalali, getTodayJalali } from '../utils/jalali'
+import { useInfiniteList } from '../composables/useInfiniteList'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const CARD_NUMBER = '6274121774209571'
 const CARD_HOLDER = 'کارنومند'
 const PAYMENT_SUBJECT = 'درخواست واریز کیف پول'
 
-const { state, loadWalletDashboard, loadWalletOptions, submitWalletTransaction, submitFeaturePurchase, payFeatureInstallment, createSupportTicket } = useWorkflowHub()
+const { state, loadWalletDashboard, loadWalletOptions, loadMoreWalletTransactions, submitWalletTransaction, submitFeaturePurchase, payFeatureInstallment, createSupportTicket } = useWorkflowHub()
 
 const transactionForm = reactive({
   open: false,
@@ -413,6 +415,17 @@ async function submitPaymentTicket() {
 }
 
 const ledgerItems = computed(() => [...transactions.value].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
+const transactionsPaging = computed(() => state.wallet.transactionsPaging || { total: 0, hasMore: false, loading: false })
+
+const {
+  items: visibleLedgerItems,
+  hasMore: hasMoreLedger,
+  loadingMore: loadingMoreLedger,
+  loadMore: loadMoreLedger,
+} = useInfiniteList(ledgerItems, {
+  hasMoreRemote: computed(() => Boolean(transactionsPaging.value.hasMore)),
+  onLoadMore: () => loadMoreWalletTransactions(),
+})
 
 async function submitPurchase() {
   const option = selectedPurchaseOption.value
@@ -548,18 +561,127 @@ watch(
         </div>
       </div>
 
+      <div class="wallet-summary-grid">
+        <article v-for="(card, index) in summaryCards" :key="card.label" :class="['wallet-summary-card', card.tone]" :style="{ '--i': index }">
+          <div class="wallet-summary-icon">
+            <IconlyIcon :name="card.icon" decorative />
+          </div>
+          <small>{{ card.label }}</small>
+          <strong>{{ card.value }}</strong>
+          <span class="wallet-summary-glow" aria-hidden="true"></span>
+        </article>
+      </div>
+
       <div v-if="purchaseOptions.length" class="wallet-options-section">
         <header class="wallet-section-head options-head">
           <div>
             <span>سرویس‌ها و قابلیت‌ها</span>
-            <small>برای مشاهده جزئیات روی هر کارت بزنید</small>
+            <small class="options-head-desktop-hint">جزئیات و خرید روی همان کارت</small>
+            <small class="options-head-mobile-hint">برای جزئیات روی کارت بزنید</small>
           </div>
           <b>{{ purchaseOptions.length }}</b>
         </header>
-        <div class="wallet-options-grid">
+
+        <div class="wallet-options-grid wallet-options-desktop">
+          <article
+            v-for="(option, index) in purchaseOptions"
+            :key="`desktop-${option.featureKey || option.feature_key}`"
+            class="wallet-option-card"
+            :class="[
+              optionTone(option),
+              {
+                active: option.isActive || option.is_active,
+                disabled: optionCatalogDisabled(option),
+                locked: optionInstallmentLocked(option),
+                purchased: (option.isActive || option.is_active) && !optionCatalogDisabled(option),
+              },
+            ]"
+            :style="{ '--i': index, '--option-accent': option.accent || '#34908b' }"
+          >
+            <div class="wallet-option-card-head">
+              <span class="wallet-option-card-icon">
+                <IconlyIcon :name="optionIcon(option)" decorative />
+              </span>
+              <div class="wallet-option-card-titles">
+                <strong>{{ option.title }}</strong>
+                <em v-if="canSeeOptionTexts(option) && optionSubtitle(option)">{{ optionSubtitle(option) }}</em>
+              </div>
+              <span class="wallet-option-card-status">{{ optionStatus(option) }}</span>
+            </div>
+
+            <p
+              v-if="canSeeOptionTexts(option) && optionDescription(option)"
+              class="wallet-option-card-desc"
+            >{{ optionDescription(option) }}</p>
+            <p
+              v-if="canSeeOptionTexts(option) && optionRetention(option)"
+              class="wallet-option-card-retention"
+            >{{ optionRetention(option) }}</p>
+
+            <div v-if="!optionDisabled(option) && !(option.isActive || option.is_active)" class="wallet-option-price-stack">
+              <div>
+                <small>نقدی</small>
+                <strong>{{ option.cashAmount || option.totalAmount || '—' }}</strong>
+              </div>
+              <div v-if="option.installmentMonths || option.installment_months">
+                <small>قسط ماهانه</small>
+                <strong>{{ option.monthlyInstallmentAmount || option.monthly_installment_amount }}</strong>
+                <em>{{ option.installmentMonths || option.installment_months }} ماه</em>
+              </div>
+            </div>
+
+            <div v-if="option.isActive || option.is_active" class="wallet-option-live">
+              <div>
+                <small>پرداخت‌شده</small>
+                <strong>{{ option.paidAmount || option.paid_amount }}</strong>
+              </div>
+              <div>
+                <small>مانده</small>
+                <strong>{{ option.remainingAmount || option.remaining_amount }}</strong>
+              </div>
+              <div v-if="option.nextInstallmentDueAt || option.next_installment_due_at">
+                <small>سررسید بعدی</small>
+                <strong>{{ option.nextInstallmentDueAt || option.next_installment_due_at }}</strong>
+              </div>
+              <div class="wallet-option-progress">
+                <span :style="{ width: `${option.progressPercent || option.progress_percent || 0}%` }" />
+              </div>
+            </div>
+
+            <div v-if="optionInstallmentLocked(option)" class="wallet-option-lock-note">
+              <strong>قفل به‌خاطر قسط پرداخت‌نشده</strong>
+              <small>{{ option.installmentLockNotice || option.installment_lock_notice || 'موجودی کافی نبود؛ دسترسی قفل شد.' }}</small>
+            </div>
+
+            <div class="wallet-option-card-actions">
+              <template v-if="!isSchematicWallet && !optionCatalogDisabled(option)">
+                <button
+                  v-if="option.canPayNextInstallment || option.can_pay_next_installment"
+                  class="action-btn tone-primary"
+                  type="button"
+                  :disabled="state.wallet.submitting"
+                  @click="submitInstallmentPayment(option)"
+                >
+                  پرداخت قسط {{ option.nextInstallmentAmount || option.next_installment_amount }}
+                </button>
+                <template v-else-if="!(option.isActive || option.is_active) && !optionInstallmentLocked(option)">
+                  <button class="action-btn tone-soft" type="button" @click="openPurchase(option, 'installment')">خرید قسطی</button>
+                  <button class="action-btn tone-primary" type="button" @click="openPurchase(option, 'cash')">خرید نقدی</button>
+                </template>
+                <span v-else-if="option.isActive || option.is_active" class="wallet-option-active-tag">فعال است</span>
+              </template>
+              <div v-else-if="isSchematicWallet" class="option-detail-schematic compact">
+                <IconlyIcon name="visibility" decorative />
+                <b>نمایشی</b>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="wallet-options-grid wallet-options-mobile">
           <button
             v-for="(option, index) in purchaseOptions"
-            :key="option.featureKey || option.feature_key"
+            :key="`mobile-${option.featureKey || option.feature_key}`"
             type="button"
             class="wallet-option-tile"
             :class="[
@@ -583,43 +705,8 @@ watch(
         </div>
       </div>
 
-      <div class="wallet-summary-grid">
-        <article v-for="(card, index) in summaryCards" :key="card.label" :class="['wallet-summary-card', card.tone]" :style="{ '--i': index }">
-          <div class="wallet-summary-icon">
-            <IconlyIcon :name="card.icon" decorative />
-          </div>
-          <small>{{ card.label }}</small>
-          <strong>{{ card.value }}</strong>
-          <span class="wallet-summary-glow" aria-hidden="true"></span>
-        </article>
-      </div>
-
-      <div class="wallet-layout">
-        <aside class="wallet-stack">
-          <header class="wallet-section-head">
-            <span>کیف‌ها</span>
-            <small>{{ wallets.length }} حساب</small>
-          </header>
-          <button
-            v-for="(wallet, index) in wallets"
-            :key="wallet.id"
-            :class="['wallet-tile', wallet.key === 'sms' ? 'is-sms' : 'is-main', String(wallet.id) === String(transactionForm.walletId || paymentSetup.walletId || paymentGuide.walletId || paymentForm.walletId || purchaseForm.walletId || activeWallet?.id) && 'is-active']"
-            type="button"
-            :style="{ '--i': index }"
-            @click="transactionForm.walletId = String(wallet.id); paymentSetup.walletId = String(wallet.id); paymentGuide.walletId = String(wallet.id); paymentForm.walletId = String(wallet.id); purchaseForm.walletId = String(wallet.id)"
-          >
-            <div class="wallet-tile-top">
-              <span class="wallet-tile-icon">
-                <IconlyIcon :name="wallet.key === 'sms' ? 'sms' : 'account_balance'" decorative />
-              </span>
-              <b>{{ wallet.name }}</b>
-            </div>
-            <strong>{{ wallet.balance }}</strong>
-            <small v-if="wallet.isLow" class="wallet-tile-warn">کمبود موجودی</small>
-            <small v-else class="wallet-tile-ok">آماده استفاده</small>
-            <span class="wallet-tile-shine" aria-hidden="true"></span>
-          </button>
-        </aside>
+      <div class="wallet-layout is-ledger-only">
+        
 
         <div class="wallet-ledger">
           <div class="ledger-head">
@@ -627,7 +714,7 @@ watch(
               <span>گردش حساب</span>
               <small>آخرین تراکنش‌ها</small>
             </div>
-            <b>{{ ledgerItems.length }}</b>
+            <b>{{ transactionsPaging.total || ledgerItems.length }}</b>
           </div>
 
           <div v-if="state.wallet.loading" class="wallet-loading">
@@ -640,7 +727,7 @@ watch(
           </div>
 
           <div v-else class="ledger-list">
-            <article v-for="(item, index) in ledgerItems" :key="item.id" class="ledger-row" :style="{ '--i': index }">
+            <article v-for="(item, index) in visibleLedgerItems" :key="item.id" class="ledger-row" :style="{ '--i': index }">
               <div :class="['ledger-icon', item.direction]">
                 <IconlyIcon :name="item.direction === 'in' ? 'south_west' : 'north_east'" decorative />
               </div>
@@ -650,11 +737,19 @@ watch(
               </div>
               <strong :class="item.direction">{{ item.direction === 'in' ? '+' : '−' }}{{ item.amount }}</strong>
             </article>
+            <InfiniteScrollSentinel
+              :disabled="!hasMoreLedger || loadingMoreLedger"
+              @reach-end="loadMoreLedger"
+            >
+              <small v-if="loadingMoreLedger" class="list-loading-more">در حال بارگذاری...</small>
+              <small v-else-if="hasMoreLedger" class="list-loading-more">برای ادامه اسکرول کنید</small>
+            </InfiniteScrollSentinel>
           </div>
         </div>
       </div>
     </template>
 
+    <Teleport to="body">
     <div v-if="transactionForm.open" class="wallet-modal-backdrop" @click.self="closeTransaction">
       <form class="wallet-modal" @submit.prevent="submitTransaction">
         <div class="modal-handle"></div>
@@ -1040,6 +1135,7 @@ watch(
         </div>
       </form>
     </div>
+    </Teleport>
   </section>
 </template>
 
@@ -1098,9 +1194,7 @@ watch(
     radial-gradient(ellipse 70% 80% at 100% -10%, rgba(201, 168, 108, 0.28), transparent 55%),
     radial-gradient(ellipse 55% 70% at -5% 110%, rgba(52, 144, 139, 0.55), transparent 50%),
     linear-gradient(145deg, #0b2f2d 0%, #145652 42%, #1f7a72 78%, #34908b 100%);
-  box-shadow:
-    0 24px 48px rgba(15, 63, 60, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  box-shadow: none;
 }
 
 .wallet-hero-visual {
@@ -1167,9 +1261,9 @@ watch(
 .wallet-summary-card,
 .wallet-tile,
 .wallet-ledger,
-.wallet-modal,
 .wallet-license-alert,
-.wallet-option-tile {
+.wallet-option-tile,
+.wallet-option-card {
   position: relative;
   z-index: 1;
 }
@@ -1309,13 +1403,37 @@ watch(
 }
 
 .wallet-action.deposit {
-  background: linear-gradient(135deg, rgba(201, 168, 108, 0.95), rgba(168, 130, 70, 0.92));
-  border-color: rgba(255, 236, 190, 0.45);
-  color: #2d220f;
+  background: linear-gradient(145deg, #14b887 0%, #0d9a72 48%, #087a5c 100%);
+  border-color: rgba(200, 255, 230, 0.42);
+  color: #fff;
+  box-shadow:
+    0 12px 28px rgba(13, 154, 114, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
 .wallet-action.withdraw {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
+  background: linear-gradient(145deg, #ff8f5a 0%, #f06a3d 48%, #d44d28 100%);
+  border-color: rgba(255, 230, 210, 0.42);
+  color: #fff;
+  box-shadow:
+    0 12px 28px rgba(240, 106, 61, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.wallet-action.deposit:hover {
+  background: linear-gradient(145deg, #1cc994 0%, #10a87d 48%, #0a8665 100%);
+  box-shadow:
+    0 14px 32px rgba(13, 154, 114, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  filter: none;
+}
+
+.wallet-action.withdraw:hover {
+  background: linear-gradient(145deg, #ffa06e 0%, #f5784a 48%, #de5630 100%);
+  box-shadow:
+    0 14px 32px rgba(240, 106, 61, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  filter: none;
 }
 
 .wallet-action-icon {
@@ -1324,12 +1442,24 @@ watch(
   display: grid;
   place-items: center;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
 }
 
-.wallet-action.deposit .wallet-action-icon {
-  background: rgba(45, 34, 15, 0.12);
-  color: #2d220f;
+.wallet-action.deposit .wallet-action-icon,
+.wallet-action.withdraw .wallet-action-icon {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.wallet-action.deposit :deep(.iconly-shell),
+.wallet-action.withdraw :deep(.iconly-shell),
+.wallet-action.deposit :deep(.iconly-img),
+.wallet-action.withdraw :deep(.iconly-img),
+.wallet-action-icon :deep(.iconly-shell),
+.wallet-action-icon :deep(.iconly-img) {
+  --iconly-filter: brightness(0) invert(1) !important;
+  filter: brightness(0) invert(1) !important;
 }
 
 .wallet-action-copy {
@@ -1454,8 +1584,248 @@ watch(
 
 .wallet-options-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+}
+
+.wallet-options-desktop {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.wallet-options-mobile {
+  display: none;
+}
+
+.options-head-mobile-hint { display: none; }
+.options-head-desktop-hint { display: block; }
+
+.wallet-option-card {
+  --option-accent: #34908b;
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(52, 144, 139, 0.14);
+  border-radius: 18px;
+  background: linear-gradient(165deg, #fffaf5, #ffffff);
+  box-shadow: 0 8px 22px rgba(20, 70, 66, 0.06);
+  animation: wallet-rise 0.5s var(--wallet-ease) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+.wallet-option-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--option-accent);
+}
+
+.wallet-option-card.purchased,
+.wallet-option-card.active {
+  background: linear-gradient(165deg, #f0fdf4, #ffffff);
+  border-color: rgba(22, 163, 74, 0.22);
+}
+
+.wallet-option-card.locked {
+  background: linear-gradient(165deg, #fef2f2, #ffffff);
+  border-color: rgba(185, 28, 28, 0.2);
+}
+
+.wallet-option-card.disabled {
+  opacity: 0.78;
+  background: #f8fafc;
+}
+
+.wallet-option-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.wallet-option-card-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  border-radius: 12px;
+  color: var(--option-accent);
+  background: color-mix(in srgb, var(--option-accent) 12%, #fff);
+  border: 1px solid color-mix(in srgb, var(--option-accent) 22%, transparent);
+}
+
+.wallet-option-card-titles {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.wallet-option-card-titles strong {
+  font-size: 1rem;
+  font-weight: 850;
+  color: var(--wallet-ink);
+}
+
+.wallet-option-card-titles em {
+  font-style: normal;
+  color: var(--wallet-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.wallet-option-card-status {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.wallet-option-card.purchased .wallet-option-card-status,
+.wallet-option-card.active .wallet-option-card-status {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.wallet-option-card.locked .wallet-option-card-status {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.wallet-option-card-desc,
+.wallet-option-card-retention {
+  margin: 0;
+  color: var(--wallet-muted);
+  font-size: 0.8rem;
+  line-height: 1.8;
+  font-weight: 650;
+}
+
+.wallet-option-card-retention {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 144, 139, 0.12);
+  background: rgba(52, 144, 139, 0.05);
+  color: #2d5c58;
+}
+
+.wallet-option-price-stack,
+.wallet-option-live {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.wallet-option-price-stack > div,
+.wallet-option-live > div:not(.wallet-option-progress) {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(52, 144, 139, 0.1);
+  background: #fff;
+}
+
+.wallet-option-price-stack small,
+.wallet-option-live small {
+  color: var(--wallet-muted);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.wallet-option-price-stack strong,
+.wallet-option-live strong {
+  color: var(--wallet-ink);
+  font-size: 0.92rem;
+  font-weight: 850;
+}
+
+.wallet-option-price-stack em {
+  font-style: normal;
+  color: var(--wallet-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.wallet-option-progress {
+  grid-column: 1 / -1;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(52, 144, 139, 0.12);
+  overflow: hidden;
+}
+
+.wallet-option-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #1f6f6a, #34908b);
+}
+
+.wallet-option-lock-note {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.wallet-option-lock-note strong {
+  font-size: 0.82rem;
+}
+
+.wallet-option-lock-note small {
+  font-size: 0.74rem;
+  line-height: 1.7;
+  font-weight: 650;
+}
+
+.wallet-option-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.wallet-option-card-actions .action-btn {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  font-weight: 800;
+}
+
+.wallet-option-active-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.option-detail-schematic.compact {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(52, 144, 139, 0.08);
+  color: #1f5c59;
+  font-size: 12px;
 }
 
 .wallet-option-tile {
@@ -1699,26 +2069,26 @@ watch(
 .wallet-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 
 .wallet-summary-card {
   position: relative;
   overflow: hidden;
   display: grid;
-  gap: 10px;
-  padding: 18px;
-  min-height: 132px;
-  border: 1px solid transparent;
-  border-radius: 20px;
+  gap: 8px;
+  padding: 16px;
+  min-height: 112px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
   color: #fff;
-  box-shadow: 0 16px 34px rgba(20, 70, 66, 0.12);
+  box-shadow: none;
   animation: wallet-rise 0.55s var(--wallet-ease) both;
   animation-delay: calc(var(--i, 0) * 60ms);
-  transition: transform 0.22s var(--wallet-ease);
+  transition: transform 0.22s var(--wallet-ease), border-color 0.22s var(--wallet-ease);
 }
 
-.wallet-summary-card:hover { transform: translateY(-3px); }
+.wallet-summary-card:hover { transform: translateY(-2px); }
 
 .wallet-summary-card.primary {
   background: linear-gradient(145deg, #0f4a46, #1f7a72 55%, #34908b);
@@ -1753,9 +2123,21 @@ watch(
   display: grid;
   place-items: center;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.24);
   color: #fff;
+}
+
+.wallet-summary-icon :deep(.iconly-shell),
+.wallet-summary-card :deep(.iconly-shell) {
+  color: #fff !important;
+  --iconly-filter: brightness(0) invert(1) !important;
+  filter: none !important;
+}
+
+.wallet-summary-icon :deep(.iconly-img),
+.wallet-summary-card :deep(.iconly-img) {
+  filter: brightness(0) invert(1) !important;
 }
 
 .wallet-summary-card small,
@@ -2010,23 +2392,43 @@ watch(
 .wallet-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 5000;
   display: grid;
-  place-items: center;
-  padding: 18px;
-  background: rgba(12, 40, 38, 0.48);
-  backdrop-filter: blur(8px);
+  place-items: end center;
+  padding: 0;
+  background: rgba(8, 28, 26, 0.58);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+@media (min-width: 721px) {
+  .wallet-modal-backdrop {
+    place-items: center;
+    padding: 24px;
+  }
 }
 
 .wallet-modal {
+  position: relative;
+  z-index: 5001;
   width: min(520px, 100%);
+  max-height: min(92dvh, 920px);
+  overflow: auto;
   display: grid;
   gap: 16px;
   padding: 22px;
-  border-radius: 24px;
-  background: linear-gradient(180deg, #ffffff, #f4faf8);
-  border: 1px solid rgba(52, 144, 139, 0.12);
-  box-shadow: 0 28px 60px rgba(12, 40, 38, 0.28);
+  border-radius: 24px 24px 0 0;
+  color: #10231f;
+  background: linear-gradient(180deg, #ffffff 0%, #f3faf8 100%) !important;
+  border: 1px solid rgba(52, 144, 139, 0.16) !important;
+  box-shadow: 0 28px 60px rgba(12, 40, 38, 0.32) !important;
+  pointer-events: auto;
+}
+
+@media (min-width: 721px) {
+  .wallet-modal {
+    border-radius: 24px;
+  }
 }
 
 .payment-guide-modal { width: min(460px, 100%); }
@@ -2159,7 +2561,55 @@ watch(
   font-weight: 780;
 }
 
-.wallet-modal label { display: grid; gap: 8px; }
+.wallet-modal .modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #10231f !important;
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.wallet-modal label {
+  display: grid;
+  gap: 8px;
+}
+
+.wallet-modal .modal-handle {
+  width: 44px;
+  height: 4px;
+  margin: 0 auto 4px;
+  border-radius: 999px;
+  background: rgba(52, 144, 139, 0.22);
+}
+
+.wallet-modal label span {
+  color: #52645f !important;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.wallet-modal input,
+.wallet-modal select,
+.wallet-modal textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid rgba(52, 144, 139, 0.18) !important;
+  border-radius: 14px !important;
+  color: #10231f !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  font: inherit;
+}
+
+.wallet-modal .action-btn {
+  min-height: 46px;
+  border-radius: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  pointer-events: auto;
+}
 
 .wallet-modal input,
 .wallet-modal select,
@@ -2231,9 +2681,13 @@ watch(
 }
 
 @media (max-width: 1100px) {
-  .wallet-summary-grid,
+  .wallet-summary-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .wallet-options-desktop,
   .wallet-options-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -2245,6 +2699,44 @@ watch(
 
   .wallet-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .wallet-options-desktop,
+  .options-head-desktop-hint {
+    display: none;
+  }
+
+  .wallet-options-mobile,
+  .wallet-options-grid,
+  .options-head-mobile-hint {
+    display: grid;
+  }
+
+  .wallet-options-mobile,
+  .wallet-options-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .options-head-mobile-hint {
+    display: block;
+  }
+
+  .wallet-option-tile {
+    min-height: 0;
+    padding: 10px 6px 12px;
+    gap: 6px;
+  }
+
+  .wallet-option-tile strong {
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+
+  .wallet-option-tile-status {
+    font-size: 0.62rem;
   }
 }
 
@@ -2266,11 +2758,48 @@ watch(
   .wallet-summary-grid,
   .purchase-details-grid,
   .payment-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .wallet-summary-card {
+    min-height: 96px;
+    padding: 14px;
+  }
+
+  .wallet-options-mobile,
   .wallet-options-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 8px;
+  }
+
+  .wallet-option-card,
+  .wallet-option-tile {
+    padding: 12px 10px;
+    border-radius: 14px;
+    gap: 8px;
+  }
+
+  .wallet-option-tile {
+    min-height: 0;
+    padding: 10px 6px 12px;
+    gap: 6px;
+    border-radius: 14px;
+  }
+
+  .wallet-option-tile-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+  }
+
+  .wallet-option-tile strong {
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+
+  .wallet-option-tile-status {
+    font-size: 0.62rem;
   }
 
   .ledger-row,

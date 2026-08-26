@@ -4,7 +4,7 @@ import { computed, onMounted } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import UserAvatar from './UserAvatar.vue'
-import { formatBadgeCount } from '../utils/badges'
+import { buildMainNavItems, isNavItemActive } from '../config/appNav'
 import { unlockTicketAlerts } from '../utils/ticketAlert'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -26,88 +26,37 @@ const {
   loadChatUnreadConversations,
   loadTaskingDashboard,
 } = useWorkflowHub()
-const organizationTitle = computed(() => state.hq.selectedOrganization?.name || state.currentUser.organization || 'مجموعه')
-const isLicenseLocked = computed(() => Boolean(state.currentUser.licenseStatus?.isLocked || state.currentUser.licenseStatus?.is_locked))
+
+const organizationTitle = computed(
+  () => state.hq.selectedOrganization?.name || state.currentUser.organization || 'مجموعه',
+)
 
 onMounted(() => {
   void loadChatUnreadConversations()
   void loadTaskingDashboard(false).catch(() => {})
 })
 
-function isNavActive(path) {
-  if (route.path === path) return true
-  return path !== '/dashboard' && route.path.startsWith(`${path}/`)
+const badges = computed(() => ({
+  support: supportUnreadCount.value,
+  chat: chatUnreadCount.value,
+  tasking: taskingBadgeCount.value,
+  requests: requestInboxCount.value,
+  expenses: expenseInboxCount.value,
+  approvals: approvalInboxCount.value,
+}))
+
+const navItems = computed(() => buildMainNavItems(state, badges.value))
+
+function navActive(item) {
+  return isNavItemActive(item, route.path)
 }
-
-const navItems = computed(() => {
-  const items = []
-
-  if (state.currentUser.isHq && !state.currentUser.isHqAdmin) {
-    items.push({ to: '/hq', label: 'میز پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
-    items.push({ to: '/chat', label: 'گفتگو', icon: 'forum', badge: chatUnreadCount.value })
-    return items.map((item) => ({ ...item, badgeLabel: formatBadgeCount(item.badge) }))
-  }
-
-  items.push({ to: '/dashboard', label: 'داشبورد', icon: 'space_dashboard' })
-
-  if (isLicenseLocked.value) {
-    items.push({ to: '/wallet', label: 'خرید نرم‌افزار', icon: 'shopping_cart' })
-    if (state.currentUser.accessRole === 'admin' || state.currentUser.isHq) {
-      items.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
-    }
-    return items.map((item) => ({ ...item, badgeLabel: formatBadgeCount(item.badge) }))
-  }
-
-  items.push({ to: '/tasking', label: 'تسکینگ', icon: 'task_alt', badge: taskingBadgeCount.value })
-  items.push({ to: '/chat', label: 'گفتگو', icon: 'forum', badge: chatUnreadCount.value })
-  items.push({ to: '/requests', label: 'درخواست‌ها', icon: 'assignment', badge: requestInboxCount.value })
-  items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check', badge: approvalInboxCount.value })
-
-  if (state.currentUser.canAccessArchive !== false) {
-    items.push({ to: '/archive', label: 'بایگانی', icon: 'folder_open' })
-  }
-
-  if (state.currentUser.canAccessExpenses !== false) {
-    items.push({ to: '/expenses', label: 'هزینه‌ها', icon: 'payments', badge: expenseInboxCount.value })
-  }
-
-  if (
-    state.currentUser.isHq ||
-    (state.currentUser.canAccessAttendance !== false && state.currentUser.menuAccess?.attendance === true)
-  ) {
-    items.push({ to: '/attendance', label: 'ورود و خروج', icon: 'badge' })
-  }
-
-  if (state.currentUser.isManager || state.currentUser.canUseHq) {
-    items.push({ to: '/wallet', label: 'کیف پول', icon: 'account_balance_wallet' })
-  }
-
-  if (!state.currentUser.isHq && state.currentUser.accessRole === 'admin') {
-    items.push({ to: '/support', label: 'پشتیبانی', icon: 'support_agent', badge: supportUnreadCount.value })
-  }
-
-  if (state.currentUser.canViewReports) {
-    items.push({ to: '/reports', label: 'گزارشات', icon: 'monitoring' })
-  }
-
-  if (state.currentUser.canAccessUsers || state.currentUser.canManageUsers) {
-    items.push({ to: '/users', label: 'کاربران', icon: 'groups' })
-  }
-
-  if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
-    items.push({ to: '/settings', label: 'تنظیمات', icon: 'settings' })
-  }
-
-  if (state.currentUser.canUseHq) {
-    items.push({ to: '/hq', label: 'HQ', icon: 'admin_panel_settings', badge: supportUnreadCount.value })
-  }
-
-  return items.map((item) => ({ ...item, badgeLabel: formatBadgeCount(item.badge) }))
-})
 </script>
 
 <template>
-  <aside :class="['shell-sidebar', 'sidebar-luxe', mobileMenuOpen && 'is-open']" @pointerdown="unlockTicketAlerts">
+  <aside
+    :class="['shell-sidebar', 'sidebar-luxe', mobileMenuOpen && 'is-open']"
+    @pointerdown="unlockTicketAlerts"
+  >
     <div class="sidebar-brand-card">
       <div class="sidebar-brand-glow" aria-hidden="true" />
       <div class="sidebar-brand-inner">
@@ -126,10 +75,10 @@ const navItems = computed(() => {
     <nav class="sidebar-nav sidebar-nav-luxe" aria-label="ناوبری اصلی">
       <RouterLink
         v-for="item in navItems"
-        :key="item.to"
+        :key="item.id || item.to"
         :to="item.to"
-        :class="['nav-link', 'nav-link-luxe', isNavActive(item.to) && 'is-active']"
-        :aria-current="isNavActive(item.to) ? 'page' : undefined"
+        :class="['nav-link', 'nav-link-luxe', navActive(item) && 'is-active']"
+        :aria-current="navActive(item) ? 'page' : undefined"
         @click="mobileMenuOpen ? toggleSidebar() : undefined"
       >
         <span class="nav-link-icon-wrap" aria-hidden="true">

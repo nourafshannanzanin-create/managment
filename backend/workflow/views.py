@@ -145,6 +145,7 @@ from workflow.services import (
     replace_user_entrusted_items,
     wallet_options_payload,
     wallet_dashboard_payload,
+    wallet_transactions_page,
     ensure_organization_wallets,
     update_document_status,
     visible_approvals,
@@ -2080,7 +2081,7 @@ def bootstrap_collections_view(request: HttpRequest):
     section = (request.GET.get("section") or "").strip().lower()
     if not section:
         return json_error("section الزامی است.", status=422)
-    limit = request.GET.get("limit") or request.GET.get("pageSize") or "200"
+    limit = request.GET.get("limit") or request.GET.get("pageSize") or "50"
     offset = request.GET.get("offset") or "0"
     if not str(limit).isdigit() or not str(offset).isdigit():
         return json_error("limit/offset نامعتبر است.", status=422)
@@ -2558,7 +2559,21 @@ def wallet_view(request: HttpRequest):
         )
     if organization is None:
         return json_error("مجموعه پیدا نشد.", status=404)
-    return json_response(wallet_dashboard_payload(organization))
+    try:
+        transactions_limit = int(request.GET.get("transactionsLimit") or request.GET.get("transactions_limit") or 50)
+    except (TypeError, ValueError):
+        transactions_limit = 50
+    try:
+        transactions_offset = int(request.GET.get("transactionsOffset") or request.GET.get("transactions_offset") or 0)
+    except (TypeError, ValueError):
+        transactions_offset = 0
+    return json_response(
+        wallet_dashboard_payload(
+            organization,
+            transactions_limit=transactions_limit,
+            transactions_offset=transactions_offset,
+        )
+    )
 
 
 @require_auth
@@ -2695,10 +2710,36 @@ def wallet_purchase_view(request: HttpRequest):
 
 
 @require_auth
-@methods("POST")
+@methods("GET", "POST")
 def wallet_transaction_view(request: HttpRequest):
     if not user_can_access_wallet(request.current_user):
         return json_error("دسترسی کافی ندارید.", status=403)
+
+    if request.method == "GET":
+        organization = resolve_wallet_organization(request)
+        if request.current_user.slug == HQ_USERNAME and organization is None:
+            return json_response(
+                {
+                    "transactions": [],
+                    "total": 0,
+                    "limit": 50,
+                    "offset": 0,
+                    "hasMore": False,
+                    "transactionsTotal": 0,
+                    "transactionsHasMore": False,
+                }
+            )
+        if organization is None:
+            return json_error("مجموعه پیدا نشد.", status=404)
+        try:
+            limit = int(request.GET.get("limit") or 50)
+        except (TypeError, ValueError):
+            limit = 50
+        try:
+            offset = int(request.GET.get("offset") or 0)
+        except (TypeError, ValueError):
+            offset = 0
+        return json_response(wallet_transactions_page(organization, limit=limit, offset=offset))
 
     payload = parse_json(request)
     organization = resolve_wallet_organization(request, payload)

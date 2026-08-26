@@ -57,7 +57,7 @@ const pageConfig = computed(() => {
       actions: [{ label: 'ثبت درخواست', icon: 'add_circle', handler: openRequestComposer, tone: 'primary' }],
     },
     expenses: {
-      eyebrow: 'هزینه‌ها',
+      eyebrow: 'اسناد',
       title: 'کنترل هزینه و اسناد مالی',
       description: 'ثبت هزینه، مرور فاکتورها و پایش وضعیت‌ها در یک نمای فشرده و خوانا.',
       filterPage: 'expenses',
@@ -69,14 +69,24 @@ const pageConfig = computed(() => {
       description: 'موجودی، واریز، خرید امکانات و پیگیری تراکنش‌های مالی مجموعه.',
     },
     support: {
-      eyebrow: 'پشتیبانی',
+      eyebrow: 'تنظیمات',
       title: 'پشتیبانی',
       description: 'ثبت تیکت، پیگیری گفتگوها و ارتباط مستقیم با تیم پشتیبانی.',
     },
     attendance: {
-      eyebrow: 'ورود و خروج',
+      eyebrow: 'کارمندان',
       title: 'ورود و خروج پرسنل',
       description: 'کنترل حضور، لینک اختصاصی هر کاربر و گزارش ساعات کاری نیروها.',
+    },
+    tasking: {
+      eyebrow: 'کارمندان',
+      title: 'تسکینگ و پیگیری کارها',
+      description: 'مدیریت تسک‌ها، ارجاع‌ها و وضعیت پیشرفت کارهای تیم.',
+    },
+    chat: {
+      eyebrow: 'کارمندان',
+      title: 'گفتگوی سازمانی',
+      description: 'گفتگوی مستقیم و گروهی بین اعضای مجموعه.',
     },
     cloud: {
       eyebrow: 'فضای ابری',
@@ -84,7 +94,7 @@ const pageConfig = computed(() => {
       description: 'نگهداری و دسترسی به اسناد و فایل‌های عملیاتی مجموعه.',
     },
     approvals: {
-      eyebrow: 'تاییدها',
+      eyebrow: 'اسناد',
       title: 'ثبت سند و ارجاع و امضا',
       description: 'ارسال سند، انتخاب گیرنده و دانلود نسخه نهایی با وضعیت‌های تفکیک‌پذیر.',
       filterPage: 'approvals',
@@ -96,7 +106,7 @@ const pageConfig = computed(() => {
       ],
     },
     archive: {
-      eyebrow: 'بایگانی الکترونیکی',
+      eyebrow: 'اسناد',
       title: 'بایگانی اسناد سازمانی',
       description: 'ثبت نام و توضیحات سند، تاریخ، بارگذاری فایل و ارجاع به اعضای مجموعه.',
       filterPage: 'archive',
@@ -107,17 +117,16 @@ const pageConfig = computed(() => {
       eyebrow: 'گزارشات',
       title: 'گزارش‌های مدیریتی و خروجی‌ها',
       description: 'نمای تفکیکی گزارش در درخواست‌ها، هزینه‌ها و تاییدها با خروجی مستقیم.',
-      // Filters live on the page (period chips + person) — topbar dates/person fight them on mobile.
     },
     users: {
-      eyebrow: 'کاربران',
-      title: 'فهرست فشرده کاربران و نقش‌ها',
-      description: 'کارت‌ها و جدول‌های سبک‌تر برای پیدا کردن سریع‌تر افراد و مدیریت بهتر.',
+      eyebrow: 'کارمندان',
+      title: 'فهرست کاربران و نقش‌ها',
+      description: 'مدیریت کاربران، نقش‌ها و دسترسی‌های اعضای مجموعه.',
     },
     settings: {
       eyebrow: 'تنظیمات',
       title: 'پیکربندی سازمان و سطح دسترسی',
-      description: 'تنظیمات اصلی سازمان و دسترسی بخش‌ها در قالبی جدولی و مقیاس‌پذیر.',
+      description: 'تنظیمات سازمان، دسترسی‌ها و میان‌بر پشتیبانی.',
     },
     hq: {
       eyebrow: 'HQ',

@@ -8,6 +8,7 @@ import TimePicker from './TimePicker.vue'
 import UserAvatar from './UserAvatar.vue'
 import {
   buildTodayPairs,
+  eventDateOf,
   eventTimeOf,
   groupEventsByPerson,
   groupPersonDays,
@@ -32,8 +33,12 @@ const emit = defineEmits(['updated'])
 const selectedUserId = ref('')
 const drafts = reactive({})
 const originals = reactive({})
+const createDrafts = reactive({})
 const savingIds = ref(new Set())
 const savingAll = ref(false)
+const creatingKey = ref('')
+const boardError = ref('')
+const boardNotice = ref('')
 const modalError = ref('')
 const modalNotice = ref('')
 
@@ -94,6 +99,23 @@ function personMetaLine(person) {
   return joinDisplayParts([person.userRole, person.userDepartment])
 }
 
+function todayIsoDate() {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function createDraftKey(userId, eventType, date, pairIndex = 0) {
+  return `${userId}:${eventType}:${date}:${pairIndex}`
+}
+
+function ensureCreateDraft(key, fallback = '17:00') {
+  if (!createDrafts[key]) createDrafts[key] = fallback
+  return createDrafts[key]
+}
+
 function resetDrafts(person) {
   Object.keys(drafts).forEach((key) => delete drafts[key])
   Object.keys(originals).forEach((key) => delete originals[key])
@@ -109,11 +131,12 @@ function openPerson(person) {
   selectedUserId.value = person.userId
   modalError.value = ''
   modalNotice.value = ''
+  boardError.value = ''
   resetDrafts(person)
 }
 
 function closePerson() {
-  if (savingAll.value || savingIds.value.size) return
+  if (savingAll.value || savingIds.value.size || creatingKey.value) return
   selectedUserId.value = ''
   modalError.value = ''
   modalNotice.value = ''
@@ -128,13 +151,17 @@ function isSaving(eventId) {
   return savingIds.value.has(String(eventId))
 }
 
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`,
+  }
+}
+
 async function patchEventTime(eventId, time) {
   const response = await fetch(`${API_BASE_URL}/attendance/events/${eventId}`, {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`,
-    },
+    headers: authHeaders(),
     body: JSON.stringify({ time }),
   })
   const payload = await response.json().catch(() => ({}))
@@ -142,28 +169,52 @@ async function patchEventTime(eventId, time) {
   return payload
 }
 
-async function saveEvent(event, { notify = true } = {}) {
+async function createAttendanceEvent({ userId, eventType, date, time, note = 'ثبت دستی مدیر' }) {
+  const normalized = normalizeTime(time)
+  if (!normalized) throw new Error('ساعت معتبر وارد کنید.')
+  const day = String(date || todayIsoDate()).slice(0, 10)
+  const response = await fetch(`${API_BASE_URL}/attendance/events`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      userId,
+      eventType,
+      eventAt: `${day}T${normalized}:00`,
+      note,
+    }),
+  })
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(payload.detail || payload.message || 'ثبت رویداد ناموفق بود.')
+  return payload
+}
+
+async function saveEvent(event, { notify = true, surface = 'modal' } = {}) {
   const time = normalizeTime(drafts[event.id])
   if (!time) {
-    modalError.value = 'ساعت معتبر وارد کنید.'
+    if (surface === 'board') boardError.value = 'ساعت معتبر وارد کنید.'
+    else modalError.value = 'ساعت معتبر وارد کنید.'
     return false
   }
   if (!isDirty(event.id)) return true
   const next = new Set(savingIds.value)
   next.add(String(event.id))
   savingIds.value = next
-  modalError.value = ''
+  if (surface === 'board') boardError.value = ''
+  else modalError.value = ''
   try {
     await patchEventTime(event.id, time)
     originals[event.id] = time
     drafts[event.id] = time
     if (notify) {
-      modalNotice.value = 'ساعت ذخیره شد.'
+      if (surface === 'board') boardNotice.value = 'ساعت ذخیره شد.'
+      else modalNotice.value = 'ساعت ذخیره شد.'
       emit('updated', { eventId: event.id, time })
     }
     return true
   } catch (error) {
-    modalError.value = error.message || 'ذخیره ساعت ناموفق بود.'
+    const message = error.message || 'ذخیره ساعت ناموفق بود.'
+    if (surface === 'board') boardError.value = message
+    else modalError.value = message
     return false
   } finally {
     const done = new Set(savingIds.value)
@@ -190,6 +241,43 @@ async function saveDirtyEvents() {
   }
 }
 
+async function addMissingPunch({ userId, eventType, date, draftKey, pairIndex = 0 }) {
+  if (!props.canEditTimes || creatingKey.value) return
+  const key = draftKey || createDraftKey(userId, eventType, date, pairIndex)
+  const time = ensureCreateDraft(key, eventType === 'out' ? '17:00' : '08:30')
+  creatingKey.value = key
+  boardError.value = ''
+  modalError.value = ''
+  try {
+    await createAttendanceEvent({ userId, eventType, date, time })
+    delete createDrafts[key]
+    if (selectedPerson.value) modalNotice.value = eventType === 'in' ? 'ورود اضافه شد.' : 'خروج اضافه شد.'
+    else boardNotice.value = eventType === 'in' ? 'ورود اضافه شد.' : 'خروج اضافه شد.'
+    emit('updated')
+  } catch (error) {
+    const message = error.message || 'ثبت رویداد ناموفق بود.'
+    if (selectedPerson.value) modalError.value = message
+    else boardError.value = message
+  } finally {
+    creatingKey.value = ''
+  }
+}
+
+function syncTodayDrafts() {
+  for (const row of todayPairs.value) {
+    if (row.inEvent && (drafts[row.inEvent.id] == null || !isDirty(row.inEvent.id))) {
+      const time = eventTimeOf(row.inEvent)
+      drafts[row.inEvent.id] = time
+      originals[row.inEvent.id] = time
+    }
+    if (row.outEvent && (drafts[row.outEvent.id] == null || !isDirty(row.outEvent.id))) {
+      const time = eventTimeOf(row.outEvent)
+      drafts[row.outEvent.id] = time
+      originals[row.outEvent.id] = time
+    }
+  }
+}
+
 watch(selectedPerson, (person) => {
   if (!person || !selectedUserId.value) return
   for (const event of person.events) {
@@ -200,6 +288,10 @@ watch(selectedPerson, (person) => {
     }
   }
 })
+
+watch(todayPairs, () => {
+  if (isTodayMode.value) syncTodayDrafts()
+}, { immediate: true })
 
 watch(isTodayMode, (today) => {
   if (today) closePerson()
@@ -235,7 +327,8 @@ watch(isTodayMode, (today) => {
       </article>
     </div>
 
-    <div v-if="error" class="attendance-alert is-danger">{{ error }}</div>
+    <div v-if="error || boardError" class="attendance-alert is-danger">{{ error || boardError }}</div>
+    <div v-else-if="boardNotice" class="attendance-alert is-success">{{ boardNotice }}</div>
 
     <div v-if="isTodayMode" class="attendance-board-wrap">
       <table class="attendance-split-table">
@@ -269,9 +362,48 @@ watch(isTodayMode, (today) => {
                   <strong>{{ row.userName }}</strong>
                   <small>{{ personMetaLine(row) || '—' }}</small>
                 </div>
-                <time>{{ fa(eventTimeOf(row.inEvent) || '—') }}</time>
+                <div class="punch-time-edit">
+                  <template v-if="canEditTimes">
+                    <TimePicker
+                      class="pair-time-picker is-inline"
+                      :model-value="drafts[row.inEvent.id] || eventTimeOf(row.inEvent)"
+                      :minute-step="1"
+                      :clearable="false"
+                      @update:model-value="drafts[row.inEvent.id] = $event"
+                    />
+                    <button
+                      v-if="isDirty(row.inEvent.id)"
+                      class="pair-save-btn is-inline"
+                      type="button"
+                      :disabled="isSaving(row.inEvent.id)"
+                      @click="saveEvent(row.inEvent, { surface: 'board' })"
+                    >
+                      {{ isSaving(row.inEvent.id) ? '…' : 'ذخیره' }}
+                    </button>
+                  </template>
+                  <time v-else>{{ fa(eventTimeOf(row.inEvent) || '—') }}</time>
+                </div>
               </div>
-              <div v-else class="punch-empty">بدون ورود</div>
+              <div v-else class="punch-empty">
+                <span>بدون ورود</span>
+                <div v-if="canEditTimes" class="punch-add">
+                  <TimePicker
+                    class="pair-time-picker is-inline"
+                    :model-value="createDrafts[createDraftKey(row.userId, 'in', todayIsoDate())] || '08:30'"
+                    :minute-step="1"
+                    :clearable="false"
+                    @update:model-value="createDrafts[createDraftKey(row.userId, 'in', todayIsoDate())] = $event"
+                  />
+                  <button
+                    class="pair-add-btn"
+                    type="button"
+                    :disabled="creatingKey === createDraftKey(row.userId, 'in', todayIsoDate())"
+                    @click="addMissingPunch({ userId: row.userId, eventType: 'in', date: todayIsoDate() })"
+                  >
+                    افزودن
+                  </button>
+                </div>
+              </div>
             </td>
             <td class="is-out">
               <div v-if="row.outEvent" class="punch-cell">
@@ -285,9 +417,52 @@ watch(isTodayMode, (today) => {
                   <strong>{{ row.userName }}</strong>
                   <small>{{ personMetaLine(row) || '—' }}</small>
                 </div>
-                <time>{{ fa(eventTimeOf(row.outEvent) || '—') }}</time>
+                <div class="punch-time-edit">
+                  <template v-if="canEditTimes">
+                    <TimePicker
+                      class="pair-time-picker is-inline"
+                      :model-value="drafts[row.outEvent.id] || eventTimeOf(row.outEvent)"
+                      :minute-step="1"
+                      :clearable="false"
+                      @update:model-value="drafts[row.outEvent.id] = $event"
+                    />
+                    <button
+                      v-if="isDirty(row.outEvent.id)"
+                      class="pair-save-btn is-inline"
+                      type="button"
+                      :disabled="isSaving(row.outEvent.id)"
+                      @click="saveEvent(row.outEvent, { surface: 'board' })"
+                    >
+                      {{ isSaving(row.outEvent.id) ? '…' : 'ذخیره' }}
+                    </button>
+                  </template>
+                  <time v-else>{{ fa(eventTimeOf(row.outEvent) || '—') }}</time>
+                </div>
               </div>
-              <div v-else class="punch-empty is-open">بدون خروج</div>
+              <div v-else class="punch-empty is-open">
+                <span>بدون خروج</span>
+                <div v-if="canEditTimes" class="punch-add">
+                  <TimePicker
+                    class="pair-time-picker is-inline"
+                    :model-value="createDrafts[createDraftKey(row.userId, 'out', eventDateOf(row.inEvent) || todayIsoDate())] || '17:00'"
+                    :minute-step="1"
+                    :clearable="false"
+                    @update:model-value="createDrafts[createDraftKey(row.userId, 'out', eventDateOf(row.inEvent) || todayIsoDate())] = $event"
+                  />
+                  <button
+                    class="pair-add-btn"
+                    type="button"
+                    :disabled="creatingKey === createDraftKey(row.userId, 'out', eventDateOf(row.inEvent) || todayIsoDate())"
+                    @click="addMissingPunch({
+                      userId: row.userId,
+                      eventType: 'out',
+                      date: eventDateOf(row.inEvent) || todayIsoDate(),
+                    })"
+                  >
+                    افزودن
+                  </button>
+                </div>
+              </div>
             </td>
           </tr>
           <tr v-if="!todayPairs.length">
@@ -410,7 +585,7 @@ watch(isTodayMode, (today) => {
         </article>
       </section>
 
-      <p v-if="canEditTimes" class="attendance-edit-hint">ساعت‌ها فقط در همین پنجره توسط مدیر قابل ویرایش است.</p>
+      <p v-if="canEditTimes" class="attendance-edit-hint">می‌توانید ساعت‌ها را ویرایش کنید یا ورود/خروج ثبت‌نشده را اضافه کنید.</p>
       <div v-if="modalError" class="attendance-alert is-danger">{{ modalError }}</div>
       <div v-else-if="modalNotice" class="attendance-alert is-success">{{ modalNotice }}</div>
 
@@ -456,7 +631,31 @@ watch(isTodayMode, (today) => {
                     {{ isSaving(pair.inEvent.id) ? '…' : 'ذخیره' }}
                   </button>
                 </template>
-                <div v-else class="pair-empty">—</div>
+                <div v-else class="pair-empty">
+                  <span>—</span>
+                  <div v-if="canEditTimes" class="punch-add">
+                    <TimePicker
+                      class="pair-time-picker"
+                      :model-value="createDrafts[createDraftKey(selectedPerson.userId, 'in', day.date, index)] || '08:30'"
+                      :minute-step="1"
+                      :clearable="false"
+                      @update:model-value="createDrafts[createDraftKey(selectedPerson.userId, 'in', day.date, index)] = $event"
+                    />
+                    <button
+                      class="pair-add-btn"
+                      type="button"
+                      :disabled="creatingKey === createDraftKey(selectedPerson.userId, 'in', day.date, index)"
+                      @click="addMissingPunch({
+                        userId: selectedPerson.userId,
+                        eventType: 'in',
+                        date: day.date,
+                        pairIndex: index,
+                      })"
+                    >
+                      افزودن ورود
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div class="pair-cell is-out">
@@ -485,7 +684,31 @@ watch(isTodayMode, (today) => {
                     {{ isSaving(pair.outEvent.id) ? '…' : 'ذخیره' }}
                   </button>
                 </template>
-                <div v-else class="pair-empty is-open">—</div>
+                <div v-else class="pair-empty is-open">
+                  <span>—</span>
+                  <div v-if="canEditTimes" class="punch-add">
+                    <TimePicker
+                      class="pair-time-picker"
+                      :model-value="createDrafts[createDraftKey(selectedPerson.userId, 'out', day.date, index)] || '17:00'"
+                      :minute-step="1"
+                      :clearable="false"
+                      @update:model-value="createDrafts[createDraftKey(selectedPerson.userId, 'out', day.date, index)] = $event"
+                    />
+                    <button
+                      class="pair-add-btn"
+                      type="button"
+                      :disabled="creatingKey === createDraftKey(selectedPerson.userId, 'out', day.date, index)"
+                      @click="addMissingPunch({
+                        userId: selectedPerson.userId,
+                        eventType: 'out',
+                        date: day.date,
+                        pairIndex: index,
+                      })"
+                    >
+                      افزودن خروج
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -994,10 +1217,57 @@ watch(isTodayMode, (today) => {
   color: var(--warning, #b07a12);
 }
 
+.punch-time-edit,
+.punch-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.punch-empty {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.pair-add-btn,
+.pair-save-btn.is-inline {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(52, 144, 139, 0.12);
+  color: #1f5c59;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.pair-add-btn:disabled,
+.pair-save-btn.is-inline:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pair-time-picker.is-inline :deep(.time-picker-trigger) {
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: 10px;
+}
+
 @media (max-width: 760px) {
   .attendance-person-metrics,
   .attendance-today-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .attendance-today-stats article {
+    padding: 10px 8px;
+    box-shadow: none;
   }
 
   .attendance-person-hero {
@@ -1013,6 +1283,89 @@ watch(isTodayMode, (today) => {
   .attendance-person-actions,
   .attendance-person-actions .action-btn {
     width: 100%;
+  }
+
+  .attendance-board-wrap {
+    overflow: visible;
+  }
+
+  .attendance-split-table,
+  .attendance-people-table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .attendance-split-table thead,
+  .attendance-people-table thead {
+    display: none;
+  }
+
+  .attendance-split-table tbody,
+  .attendance-people-table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .attendance-split-table tbody tr,
+  .attendance-people-table tbody tr.attendance-person-row {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid rgba(52, 144, 139, 0.14);
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .attendance-split-table tbody tr td {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+
+  .attendance-split-table tbody tr td.is-in::before,
+  .attendance-split-table tbody tr td.is-out::before {
+    content: attr(data-label, '');
+  }
+
+  .attendance-split-table tbody tr td.is-in::before {
+    content: 'ورود';
+    display: block;
+    margin-bottom: 6px;
+    color: #5f7a76;
+    font-size: 0.7rem;
+    font-weight: 800;
+  }
+
+  .attendance-split-table tbody tr td.is-out::before {
+    content: 'خروج';
+    display: block;
+    margin-bottom: 6px;
+    color: #5f7a76;
+    font-size: 0.7rem;
+    font-weight: 800;
+  }
+
+  .punch-cell,
+  .person-identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .punch-copy strong,
+  .person-identity strong {
+    display: block !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+  }
+
+  .punch-time-edit,
+  .punch-add {
+    width: 100%;
+    justify-content: flex-start;
   }
 }
 

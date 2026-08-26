@@ -44,7 +44,6 @@ const locationBusy = ref(false)
 const locationHint = ref('')
 const liveUserLocation = ref(null)
 const liveDistanceMeters = ref(null)
-const punchTime = ref(getTehranClock())
 
 const fa = (value) => Number(value || 0).toLocaleString('fa-IR')
 const eventLabel = (type) => (type === 'in' ? 'ورود' : 'خروج')
@@ -358,7 +357,7 @@ async function submitManagerEvent(user, eventType) {
       body: JSON.stringify({
         userId: user.id,
         eventType,
-        eventAt: `${getTodayIso()}T${punchTime.value || getTehranClock()}:00`,
+        eventAt: `${getTodayIso()}T${getTehranClock()}:00`,
       }),
     })
     successMessage.value = eventType === 'in' ? 'ورود ثبت شد.' : 'خروج ثبت شد.'
@@ -576,10 +575,6 @@ onMounted(() => {
           </div>
 
           <footer class="attendance-staff-footer">
-            <label class="attendance-staff-time">
-              <span>ساعت ورود / خروج</span>
-              <input v-model="punchTime" type="time" />
-            </label>
             <div class="attendance-staff-actions">
               <button
                 class="attendance-staff-punch is-in"
@@ -893,12 +888,12 @@ onMounted(() => {
 
 .attendance-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  gap: 18px;
-  padding: 22px;
-  border-radius: 24px;
-  background: rgba(52, 144, 139, 0.06);
-  border: 1px solid rgba(52, 144, 139, 0.12);
+  grid-template-columns: minmax(160px, 0.75fr) minmax(0, 1.35fr);
+  gap: 16px;
+  padding: 20px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(228, 244, 242, 0.92), rgba(255, 255, 255, 0.96));
+  border: 1px solid rgba(52, 144, 139, 0.14);
   box-shadow: none;
   min-width: 0;
 }
@@ -1029,21 +1024,34 @@ onMounted(() => {
   font-weight: 650;
 }
 
-.attendance-tabs { display: flex; flex-wrap: wrap; gap: 10px; }
+.attendance-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(52, 144, 139, 0.08);
+  border: 1px solid rgba(52, 144, 139, 0.1);
+  box-shadow: none;
+  max-width: 420px;
+}
 
 .attendance-tab {
-  min-height: 44px;
+  min-height: 42px;
   min-width: 0;
   padding: 0 14px;
-  border-radius: 14px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: #45605c;
+  font: inherit;
+  font-weight: 750;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: var(--primary);
-  background: rgba(255, 255, 255, 0.74);
-  border: 1px solid var(--line);
   cursor: pointer;
+  box-shadow: none;
 }
 
 .attendance-tab span {
@@ -1091,9 +1099,14 @@ onMounted(() => {
 
 .report-filter-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
   align-items: stretch;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(52, 144, 139, 0.12);
+  background: rgba(247, 251, 250, 0.9);
+  box-shadow: none;
 }
 
 .report-filter-grid > * { min-width: 0; }
@@ -1101,9 +1114,10 @@ onMounted(() => {
 
 .report-filter-grid .field-shell,
 .report-filter-grid .search-shell {
-  min-height: 52px;
-  padding: 9px 12px;
-  border-radius: 14px;
+  min-height: 44px;
+  padding: 7px 10px;
+  border-radius: 12px;
+  box-shadow: none;
 }
 
 .report-filter-grid .field-shell span {
@@ -1740,36 +1754,6 @@ onMounted(() => {
   display: grid;
   gap: 10px;
   padding: 0 16px 16px;
-}
-
-.attendance-staff-time {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-}
-
-.attendance-staff-time span {
-  color: #5f7a76;
-  font-size: 12px;
-  font-weight: 750;
-}
-
-.attendance-staff-time input {
-  width: 100%;
-  min-height: 44px;
-  padding: 0 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(52, 144, 139, 0.16);
-  background: #f7fbfa;
-  color: #152523;
-  font: inherit;
-  box-sizing: border-box;
-}
-
-.attendance-staff-time input:focus {
-  outline: 2px solid rgba(52, 144, 139, 0.22);
-  border-color: #34908b;
-  background: #fff;
 }
 
 .attendance-staff-actions {
@@ -2761,7 +2745,52 @@ onMounted(() => {
 
 @media (max-width: 720px) {
   #app .app-shell:not(.is-auth-route) .attendance-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .attendance-summary-tile {
+    padding: 10px 8px !important;
+    min-height: 0 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .attendance-summary-icon {
+    display: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .attendance-summary-body span,
+  #app .app-shell:not(.is-auth-route) .attendance-summary-body small {
+    font-size: 0.65rem !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .attendance-summary-body strong {
+    font-size: 0.95rem !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .attendance-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto auto !important;
+    gap: 8px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .attendance-toolbar .search-shell-wide {
+    grid-column: 1 / -1 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .attendance-staff-footer {
     grid-template-columns: 1fr !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .attendance-staff-actions {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .report-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .report-filter-grid .search-shell-wide {
+    grid-column: 1 / -1 !important;
   }
 }
 </style>

@@ -88,7 +88,7 @@ CORE_FEATURE_KEY = "core_software"
 CLOUD_STORAGE_FEATURE_KEY = "cloud_storage"
 DEFAULT_OPERATIONAL_RETENTION_DAYS = 90
 CLOUD_OPERATIONAL_RETENTION_DAYS = 365
-LICENSE_GRACE_DAYS = 7
+LICENSE_GRACE_DAYS = 0
 PURCHASABLE_FEATURES = [
     {
         "feature_key": CORE_FEATURE_KEY,
@@ -531,11 +531,12 @@ def feature_installment_status(purchase: FeaturePurchase | None, config: dict | 
         }
     overdue_days = max((today - next_due_at).days, 0)
     feature_title = purchase.title or "آپشن"
-    is_locked = overdue_days > LICENSE_GRACE_DAYS
+    # Due and unpaid → locked (auto-collect runs first on wallet load).
+    is_locked = True
     notice = (
-        f"سررسید پرداخت {feature_title} گذشته است. پس از {LICENSE_GRACE_DAYS} روز عدم پرداخت، دسترسی این بخش قفل می‌شود."
-        if not is_locked
-        else f"سررسید پرداخت {feature_title} گذشته و دسترسی این بخش قفل شده است."
+        f"سررسید پرداخت {feature_title} گذشته و موجودی کافی برای کسر خودکار نبود؛ دسترسی این بخش قفل شده است."
+        if overdue_days > 0
+        else f"سررسید پرداخت {feature_title} امروز است. در صورت کمبود موجودی کیف پول، دسترسی قفل می‌شود."
     )
     amount_due = feature_installment_amount(config or {}, purchase)
     return {
@@ -553,6 +554,95 @@ def feature_installment_status(purchase: FeaturePurchase | None, config: dict | 
         "amount_due": format_money(amount_due),
         "notice": notice,
     }
+
+
+def collect_due_feature_installments(organization: Organization | None, actor: User | None = None) -> int:
+    """On due date: debit main wallet automatically; unpaid dues stay due and lock access."""
+    if organization is None or is_showcase_organization(organization):
+        return 0
+
+    from django.db import transaction
+
+    with transaction.atomic():
+        ensure_organization_wallets(organization)
+        today = timezone.localdate()
+        wallet = (
+            Wallet.objects.select_for_update()
+            .filter(organization=organization, key="main", is_active=True)
+            .first()
+        )
+        if wallet is None:
+            return 0
+
+        purchases = list(
+            FeaturePurchase.objects.select_for_update()
+            .filter(
+                organization=organization,
+                is_active=True,
+                payment_plan="installment",
+                remaining_amount__gt=0,
+                next_installment_due_at__isnull=False,
+                next_installment_due_at__lte=today,
+            )
+            .order_by("next_installment_due_at", "id")
+        )
+        if not purchases:
+            return 0
+
+        balance = normalize_money(wallet.balance)
+        collected = 0
+        for purchase in purchases:
+            config = next(
+                (item for item in PURCHASABLE_FEATURES if item["feature_key"] == purchase.feature_key),
+                {},
+            )
+            monthly = feature_installment_amount(config, purchase)
+            if monthly <= 0:
+                continue
+
+            while purchase.next_installment_due_at and purchase.next_installment_due_at <= today:
+                remaining = normalize_money(purchase.remaining_amount)
+                if remaining <= 0:
+                    purchase.remaining_amount = Decimal("0")
+                    purchase.next_installment_due_at = None
+                    break
+
+                debit = min(remaining, monthly)
+                if balance < debit:
+                    break
+
+                balance -= debit
+                purchase.paid_amount = normalize_money(purchase.paid_amount) + debit
+                purchase.remaining_amount = max(remaining - debit, Decimal("0"))
+                if purchase.remaining_amount <= 0:
+                    purchase.next_installment_due_at = None
+                else:
+                    purchase.next_installment_due_at = purchase.next_installment_due_at + timedelta(days=30)
+
+                WalletTransaction.objects.create(
+                    organization=organization,
+                    wallet=wallet,
+                    actor=actor,
+                    direction="out",
+                    transaction_type="feature_installment",
+                    amount=debit,
+                    balance_after=balance,
+                    note=f"auto_installment:{purchase.feature_key}",
+                    reference_id=str(purchase.id),
+                )
+                collected += 1
+
+            purchase.updated_at = timezone.now()
+            purchase.save(
+                update_fields=["paid_amount", "remaining_amount", "next_installment_due_at", "updated_at"],
+            )
+
+        if normalize_money(wallet.balance) != balance:
+            wallet.balance = balance
+            wallet.updated_at = timezone.now()
+            wallet.save(update_fields=["balance", "updated_at"])
+
+        return collected
 
 
 def pay_feature_installment(organization: Organization, purchase: FeaturePurchase, actor: User, config: dict) -> FeaturePurchase:
@@ -650,16 +740,22 @@ def license_status_payload(organization: Organization | None) -> dict:
                 **trial,
             }
     overdue_days = 0
+    is_due = False
     if core_purchase.next_installment_due_at and core_purchase.remaining_amount > 0:
         overdue_days = max((timezone.localdate() - core_purchase.next_installment_due_at).days, 0)
-    is_locked = overdue_days > 7
+        is_due = core_purchase.next_installment_due_at <= timezone.localdate()
+    is_locked = is_due
     return {
         "isLocked": is_locked,
         "is_locked": is_locked,
-        "reason": "installment_overdue" if is_locked else ("installment_overdue_warning" if overdue_days else ""),
-        "notice": "سررسید پرداخت گذشته و دسترسی قفل شده است." if is_locked else ("سررسید پرداخت گذشته اما هنوز داخل بازه مهلت هستید." if overdue_days else ""),
-        "graceDays": 7,
-        "grace_days": 7,
+        "reason": "installment_overdue" if is_locked else "",
+        "notice": (
+            "سررسید پرداخت گذشته و موجودی کافی برای کسر خودکار نبود؛ دسترسی قفل شده است."
+            if is_locked
+            else ""
+        ),
+        "graceDays": LICENSE_GRACE_DAYS,
+        "grace_days": LICENSE_GRACE_DAYS,
         "amountDue": format_money(core_purchase.remaining_amount),
         "amount_due": format_money(core_purchase.remaining_amount),
         **trial,
@@ -787,6 +883,8 @@ def wallet_feature_option_payload(config: dict, purchase: FeaturePurchase | None
 
 
 def wallet_options_payload(organization: Organization | None) -> dict:
+    if organization is not None:
+        collect_due_feature_installments(organization)
     purchases = {
         item.feature_key: item
         for item in FeaturePurchase.objects.filter(organization=organization)
@@ -1373,22 +1471,64 @@ def serialize_wallet_transaction(transaction: WalletTransaction) -> dict:
     }
 
 
-def wallet_dashboard_payload(organization: Organization) -> dict:
+def wallet_transactions_page(organization: Organization, *, limit: int = 50, offset: int = 0) -> dict:
+    limit = max(1, min(int(limit or 50), 100))
+    offset = max(0, int(offset or 0))
+    qs = (
+        WalletTransaction.objects.filter(organization=organization)
+        .select_related("wallet", "actor")
+        .order_by("-transacted_at", "-id")
+    )
+    total = qs.count()
+    rows = list(qs[offset : offset + limit])
+    loaded = offset + len(rows)
+    return {
+        "transactions": [serialize_wallet_transaction(item) for item in rows],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "hasMore": loaded < total,
+        "transactionsTotal": total,
+        "transactionsHasMore": loaded < total,
+    }
+
+
+def wallet_dashboard_payload(
+    organization: Organization,
+    *,
+    transactions_limit: int = 50,
+    transactions_offset: int = 0,
+) -> dict:
+    collect_due_feature_installments(organization)
     ensure_organization_wallets(organization)
     wallets = list(organization.wallets.order_by("key"))
     schematic = is_showcase_organization(organization)
+
+    transactions_limit = max(1, min(int(transactions_limit or 50), 100))
+    transactions_offset = max(0, int(transactions_offset or 0))
+
     if schematic:
         transactions = []
         deposits_total = Decimal("0")
         withdrawals_total = Decimal("0")
+        transactions_total = 0
+        transactions_has_more = False
     else:
-        transactions = list(
-            WalletTransaction.objects.filter(organization=organization)
-            .select_related("wallet", "actor")
-            .order_by("-transacted_at", "-id")[:100]
+        base_qs = WalletTransaction.objects.filter(organization=organization)
+        aggregates = base_qs.aggregate(
+            deposits_total=Sum("amount", filter=Q(direction="in")),
+            withdrawals_total=Sum("amount", filter=Q(direction="out")),
+            transactions_total=Count("id"),
         )
-        deposits_total = sum((item.amount for item in transactions if item.direction == "in"), Decimal("0"))
-        withdrawals_total = sum((item.amount for item in transactions if item.direction == "out"), Decimal("0"))
+        deposits_total = aggregates["deposits_total"] or Decimal("0")
+        withdrawals_total = aggregates["withdrawals_total"] or Decimal("0")
+        transactions_total = int(aggregates["transactions_total"] or 0)
+        transactions = list(
+            base_qs.select_related("wallet", "actor")
+            .order_by("-transacted_at", "-id")[transactions_offset : transactions_offset + transactions_limit]
+        )
+        transactions_has_more = (transactions_offset + len(transactions)) < transactions_total
+
     total_balance = sum((wallet.balance for wallet in wallets), Decimal("0"))
     wallet_by_key = {wallet.key: wallet for wallet in wallets}
     main_balance = wallet_by_key.get("main").balance if wallet_by_key.get("main") else Decimal("0")
@@ -1414,10 +1554,14 @@ def wallet_dashboard_payload(organization: Organization) -> dict:
             "depositsTotalRaw": float(deposits_total),
             "withdrawalsTotal": format_money(withdrawals_total),
             "withdrawalsTotalRaw": float(withdrawals_total),
-            "transactions": len(transactions),
+            "transactions": transactions_total if not schematic else 0,
         },
         "wallets": [serialize_wallet(wallet) for wallet in wallets],
         "transactions": [serialize_wallet_transaction(item) for item in transactions],
+        "transactionsTotal": transactions_total if not schematic else 0,
+        "transactionsHasMore": transactions_has_more,
+        "transactionsLimit": transactions_limit,
+        "transactionsOffset": transactions_offset,
     }
 
 
@@ -1967,8 +2111,8 @@ def update_document_status(document: Document) -> None:
 
 
 BOOTSTRAP_COLLECTION_SECTIONS = frozenset({"requests", "expenses", "approvals", "users"})
-DEFAULT_BOOTSTRAP_COLLECTION_LIMIT = 200
-MAX_BOOTSTRAP_COLLECTION_LIMIT = 500
+DEFAULT_BOOTSTRAP_COLLECTION_LIMIT = 50
+MAX_BOOTSTRAP_COLLECTION_LIMIT = 100
 
 
 def _resolve_bootstrap_hq_organization(user: User, organization_id: int | None = None) -> Organization | None:

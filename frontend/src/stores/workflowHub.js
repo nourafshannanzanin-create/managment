@@ -13,6 +13,7 @@ import { prepareUploadFile, UPLOAD_LIMITS, validateUploadFile } from '../utils/u
 import { personAvatarUrl, resolveAvatarUrl, resolveApiOrigin } from '../utils/avatar'
 import { matchesWorkflowStatusFilter } from '../utils/status'
 import { buildRequestTypePayload, requestTypeConfig } from '../utils/requestTypeConfig'
+import { LIST_PAGE_SIZE, createCollectionPagingMap } from '../utils/listPaging'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 const API_ORIGIN = (() => {
@@ -288,6 +289,12 @@ function createWalletState() {
     },
     wallets: [],
     transactions: [],
+    transactionsPaging: {
+      total: 0,
+      loaded: 0,
+      hasMore: false,
+      loading: false,
+    },
   }
 }
 
@@ -442,6 +449,7 @@ const state = reactive({
   approvals: [],
   expenses: [],
   users: [],
+  collectionPaging: createCollectionPagingMap(['requests', 'expenses', 'approvals', 'users']),
   reports: [],
   reportSummary: null,
   reportStatus: {},
@@ -1442,16 +1450,41 @@ function hydrateHq(payload) {
   state.hq.loaded = true
 }
 
-function hydrateWallet(payload) {
+function hydrateWallet(payload, { appendTransactions = false } = {}) {
   if (!payload) return
   state.wallet.organization = payload.organization || null
   state.wallet.schematic = Boolean(payload.schematic)
   state.wallet.schematicNotice = payload.schematicNotice || payload.schematic_notice || ''
   Object.assign(state.wallet.summary, createWalletState().summary, payload.summary || {})
   Object.assign(state.wallet.licenseStatus, createWalletState().licenseStatus, payload.licenseStatus || payload.license_status || {})
-  replaceItems(state.wallet.options, payload.options || [])
-  replaceItems(state.wallet.wallets, payload.wallets || [])
-  replaceItems(state.wallet.transactions, payload.transactions || [])
+  if ('options' in (payload || {})) replaceItems(state.wallet.options, payload.options || [])
+  if ('wallets' in (payload || {})) replaceItems(state.wallet.wallets, payload.wallets || [])
+
+  const incomingTransactions = Array.isArray(payload.transactions) ? payload.transactions : []
+  if (appendTransactions) {
+    const existingIds = new Set((state.wallet.transactions || []).map((item) => String(item.id)))
+    const extra = incomingTransactions.filter((item) => !existingIds.has(String(item.id)))
+    if (extra.length) replaceItems(state.wallet.transactions, [...state.wallet.transactions, ...extra])
+  } else if ('transactions' in (payload || {})) {
+    replaceItems(state.wallet.transactions, incomingTransactions)
+  }
+
+  const paging = state.wallet.transactionsPaging || createWalletState().transactionsPaging
+  const total = Number(
+    payload.transactionsTotal ??
+    payload.transactions_total ??
+    payload.summary?.transactions ??
+    paging.total ??
+    state.wallet.transactions.length,
+  )
+  paging.total = total
+  paging.loaded = state.wallet.transactions.length
+  paging.hasMore = Boolean(
+    payload.transactionsHasMore ??
+    payload.transactions_has_more ??
+    (paging.loaded < total),
+  )
+  state.wallet.transactionsPaging = paging
   state.wallet.loaded = true
 }
 
@@ -1629,7 +1662,7 @@ function trackExpenseInboxNotifications(previousIds = []) {
 }
 
 const BOOTSTRAP_COLLECTION_SECTIONS = ['requests', 'expenses', 'approvals', 'users']
-const BOOTSTRAP_COLLECTION_PAGE = 250
+const BOOTSTRAP_COLLECTION_PAGE = LIST_PAGE_SIZE
 
 function bootstrapOrganizationQuery() {
   if (!state.currentUser.isHq || !state.hq.selectedOrganizationId) return ''
@@ -1650,43 +1683,112 @@ function appendBootstrapQuery(path, params = {}) {
   return query ? `${path}?${query}` : path
 }
 
-async function loadBootstrapCollections(options = {}) {
-  if (!state.authToken) return
-  const soft = Boolean(options.soft)
+function ensureCollectionPaging(section) {
+  if (!state.collectionPaging[section]) {
+    state.collectionPaging[section] = {
+      total: 0,
+      loaded: 0,
+      hasMore: false,
+      loading: false,
+    }
+  }
+  return state.collectionPaging[section]
+}
+
+function mergeCollectionItems(section, incoming, { mode = 'replace' } = {}) {
+  const rows = Array.isArray(incoming) ? incoming : []
+  if (mode === 'replace') {
+    replaceItems(state[section], rows)
+    return
+  }
+  if (mode === 'append') {
+    const existingIds = new Set((state[section] || []).map((item) => String(item.id)))
+    const extra = rows.filter((item) => !existingIds.has(String(item.id)))
+    if (extra.length) replaceItems(state[section], [...state[section], ...extra])
+    return
+  }
+  // soft upsert: refresh first page rows without wiping already-loaded pages
+  const byId = new Map((state[section] || []).map((item) => [String(item.id), item]))
+  rows.forEach((item) => {
+    const key = String(item.id)
+    byId.set(key, { ...(byId.get(key) || {}), ...item })
+  })
+  const incomingIds = new Set(rows.map((item) => String(item.id)))
+  const rest = (state[section] || []).filter((item) => !incomingIds.has(String(item.id)))
+  replaceItems(state[section], [...rows.map((item) => byId.get(String(item.id))), ...rest])
+}
+
+async function fetchBootstrapCollectionPage(section, { offset = 0, limit = BOOTSTRAP_COLLECTION_PAGE } = {}) {
   const normalizers = {
     requests: normalizeRequest,
     expenses: normalizeExpense,
     approvals: normalizeApproval,
     users: normalizeUser,
   }
-
-  async function loadSection(section) {
-    let offset = 0
-    let hasMore = true
-    const accumulated = []
-
-    while (hasMore) {
-      const response = await authorizedFetch(
-        appendBootstrapQuery('/bootstrap/collections', {
-          section,
-          limit: BOOTSTRAP_COLLECTION_PAGE,
-          offset,
-        }),
-      )
-      const payload = repairPayload(await response.json())
-      const items = Array.isArray(payload.items) ? payload.items : []
-      accumulated.push(...items.map(normalizers[section]))
-      hasMore = Boolean(payload.hasMore) && items.length > 0
-      offset += items.length
-      if (soft) break
-      if (!items.length) break
-    }
-
-    replaceItems(state[section], accumulated)
+  const response = await authorizedFetch(
+    appendBootstrapQuery('/bootstrap/collections', {
+      section,
+      limit,
+      offset,
+    }),
+  )
+  const payload = repairPayload(await response.json())
+  const items = Array.isArray(payload.items) ? payload.items.map(normalizers[section]) : []
+  return {
+    items,
+    total: Number(payload.total || 0),
+    hasMore: Boolean(payload.hasMore) && items.length > 0,
+    offset: Number(payload.offset || offset),
+    limit: Number(payload.limit || limit),
   }
+}
 
-  // Parallel section loads — sequential waterfall was a major startup delay.
-  await Promise.all(BOOTSTRAP_COLLECTION_SECTIONS.map((section) => loadSection(section)))
+async function loadBootstrapCollectionSection(section, options = {}) {
+  if (!state.authToken) return
+  if (!BOOTSTRAP_COLLECTION_SECTIONS.includes(section)) return
+
+  const paging = ensureCollectionPaging(section)
+  if (paging.loading) return
+
+  const soft = Boolean(options.soft)
+  const append = Boolean(options.append)
+  const offset = append ? (state[section] || []).length : 0
+  if (append && !paging.hasMore) return
+
+  paging.loading = true
+  try {
+    const page = await fetchBootstrapCollectionPage(section, {
+      offset,
+      limit: BOOTSTRAP_COLLECTION_PAGE,
+    })
+    mergeCollectionItems(section, page.items, {
+      mode: append ? 'append' : soft ? 'upsert' : 'replace',
+    })
+    paging.total = page.total
+    paging.loaded = (state[section] || []).length
+    paging.hasMore = append
+      ? page.hasMore
+      : soft
+        ? paging.loaded < paging.total
+        : page.hasMore
+  } finally {
+    paging.loading = false
+  }
+}
+
+async function loadMoreBootstrapCollection(section) {
+  await loadBootstrapCollectionSection(section, { append: true })
+}
+
+async function loadBootstrapCollections(options = {}) {
+  if (!state.authToken) return
+  const soft = Boolean(options.soft)
+  // Never download the entire history on boot — only the first page (50).
+  await Promise.all(
+    BOOTSTRAP_COLLECTION_SECTIONS.map((section) =>
+      loadBootstrapCollectionSection(section, { soft, append: false }),
+    ),
+  )
 }
 
 async function loadBootstrapData(force = false, options = {}) {
@@ -1876,13 +1978,41 @@ async function loadWalletDashboard(force = false) {
   state.wallet.loading = true
   state.wallet.error = ''
   try {
-    const response = await authorizedFetch(scopedApiPath('/wallet'))
-    hydrateWallet(repairPayload(await response.json()))
+    const response = await authorizedFetch(
+      scopedApiPath(`/wallet?transactionsLimit=${LIST_PAGE_SIZE}&transactionsOffset=0`),
+    )
+    hydrateWallet(repairPayload(await response.json()), { appendTransactions: false })
   } catch (error) {
     state.wallet.error = error.message || 'Wallet load failed.'
     throw error
   } finally {
     state.wallet.loading = false
+  }
+}
+
+async function loadMoreWalletTransactions() {
+  if (!state.authToken) return
+  const paging = state.wallet.transactionsPaging || createWalletState().transactionsPaging
+  if (paging.loading || !paging.hasMore) return
+  paging.loading = true
+  state.wallet.transactionsPaging = paging
+  try {
+    const offset = state.wallet.transactions.length
+    const response = await authorizedFetch(
+      scopedApiPath(`/wallet/transactions?limit=${LIST_PAGE_SIZE}&offset=${offset}`),
+    )
+    const payload = repairPayload(await response.json())
+    hydrateWallet(
+      {
+        transactions: payload.transactions || payload.items || [],
+        transactionsTotal: payload.total ?? payload.transactionsTotal,
+        transactionsHasMore: payload.hasMore ?? payload.transactionsHasMore,
+        summary: { transactions: payload.total ?? payload.transactionsTotal ?? paging.total },
+      },
+      { appendTransactions: true },
+    )
+  } finally {
+    state.wallet.transactionsPaging.loading = false
   }
 }
 
@@ -4132,10 +4262,12 @@ async function removeUserEntrustedItem(userId, itemId) {
     ensureAuthenticatedRedirect,
     handleUnauthorizedSession,
     loadBootstrapData,
+    loadMoreBootstrapCollection,
     softLiveSync,
     loadReports,
     loadSettings,
     loadWalletDashboard,
+    loadMoreWalletTransactions,
     loadWalletOptions,
     submitFeaturePurchase,
     payFeatureInstallment,

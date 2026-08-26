@@ -82,9 +82,9 @@
 #app .app-shell:not(.is-auth-route) .page-filters.modern-page-filters.topbar-filters,
 #app .app-shell:not(.is-auth-route) .modern-page-filters.topbar-filters {
   display: grid !important;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) auto !important;
+  grid-template-columns: minmax(160px, 1.4fr) repeat(4, minmax(110px, 1fr)) auto !important;
   align-items: end !important;
-  gap: 12px !important;
+  gap: 10px !important;
   width: 100% !important;
   max-width: none !important;
   min-width: 0 !important;
@@ -313,8 +313,10 @@
 
   #app .app-shell:not(.is-auth-route) .modern-page-filters .modern-filter-reset,
   #app .app-shell:not(.is-auth-route) .modern-page-filters .filter-reset-btn {
-    grid-column: 1 / -1 !important;
+    grid-column: auto !important;
     width: 100% !important;
+    min-height: var(--filter-control-h) !important;
+    align-self: end !important;
   }
 }
 
@@ -322,6 +324,30 @@
   #app .app-shell:not(.is-auth-route) {
     --layout-inline: 14px;
     --layout-block: 14px;
+  }
+
+  /* Phone: header + page body scroll together inside main.shell-content.
+     Do not let the header stay pinned while only .shell-content-body scrolls. */
+  #app .app-shell:not(.is-auth-route) .shell-content {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .shell-content > header.topbar-shell,
+  #app .app-shell:not(.is-auth-route) .shell-content > .topbar-shell {
+    position: static !important;
+    top: auto !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .shell-content-body:not(:has(.chat-page)):not(:has(.chat-page-luxe)) {
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   /* Chat page: full-bleed; composer manages dock offset only in thread view */

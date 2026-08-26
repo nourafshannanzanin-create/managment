@@ -8,6 +8,7 @@ import ArchiveComposerModal from './components/ArchiveComposerModal.vue'
 import ArchiveDetailModal from './components/ArchiveDetailModal.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import AppTopNav from './components/AppTopNav.vue'
+import HubTabBar from './components/HubTabBar.vue'
 import DocumentComposerModal from './components/DocumentComposerModal.vue'
 import ErrorNotice from './components/ErrorNotice.vue'
 import ExpenseComposerModal from './components/ExpenseComposerModal.vue'
@@ -384,6 +385,7 @@ onUnmounted(() => {
     class="app-shell"
     :class="{
       'is-auth-route': isAuthRoute,
+      'is-landing-route': isLandingRoute,
       'is-public-attendance': isPublicAttendanceRoute,
       'has-trial-banner': showTrialBanner,
       'has-mobile-menu-open': !isAuthRoute && state.mobileMenuOpen,
@@ -420,6 +422,7 @@ onUnmounted(() => {
               v-if="state.lastErrorDetails && !modalState.requestComposer && !modalState.expenseComposer && !modalState.userComposer && !modalState.documentComposer && !modalState.archiveComposer"
               :error="state.lastErrorDetails"
             />
+            <HubTabBar />
             <RouterView v-slot="{ Component }">
               <component :is="Component" :key="route.fullPath" />
             </RouterView>
@@ -433,13 +436,15 @@ onUnmounted(() => {
       v-else
       class="shell-main auth-main"
       :class="{
-        'public-canvas-main': Boolean(route.meta.publicCanvas),
+        'landing-main': isLandingRoute,
+        'public-canvas-main': Boolean(route.meta.publicCanvas) && !isLandingRoute,
       }"
     >
       <div
         class="shell-content"
         :class="{
-          'public-canvas-content': Boolean(route.meta.publicCanvas),
+          'landing-content': isLandingRoute,
+          'public-canvas-content': Boolean(route.meta.publicCanvas) && !isLandingRoute,
         }"
       >
         <RouterView v-slot="{ Component }">

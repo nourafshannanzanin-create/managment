@@ -1,6 +1,8 @@
 <script setup>
 import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, onMounted, ref } from 'vue'
+import InfiniteScrollSentinel from '../components/InfiniteScrollSentinel.vue'
+import { useInfiniteList } from '../composables/useInfiniteList'
 
 import SectionHeading from '../components/SectionHeading.vue'
 import { isoToJalali } from '../utils/jalali'
@@ -24,6 +26,16 @@ const filteredItems = computed(() => {
     return true
   })
 })
+
+const {
+  items: visibleArchiveItems,
+  hasMore: hasMoreArchive,
+  loadingMore: loadingMoreArchive,
+  loadMore: loadMoreArchive,
+} = useInfiniteList(filteredItems, {
+  resetKey: computed(() => JSON.stringify({ scope: scope.value, ...(state.filters.archive || {}) })),
+})
+
 
 const metricCards = computed(() => [
   { key: 'all', label: 'کل اسناد', value: stats.value.total, icon: 'folder_open', tone: 'is-total' },
@@ -90,9 +102,9 @@ onMounted(() => {
               <th>عملیات</th>
             </tr>
           </thead>
-          <tbody v-if="filteredItems.length">
+          <tbody v-if="visibleArchiveItems.length">
             <tr
-              v-for="item in filteredItems"
+              v-for="item in visibleArchiveItems"
               :key="item.id"
               class="table-click-row"
               tabindex="0"
@@ -136,6 +148,13 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
+        <InfiniteScrollSentinel
+          :disabled="!hasMoreArchive || loadingMoreArchive"
+          @reach-end="loadMoreArchive"
+        >
+          <small v-if="loadingMoreArchive" class="list-loading-more">در حال بارگذاری...</small>
+          <small v-else-if="hasMoreArchive" class="list-loading-more">برای ادامه اسکرول کنید</small>
+        </InfiniteScrollSentinel>
       </div>
     </section>
   </section>
@@ -210,7 +229,8 @@ onMounted(() => {
 
 @media (max-width: 720px) {
   .archive-page .metric-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
   }
 }
 </style>
@@ -221,12 +241,14 @@ onMounted(() => {
 }
 @media (max-width: 920px) {
   #app .app-shell:not(.is-auth-route) .archive-page .metric-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
   }
 }
 @media (max-width: 640px) {
   #app .app-shell:not(.is-auth-route) .archive-page .metric-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
   }
 }
 </style>

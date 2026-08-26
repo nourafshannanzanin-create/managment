@@ -2,8 +2,10 @@
 import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed } from 'vue'
 
+import InfiniteScrollSentinel from '../components/InfiniteScrollSentinel.vue'
+
 import SectionHeading from '../components/SectionHeading.vue'
-import WorkflowStatusFilter from '../components/WorkflowStatusFilter.vue'
+import { useInfiniteList } from '../composables/useInfiniteList'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { joinDisplayParts } from '../utils/text'
 import { rowToneForStatus, toneForStatus, workflowStatusBucket } from '../utils/status'
@@ -15,7 +17,22 @@ const {
   openSignatureComposer,
   state,
   updatePageFilter,
+  loadMoreBootstrapCollection,
 } = useWorkflowHub()
+
+
+const approvalsPaging = computed(() => state.collectionPaging?.approvals || { total: 0, hasMore: false, loading: false })
+
+const {
+  items: visibleApprovals,
+  hasMore: hasMoreApprovals,
+  loadingMore: loadingMoreApprovals,
+  loadMore: loadMoreApprovals,
+} = useInfiniteList(filteredApprovals, {
+  resetKey: computed(() => JSON.stringify(state.filters.approvals || {})),
+  hasMoreRemote: computed(() => Boolean(approvalsPaging.value.hasMore)),
+  onLoadMore: () => loadMoreBootstrapCollection('approvals'),
+})
 
 const activeStatus = computed(() => String(state.filters.approvals.status || ''))
 
@@ -70,8 +87,6 @@ async function handleDownload(item) {
         </button>
       </div>
 
-      <WorkflowStatusFilter page="approvals" />
-
       <div class="table-shell">
         <table class="data-table">
           <thead>
@@ -85,9 +100,9 @@ async function handleDownload(item) {
               <th>عملیات</th>
             </tr>
           </thead>
-          <tbody v-if="filteredApprovals.length">
+          <tbody v-if="visibleApprovals.length">
             <tr
-              v-for="item in filteredApprovals"
+              v-for="item in visibleApprovals"
               :key="item.id"
               :class="['table-click-row', rowToneForStatus(item.status)]"
               tabindex="0"
@@ -97,7 +112,7 @@ async function handleDownload(item) {
             >
               <td class="cell-mobile-primary">
                 <strong>{{ item.title }}</strong>
-                <small>{{ joinDisplayParts([item.type, item.department]) }}</small>
+                <small>{{ joinDisplayParts([item.type, item.owner, item.department]) }}</small>
               </td>
               <td class="cell-mobile-hide">{{ item.type || '-' }}</td>
               <td class="cell-mobile-hide">{{ item.owner }}</td>
@@ -116,6 +131,13 @@ async function handleDownload(item) {
             </tr>
           </tbody>
         </table>
+        <InfiniteScrollSentinel
+          :disabled="!hasMoreApprovals || loadingMoreApprovals"
+          @reach-end="loadMoreApprovals"
+        >
+          <small v-if="loadingMoreApprovals" class="list-loading-more">در حال بارگذاری...</small>
+          <small v-else-if="hasMoreApprovals" class="list-loading-more">برای ادامه اسکرول کنید</small>
+        </InfiniteScrollSentinel>
       </div>
     </section>
   </section>
@@ -174,7 +196,7 @@ async function handleDownload(item) {
 
 .approval-metric-copy {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .approval-metric-label {
@@ -184,8 +206,8 @@ async function handleDownload(item) {
 
 .approval-metric-value {
   margin: 0;
-  font-size: clamp(34px, 2.4vw, 44px);
-  line-height: 1;
+  font-size: clamp(28px, 2.2vw, 40px);
+  line-height: 1.05;
   font-weight: 800;
   color: #1f2f52;
 }
@@ -218,4 +240,10 @@ async function handleDownload(item) {
 .approval-metric-card.is-total::after { background: #4867b7; }
 .approval-metric-card.is-total { border-color: rgba(72, 103, 183, 0.14); }
 .approval-metric-card.is-total .approval-metric-icon { background: var(--surface, #fff); color: #39549a; }
+
+.list-loading-more {
+  color: #6b8581;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
 </style>

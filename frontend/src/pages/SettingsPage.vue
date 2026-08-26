@@ -1,14 +1,17 @@
 <script setup>
 import IconlyIcon from '../components/base/IconlyIcon.vue'
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import BaseModal from '../components/BaseModal.vue'
 import LocationMapPicker from '../components/LocationMapPicker.vue'
 import ProfileAvatarEditor from '../components/ProfileAvatarEditor.vue'
 import SectionHeading from '../components/SectionHeading.vue'
 import UserAvatar from '../components/UserAvatar.vue'
+import { canOpenSupport } from '../config/appNav'
 import { useWorkflowHub } from '../stores/workflowHub'
 
+const router = useRouter()
 const saving = ref(false)
 const avatarBusy = ref(false)
 const avatarMessage = ref('')
@@ -35,6 +38,8 @@ const locationDraft = ref({
 })
 
 const { clearOwnAvatar, loadSettings, saveSettings, setLastError, state, uploadOwnAvatar, loadTaskingSettings, saveTaskingSettings } = useWorkflowHub()
+const showSupportEntry = computed(() => canOpenSupport(state))
+const supportUnread = computed(() => Number(state.support?.unreadCount || state.support?.unread_count || 0))
 const taskingMessage = ref('')
 const taskingDraft = ref(null)
 const canEditTimes = computed(() => Boolean(state.settings.canEdit || state.settings.canEditWorkTimes || state.currentUser.isManager))
@@ -300,6 +305,22 @@ onMounted(async () => {
 
 <template>
   <section class="page-shell enterprise-page">
+    <section v-if="showSupportEntry" class="settings-support-strip">
+      <button class="settings-support-card" type="button" @click="router.push('/support')">
+        <span class="settings-support-icon" aria-hidden="true">
+          <IconlyIcon name="support_agent" decorative />
+        </span>
+        <span class="settings-support-copy">
+          <strong>پشتیبانی</strong>
+          <small>ثبت تیکت و پیگیری گفتگو با تیم کارنومند</small>
+        </span>
+        <span v-if="supportUnread" class="settings-support-badge">{{ supportUnread }}</span>
+        <span class="settings-support-arrow" aria-hidden="true">
+          <IconlyIcon name="chevron_left" decorative />
+        </span>
+      </button>
+    </section>
+
     <section class="surface-block settings-profile-panel">
       <div class="section-label-row">
         <SectionHeading
@@ -717,6 +738,85 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.settings-support-strip {
+  margin-bottom: 14px;
+}
+
+.settings-support-card {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(52, 144, 139, 0.16);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(232, 246, 244, 0.95), rgba(255, 255, 255, 0.98));
+  color: inherit;
+  text-align: right;
+  cursor: pointer;
+  font: inherit;
+  box-shadow: none;
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+.settings-support-card:hover {
+  border-color: rgba(52, 144, 139, 0.34);
+  transform: translateY(-1px);
+}
+
+.settings-support-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #2f8a85, #34908b);
+  color: #fff;
+}
+
+.settings-support-icon :deep(.iconly-img) {
+  filter: brightness(0) invert(1);
+}
+
+.settings-support-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-support-copy strong {
+  color: #163532;
+  font-size: 0.98rem;
+}
+
+.settings-support-copy small {
+  color: #5f7a76;
+  font-size: 0.78rem;
+}
+
+.settings-support-badge {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(226, 85, 99, 0.14);
+  color: #c23a48;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.settings-support-arrow {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: #34908b;
+}
+
 .settings-stack {
   gap: 10px;
 }

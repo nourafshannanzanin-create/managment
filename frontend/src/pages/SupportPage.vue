@@ -964,7 +964,7 @@ onBeforeUnmount(() => {
   background:
     radial-gradient(circle at top left, rgba(52, 144, 139, 0.16), transparent 34%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(244, 250, 249, 0.94));
-  box-shadow: 0 18px 42px rgba(31, 42, 55, 0.05);
+  box-shadow: none;
 }
 
 .support-title {
@@ -995,7 +995,7 @@ onBeforeUnmount(() => {
   border-radius: 16px;
   color: #fff;
   background: linear-gradient(135deg, var(--jade), var(--jade-deep));
-  box-shadow: 0 14px 28px rgba(52, 144, 139, 0.28);
+  box-shadow: none;
 }
 
 .support-title h2,
@@ -1079,7 +1079,7 @@ onBeforeUnmount(() => {
 .primary-btn {
   color: #fff;
   background: linear-gradient(135deg, var(--jade), var(--jade-deep));
-  box-shadow: 0 16px 32px rgba(52, 144, 139, 0.24);
+  box-shadow: none;
 }
 
 .primary-btn:disabled {
@@ -1106,7 +1106,7 @@ onBeforeUnmount(() => {
   color: var(--jade-deep);
   font-weight: 800;
   line-height: 1.9;
-  box-shadow: 0 12px 28px rgba(52, 144, 139, 0.08);
+  box-shadow: none;
 }
 
 .support-alert {
@@ -1145,7 +1145,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--line);
   background: var(--surface);
   backdrop-filter: blur(10px);
-  box-shadow: 0 14px 32px rgba(31, 42, 55, 0.04);
+  box-shadow: none;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
@@ -1153,7 +1153,7 @@ onBeforeUnmount(() => {
 .stat-card:hover,
 .stat-card.active {
   transform: translateY(-2px);
-  box-shadow: 0 22px 40px rgba(52, 144, 139, 0.12);
+  box-shadow: none;
 }
 
 .stat-card.open.active { background: linear-gradient(180deg, rgba(219, 234, 254, 0.72), rgba(255, 255, 255, 0.96)); }
@@ -1203,7 +1203,7 @@ onBeforeUnmount(() => {
   background:
     radial-gradient(circle at top right, rgba(52, 144, 139, 0.08), transparent 28%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 250, 249, 0.96));
-  box-shadow: 0 18px 42px rgba(31, 42, 55, 0.055);
+  box-shadow: none;
   backdrop-filter: blur(12px);
 }
 
@@ -1322,7 +1322,7 @@ onBeforeUnmount(() => {
 .ticket-row.selected {
   transform: translateY(-1px);
   border-color: rgba(52, 144, 139, 0.38);
-  box-shadow: 0 18px 34px rgba(52, 144, 139, 0.12);
+  box-shadow: none;
 }
 
 .ticket-row.selected {
@@ -1474,7 +1474,7 @@ onBeforeUnmount(() => {
   gap: 8px;
   padding: 14px 16px;
   border-radius: 18px;
-  box-shadow: 0 12px 28px rgba(31, 42, 55, 0.05);
+  box-shadow: none;
 }
 
 .message-bubble.support {
@@ -1574,7 +1574,7 @@ onBeforeUnmount(() => {
 .search-shell:focus-within {
   outline: none;
   border-color: var(--jade);
-  box-shadow: 0 0 0 4px rgba(52, 144, 139, 0.12);
+  box-shadow: none;
 }
 
 .modal-form input[readonly],

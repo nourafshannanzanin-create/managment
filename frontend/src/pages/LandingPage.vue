@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 
 const signupTo = { path: '/login', query: { signup: '1' } }
@@ -75,62 +75,132 @@ const faqs = [
 ]
 
 const mobileNavOpen = ref(false)
+const headerScrolled = ref(false)
+const pageReady = ref(false)
+const openFaq = ref(0)
+
+let revealObserver = null
+let scrollRaf = 0
 
 function closeMobileNav() {
   mobileNavOpen.value = false
+}
+
+function toggleMobileNav() {
+  mobileNavOpen.value = !mobileNavOpen.value
+}
+
+function onScroll() {
+  if (scrollRaf) return
+  scrollRaf = window.requestAnimationFrame(() => {
+    headerScrolled.value = window.scrollY > 18
+    scrollRaf = 0
+  })
+}
+
+function onResize() {
+  if (window.innerWidth > 1100 && mobileNavOpen.value) {
+    mobileNavOpen.value = false
+  }
+}
+
+function setFaq(index) {
+  openFaq.value = openFaq.value === index ? -1 : index
+}
+
+function setupReveals(root) {
+  const nodes = root?.querySelectorAll('[data-reveal]')
+  if (!nodes?.length) return
+
+  if (!('IntersectionObserver' in window)) {
+    nodes.forEach((node) => node.classList.add('is-revealed'))
+    return
+  }
+
+  revealObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return
+        entry.target.classList.add('is-revealed')
+        revealObserver?.unobserve(entry.target)
+      })
+    },
+    { threshold: 0.12, rootMargin: '0px 0px -6% 0px' },
+  )
+
+  nodes.forEach((node) => revealObserver.observe(node))
 }
 
 onMounted(() => {
   document.title = 'کارنومند | سامانه مدیریت گردش‌کار سازمانی'
   document.documentElement.classList.add('landing-active')
   document.body.classList.add('landing-active')
+  pageReady.value = true
+  onScroll()
+  window.addEventListener('scroll', onScroll, { passive: true })
+  window.addEventListener('resize', onResize, { passive: true })
+  setupReveals(document.querySelector('.landing-page'))
 })
 
 onUnmounted(() => {
   document.documentElement.classList.remove('landing-active')
   document.body.classList.remove('landing-active')
+  document.body.classList.remove('landing-nav-lock')
   document.title = 'کارنومند'
+  window.removeEventListener('scroll', onScroll)
+  window.removeEventListener('resize', onResize)
+  if (scrollRaf) window.cancelAnimationFrame(scrollRaf)
+  revealObserver?.disconnect()
+})
+
+watch(mobileNavOpen, (open) => {
+  document.body.classList.toggle('landing-nav-lock', open)
 })
 </script>
 
 <template>
-  <div class="landing-page" :class="{ 'is-nav-open': mobileNavOpen }">
+  <div class="landing-page" :class="{ 'is-nav-open': mobileNavOpen, 'is-ready': pageReady, 'is-scrolled': headerScrolled }">
     <main>
       <section class="hero-shell" id="top">
         <div class="hero-aurora hero-aurora-one" />
         <div class="hero-aurora hero-aurora-two" />
+        <div class="hero-aurora hero-aurora-three" />
+        <div class="hero-orb hero-orb-one" />
+        <div class="hero-orb hero-orb-two" />
         <div class="hero-grid" />
+        <div class="hero-noise" aria-hidden="true" />
 
-        <header class="site-header">
-          <a class="brand brand-title" href="#top" aria-label="کارنومند، صفحه اصلی" @click="closeMobileNav">
-            <span class="brand-copy"><strong>کارنومند</strong><small>گردش‌کار سازمانی</small></span>
-          </a>
-
-          <nav class="desktop-nav" aria-label="منوی اصلی">
-            <a href="#solution">راهکار</a>
-            <a href="#modules">ماژول‌ها</a>
-            <a href="#features">قابلیت‌ها</a>
-            <a href="#workflow">نحوه کار</a>
-            <a href="#faq">پرسش‌های متداول</a>
-          </nav>
-
-          <div class="header-actions">
-            <RouterLink class="panel-login" :to="loginTo">ورود به پنل
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
-            </RouterLink>
-            <button
-              class="mobile-nav-toggle"
-              type="button"
-              :aria-expanded="mobileNavOpen"
-              aria-controls="landing-mobile-nav"
-              aria-label="منو"
-              @click="mobileNavOpen = !mobileNavOpen"
-            >
-              <span /><span /><span />
-            </button>
-            <a class="brand-logo-link" href="#top" aria-label="کارنومند" @click="closeMobileNav">
-              <img class="brand-logo" :src="logoSrc" alt="کارنومند" width="44" height="44" decoding="async" />
+        <header class="site-header" :class="{ 'is-scrolled': headerScrolled }">
+          <div class="site-header-inner">
+            <a class="brand brand-title" href="#top" aria-label="کارنومند، صفحه اصلی" @click="closeMobileNav">
+              <img class="brand-logo" :src="logoSrc" alt="" width="44" height="44" decoding="async" />
+              <span class="brand-copy"><strong>کارنومند</strong><small>گردش‌کار سازمانی</small></span>
             </a>
+
+            <nav class="desktop-nav" aria-label="منوی اصلی">
+              <a href="#solution">راهکار</a>
+              <a href="#modules">ماژول‌ها</a>
+              <a href="#features">قابلیت‌ها</a>
+              <a href="#workflow">نحوه کار</a>
+              <a href="#faq">پرسش‌های متداول</a>
+            </nav>
+
+            <div class="header-actions">
+              <RouterLink class="panel-login" :to="loginTo">ورود به پنل
+                <svg class="dir-arrow" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              </RouterLink>
+              <RouterLink class="header-signup" :to="signupTo">ثبت‌نام</RouterLink>
+              <button
+                class="mobile-nav-toggle"
+                type="button"
+                :aria-expanded="mobileNavOpen"
+                aria-controls="landing-mobile-nav"
+                aria-label="منو"
+                @click="toggleMobileNav"
+              >
+                <span /><span /><span />
+              </button>
+            </div>
           </div>
         </header>
 
@@ -150,13 +220,14 @@ onUnmounted(() => {
         </nav>
 
         <div class="hero-content page-wrap">
-          <div class="hero-copy">
+          <div class="hero-copy hero-enter">
+            <p class="brand-hero-mark">کارنومند</p>
             <div class="eyebrow"><span class="live-dot" /> سامانه مدیریت عملیات سازمانی</div>
             <h1>مدیریت درخواست، هزینه و تأیید اسناد<span>در یک پنل سازمانی</span></h1>
             <p class="hero-lead">ثبت و پیگیری درخواست‌ها، هزینه‌ها و اسناد تاییدی؛ با نقش‌بندی، امضای دیجیتال و گزارش‌گیری در یک محیط فارسی.</p>
             <div class="hero-actions">
               <RouterLink class="button button-primary" :to="signupTo">ثبت‌نام مجموعه
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                <svg class="dir-arrow" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
               </RouterLink>
               <a class="button button-ghost" href="#modules">مشاهده ماژول‌ها</a>
             </div>
@@ -167,7 +238,7 @@ onUnmounted(() => {
             <div class="hero-trust"><span>رابط فارسی RTL</span><i /><span>دسترسی نقش‌محور</span><i /><span>امضای دیجیتال روی فایل</span></div>
           </div>
 
-          <div class="hero-visual" aria-label="نمایی از داشبورد عملیاتی کارنومند">
+          <div class="hero-visual hero-enter hero-enter-delay" aria-label="نمایی از داشبورد عملیاتی کارنومند">
             <div class="visual-halo" />
             <div class="dashboard-float dashboard-float-top">
               <span class="float-icon float-icon-green">
@@ -228,7 +299,7 @@ onUnmounted(() => {
         <div class="hero-bottom-line page-wrap"><span>پرونده با وضعیت مشخص</span><span>تصمیم ثبت‌شده در سیستم</span><span>دسترسی کنترل‌شده</span></div>
       </section>
 
-      <section class="proof-strip" aria-label="خلاصه قابلیت‌های اصلی">
+      <section class="proof-strip" aria-label="خلاصه قابلیت‌های اصلی" data-reveal>
         <div class="page-wrap proof-grid">
           <div><strong>۴</strong><span>محور اصلی عملیات</span></div>
           <div><strong>۵</strong><span>سطح نقش سازمانی</span></div>
@@ -237,7 +308,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section class="section pain-section" id="problem">
+      <section class="section pain-section" id="problem" data-reveal>
         <div class="page-wrap">
           <div class="section-heading split-heading">
             <div>
@@ -256,7 +327,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section class="section solution-section" id="solution">
+      <section class="section solution-section" id="solution" data-reveal>
         <div class="solution-glow" />
         <div class="page-wrap">
           <div class="section-heading solution-heading">
@@ -270,6 +341,7 @@ onUnmounted(() => {
               :key="code"
               class="pillar-card"
               :class="`pillar-${color}`"
+              :style="{ '--reveal-delay': `${index * 70}ms` }"
             >
               <div class="pillar-top">
                 <span class="pillar-code">{{ code }}</span>
@@ -284,13 +356,13 @@ onUnmounted(() => {
             <span class="statement-mark">“</span>
             <p>وضعیت پرونده را در سامانه ببینید؛ نه در پیام‌های پراکنده.</p>
             <a href="#modules">فهرست ماژول‌ها
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              <svg class="dir-arrow" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
             </a>
           </div>
         </div>
       </section>
 
-      <section class="section modules-section" id="modules">
+      <section class="section modules-section" id="modules" data-reveal>
         <div class="page-wrap">
           <div class="section-heading centered-heading">
             <span class="section-kicker">ماژول‌های سامانه</span>
@@ -307,7 +379,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section class="section features-section" id="features">
+      <section class="section features-section" id="features" data-reveal>
         <div class="page-wrap">
           <div class="section-heading centered-heading">
             <span class="section-kicker">جزئیات قابلیت‌ها</span>
@@ -332,13 +404,13 @@ onUnmounted(() => {
           <div class="inline-cta">
             <span><small>حساب مجموعه فعال است؟</small><strong>وارد پنل شوید.</strong></span>
             <RouterLink class="button button-dark" :to="loginTo">ورود به پنل
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              <svg class="dir-arrow" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
             </RouterLink>
           </div>
         </div>
       </section>
 
-      <section class="section workflow-section" id="workflow">
+      <section class="section workflow-section" id="workflow" data-reveal>
         <div class="page-wrap">
           <div class="section-heading split-heading workflow-heading">
             <div>
@@ -360,7 +432,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section class="signature-showcase">
+      <section class="signature-showcase" data-reveal>
         <div class="page-wrap signature-grid">
           <div class="signature-copy">
             <span class="section-kicker section-kicker-light">تأیید اسناد</span>
@@ -385,7 +457,7 @@ onUnmounted(() => {
               </li>
             </ul>
             <RouterLink class="text-link" :to="signupTo">ثبت‌نام مجموعه
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              <svg class="dir-arrow" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
             </RouterLink>
           </div>
           <div class="document-scene" aria-label="نمایش گردش امضای دیجیتال سند">
@@ -411,7 +483,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section class="section access-section" id="access">
+      <section class="section access-section" id="access" data-reveal>
         <div class="page-wrap">
           <div class="section-heading centered-heading">
             <span class="section-kicker">دسترسی‌ها</span>
@@ -442,7 +514,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section class="section scenarios-section">
+      <section class="section scenarios-section" data-reveal>
         <div class="page-wrap scenario-grid">
           <div class="section-heading scenario-copy">
             <span class="section-kicker">کاربردها</span>
@@ -487,7 +559,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section class="section control-section">
+      <section class="section control-section" data-reveal>
         <div class="page-wrap">
           <div class="section-heading split-heading">
             <div>
@@ -505,7 +577,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section class="section audience-section">
+      <section class="section audience-section" data-reveal>
         <div class="page-wrap audience-panel">
           <div>
             <span class="section-kicker section-kicker-light">مخاطبان</span>
@@ -521,26 +593,30 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section class="section faq-section" id="faq">
+      <section class="section faq-section" id="faq" data-reveal>
         <div class="page-wrap faq-grid">
           <div class="section-heading faq-heading">
             <span class="section-kicker">پرسش‌های متداول</span>
             <h2>پرسش‌های پرتکرار</h2>
             <p>در صورت نیاز بیشتر، پس از ورود می‌توانید از پشتیبانی درون‌سامانه استفاده کنید.</p>
             <RouterLink class="text-link text-link-dark" :to="loginTo">ورود به پنل
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              <svg class="dir-arrow" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
             </RouterLink>
           </div>
           <div class="faq-list">
-            <details v-for="([question, answer], index) in faqs" :key="question" :open="index === 0">
-              <summary><span>{{ question }}</span><i /></summary>
+            <details
+              v-for="([question, answer], index) in faqs"
+              :key="question"
+              :open="openFaq === index"
+            >
+              <summary @click.prevent="setFaq(index)"><span>{{ question }}</span><i /></summary>
               <p>{{ answer }}</p>
             </details>
           </div>
         </div>
       </section>
 
-      <section class="final-cta-section">
+      <section class="final-cta-section" data-reveal>
         <div class="final-cta-glow" />
         <div class="final-cta-grid" />
         <div class="page-wrap final-cta-content">
@@ -550,7 +626,7 @@ onUnmounted(() => {
           <p>درخواست، هزینه، سند و گزارش را در یک پنل سازمانی با دسترسی کنترل‌شده مدیریت کنید.</p>
           <div class="hero-actions final-actions">
             <RouterLink class="button button-primary" :to="signupTo">ثبت‌نام مجموعه
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              <svg class="dir-arrow" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
             </RouterLink>
             <RouterLink class="button button-ghost" :to="loginTo">ورود به پنل</RouterLink>
           </div>
@@ -572,7 +648,7 @@ onUnmounted(() => {
             <a href="#faq">سؤالات متداول</a>
           </nav>
           <RouterLink class="footer-login" :to="loginTo">ورود به پنل
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            <svg class="dir-arrow" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
           </RouterLink>
         </div>
         <div class="page-wrap footer-bottom">
@@ -591,10 +667,24 @@ onUnmounted(() => {
   gap: 10px;
 }
 
-.brand-logo-link {
-  display: grid;
-  place-items: center;
-  line-height: 0;
+.header-signup {
+  display: inline-flex;
+  min-height: 46px;
+  padding: 0 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  color: #06261f;
+  background: linear-gradient(135deg, #b8f5dc, #23cb92 76%);
+  font-size: 0.82rem;
+  font-weight: 800;
+  box-shadow: 0 10px 28px rgba(18, 196, 135, 0.22);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.header-signup:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px rgba(18, 196, 135, 0.32);
 }
 
 .mobile-nav-toggle {
@@ -635,11 +725,11 @@ onUnmounted(() => {
 
 .mobile-nav {
   display: none;
-  position: absolute;
-  top: 88px;
+  position: fixed;
+  top: 84px;
   left: 16px;
   right: 16px;
-  z-index: 40;
+  z-index: 60;
   padding: 18px;
   border-radius: 22px;
   background: rgba(7, 26, 23, 0.96);
@@ -648,6 +738,8 @@ onUnmounted(() => {
   backdrop-filter: blur(18px);
   flex-direction: column;
   gap: 8px;
+  max-height: calc(100dvh - 100px);
+  overflow: auto;
 }
 
 .mobile-nav a {
@@ -675,7 +767,8 @@ onUnmounted(() => {
     display: inline-flex;
   }
 
-  .panel-login {
+  .panel-login,
+  .header-signup {
     display: none;
   }
 }

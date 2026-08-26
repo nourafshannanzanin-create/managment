@@ -224,15 +224,31 @@ function taskingSummary(row) {
   }
 }
 
+function departmentLabel(value) {
+  if (!value) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'object') return value.name || value.title || value.label || ''
+  return String(value)
+}
+
 const taskingSummaries = computed(() =>
-  activeRows.value.map((row) => ({
-    id: row.user?.id || row.id,
-    name: row.user?.name || 'بدون نام',
-    department: row.user?.department || '',
-    days: Number(row.effectiveDays || 0),
-    ...taskingSummary(row),
-    raw: row,
-  })),
+  activeRows.value.map((row) => {
+    const summary = taskingSummary(row)
+    const { days: dayBreakdown, ...metrics } = summary
+    const daysCount = Math.max(
+      0,
+      Number(row.effectiveDays ?? row.effective_days) || dayBreakdown.length || 0,
+    )
+    return {
+      id: row.user?.id || row.id,
+      name: row.user?.name || 'بدون نام',
+      department: departmentLabel(row.user?.department),
+      ...metrics,
+      daysCount,
+      dayBreakdown,
+      raw: row,
+    }
+  }),
 )
 
 const taskingTotals = computed(() => {
@@ -663,7 +679,7 @@ onMounted(() => {
               <UserAvatar :person="row.raw?.user" :name="row.name" size="md" />
               <div>
                 <strong>{{ row.name }}</strong>
-                <small>{{ row.department || 'بدون بخش' }} · {{ toPersianDigits(row.days) }} روز کاری</small>
+                <small>{{ row.department || 'بدون بخش' }} · {{ toPersianDigits(row.daysCount) }} روز کاری</small>
               </div>
             </div>
             <span class="tasking-status-pill">{{ row.statusLabel }}</span>
@@ -766,7 +782,7 @@ onMounted(() => {
           <div class="tasking-detail-copy">
             <span class="tasking-detail-kicker">{{ taskingPeriodLabel }}</span>
             <h2>{{ selectedTaskingDetail.name }}</h2>
-            <p>{{ selectedTaskingDetail.department || 'بدون بخش' }} · {{ toPersianDigits(selectedTaskingDetail.days) }} روز کاری</p>
+            <p>{{ selectedTaskingDetail.department || 'بدون بخش' }} · {{ toPersianDigits(selectedTaskingDetail.daysCount) }} روز کاری</p>
           </div>
           <span class="tasking-detail-status">{{ selectedTaskingDetail.statusLabel }}</span>
         </header>
@@ -808,9 +824,9 @@ onMounted(() => {
             <strong>تفکیک روزبه‌روز</strong>
             <small>رنگ هر روز وضعیت کسری یا رسیدن به هدف را نشان می‌دهد.</small>
           </header>
-          <div v-if="selectedTaskingDetail.days?.length" class="tasking-day-list">
+          <div v-if="selectedTaskingDetail.dayBreakdown?.length" class="tasking-day-list">
             <article
-              v-for="day in selectedTaskingDetail.days"
+              v-for="day in selectedTaskingDetail.dayBreakdown"
               :key="day.date"
               :class="['tasking-day-card', `is-${day.status}`]"
             >
@@ -938,12 +954,17 @@ onMounted(() => {
 }
 .report-tabs::-webkit-scrollbar { display: none; }
 .report-toolbar {
-  display: grid;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: end;
   gap: 12px;
+  min-width: 0;
 }
 .report-toolbar-block {
   display: grid;
   gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .report-toolbar-label {
   font-size: 11px;
@@ -954,7 +975,9 @@ onMounted(() => {
   display: flex;
   align-items: end;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .report-tab {
   flex: 0 0 auto;
@@ -1652,22 +1675,47 @@ onMounted(() => {
     margin: 0 -2px;
     padding-inline: 2px;
   }
+  .report-toolbar {
+    display: grid;
+    gap: 12px;
+  }
   .report-toolbar-row {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 10px;
-    align-items: stretch;
+    align-items: end;
   }
   .report-filter-field,
-  .report-person-field,
-  .report-export-btn {
+  .report-person-field {
     width: 100%;
     min-width: 0;
     flex: none;
   }
+  .report-export-btn {
+    width: auto;
+    min-width: 0;
+    flex: none;
+    white-space: nowrap;
+  }
   .report-period-chips {
     margin: 0 -2px;
     padding-inline: 2px;
+  }
+  .tasking-summary-list {
+    grid-template-columns: 1fr;
+  }
+  .tasking-summary-card {
+    box-shadow: none;
+  }
+  .tasking-summary-preview {
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    font-size: 0.78rem;
+  }
+  .tasking-summary-identity strong {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
   }
   .report-period-chips .filter-chip {
     min-height: 38px;
