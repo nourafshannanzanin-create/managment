@@ -1405,18 +1405,20 @@ onBeforeUnmount(() => {
 }
 
 .chat-unread {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 5px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #e11d48;
-  color: #fff;
+  background: rgba(226, 85, 99, 0.14);
+  color: #c23a48;
   font-size: 11px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   flex: 0 0 auto;
+  box-shadow: none;
 }
 
 .chat-thread-empty {

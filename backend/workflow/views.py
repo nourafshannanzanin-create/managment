@@ -685,7 +685,7 @@ def parse_json(request: HttpRequest) -> dict:
         return {}
 
 
-USER_SECTION_KEYS = ("users", "approvals", "expenses", "reports", "settings")
+USER_SECTION_KEYS = ("users", "approvals", "expenses", "reports", "settings", "attendance", "archive")
 
 
 def section_access_payload(payload: dict) -> dict[str, bool]:
@@ -812,6 +812,8 @@ def build_settings_profile_payload(user: User, organization_id: int | None = Non
         {"key": "users", "title": "کاربران", "description": "مدیریت فهرست کاربران، نقش‌ها و دسترسی‌ها", "route": "/users"},
         {"key": "expenses", "title": "هزینه‌ها", "description": "ثبت، ارجاع، بررسی و کنترل هزینه‌ها", "route": "/expenses"},
         {"key": "reports", "title": "گزارشات", "description": "نمای مدیریتی و تحلیل عملکرد سازمان", "route": "/reports"},
+        {"key": "attendance", "title": "ورود و خروج", "description": "ثبت و گزارش حضور پرسنل", "route": "/attendance"},
+        {"key": "archive", "title": "بایگانی", "description": "اسناد بایگانی، ارجاع و تأیید", "route": "/archive"},
         {"key": "settings", "title": "تنظیمات", "description": "مدیریت پروفایل سازمان و دسترسی‌ها", "route": "/settings"},
     ]
     section_payload = []
@@ -874,9 +876,11 @@ def user_can_access_wallet(user: User) -> bool:
 
 
 def user_can_access_attendance(user: User) -> bool:
+    from workflow.access import can_access_attendance
+
     if user.slug == HQ_USERNAME:
         return True
-    if not is_manager(user):
+    if not can_access_attendance(user):
         return False
     organization = get_user_organization(user)
     return FeaturePurchase.objects.filter(organization=organization, feature_key="attendance", is_active=True).exists()
@@ -900,10 +904,24 @@ def attendance_current_status(user: User) -> str:
 
 
 def serialize_attendance_event(event: AttendanceEvent) -> dict:
+    user = event.user
+    avatar = media_url(getattr(user, "avatar_image", "") or "") if user else ""
     return {
         "id": event.id,
         "userId": event.user_id,
-        "userName": event.user.full_name,
+        "userName": user.full_name if user else "",
+        "userRole": (user.job_title or "") if user else "",
+        "user_role": (user.job_title or "") if user else "",
+        "userDepartment": (user.department.name if user and user.department else "بدون واحد"),
+        "user_department": (user.department.name if user and user.department else "بدون واحد"),
+        "userPhone": (user.phone or "") if user else "",
+        "user_phone": (user.phone or "") if user else "",
+        "userAvatar": getattr(user, "avatar", "") if user else "",
+        "user_avatar": getattr(user, "avatar", "") if user else "",
+        "userAvatarUrl": avatar,
+        "user_avatar_url": avatar,
+        "avatarUrl": avatar,
+        "avatar_url": avatar,
         "eventType": event.event_type,
         "event_type": event.event_type,
         "source": event.source,
@@ -1255,6 +1273,9 @@ def build_attendance_personnel_stats(events: list[AttendanceEvent], *, include_o
             "userRole": user.job_title or "",
             "userDepartment": user.department.name if user.department else "بدون واحد",
             "userPhone": user.phone or "",
+            "userAvatar": user.avatar or "",
+            "userAvatarUrl": media_url(getattr(user, "avatar_image", "") or ""),
+            "avatarUrl": media_url(getattr(user, "avatar_image", "") or ""),
             "totalEvents": len(user_events),
             "checkins": sum(1 for item in user_events if item.event_type == AttendanceEvent.EVENT_IN),
             "checkouts": sum(1 for item in user_events if item.event_type == AttendanceEvent.EVENT_OUT),
@@ -1473,8 +1494,12 @@ def build_attendance_report_payload(user: User, params) -> dict:
             {
                 "id": item.id,
                 "name": item.full_name,
+                "role": item.job_title or "",
                 "department": item.department.name if item.department else "بدون واحد",
                 "phone": item.phone or "",
+                "avatar": item.avatar or "",
+                "avatarUrl": media_url(getattr(item, "avatar_image", "") or ""),
+                "avatar_url": media_url(getattr(item, "avatar_image", "") or ""),
             }
             for item in attendance_user_queryset(organization)
         ],
@@ -5637,16 +5662,11 @@ def settings_profile_view(request: HttpRequest):
         )
     else:
         organization_name = (payload.get("organizationName") or "").strip()
-        system_id = normalize_slug(payload.get("systemId") or organization.code)
         if not organization_name:
             return json_error("نام سازمان الزامی است.", status=422)
-        if not system_id:
-            return json_error("کدنوم سازمان الزامی است.", status=422)
-        if Organization.objects.exclude(pk=organization.pk).filter(code=system_id).exists():
-            return json_error("کدنوم سازمان تکراری است.", status=409)
+        # کد سازمان ثابت است و از تنظیمات قابل تغییر نیست
         organization.name = organization_name
-        organization.code = system_id
-        organization.save(update_fields=["name", "code"])
+        organization.save(update_fields=["name"])
 
         if "twoFactorRequired" in payload:
             preference.two_factor_required = bool(payload.get("twoFactorRequired"))

@@ -60,7 +60,7 @@ SHOWCASE_SMS_MONTHLY_LIMIT = 3000
 SHOWCASE_MAIN_BALANCE = Decimal("28500000.00")
 SHOWCASE_SMS_BALANCE = Decimal("4200000.00")
 
-SECTION_KEYS = ("users", "approvals", "expenses", "reports", "settings")
+SECTION_KEYS = ("users", "approvals", "expenses", "reports", "settings", "attendance", "archive")
 
 
 def _utc_days_ago(days: int, hour: int = 10) -> datetime:

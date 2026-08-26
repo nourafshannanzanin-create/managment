@@ -914,12 +914,10 @@ async function onOwnAvatarClear() {
     radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.35), transparent 42%),
     linear-gradient(145deg, #2bb89a 0%, #1f8a70 48%, #176f5a 100%) !important;
   color: #fff !important;
-  box-shadow:
-    0 10px 24px rgba(31, 138, 112, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+  box-shadow: none !important;
   border: 0 !important;
   overflow: visible !important;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease !important;
+  transition: transform 0.2s ease, filter 0.2s ease !important;
 }
 
 .dashboard-punch-btn::before {
@@ -928,7 +926,7 @@ async function onOwnAvatarClear() {
   inset: -4px;
   border-radius: 50%;
   border: 1.5px solid rgba(43, 184, 154, 0.45);
-  box-shadow: 0 0 0 4px rgba(31, 138, 112, 0.08);
+  box-shadow: none;
   pointer-events: none;
   animation: punch-ring-breathe 2.8s ease-in-out infinite;
 }
@@ -936,9 +934,7 @@ async function onOwnAvatarClear() {
 .dashboard-punch-btn:hover {
   transform: translateY(-1px) scale(1.03);
   filter: brightness(1.04);
-  box-shadow:
-    0 14px 30px rgba(31, 138, 112, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32) !important;
+  box-shadow: none !important;
 }
 
 .dashboard-punch-btn:active {

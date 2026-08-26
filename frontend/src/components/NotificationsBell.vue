@@ -332,19 +332,27 @@ onBeforeUnmount(() => {
 
 .notifications-bell-badge {
   position: absolute;
-  top: -2px;
-  inset-inline-start: -2px;
+  top: 4px;
+  inset-inline-end: 4px;
+  inset-inline-start: auto;
+  z-index: 1;
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: #c2410c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e25563;
   color: #fff;
   font-size: 10px;
-  font-weight: 800;
-  line-height: 18px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
   text-align: center;
-  box-shadow: 0 0 0 2px #f3f9f7;
+  box-shadow: 0 0 0 2px #dcefec;
+  pointer-events: none;
 }
 
 .notifications-panel {

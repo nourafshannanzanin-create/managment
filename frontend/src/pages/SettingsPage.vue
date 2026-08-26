@@ -96,7 +96,6 @@ async function persistSettings() {
   try {
     await saveSettings({
       organizationName: state.settings.organizationName,
-      systemId: state.settings.systemId,
     })
   } finally {
     saving.value = false
@@ -328,7 +327,7 @@ onMounted(async () => {
         <div class="section-label-row">
           <SectionHeading
             title="پروفایل سازمان"
-            description="اطلاعات هویتی و کدنوم سازمان از همین بخش مدیریت می‌شود."
+            description="نام سازمان قابل ویرایش است؛ کد سازمان ثابت است و تغییر نمی‌کند."
           />
         </div>
 
@@ -339,8 +338,15 @@ onMounted(async () => {
           </label>
 
           <label class="field-shell">
-            <span>کدنوم سازمان</span>
-            <input v-model="state.settings.systemId" type="text" dir="ltr" :readonly="!state.settings.canEdit" />
+            <span>کد سازمان</span>
+            <input
+              v-model="state.settings.systemId"
+              type="text"
+              dir="ltr"
+              readonly
+              disabled
+              title="کد سازمان ثابت است و قابل تغییر نیست"
+            />
           </label>
 
           <button v-if="state.settings.canEdit" class="action-btn tone-primary" type="button" @click="persistSettings">
@@ -863,6 +869,81 @@ onMounted(async () => {
 @media (max-width: 640px) {
   .attendance-location-coords {
     grid-template-columns: 1fr;
+  }
+
+  .settings-modern-grid {
+    gap: 12px;
+  }
+
+  .settings-stack {
+    gap: 10px;
+  }
+
+  .settings-stack .field-shell {
+    padding: 8px 10px;
+  }
+
+  .settings-stack .field-shell > span:first-child {
+    font-size: 0.72rem;
+  }
+
+  .settings-stack .field-shell input,
+  .settings-stack .field-shell select {
+    min-height: 36px;
+    font-size: 0.9rem;
+  }
+
+  .attendance-location-status {
+    padding: 10px 12px;
+    border-radius: 10px;
+  }
+
+  .attendance-location-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .attendance-location-actions .action-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 40px;
+  }
+
+  .attendance-location-panel :deep(.location-map-shell),
+  .attendance-location-panel :deep(.leaflet-container) {
+    height: 260px !important;
+    min-height: 260px !important;
+  }
+
+  .modal-grid.two-col {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .department-card {
+    padding: 10px;
+    gap: 8px;
+    box-shadow: none;
+    border: 1px solid rgba(52, 144, 139, 0.14);
+  }
+
+  .settings-access-table,
+  .settings-access-table-row,
+  .settings-access-table-head {
+    font-size: 0.82rem;
+  }
+
+  .surface-block {
+    padding: 12px !important;
+  }
+
+  .section-label-row :deep(h3) {
+    font-size: 0.95rem !important;
+  }
+
+  .section-label-row :deep(p) {
+    font-size: 0.75rem !important;
   }
 }
 

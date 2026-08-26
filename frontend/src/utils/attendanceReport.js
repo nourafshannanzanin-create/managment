@@ -66,6 +66,9 @@ function personMeta(event) {
     userRole: event.userRole || event.user_role || '',
     userDepartment: event.userDepartment || event.user_department || '',
     userPhone: event.userPhone || event.user_phone || '',
+    userAvatar: event.userAvatar || event.user_avatar || event.avatar || '',
+    userAvatarUrl: event.userAvatarUrl || event.user_avatar_url || event.avatarUrl || event.avatar_url || '',
+    avatarUrl: event.userAvatarUrl || event.user_avatar_url || event.avatarUrl || event.avatar_url || '',
   }
 }
 

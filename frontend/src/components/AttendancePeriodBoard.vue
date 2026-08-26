@@ -259,7 +259,12 @@ watch(isTodayMode, (today) => {
           <tr v-for="row in todayPairs" :key="row.id">
             <td class="is-in">
               <div v-if="row.inEvent" class="punch-cell">
-                <UserAvatar :name="row.userName" size="sm" />
+                <UserAvatar
+                  :name="row.userName"
+                  :avatar="row.userAvatar"
+                  :avatar-url="row.userAvatarUrl || row.avatarUrl"
+                  size="sm"
+                />
                 <div class="punch-copy">
                   <strong>{{ row.userName }}</strong>
                   <small>{{ personMetaLine(row) || '—' }}</small>
@@ -270,7 +275,12 @@ watch(isTodayMode, (today) => {
             </td>
             <td class="is-out">
               <div v-if="row.outEvent" class="punch-cell">
-                <UserAvatar :name="row.userName" size="sm" />
+                <UserAvatar
+                  :name="row.userName"
+                  :avatar="row.userAvatar"
+                  :avatar-url="row.userAvatarUrl || row.avatarUrl"
+                  size="sm"
+                />
                 <div class="punch-copy">
                   <strong>{{ row.userName }}</strong>
                   <small>{{ personMetaLine(row) || '—' }}</small>
@@ -317,7 +327,12 @@ watch(isTodayMode, (today) => {
           >
             <td>
               <div class="person-identity">
-                <UserAvatar :name="person.userName" size="sm" />
+                <UserAvatar
+                  :name="person.userName"
+                  :avatar="person.userAvatar"
+                  :avatar-url="person.userAvatarUrl || person.avatarUrl"
+                  size="sm"
+                />
                 <div>
                   <strong>{{ person.userName }}</strong>
                   <small>{{ person.userRole || '—' }}</small>
@@ -353,7 +368,12 @@ watch(isTodayMode, (today) => {
   <BaseModal :open="!!selectedPerson" size="detail" @close="closePerson">
     <article v-if="selectedPerson" class="attendance-person-modal">
       <header class="attendance-person-hero">
-        <UserAvatar :name="selectedPerson.userName" size="lg" />
+        <UserAvatar
+          :name="selectedPerson.userName"
+          :avatar="selectedPerson.userAvatar"
+          :avatar-url="selectedPerson.userAvatarUrl || selectedPerson.avatarUrl"
+          size="lg"
+        />
         <div class="attendance-person-title">
           <span class="page-eyebrow">جزئیات ورود و خروج</span>
           <h2>{{ selectedPerson.userName }}</h2>

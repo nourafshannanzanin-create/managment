@@ -1,4 +1,21 @@
 User-agent: *
-Disallow: /
+Allow: /
+Disallow: /login
+Disallow: /dashboard
+Disallow: /tasking
+Disallow: /requests
+Disallow: /expenses
+Disallow: /wallet
+Disallow: /attendance
+Disallow: /archive
+Disallow: /cloud
+Disallow: /support
+Disallow: /chat
+Disallow: /hq
+Disallow: /approvals
+Disallow: /reports
+Disallow: /users
+Disallow: /settings
+Disallow: /api/
 
 Sitemap: https://carnomand.ir/sitemap.xml

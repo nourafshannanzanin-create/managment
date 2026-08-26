@@ -1049,3 +1049,62 @@ class IdempotencyRecord(models.Model):
             models.Index(fields=["created_at"], name="idx_idempotency_created"),
         ]
 
+
+class ArchiveDocument(TimeStampedModel):
+    """Electronic archive item shared inside an organization."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="archive_documents")
+    code = models.CharField(max_length=40, unique=True, db_index=True)
+    title = models.CharField(max_length=180)
+    description = models.TextField(blank=True, default="")
+    document_date = models.DateField(db_index=True)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="archive_documents")
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="archive_documents",
+    )
+    file_name = models.CharField(max_length=255)
+    original_name = models.CharField(max_length=255, blank=True, default="")
+    mime_type = models.CharField(max_length=120, blank=True, default="")
+    size_bytes = models.PositiveIntegerField(default=0)
+    deleted_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "archive_documents"
+        indexes = [
+            models.Index(fields=["organization", "-document_date"], name="idx_archive_org_date"),
+            models.Index(fields=["owner", "-created_at"], name="idx_archive_owner_created"),
+        ]
+
+
+class ArchiveReferral(TimeStampedModel):
+    class Status(models.TextChoices):
+        PENDING = "pending", "در حال بررسی"
+        APPROVED = "approved", "تأیید شده"
+
+    document = models.ForeignKey(ArchiveDocument, on_delete=models.CASCADE, related_name="referrals")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="archive_referrals")
+    referred_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="archive_referrals_made",
+    )
+    note = models.TextField(blank=True, default="")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
+    decided_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = "archive_referrals"
+        constraints = [
+            models.UniqueConstraint(fields=["document", "user"], name="uq_archive_document_user"),
+        ]
+        indexes = [
+            models.Index(fields=["user", "-created_at"], name="idx_archive_ref_user"),
+        ]
+

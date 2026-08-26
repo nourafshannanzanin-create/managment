@@ -1,9 +1,11 @@
 <script setup>
 import IconlyIcon from './base/IconlyIcon.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
+import { computed } from 'vue'
 
-defineProps({
+const props = defineProps({
   query: { type: String, default: '' },
+  description: { type: String, default: '' },
   person: { type: String, default: '' },
   startDate: { type: String, default: '' },
   endDate: { type: String, default: '' },
@@ -11,9 +13,21 @@ defineProps({
   people: { type: Array, default: () => [] },
   dense: { type: Boolean, default: false },
   showStatusFilter: { type: Boolean, default: false },
+  /** default = workflow list filters; archive = title/description/referral */
+  variant: { type: String, default: 'default' },
 })
 
-const emit = defineEmits(['update:query', 'update:person', 'update:startDate', 'update:endDate', 'update:status', 'reset'])
+const emit = defineEmits([
+  'update:query',
+  'update:description',
+  'update:person',
+  'update:startDate',
+  'update:endDate',
+  'update:status',
+  'reset',
+])
+
+const isArchive = computed(() => props.variant === 'archive')
 
 const workflowStatusOptions = [
   { value: '', label: 'همه وضعیت‌ها' },
@@ -24,24 +38,48 @@ const workflowStatusOptions = [
 </script>
 
 <template>
-  <section :class="['page-filters', 'modern-page-filters', dense && 'is-dense', showStatusFilter && 'has-status-filter']">
+  <section
+    :class="[
+      'page-filters',
+      'modern-page-filters',
+      dense && 'is-dense',
+      (showStatusFilter || isArchive) && 'has-status-filter',
+      isArchive && 'is-archive-filters',
+    ]"
+  >
     <label class="field-shell compact-field filter-field is-search">
       <span class="filter-field-label">
-        <IconlyIcon name="search" decorative />
-        <span>جستجو</span>
+        <IconlyIcon :name="isArchive ? 'description' : 'search'" decorative />
+        <span>{{ isArchive ? 'نام سند' : 'جستجو' }}</span>
       </span>
       <div class="filter-field-control">
         <input
           class="filter-input"
           :value="query"
           type="text"
-          placeholder="نام، عنوان، شناسه..."
+          :placeholder="isArchive ? 'جستجو در نام سند...' : 'نام، عنوان، شناسه...'"
           @input="emit('update:query', $event.target.value)"
         />
       </div>
     </label>
 
-    <label class="field-shell compact-field filter-field">
+    <label v-if="isArchive" class="field-shell compact-field filter-field">
+      <span class="filter-field-label">
+        <IconlyIcon name="notes" decorative />
+        <span>توضیحات سند</span>
+      </span>
+      <div class="filter-field-control">
+        <input
+          class="filter-input"
+          :value="description"
+          type="text"
+          placeholder="جستجو در توضیحات..."
+          @input="emit('update:description', $event.target.value)"
+        />
+      </div>
+    </label>
+
+    <label v-else class="field-shell compact-field filter-field">
       <span class="filter-field-label">
         <IconlyIcon name="group" decorative />
         <span>شخص</span>
@@ -85,7 +123,21 @@ const workflowStatusOptions = [
       </div>
     </label>
 
-    <label v-if="showStatusFilter" class="field-shell compact-field filter-field">
+    <label v-if="isArchive" class="field-shell compact-field filter-field">
+      <span class="filter-field-label">
+        <IconlyIcon name="forward" decorative />
+        <span>ارجاع</span>
+      </span>
+      <div class="filter-field-control filter-select-wrap">
+        <select class="filter-select" :value="person" @change="emit('update:person', $event.target.value)">
+          <option value="">همه ارجاع‌ها</option>
+          <option v-for="item in people" :key="item" :value="item">{{ item }}</option>
+        </select>
+        <IconlyIcon name="expand_more" class="filter-select-icon" decorative />
+      </div>
+    </label>
+
+    <label v-if="showStatusFilter && !isArchive" class="field-shell compact-field filter-field">
       <span class="filter-field-label">
         <IconlyIcon name="fact_check" decorative />
         <span>وضعیت</span>

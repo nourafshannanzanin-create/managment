@@ -15,6 +15,8 @@ SECTION_REPORTS = "reports"
 SECTION_APPROVALS = "approvals"
 SECTION_EXPENSES = "expenses"
 SECTION_SETTINGS = "settings"
+SECTION_ATTENDANCE = "attendance"
+SECTION_ARCHIVE = "archive"
 
 
 def is_manager(user: User) -> bool:
@@ -86,6 +88,9 @@ def has_section_access(user: User, section_key: str) -> bool:
         return False
     if section_key == SECTION_SETTINGS:
         return False
+    # attendance / archive: by default open to all roles until grants are configured
+    if section_key in {SECTION_ATTENDANCE, SECTION_ARCHIVE}:
+        return True
     return True
 
 
@@ -123,6 +128,14 @@ def can_access_settings(user: User) -> bool:
     if is_manager(user):
         return True
     return has_section_access(user, SECTION_SETTINGS)
+
+
+def can_access_attendance(user: User) -> bool:
+    return has_section_access(user, SECTION_ATTENDANCE)
+
+
+def can_access_archive(user: User) -> bool:
+    return has_section_access(user, SECTION_ARCHIVE)
 
 
 def can_edit_work_times(user: User) -> bool:

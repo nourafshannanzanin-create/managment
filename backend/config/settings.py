@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import pymysql
+from corsheaders.defaults import default_headers
 from dotenv import load_dotenv
 
 pymysql.install_as_MySQLdb()
@@ -149,6 +150,10 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://([a-z0-9-]+\.)*carnomand\.ir$",
     r"^http://([a-z0-9-]+\.)*carnomand\.ir$",
 ]
+# Frontend mutations send Idempotency-Key; without this, browsers block POST after preflight
+# and surface a generic "Failed to fetch" (OPTIONS 200, no POST reaches Django).
+CORS_ALLOW_HEADERS = (*default_headers, "idempotency-key")
+CORS_EXPOSE_HEADERS = ("Idempotency-Replayed",)
 CSRF_TRUSTED_ORIGINS = env_list(
     "WORKFLOW_CSRF_TRUSTED_ORIGINS",
     "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173",

@@ -462,9 +462,7 @@
     radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.34), transparent 42%),
     linear-gradient(145deg, #2bb89a 0%, #1f8a70 48%, #176f5a 100%) !important;
   color: #ffffff !important;
-  box-shadow:
-    0 10px 24px rgba(31, 138, 112, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+  box-shadow: none !important;
   overflow: visible !important;
 }
 
@@ -475,6 +473,7 @@
     linear-gradient(145deg, #34c4a4 0%, #18745e 55%, #13604e 100%) !important;
   color: #ffffff !important;
   transform: translateY(-1px) scale(1.03);
+  box-shadow: none !important;
 }
 
 #app .app-shell:not(.is-auth-route) .dashboard-page-premium .page-header-tools .dashboard-punch-btn .iconly-shell,
@@ -484,7 +483,7 @@
   font-size: 28px !important;
   color: #ffffff !important;
   --iconly-filter: brightness(0) invert(1) !important;
-  filter: drop-shadow(0 2px 4px rgba(15, 70, 58, 0.25));
+  filter: none;
 }
 
 #app .app-shell:not(.is-auth-route) .dashboard-page-premium .page-header-tools .dashboard-punch-btn .iconly-img,

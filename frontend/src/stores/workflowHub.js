@@ -3,7 +3,7 @@ import { useRouter } from 'vue-router'
 
 import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { AppError, appErrorFromResponse, createValidationError, hasFieldError, normalizeError } from '../utils/errors'
-import { formatJalali, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
+import { formatJalali, getTodayIso, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
 import { notifyNewChatMessages, notifyNewExpenses, notifyNewSupportTickets, notifyInboxGrowth, playInboxAlertSound, playTicketAlertSound } from '../utils/ticketAlert'
 import { notifyInfo, notifySuccess, notifyWarning } from '../utils/notify'
 import { repairPayload } from '../utils/stitch'
@@ -34,7 +34,8 @@ let sessionExpiryRedirectInFlight = false
 function goToLoginScreen({ sessionExpired = false } = {}) {
   if (typeof window === 'undefined') return
   const currentPath = window.location.pathname || ''
-  if (currentPath === '/login' || currentPath.startsWith('/attendance/')) return
+  // Never yank visitors off the marketing landing or public attendance links.
+  if (currentPath === '/' || currentPath === '/login' || currentPath.startsWith('/attendance/')) return
   if (sessionExpired) {
     try {
       sessionStorage.setItem(SESSION_EXPIRED_FLAG, '1')
@@ -84,6 +85,8 @@ function createCurrentUser() {
     canViewReports: false,
     canAccessApprovals: false,
     canApproveDocuments: false,
+    canAccessAttendance: true,
+    canAccessArchive: true,
     isManager: false,
     isHq: false,
     isHqAdmin: false,
@@ -172,6 +175,8 @@ function createUserForm() {
       reports: false,
       users: false,
       settings: false,
+      attendance: false,
+      archive: false,
     },
   }
 }
@@ -184,6 +189,17 @@ function createDocumentForm() {
     assigneeIds: [],
     documentType: 'سند',
     risk: 'medium',
+    file: null,
+  }
+}
+
+function createArchiveForm() {
+  return {
+    title: '',
+    description: '',
+    documentDate: getTodayIso(),
+    departmentId: '',
+    assigneeIds: [],
     file: null,
   }
 }
@@ -295,6 +311,17 @@ function createChatState() {
   return {
     unreadConversations: 0,
     loaded: false,
+  }
+}
+
+function createArchiveState() {
+  return {
+    loaded: false,
+    loading: false,
+    submitting: false,
+    items: [],
+    selected: null,
+    stats: { total: 0, mine: 0, shared: 0 },
   }
 }
 
@@ -429,6 +456,7 @@ const state = reactive({
   support: createSupportState(),
   chat: createChatState(),
   tasking: createTaskingState(),
+  archive: createArchiveState(),
   settingsCards: [],
   directories: {
     departments: [],
@@ -439,10 +467,12 @@ const state = reactive({
   expenseForm: createExpenseForm(),
   userForm: createUserForm(),
   documentForm: createDocumentForm(),
+  archiveForm: createArchiveForm(),
   requestSubmitting: false,
   expenseSubmitting: false,
   userSubmitting: false,
   documentSubmitting: false,
+  archiveSubmitting: false,
   fileUploadPreparing: false,
   filters: {
     requests: { query: '', person: '', startDate: '', endDate: '', status: '' },
@@ -450,6 +480,7 @@ const state = reactive({
     approvals: { query: '', person: '', startDate: '', endDate: '', status: '' },
     reports: { query: '', person: '', startDate: '', endDate: '' },
     users: { query: '', person: '', startDate: '', endDate: '' },
+    archive: { query: '', description: '', person: '', startDate: '', endDate: '' },
   },
 })
 
@@ -464,6 +495,8 @@ const modalState = reactive({
   signatureComposer: false,
   taskComposer: false,
   taskDetail: false,
+  archiveComposer: false,
+  archiveDetail: false,
 })
 
 const requestDetailState = reactive({
@@ -537,6 +570,43 @@ function resetSupportState() {
 function resetChatState() {
   Object.assign(state.chat, createChatState())
   Object.assign(state.tasking, createTaskingState())
+  Object.assign(state.archive, createArchiveState())
+}
+
+function normalizeArchiveDocument(item = {}) {
+  return {
+    ...item,
+    id: item?.id || item?.code || '',
+    code: cleanDisplayText(item?.code),
+    title: cleanDisplayText(item?.title),
+    description: cleanDisplayText(item?.description),
+    documentDate: item?.documentDate || item?.document_date || '',
+    ownerName: cleanDisplayText(item?.ownerName || item?.owner?.name),
+    department: cleanDisplayText(item?.department),
+    fileName: cleanDisplayText(item?.fileName || item?.originalName),
+    previewUrl: resolveAssetUrl(item?.previewUrl),
+    downloadUrl: resolveAssetUrl(item?.downloadUrl),
+    referrals: (item?.referrals || []).map((person) => ({
+      ...person,
+      name: cleanDisplayText(person?.name),
+      jobTitle: cleanDisplayText(person?.jobTitle || person?.role),
+      department: cleanDisplayText(person?.department),
+      avatarUrl: resolveAssetUrl(person?.avatarUrl || person?.avatar_url || person?.avatar),
+      status: person?.status || 'pending',
+      statusLabel: cleanDisplayText(person?.statusLabel) || (person?.isApproved ? 'تأیید شده' : 'در حال بررسی'),
+      isApproved: Boolean(person?.isApproved || person?.status === 'approved'),
+    })),
+    referralNames: (item?.referralNames || []).map((name) => cleanDisplayText(name)).filter(Boolean),
+    status: item?.status || 'recorded',
+    statusLabel: cleanDisplayText(item?.statusLabel) || 'ثبت شده',
+    previewKind: item?.previewKind || 'file',
+    isOwner: Boolean(item?.isOwner),
+    isReferred: Boolean(item?.isReferred),
+    canApprove: Boolean(item?.canApprove),
+    canDelete: Boolean(item?.canDelete),
+    canRefer: Boolean(item?.canRefer),
+    canDownload: item?.canDownload !== false,
+  }
 }
 
 function replaceItems(target, items) {
@@ -1156,11 +1226,40 @@ const filteredUsers = computed(() => {
   )
 })
 
+const filteredArchiveDocuments = computed(() => {
+  const filter = state.filters.archive || { query: '', description: '', person: '', startDate: '', endDate: '' }
+  const titleQuery = String(filter.query || '').trim().toLowerCase()
+  const descriptionQuery = String(filter.description || '').trim().toLowerCase()
+  const referral = String(filter.person || '').trim()
+  return (state.archive.items || []).filter((item) => {
+    if (titleQuery && !String(item.title || '').toLowerCase().includes(titleQuery)) return false
+    if (descriptionQuery && !String(item.description || '').toLowerCase().includes(descriptionQuery)) return false
+    if (referral) {
+      const names = [
+        ...(item.referralNames || []),
+        ...(item.referrals || []).map((person) => person?.name).filter(Boolean),
+      ]
+      if (!names.some((name) => String(name) === referral)) return false
+    }
+    const dateValue = String(item.documentDate || '').slice(0, 10)
+    if (!inDateRange(dateValue, filter.startDate, filter.endDate)) return false
+    return true
+  })
+})
+
 const requestPeople = computed(() => [...new Set(state.requests.flatMap((item) => [item.owner, item.manager, ...(item.managerAssignees || [])]).filter(Boolean))])
 const expensePeople = computed(() => [...new Set(state.expenses.map((item) => item.owner).filter(Boolean))])
 const approvalPeople = computed(() => [...new Set(state.approvals.map((item) => item.owner).filter(Boolean))])
 const reportPeople = computed(() => [...new Set(state.reports.map((item) => item.owner).filter(Boolean))])
 const userPeople = computed(() => [...new Set(state.users.flatMap((item) => [item.name, item.manager]).filter(Boolean))])
+const archivePeople = computed(() => [
+  ...new Set(
+    (state.archive.items || []).flatMap((item) => [
+      ...(item.referralNames || []),
+      ...(item.referrals || []).map((person) => person?.name).filter(Boolean),
+    ]).filter(Boolean),
+  ),
+])
 
 function priorityLabel(value) {
   return {
@@ -2519,6 +2618,7 @@ export function useWorkflowHub() {
     if (!state.filters[page]) return
     const reset = { query: '', person: '', startDate: '', endDate: '' }
     if ('status' in state.filters[page]) reset.status = ''
+    if ('description' in state.filters[page]) reset.description = ''
     Object.assign(state.filters[page], reset)
   }
 
@@ -3767,6 +3867,213 @@ async function removeUserEntrustedItem(userId, itemId) {
     }
   }
 
+  async function loadArchiveDocuments(force = false) {
+    if (state.archive.loading) return state.archive
+    if (state.archive.loaded && !force) return state.archive
+    state.archive.loading = true
+    clearLastError()
+    try {
+      const response = await authorizedFetch('/archive')
+      const payload = repairPayload(await response.json())
+      state.archive.items = (payload.items || []).map(normalizeArchiveDocument)
+      state.archive.stats = {
+        total: Number(payload.stats?.total || state.archive.items.length || 0),
+        mine: Number(payload.stats?.mine || 0),
+        shared: Number(payload.stats?.shared || 0),
+      }
+      state.archive.loaded = true
+      return state.archive
+    } catch (error) {
+      setLastError(error, 'بارگذاری بایگانی ناموفق بود.')
+      throw error
+    } finally {
+      state.archive.loading = false
+    }
+  }
+
+  function openArchiveComposer() {
+    clearLastError()
+    Object.assign(state.archiveForm, createArchiveForm(), {
+      documentDate: getTodayIso(),
+      departmentId: String(state.currentUser.departmentId || state.currentUser.department_id || ''),
+    })
+    modalState.archiveComposer = true
+  }
+
+  function closeArchiveComposer() {
+    clearLastError()
+    modalState.archiveComposer = false
+    Object.assign(state.archiveForm, createArchiveForm())
+  }
+
+  function openArchiveDetail(item) {
+    clearLastError()
+    state.archive.selected = item ? normalizeArchiveDocument(item) : null
+    modalState.archiveDetail = true
+  }
+
+  function closeArchiveDetail() {
+    clearLastError()
+    modalState.archiveDetail = false
+    state.archive.selected = null
+  }
+
+  async function setArchiveFile(file) {
+    if (!file) {
+      state.archiveForm.file = null
+      return
+    }
+    state.fileUploadPreparing = true
+    clearLastError()
+    try {
+      const ext = `.${String(file.name || '').split('.').pop()?.toLowerCase() || ''}`
+      const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.zip', '.txt']
+      if (!allowed.includes(ext)) {
+        throw createValidationError('نوع فایل مجاز نیست.', [{ field: 'file', message: 'PDF، تصویر، Word، Excel، ZIP یا TXT انتخاب کنید.' }])
+      }
+      if (Number(file.size || 0) > 15 * 1024 * 1024) {
+        throw createValidationError('حجم فایل بیش از حد مجاز است.', [{ field: 'file', message: 'حداکثر ۱۵ مگابایت.' }])
+      }
+      if (Number(file.size || 0) <= 0) {
+        throw createValidationError('فایل خالی است.', [{ field: 'file', message: 'فایل معتبر انتخاب کنید.' }])
+      }
+      state.archiveForm.file = storeRawFile(file)
+    } catch (error) {
+      state.archiveForm.file = null
+      setLastError(error, 'انتخاب فایل بایگانی ناموفق بود.')
+      throw error
+    } finally {
+      state.fileUploadPreparing = false
+    }
+  }
+
+  function normalizeArchiveDocumentDate(value) {
+    const raw = String(value || '').trim()
+    if (!raw) return getTodayIso()
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10)
+    const fromJalali = jalaliToIso(raw)
+    return fromJalali || getTodayIso()
+  }
+
+  async function submitArchiveDocument() {
+    state.archiveSubmitting = true
+    clearLastError()
+    try {
+      const title = String(state.archiveForm.title || '').trim()
+      const documentDate = normalizeArchiveDocumentDate(state.archiveForm.documentDate)
+      const rawFile = state.archiveForm.file
+      if (!title) {
+        throw createValidationError('نام سند الزامی است.', [{ field: 'title', message: 'نام سند را وارد کنید.' }])
+      }
+      if (!documentDate) {
+        throw createValidationError('تاریخ سند الزامی است.', [{ field: 'documentDate', message: 'تاریخ سند را انتخاب کنید.' }])
+      }
+      if (!rawFile) {
+        throw createValidationError('بارگذاری فایل الزامی است.', [{ field: 'file', message: 'فایل سند را انتخاب کنید.' }])
+      }
+
+      const formData = new FormData()
+      formData.append('title', title)
+      formData.append('description', String(state.archiveForm.description || '').trim())
+      formData.append('documentDate', documentDate)
+      if (state.archiveForm.departmentId) {
+        formData.append('departmentId', String(state.archiveForm.departmentId))
+      }
+      if (Array.isArray(state.archiveForm.assigneeIds) && state.archiveForm.assigneeIds.length) {
+        formData.append('assigneeIds', state.archiveForm.assigneeIds.join(','))
+      }
+      formData.append('file', rawFile, rawFile.name || 'archive-file')
+
+      const response = await authorizedFetch('/archive', { method: 'POST', body: formData, timeout: 180000 })
+      const created = normalizeArchiveDocument(repairPayload(await response.json()))
+      state.archive.items = [created, ...state.archive.items.filter((item) => item.id !== created.id)]
+      state.archive.stats = {
+        total: state.archive.items.length,
+        mine: state.archive.items.filter((item) => item.isOwner).length,
+        shared: state.archive.items.filter((item) => item.isReferred && !item.isOwner).length,
+      }
+      state.archive.loaded = true
+      state.archive.selected = created
+      closeArchiveComposer()
+      modalState.archiveDetail = true
+      notifySuccess('سند در بایگانی ثبت شد.')
+      return created
+    } catch (error) {
+      setLastError(error, 'ثبت سند بایگانی ناموفق بود.')
+      throw error
+    } finally {
+      state.archiveSubmitting = false
+    }
+  }
+
+  async function createArchiveDocument(payload = {}) {
+    if (payload && (payload.title || payload.file)) {
+      Object.assign(state.archiveForm, {
+        title: payload.title ?? state.archiveForm.title,
+        description: payload.description ?? state.archiveForm.description,
+        documentDate: payload.documentDate ?? state.archiveForm.documentDate,
+        departmentId: payload.departmentId ?? state.archiveForm.departmentId,
+        assigneeIds: Array.isArray(payload.assigneeIds) ? payload.assigneeIds : state.archiveForm.assigneeIds,
+        file: payload.file ? storeRawFile(payload.file) : state.archiveForm.file,
+      })
+    }
+    return submitArchiveDocument()
+  }
+
+  async function referArchiveDocument(documentId, assigneeIds = [], note = '') {
+    clearLastError()
+    try {
+      const response = await authorizedFetch(`/archive/${documentId}/refer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assigneeIds, note }),
+      })
+      const updated = normalizeArchiveDocument(repairPayload(await response.json()))
+      state.archive.items = state.archive.items.map((item) => (item.id === updated.id ? updated : item))
+      if (state.archive.selected?.id === updated.id) state.archive.selected = updated
+      return updated
+    } catch (error) {
+      setLastError(error, 'ارجاع سند بایگانی ناموفق بود.')
+      throw error
+    }
+  }
+
+  async function approveArchiveDocument(documentId) {
+    clearLastError()
+    try {
+      const response = await authorizedFetch(`/archive/${documentId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const updated = normalizeArchiveDocument(repairPayload(await response.json()))
+      state.archive.items = state.archive.items.map((item) => (item.id === updated.id ? updated : item))
+      if (state.archive.selected?.id === updated.id) state.archive.selected = updated
+      return updated
+    } catch (error) {
+      setLastError(error, 'تأیید سند بایگانی ناموفق بود.')
+      throw error
+    }
+  }
+
+  async function deleteArchiveDocument(documentId) {
+    clearLastError()
+    try {
+      await authorizedFetch(`/archive/${documentId}`, { method: 'DELETE' })
+      state.archive.items = state.archive.items.filter((item) => item.id !== documentId)
+      state.archive.stats = {
+        total: state.archive.items.length,
+        mine: state.archive.items.filter((item) => item.isOwner).length,
+        shared: state.archive.items.filter((item) => item.isReferred && !item.isOwner).length,
+      }
+      if (state.archive.selected?.id === documentId) state.archive.selected = null
+      return true
+    } catch (error) {
+      setLastError(error, 'حذف سند بایگانی ناموفق بود.')
+      throw error
+    }
+  }
+
   singleton = {
     state,
     modalState,
@@ -3787,12 +4094,14 @@ async function removeUserEntrustedItem(userId, itemId) {
     approvalHistory,
     filteredReports,
     filteredUsers,
+    filteredArchiveDocuments,
     requestPeople,
     requestManagerAssigneeOptions,
     expensePeople,
     approvalPeople,
     reportPeople,
     userPeople,
+    archivePeople,
     canManageUsers,
     canViewReports,
     canAccessApprovals,
@@ -3872,6 +4181,17 @@ async function removeUserEntrustedItem(userId, itemId) {
     loadTaskingSettings,
     saveTaskingSettings,
     loadTaskingReports,
+    loadArchiveDocuments,
+    openArchiveComposer,
+    closeArchiveComposer,
+    openArchiveDetail,
+    closeArchiveDetail,
+    setArchiveFile,
+    submitArchiveDocument,
+    createArchiveDocument,
+    referArchiveDocument,
+    approveArchiveDocument,
+    deleteArchiveDocument,
     requestInboxCount,
     expenseInboxCount,
     approvalInboxCount,

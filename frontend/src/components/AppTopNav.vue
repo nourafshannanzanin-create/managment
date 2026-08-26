@@ -11,11 +11,13 @@ import { useWorkflowHub } from '../stores/workflowHub'
 const route = useRoute()
 const {
   approvalPeople,
+  archivePeople,
   expensePeople,
   openDocumentComposer,
   openExpenseComposer,
   openRequestComposer,
   openSignatureComposer,
+  openArchiveComposer,
   reportPeople,
   requestPeople,
   resetPageFilters,
@@ -93,11 +95,19 @@ const pageConfig = computed(() => {
           : []),
       ],
     },
+    archive: {
+      eyebrow: 'بایگانی الکترونیکی',
+      title: 'بایگانی اسناد سازمانی',
+      description: 'ثبت نام و توضیحات سند، تاریخ، بارگذاری فایل و ارجاع به اعضای مجموعه.',
+      filterPage: 'archive',
+      filterVariant: 'archive',
+      actions: [{ label: 'ثبت سند بایگانی', icon: 'upload_file', handler: openArchiveComposer, tone: 'primary' }],
+    },
     reports: {
       eyebrow: 'گزارشات',
       title: 'گزارش‌های مدیریتی و خروجی‌ها',
       description: 'نمای تفکیکی گزارش در درخواست‌ها، هزینه‌ها و تاییدها با خروجی مستقیم.',
-      filterPage: 'reports',
+      // Filters live on the page (period chips + person) — topbar dates/person fight them on mobile.
     },
     users: {
       eyebrow: 'کاربران',
@@ -133,11 +143,13 @@ const peopleByPage = computed(() => ({
   approvals: approvalPeople.value,
   reports: reportPeople.value,
   users: userPeople.value,
+  archive: archivePeople.value,
 }))
 
 const activeFilterPage = computed(() => pageConfig.value.filterPage || '')
 const activeFilters = computed(() => (activeFilterPage.value ? state.filters[activeFilterPage.value] : null))
 const activePeople = computed(() => peopleByPage.value[activeFilterPage.value] || [])
+const filterVariant = computed(() => pageConfig.value.filterVariant || 'default')
 
 function setFilter(key, value) {
   if (!activeFilterPage.value) return
@@ -195,7 +207,7 @@ function handleHqOrganizationChange(event) {
             type="button"
             :aria-label="action.label"
             :title="action.label"
-            @click="action.handler"
+            @click="() => action.handler?.()"
           >
             <IconlyIcon
               :name="action.icon"
@@ -211,7 +223,9 @@ function handleHqOrganizationChange(event) {
     <PageFilters
       v-if="activeFilters"
       class="topbar-filters"
+      :variant="filterVariant"
       :query="activeFilters.query"
+      :description="activeFilters.description || ''"
       :person="activeFilters.person"
       :start-date="activeFilters.startDate"
       :end-date="activeFilters.endDate"
@@ -219,6 +233,7 @@ function handleHqOrganizationChange(event) {
       :show-status-filter="['requests', 'expenses', 'approvals'].includes(activeFilterPage)"
       :people="activePeople"
       @update:query="setFilter('query', $event)"
+      @update:description="setFilter('description', $event)"
       @update:person="setFilter('person', $event)"
       @update:start-date="setFilter('startDate', $event)"
       @update:end-date="setFilter('endDate', $event)"
@@ -332,7 +347,7 @@ function handleHqOrganizationChange(event) {
   border-radius: 20px !important;
   background: #1f8a70 !important;
   color: #fff !important;
-  box-shadow: 0 12px 28px rgba(31, 138, 112, 0.32) !important;
+  box-shadow: none !important;
 }
 
 .topbar-icon-action.is-icon-only.is-punch-action:hover,
@@ -341,7 +356,7 @@ function handleHqOrganizationChange(event) {
 .topbar-icon-action.is-icon-only.attendance-punch-topbar-btn:focus-visible {
   background: #187a63 !important;
   color: #fff !important;
-  box-shadow: 0 14px 30px rgba(31, 138, 112, 0.4) !important;
+  box-shadow: none !important;
 }
 
 .topbar-icon-action.is-icon-only.is-punch-action :deep(.iconly-shell),

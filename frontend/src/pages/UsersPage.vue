@@ -44,6 +44,8 @@ const editableUser = reactive({
     reports: false,
     users: false,
     settings: false,
+    attendance: false,
+    archive: false,
   },
 })
 
@@ -76,6 +78,8 @@ const sectionAccessOptions = [
   { key: 'users', title: 'کاربران' },
   { key: 'expenses', title: 'هزینه‌ها' },
   { key: 'reports', title: 'گزارشات' },
+  { key: 'attendance', title: 'ورود و خروج' },
+  { key: 'archive', title: 'بایگانی' },
   { key: 'settings', title: 'تنظیمات' },
 ]
 
@@ -136,6 +140,8 @@ function syncEditableFromUser(user) {
       reports: Boolean(user?.sectionAccess?.reports),
       users: Boolean(user?.sectionAccess?.users),
       settings: Boolean(user?.sectionAccess?.settings),
+      attendance: Boolean(user?.sectionAccess?.attendance),
+      archive: Boolean(user?.sectionAccess?.archive),
     },
   })
 }
@@ -676,9 +682,10 @@ function userManagerOptions(userId) {
 }
 
 .users-toolbar-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
-  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12px;
   padding-bottom: 10px;
   border-bottom: 1px solid rgba(52, 144, 139, 0.14);
@@ -701,20 +708,23 @@ function userManagerOptions(userId) {
 }
 
 .users-header-actions {
-  display: grid;
-  grid-template-columns: 1fr;
-  align-items: stretch;
-  gap: 10px;
-  width: 100%;
-  min-width: min(280px, 100%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .users-header-actions .meta-pill {
-  justify-self: start;
+  flex: 0 0 auto;
 }
 
 .users-add-btn {
-  width: 100%;
+  width: auto;
+  min-width: 0;
   min-height: 42px !important;
   justify-content: center;
   white-space: nowrap;
@@ -1208,6 +1218,16 @@ function userManagerOptions(userId) {
     flex-direction: column;
   }
 
+  .users-header-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .users-add-btn {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
   .user-card-head {
     flex-direction: row;
     flex-wrap: wrap;
@@ -1222,10 +1242,6 @@ function userManagerOptions(userId) {
   .user-card-head > .status-badge {
     flex: 0 0 auto;
     max-width: 100%;
-  }
-
-  .users-header-actions {
-    min-width: 0;
   }
 
   .users-toolbar-primary {

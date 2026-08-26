@@ -340,11 +340,12 @@ class UserAndSettingsTests(TestCase):
         self.assertTrue(manager_row["avatarUrl"].endswith("avatars/manager-photo.png"))
         self.assertEqual(manager_row["avatarFileName"], "manager-photo.png")
 
-    def test_settings_profile_uses_and_updates_organization_code(self):
+    def test_settings_profile_uses_organization_code_and_keeps_it_immutable(self):
+        original_code = self.organization.code
         profile_response = self.client.get("/api/v1/settings/profile")
 
         self.assertEqual(profile_response.status_code, 200)
-        self.assertEqual(profile_response.json()["systemId"], self.organization.code.upper())
+        self.assertEqual(profile_response.json()["systemId"], original_code.upper())
 
         update_response = self.client.post(
             "/api/v1/settings/profile",
@@ -358,8 +359,8 @@ class UserAndSettingsTests(TestCase):
         self.assertEqual(update_response.status_code, 200)
         self.organization.refresh_from_db()
         self.assertEqual(self.organization.name, "سلام علیک")
-        self.assertEqual(self.organization.code, "karo-0018")
-        self.assertEqual(update_response.json()["systemId"], "KARO-0018")
+        self.assertEqual(self.organization.code, original_code)
+        self.assertEqual(update_response.json()["systemId"], original_code.upper())
 
     def test_update_user_persists_phone(self):
         user = User.objects.create(

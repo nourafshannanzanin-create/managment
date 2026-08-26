@@ -11,6 +11,7 @@ import UserAvatar from '../components/UserAvatar.vue'
 import { haversineDistanceMeters, readDeviceLocation } from '../lib/geolocation'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatJalali, formatTehranDate, formatTehranDateTime, formatTehranTime, getTehranClock, getTodayIso, getTodayJalali, isoToJalali, jalaliMonthStartIso, jalaliToIso, jalaliWeekStartIso } from '../utils/jalali'
+import { exportAttendanceReportPdf } from '../utils/attendancePdfExport'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 const TOKEN_KEY = 'workflow-hub-token'
@@ -239,6 +240,15 @@ function applyQuickRange(key) {
     reportFilters.value.start = isoToJalali(jalaliMonthStartIso(todayIso))
     reportFilters.value.end = todayJalali
   }
+  // Keep person / department / other filters — only the date window changes.
+  void loadReports()
+}
+
+function onManualReportDateChange() {
+  reportFilters.value.rangeKey = ''
+}
+
+function onReportPersonChange() {
   void loadReports()
 }
 
@@ -278,6 +288,19 @@ function exportReportsCsv() {
   link.click()
   URL.revokeObjectURL(url)
   successMessage.value = 'فایل CSV گزارش دانلود شد.'
+}
+
+function exportReportsPdf() {
+  if (!reportRows.value.length) return
+  const ok = exportAttendanceReportPdf({
+    events: reportRows.value,
+    title: 'گزارش ورود و خروج',
+    subtitle: reportFilterLabel.value,
+    organizationName: dashboard.value.organization?.name || state.currentUser.organization || 'کارنومند',
+  })
+  successMessage.value = ok
+    ? 'پیش‌نمایش PDF باز شد؛ از پنجره چاپ، ذخیره به‌صورت PDF را انتخاب کنید.'
+    : 'باز کردن پنجره PDF ناموفق بود. اجازه پاپ‌آپ را بررسی کنید.'
 }
 
 async function refreshLiveLocation() {
@@ -613,9 +636,13 @@ onMounted(() => {
               <IconlyIcon name="refresh" decorative />
               <span>بروزرسانی</span>
             </button>
-            <button class="action-btn tone-primary" type="button" :disabled="!reportRows.length" @click="exportReportsCsv">
+            <button class="action-btn tone-soft" type="button" :disabled="!reportRows.length" @click="exportReportsCsv">
               <IconlyIcon name="download" decorative />
               <span>خروجی CSV</span>
+            </button>
+            <button class="action-btn tone-primary" type="button" :disabled="!reportRows.length" @click="exportReportsPdf">
+              <IconlyIcon name="picture_as_pdf" decorative />
+              <span>خروجی PDF</span>
             </button>
           </div>
         </section>
@@ -639,15 +666,15 @@ onMounted(() => {
           </label>
           <label class="field-shell">
             <span>از تاریخ</span>
-            <ShamsiDatePicker v-model="reportFilters.start" model-type="jalali" placeholder="1405/04/01" />
+            <ShamsiDatePicker v-model="reportFilters.start" model-type="jalali" placeholder="1405/04/01" @update:model-value="onManualReportDateChange" />
           </label>
           <label class="field-shell">
             <span>تا تاریخ</span>
-            <ShamsiDatePicker v-model="reportFilters.end" model-type="jalali" placeholder="1405/04/31" />
+            <ShamsiDatePicker v-model="reportFilters.end" model-type="jalali" placeholder="1405/04/31" @update:model-value="onManualReportDateChange" />
           </label>
           <label class="field-shell">
             <span>پرسنل</span>
-            <select v-model="reportFilters.userId">
+            <select v-model="reportFilters.userId" @change="onReportPersonChange">
               <option value="">همه پرسنل</option>
               <option v-for="user in reportUsers" :key="user.id" :value="user.id">{{ user.name }}</option>
             </select>

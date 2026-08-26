@@ -287,6 +287,7 @@ body:has(.app-shell:not(.is-auth-route)),
 }
 
 #app .app-shell:not(.is-auth-route) .nav-link-badge {
+  position: static !important;
   margin-inline-start:auto !important;
   min-width:22px !important;
   height:22px !important;
@@ -295,10 +296,12 @@ body:has(.app-shell:not(.is-auth-route)),
   align-items:center !important;
   justify-content:center !important;
   border-radius:999px !important;
-  color:var(--on-primary) !important;
-  background:var(--primary) !important;
+  color:#c23a48 !important;
+  background:rgba(226, 85, 99, 0.14) !important;
   font-size:0.72rem !important;
-  font-weight:850 !important;
+  font-weight:700 !important;
+  font-variant-numeric: tabular-nums !important;
+  box-shadow: none !important;
 }
 
 #app .app-shell:not(.is-auth-route) .sidebar-logout {
@@ -1827,8 +1830,8 @@ body:has(.app-shell:not(.is-auth-route)),
 }
 
 #app .app-shell:not(.is-auth-route) .nav-link-badge {
-  background: #34908B !important;
-  color: #fff !important;
+  background: rgba(226, 85, 99, 0.14) !important;
+  color: #c23a48 !important;
 }
 
 #app .app-shell:not(.is-auth-route) .table-click-row:hover,
@@ -3836,14 +3839,14 @@ body:has(.app-shell:not(.is-auth-route)),
 }
 
 /* Reports filters: compact equal-height controls */
-#app .app-shell:not(.is-auth-route) .reports-page .report-filter-grid {
+#app .app-shell:not(.is-auth-route) .reports-page .report-toolbar-row {
   align-items: end !important;
   gap: 10px !important;
 }
 
 #app .app-shell:not(.is-auth-route) .reports-page .report-filter-field {
   display: grid !important;
-  grid-template-rows: 18px 36px !important;
+  grid-template-rows: 18px 40px !important;
   gap: 6px !important;
   padding: 0 !important;
   margin: 0 !important;
@@ -3856,23 +3859,35 @@ body:has(.app-shell:not(.is-auth-route)),
 #app .app-shell:not(.is-auth-route) .reports-page .report-export-btn,
 #app .app-shell:not(.is-auth-route) .reports-page .report-filter-field .shamsi-picker-input-wrap {
   box-sizing: border-box !important;
-  height: 36px !important;
-  min-height: 36px !important;
-  max-height: 36px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
 }
 
 #app .app-shell:not(.is-auth-route) .reports-page .report-tab {
-  min-height: 34px !important;
-  height: 34px !important;
+  min-height: 36px !important;
+  height: 36px !important;
   padding: 0 12px !important;
-  border-radius: 10px !important;
+  border-radius: 12px !important;
   background: #e4f4f2 !important;
   color: #1f5c59 !important;
 }
 
 #app .app-shell:not(.is-auth-route) .reports-page .report-tab.is-active {
+  background: #34908B !important;
+  color: #fff !important;
+}
+
+#app .app-shell:not(.is-auth-route) .reports-page .report-period-chips .filter-chip {
+  background: #eef6f4 !important;
+  color: #1f5c59 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+#app .app-shell:not(.is-auth-route) .reports-page .report-period-chips .filter-chip.is-active {
   background: #34908B !important;
   color: #fff !important;
 }
@@ -3949,7 +3964,6 @@ body:has(.app-shell:not(.is-auth-route)),
   .tone-primary,
   .chat-bubble.is-mine,
   .chat-send-btn,
-  .nav-link-badge,
   .report-tab.is-active
 ),
 #app .app-shell:not(.is-auth-route) :where(
@@ -3957,7 +3971,6 @@ body:has(.app-shell:not(.is-auth-route)),
   .tone-primary,
   .chat-bubble.is-mine,
   .chat-send-btn,
-  .nav-link-badge,
   .report-tab.is-active
 ) :where(span, strong, small, p, label) {
   color: #ffffff !important;
@@ -3968,7 +3981,6 @@ body:has(.app-shell:not(.is-auth-route)),
   .tone-primary,
   .chat-bubble.is-mine,
   .chat-send-btn,
-  .nav-link-badge,
   .report-tab.is-active
 ) .iconly-shell,
 #app .app-shell:not(.is-auth-route) :where(
@@ -4879,22 +4891,36 @@ body:has(.app-shell:not(.is-auth-route)),
 }
 
 #app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-badge {
+  position: static !important;
   margin-inline-start: auto !important;
-  min-width: 20px !important;
-  height: 20px !important;
-  padding: 0 6px !important;
+  flex: 0 0 auto !important;
+  min-width: 22px !important;
+  height: 22px !important;
+  padding: 0 7px !important;
   border-radius: 999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(226, 85, 99, 0.14) !important;
+  color: #c23a48 !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  font-variant-numeric: tabular-nums !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe.is-active .nav-link-badge {
   background: rgba(255, 255, 255, 0.22) !important;
   color: #ffffff !important;
-  font-size: 0.68rem !important;
-  font-weight: 850 !important;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18) !important;
 }
 
 #app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe:not(.is-active) .nav-link-badge {
-  background: #e11d48 !important;
-  color: #fff !important;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92) !important;
+  background: rgba(226, 85, 99, 0.14) !important;
+  color: #c23a48 !important;
+  box-shadow: none !important;
 }
 
 #app .app-shell:not(.is-auth-route) .sidebar-luxe .sidebar-footer-luxe {

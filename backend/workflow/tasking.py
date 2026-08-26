@@ -2031,12 +2031,44 @@ def reports_summary(user: User, *, start: date, end: date, user_id: int | None =
         actual = 0
         cursor = start
         days = 0
+        day_rows = []
         while cursor <= end:
             if is_working_day(settings_obj, cursor):
                 cap = capacity_for_day(person, settings_obj, cursor, batch_ctx=batch_ctx)
+                day_target = int(cap["targetMinutes"] or 0)
+                day_actual = int(cap["actualMinutes"] or 0)
+                day_deficit = max(0, day_target - day_actual)
+                day_overtime = max(0, day_actual - day_target)
+                day_ratio = (day_actual / day_target) if day_target else (1.0 if day_actual else 0.0)
+                if day_target <= 0 and day_actual <= 0:
+                    day_status = "empty"
+                    day_status_label = "بدون داده"
+                elif day_ratio >= 0.95:
+                    day_status = "ok"
+                    day_status_label = "در هدف"
+                elif day_ratio >= 0.7:
+                    day_status = "warn"
+                    day_status_label = "کسری جزئی"
+                else:
+                    day_status = "bad"
+                    day_status_label = "کسری زیاد"
+                if day_overtime > 0 and day_status == "ok":
+                    day_status_label = "اضافه‌کار"
+                day_rows.append(
+                    {
+                        "date": cursor.isoformat(),
+                        "targetMinutes": day_target,
+                        "actualMinutes": day_actual,
+                        "deficitMinutes": day_deficit,
+                        "overtimeMinutes": day_overtime,
+                        "utilizationPercent": int(day_ratio * 100) if day_target else (100 if day_actual else 0),
+                        "status": day_status,
+                        "statusLabel": day_status_label,
+                    }
+                )
                 planned += cap["plannedMinutes"]
-                target += cap["targetMinutes"]
-                actual += cap["actualMinutes"]
+                target += day_target
+                actual += day_actual
                 days += 1
             cursor += timedelta(days=1)
         utilization = int((actual / target) * 100) if target else 0
@@ -2072,6 +2104,7 @@ def reports_summary(user: User, *, start: date, end: date, user_id: int | None =
                 "overdueCount": person_stats.get("overdueCount", 0),
                 "reworkCount": person_stats.get("reworkCount", 0),
                 "estimateAccuracyVariance": round(avg_variance, 3),
+                "days": day_rows,
             }
         )
 

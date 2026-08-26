@@ -3,6 +3,7 @@ from django.urls import path
 from workflow import live
 from workflow import views
 from workflow import tasking_views
+from workflow import archive_views
 
 urlpatterns = [
     path("health", views.health_view),
@@ -75,6 +76,11 @@ urlpatterns = [
     path("approvals/<str:document_code>/approve", views.approval_approve_view),
     path("approvals/<str:document_code>/reject", views.approval_reject_view),
     path("approvals/<str:document_code>/refer", views.approval_refer_view),
+    path("archive", archive_views.archive_list_view),
+    path("archive/<str:document_code>", archive_views.archive_detail_view),
+    path("archive/<str:document_code>/download", archive_views.archive_download_view),
+    path("archive/<str:document_code>/refer", archive_views.archive_refer_view),
+    path("archive/<str:document_code>/approve", archive_views.archive_approve_view),
     path("maps/neshan/reverse", views.neshan_reverse_view),
     path("settings", views.settings_view),
     path("settings/profile", views.settings_profile_view),

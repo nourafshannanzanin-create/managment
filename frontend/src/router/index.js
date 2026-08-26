@@ -3,6 +3,10 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { applyRouteSeo } from '../utils/seo'
 import { useWorkflowHub } from '../stores/workflowHub'
 
+// Eager load landing so `/` never flashes empty or falls through while chunk loads.
+import LandingPage from '../pages/LandingPage.vue'
+
+const ArchivePage = () => import('../pages/ArchivePage.vue')
 const ApprovalsPage = () => import('../pages/ApprovalsPage.vue')
 const AttendancePage = () => import('../pages/AttendancePage.vue')
 const ChatPage = () => import('../pages/ChatPage.vue')
@@ -19,10 +23,26 @@ const TaskingPage = () => import('../pages/TaskingPage.vue')
 const UsersPage = () => import('../pages/UsersPage.vue')
 const WalletPage = () => import('../pages/WalletPage.vue')
 
+function isPublicPath(path = '') {
+  return path === '/' || path === '/login' || path.startsWith('/attendance/')
+}
+
 const routes = [
   {
     path: '/',
-    redirect: () => (localStorage.getItem('workflow-hub-token') ? '/dashboard' : '/login'),
+    name: 'landing',
+    component: LandingPage,
+    meta: {
+      public: true,
+      publicCanvas: true,
+      landing: true,
+      seo: {
+        title: 'کارنومند | سامانه مدیریت گردش‌کار سازمانی',
+        description: 'کارنومند، سامانه مدیریت گردش‌کار سازمانی برای ثبت و پیگیری درخواست‌ها، هزینه‌ها، تأیید اسناد و گزارش‌ها.',
+        robots: 'index, follow',
+        canonicalPath: '/',
+      },
+    },
   },
   {
     path: '/login',
@@ -52,6 +72,7 @@ const routes = [
     component: AttendancePage,
     meta: { public: true, publicCanvas: true, seo: { robots: 'noindex, nofollow', canonicalPath: false } },
   },
+  { path: '/archive', name: 'archive', component: ArchivePage, meta: { fullCanvas: true } },
   { path: '/cloud', name: 'cloud', component: CloudPage, meta: { fullCanvas: true, feature: 'cloud_storage' } },
   { path: '/support', name: 'support', component: SupportPage, meta: { fullCanvas: true } },
   { path: '/chat', name: 'chat', component: ChatPage, meta: { fullCanvas: true } },
@@ -65,23 +86,33 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior() {
+  scrollBehavior(to) {
+    if (to.hash) {
+      return { el: to.hash, behavior: 'smooth', top: 96 }
+    }
     return { top: 0 }
   },
 })
 
 router.beforeEach((to) => {
   const token = localStorage.getItem('workflow-hub-token')
-  if (!to.meta.public && !token) return '/login'
-  if (token && to.path === '/login') {
-    return '/dashboard'
+
+  // Landing and other public pages must never be bounced away for guests.
+  if (to.meta.public || to.meta.landing || isPublicPath(to.path)) {
+    // Only skip the login screen when already authenticated — keep landing sticky.
+    if (token && to.path === '/login') return '/dashboard'
+    return true
   }
-  if (to.path === '/support' && token) {
+
+  if (!token) return '/login'
+
+  if (to.path === '/support') {
     const { state } = useWorkflowHub()
     const role = String(state.currentUser?.accessRole || '')
     const isHq = Boolean(state.currentUser?.isHq || state.currentUser?.canUseHq)
     if (state.sessionReady && !isHq && role !== 'admin') return '/dashboard'
   }
+
   return true
 })
 

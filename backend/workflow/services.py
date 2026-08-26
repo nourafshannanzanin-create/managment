@@ -14,7 +14,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Count, Prefetch, Q, Sum
 from django.utils import timezone
 
-from workflow.access import can_access_approvals, can_access_expenses, can_access_settings, can_access_users, can_approve_documents, can_manage_users, can_view_reports, get_user_organization, is_manager, organization_users, visible_users
+from workflow.access import can_access_approvals, can_access_archive, can_access_attendance, can_access_expenses, can_access_settings, can_access_users, can_approve_documents, can_manage_users, can_view_reports, get_user_organization, is_manager, organization_users, visible_users
 from workflow.models import (
     ApprovalAssignment,
     ApprovalAssignmentStatus,
@@ -839,6 +839,8 @@ def serialize_current_user(user: User) -> dict:
         "canViewReports": can_view_reports(user),
         "canAccessApprovals": can_access_approvals(user),
         "canApproveDocuments": can_approve_documents(user),
+        "canAccessAttendance": can_access_attendance(user),
+        "canAccessArchive": can_access_archive(user),
         "isManager": is_manager(user),
         "isHq": is_hq,
         "isHqAdmin": is_hq_admin_flag,
@@ -1014,6 +1016,8 @@ def serialize_user(user: User) -> dict:
             "reports": "reports" in section_access,
             "users": "users" in section_access,
             "settings": "settings" in section_access,
+            "attendance": "attendance" in section_access,
+            "archive": "archive" in section_access,
         },
     }
 

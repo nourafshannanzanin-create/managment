@@ -21,6 +21,8 @@ const sectionAccessOptions = [
   { key: 'users', title: 'کاربران' },
   { key: 'expenses', title: 'هزینه‌ها' },
   { key: 'reports', title: 'گزارشات' },
+  { key: 'attendance', title: 'ورود و خروج' },
+  { key: 'archive', title: 'بایگانی' },
   { key: 'settings', title: 'تنظیمات' },
 ]
 

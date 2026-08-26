@@ -4,6 +4,8 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 
 import ApprovalDetailModal from './components/ApprovalDetailModal.vue'
+import ArchiveComposerModal from './components/ArchiveComposerModal.vue'
+import ArchiveDetailModal from './components/ArchiveDetailModal.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import AppTopNav from './components/AppTopNav.vue'
 import DocumentComposerModal from './components/DocumentComposerModal.vue'
@@ -48,6 +50,7 @@ const {
   loadWalletDashboard,
   loadSupportTickets,
   loadHqPanel,
+  loadArchiveDocuments,
   closeRequestDetail,
   closeExpenseDetail,
   closeApprovalDetail,
@@ -56,12 +59,16 @@ const {
   closeUserComposer,
   closeDocumentComposer,
   closeSignatureComposer,
+  closeArchiveComposer,
+  closeArchiveDetail,
+  openArchiveDetail,
   toggleSidebar,
 } = hub
 
-const isAuthRoute = computed(() => Boolean(route.meta.publicCanvas) || route.path === '/login')
+const isAuthRoute = computed(() => Boolean(route.meta.publicCanvas || route.meta.landing || route.meta.public) || route.path === '/login' || route.path === '/')
+const isLandingRoute = computed(() => route.name === 'landing' || route.path === '/' || Boolean(route.meta.landing))
 const isPublicAttendanceRoute = computed(() => route.name === 'public-attendance')
-const licenseSafeRoutes = new Set(['/dashboard', '/wallet', '/support', '/login'])
+const licenseSafeRoutes = new Set(['/dashboard', '/wallet', '/support', '/login', '/'])
 
 const licenseStatus = computed(() => state.currentUser.licenseStatus || {})
 const isLicenseLocked = computed(() => Boolean(licenseStatus.value?.isLocked || licenseStatus.value?.is_locked))
@@ -258,7 +265,7 @@ watch(trialRemainingSeconds, (value, previous) => {
 })
 
 async function refreshRouteData(path, { soft = false } = {}) {
-  if (!state.authToken || path === '/login') return
+  if (!state.authToken || path === '/login' || path === '/') return
 
   // Avoid re-downloading the whole bootstrap on every navigation when already loaded.
   if (!state.bootstrapLoaded || soft === false) {
@@ -285,6 +292,11 @@ async function refreshRouteData(path, { soft = false } = {}) {
   }
 
   if (path === '/expenses') {
+    return
+  }
+
+  if (path === '/archive') {
+    await loadArchiveDocuments(true)
     return
   }
 
@@ -329,8 +341,9 @@ watch(
       return
     }
     stopLiveSync()
-    if (isAuthRoute.value || route.name === 'public-attendance') return
-    if (route.path !== '/login') {
+    // Public surfaces (landing, login, attendance) must stay put.
+    if (isAuthRoute.value || isLandingRoute.value || isPublicAttendanceRoute.value) return
+    if (route.path !== '/login' && route.path !== '/') {
       window.location.replace('/login')
     }
   },
@@ -404,7 +417,7 @@ onUnmounted(() => {
               <strong>{{ smsBalanceWarningText }}</strong>
             </div>
             <ErrorNotice
-              v-if="state.lastErrorDetails && !modalState.requestComposer && !modalState.expenseComposer && !modalState.userComposer && !modalState.documentComposer"
+              v-if="state.lastErrorDetails && !modalState.requestComposer && !modalState.expenseComposer && !modalState.userComposer && !modalState.documentComposer && !modalState.archiveComposer"
               :error="state.lastErrorDetails"
             />
             <RouterView v-slot="{ Component }">
@@ -485,6 +498,21 @@ onUnmounted(() => {
     />
 
     <SignatureComposerModal :open="modalState.signatureComposer" @close="closeSignatureComposer" />
+
+    <ArchiveComposerModal
+      :open="modalState.archiveComposer"
+      :form="state.archiveForm"
+      :submitting="state.archiveSubmitting"
+      @close="closeArchiveComposer"
+    />
+
+    <ArchiveDetailModal
+      :open="modalState.archiveDetail"
+      :item="state.archive.selected"
+      @close="closeArchiveDetail"
+      @updated="(item) => item && openArchiveDetail(item)"
+      @deleted="closeArchiveDetail"
+    />
 
     <Teleport to="body">
       <div

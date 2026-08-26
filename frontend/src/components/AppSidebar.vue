@@ -63,11 +63,18 @@ const navItems = computed(() => {
   items.push({ to: '/requests', label: 'درخواست‌ها', icon: 'assignment', badge: requestInboxCount.value })
   items.push({ to: '/approvals', label: 'تاییدیه‌ها', icon: 'fact_check', badge: approvalInboxCount.value })
 
+  if (state.currentUser.canAccessArchive !== false) {
+    items.push({ to: '/archive', label: 'بایگانی', icon: 'folder_open' })
+  }
+
   if (state.currentUser.canAccessExpenses !== false) {
     items.push({ to: '/expenses', label: 'هزینه‌ها', icon: 'payments', badge: expenseInboxCount.value })
   }
 
-  if (state.currentUser.isHq || (state.currentUser.isManager && state.currentUser.menuAccess?.attendance === true)) {
+  if (
+    state.currentUser.isHq ||
+    (state.currentUser.canAccessAttendance !== false && state.currentUser.menuAccess?.attendance === true)
+  ) {
     items.push({ to: '/attendance', label: 'ورود و خروج', icon: 'badge' })
   }
 
