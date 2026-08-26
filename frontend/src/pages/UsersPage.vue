@@ -356,45 +356,46 @@ function userManagerOptions(userId) {
     </section>
 
     <section class="surface-block users-grid-panel">
-      <div v-if="visibleUsers.length" class="user-directory-grid">
-        <button
-          v-for="item in visibleUsers"
-          :key="item.id || item.username"
-          class="compact-user-card"
-          type="button"
-          @click="openUserDetails(item.id)"
-        >
-          <div class="user-card-head">
-            <div class="user-directory-main">
-              <UserAvatar
-                :person="item"
-                :name="item.name"
-                :avatar="item.avatar"
-                size="md"
-              />
-              <div class="user-card-copy">
-                <strong>{{ item.name }}</strong>
-                <small>{{ item.jobTitle || item.role }}</small>
+      <template v-if="visibleUsers.length">
+        <div class="user-directory-grid">
+          <button
+            v-for="item in visibleUsers"
+            :key="item.id || item.username"
+            class="compact-user-card"
+            type="button"
+            @click="openUserDetails(item.id)"
+          >
+            <div class="user-card-head">
+              <div class="user-directory-main">
+                <UserAvatar
+                  :person="item"
+                  :name="item.name"
+                  :avatar="item.avatar"
+                  size="md"
+                />
+                <div class="user-card-copy">
+                  <strong>{{ item.name }}</strong>
+                  <small>{{ item.jobTitle || item.role }}</small>
+                </div>
               </div>
+
+              <span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span>
             </div>
 
-            <span :class="['status-badge', toneForStatus(item.status)]">{{ item.status }}</span>
-          </div>
-
-          <div class="user-card-details">
-            <span>{{ item.department || 'بدون بخش' }}</span>
-            <span>{{ item.manager || 'بدون مدیر' }}</span>
-          </div>
-        </button>
-      </div>
-      <InfiniteScrollSentinel
-        :disabled="!hasMoreUsers || loadingMoreUsers"
-        @reach-end="loadMoreUsers"
-      >
-        <small v-if="loadingMoreUsers" class="list-loading-more">در حال بارگذاری...</small>
-        <small v-else-if="hasMoreUsers" class="list-loading-more">برای ادامه اسکرول کنید</small>
-      </InfiniteScrollSentinel>
-
+            <div class="user-card-details">
+              <span>{{ item.department || 'بدون بخش' }}</span>
+              <span>{{ item.manager || 'بدون مدیر' }}</span>
+            </div>
+          </button>
+        </div>
+        <InfiniteScrollSentinel
+          :disabled="!hasMoreUsers || loadingMoreUsers"
+          @reach-end="loadMoreUsers"
+        >
+          <small v-if="loadingMoreUsers" class="list-loading-more">در حال بارگذاری...</small>
+          <small v-else-if="hasMoreUsers" class="list-loading-more">برای ادامه اسکرول کنید</small>
+        </InfiniteScrollSentinel>
+      </template>
       <div v-else class="empty-state-inline">
         <IconlyIcon name="group_off" decorative />
         <p>کاربری با این فیلترها پیدا نشد.</p>
