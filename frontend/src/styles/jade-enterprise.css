@@ -3528,10 +3528,13 @@ body:has(.app-shell:not(.is-auth-route)),
   }
 
   #app .app-shell:not(.is-auth-route) .table-shell,
-  #app .app-shell:not(.is-auth-route) .report-table-wrap,
+  #app .app-shell:not(.is-auth-route) .report-table-wrap {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+  }
+
   #app .app-shell:not(.is-auth-route) .data-table,
   #app .app-shell:not(.is-auth-route) .report-table {
-    overflow-x: hidden !important;
     max-width: 100% !important;
   }
 
@@ -3847,9 +3850,18 @@ body:has(.app-shell:not(.is-auth-route)),
 }
 
 /* Reports filters: compact equal-height controls */
+#app .app-shell:not(.is-auth-route) .reports-page .report-toolbar {
+  flex-wrap: wrap !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
 #app .app-shell:not(.is-auth-route) .reports-page .report-toolbar-row {
   align-items: end !important;
+  flex-wrap: wrap !important;
   gap: 10px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
 }
 
 #app .app-shell:not(.is-auth-route) .reports-page .report-filter-field {
@@ -3858,7 +3870,9 @@ body:has(.app-shell:not(.is-auth-route)),
   gap: 6px !important;
   padding: 0 !important;
   margin: 0 !important;
+  min-width: 0 !important;
   min-height: 0 !important;
+  max-width: 100% !important;
   background: transparent !important;
   box-shadow: none !important;
 }
@@ -3870,6 +3884,7 @@ body:has(.app-shell:not(.is-auth-route)),
   height: 40px !important;
   min-height: 40px !important;
   max-height: 40px !important;
+  max-width: 100% !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
 }
@@ -4492,16 +4507,23 @@ body:has(.app-shell:not(.is-auth-route)),
   box-shadow: 0 10px 24px rgba(20, 70, 66, 0.06) !important;
 }
 
-#app .app-shell:not(.is-auth-route) .wallet-page .wallet-options-grid,
-#app .app-shell:not(.is-auth-route) .wallet-page .wallet-options-mobile {
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-options-desktop {
+  display: grid !important;
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
 }
 
-@media (max-width: 720px) {
-  #app .app-shell:not(.is-auth-route) .wallet-page .wallet-options-grid,
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-options-mobile {
+  display: none !important;
+}
+
+@media (max-width: 760px) {
+  #app .app-shell:not(.is-auth-route) .wallet-page .wallet-options-desktop {
+    display: none !important;
+  }
+
   #app .app-shell:not(.is-auth-route) .wallet-page .wallet-options-mobile {
     display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 8px !important;
   }
 

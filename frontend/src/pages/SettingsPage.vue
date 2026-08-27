@@ -1017,7 +1017,7 @@ onMounted(async () => {
   }
 
   .modal-grid.two-col {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
 

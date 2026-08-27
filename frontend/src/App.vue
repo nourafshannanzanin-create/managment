@@ -1,7 +1,7 @@
 <script setup>
 import IconlyIcon from './components/base/IconlyIcon.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { RouterView, useRoute } from 'vue-router'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 
 import ApprovalDetailModal from './components/ApprovalDetailModal.vue'
 import ArchiveComposerModal from './components/ArchiveComposerModal.vue'
@@ -17,17 +17,18 @@ import MobileBottomNav from './components/MobileBottomNav.vue'
 import RequestComposerModal from './components/RequestComposerModal.vue'
 import RequestDetailModal from './components/RequestDetailModal.vue'
 import SignatureComposerModal from './components/SignatureComposerModal.vue'
+import TrialBanner from './components/TrialBanner.vue'
 import UserComposerModal from './components/UserComposerModal.vue'
 import ToastHost from './components/ToastHost.vue'
 import { unlockTicketAlerts } from './utils/ticketAlert'
 import { createLiveEventSource, parseLiveEvent } from './utils/live'
+import { prefetchCommonRoutes } from './utils/prefetchRoute'
 import { useWorkflowHub } from './stores/workflowHub'
 
 const route = useRoute()
+const router = useRouter()
 const hub = useWorkflowHub()
 const routeLoading = ref(false)
-const nowTick = ref(Date.now())
-let trialCountdownTimer = null
 let trialExpiryHandled = false
 let liveSyncTimer = null
 let liveStream = null
@@ -90,64 +91,20 @@ const smsBalanceWarningText = computed(() =>
     : 'شارژ پیامک رو به اتمام است؛ قبل از توقف ارسال پیامک، پنل فراز/کیف پیامک را شارژ کنید.',
 )
 
-function toFaDigits(value) {
-  return String(value ?? '').replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit] || digit)
-}
-
-function formatCountdown(totalSeconds) {
-  const safe = Math.max(0, Number(totalSeconds) || 0)
-  const hours = Math.floor(safe / 3600)
-  const minutes = Math.floor((safe % 3600) / 60)
-  const seconds = safe % 60
-  const pad = (n) => String(n).padStart(2, '0')
-  return toFaDigits(`${pad(hours)}:${pad(minutes)}:${pad(seconds)}`)
-}
-
-const trialEndsAtMs = computed(() => {
-  const raw = licenseStatus.value?.trialEndsAt || licenseStatus.value?.trial_ends_at || ''
-  if (!raw) return 0
-  const parsed = Date.parse(raw)
-  return Number.isFinite(parsed) ? parsed : 0
-})
-
-const trialRemainingSeconds = computed(() => {
-  if (!trialEndsAtMs.value) return 0
-  return Math.max(0, Math.floor((trialEndsAtMs.value - nowTick.value) / 1000))
-})
-
+const trialEndsAt = computed(
+  () => licenseStatus.value?.trialEndsAt || licenseStatus.value?.trial_ends_at || '',
+)
+const trialHours = computed(
+  () => Number(licenseStatus.value?.trialHours || licenseStatus.value?.trial_hours || 24) || 24,
+)
 const showTrialBanner = computed(() =>
   !isAuthRoute.value &&
   Boolean(state.authToken) &&
   Boolean(state.bootstrapLoaded) &&
   !state.currentUser.isHq &&
   Boolean(licenseStatus.value?.trialActive || licenseStatus.value?.trial_active) &&
-  trialRemainingSeconds.value > 0,
+  Boolean(trialEndsAt.value),
 )
-
-const trialProgressPercent = computed(() => {
-  const totalHours = Number(licenseStatus.value?.trialHours || licenseStatus.value?.trial_hours || 24) || 24
-  const totalSeconds = Math.max(totalHours * 3600, 1)
-  return Math.min(100, Math.max(0, (trialRemainingSeconds.value / totalSeconds) * 100))
-})
-
-const trialBannerText = computed(() =>
-  `زمان باقی‌مانده تا اتمام استفاده رایگان: ${formatCountdown(trialRemainingSeconds.value)}`,
-)
-
-function stopTrialCountdown() {
-  if (trialCountdownTimer) {
-    window.clearInterval(trialCountdownTimer)
-    trialCountdownTimer = null
-  }
-}
-
-function startTrialCountdown() {
-  stopTrialCountdown()
-  nowTick.value = Date.now()
-  trialCountdownTimer = window.setInterval(() => {
-    nowTick.value = Date.now()
-  }, 1000)
-}
 
 function stopLiveSync() {
   if (liveSyncTimer) {
@@ -188,7 +145,7 @@ function scheduleLiveSync() {
   if (liveRefreshTimer) window.clearTimeout(liveRefreshTimer)
   liveRefreshTimer = window.setTimeout(() => {
     void softLiveSync({ includeSupport: true })
-  }, 500)
+  }, 800)
 }
 
 function startLiveSync() {
@@ -204,13 +161,12 @@ function startLiveSync() {
   liveSyncTimer = window.setInterval(() => {
     if (!state.authToken || state.liveSync.inFlight || document.visibilityState !== 'visible') return
     void softLiveSync({ includeSupport: true })
-  }, 60000)
+  }, 90000)
 }
 
 async function handleTrialExpiry() {
   if (trialExpiryHandled) return
   trialExpiryHandled = true
-  stopTrialCountdown()
   try {
     await loadBootstrapData(true)
   } finally {
@@ -251,32 +207,28 @@ watch(bootstrapBlocking, (blocked) => {
 })
 
 watch(showTrialBanner, (active) => {
-  if (active) {
-    trialExpiryHandled = false
-    startTrialCountdown()
-    return
-  }
-  stopTrialCountdown()
-}, { immediate: true })
-
-watch(trialRemainingSeconds, (value, previous) => {
-  if ((previous ?? 0) > 0 && value <= 0 && (licenseStatus.value?.trialActive || licenseStatus.value?.trial_active)) {
-    void handleTrialExpiry()
-  }
+  if (active) trialExpiryHandled = false
 })
 
 async function refreshRouteData(path, { soft = false } = {}) {
   if (!state.authToken || path === '/login' || path === '/') return
 
-  // Avoid re-downloading the whole bootstrap on every navigation when already loaded.
-  if (!state.bootstrapLoaded || soft === false) {
-    await loadBootstrapData(true, { soft: soft || state.bootstrapLoaded })
+  // Only block on bootstrap when it has never loaded; soft navigations must stay instant.
+  if (!state.bootstrapLoaded) {
+    await loadBootstrapData(true, { soft: false })
   } else if (!soft) {
     await loadBootstrapData(true, { soft: true })
   }
 
   if (isLicenseLocked.value && !licenseSafeRoutes.has(path)) {
     await hub.navigateTo('/wallet')
+    return
+  }
+
+  // Soft menu navigations: each page loads its own data on mount.
+  // Re-fetching here doubles network + reactive work and makes the shell feel laggy.
+  if (soft) {
+    if (path === '/hq') unlockTicketAlerts()
     return
   }
 
@@ -319,18 +271,20 @@ async function refreshRouteData(path, { soft = false } = {}) {
 }
 
 watch(
-  () => route.fullPath,
-  async () => {
+  () => route.path,
+  () => {
     state.mobileMenuOpen = false
-
     if (!state.sessionReady) return
     const soft = Boolean(state.bootstrapLoaded)
-    if (!soft) routeLoading.value = true
-    try {
-      await refreshRouteData(route.path, { soft })
-    } finally {
-      routeLoading.value = false
+    // Never await route data in the watcher — keep menu clicks responsive.
+    if (!soft) {
+      routeLoading.value = true
+      void refreshRouteData(route.path, { soft: false }).finally(() => {
+        routeLoading.value = false
+      })
+      return
     }
+    void refreshRouteData(route.path, { soft: true })
   },
 )
 
@@ -366,11 +320,32 @@ onMounted(async () => {
   if (state.authToken) startLiveSync()
   // Background badge sync — never block first paint.
   void softLiveSync({ includeSupport: true, includeBootstrap: false })
+
+  const warmRoutes = () => {
+    prefetchCommonRoutes(router, [
+      '/dashboard',
+      '/requests',
+      '/expenses',
+      '/approvals',
+      '/tasking',
+      '/reports',
+      '/users',
+      '/settings',
+      '/wallet',
+      '/archive',
+      '/chat',
+      '/attendance',
+    ])
+  }
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(warmRoutes, { timeout: 4000 })
+  } else {
+    window.setTimeout(warmRoutes, 800)
+  }
 })
 
 onUnmounted(() => {
   stopLiveSync()
-  stopTrialCountdown()
   if (loadingWatchdogTimer) {
     window.clearTimeout(loadingWatchdogTimer)
     loadingWatchdogTimer = null
@@ -396,20 +371,12 @@ onUnmounted(() => {
       <AppSidebar :mobile-menu-open="state.mobileMenuOpen" :toggle-sidebar="toggleSidebar" />
 
       <div class="shell-main">
-        <div
-          v-if="showTrialBanner"
-          class="global-trial-banner"
-          role="status"
-          aria-live="polite"
-        >
-          <div class="global-trial-banner__content">
-            <IconlyIcon name="calendar" decorative />
-            <strong>{{ trialBannerText }}</strong>
-          </div>
-          <div class="global-trial-banner__track" aria-hidden="true">
-            <span class="global-trial-banner__fill" :style="{ width: `${trialProgressPercent}%` }"></span>
-          </div>
-        </div>
+        <TrialBanner
+          :active="showTrialBanner"
+          :trial-ends-at="trialEndsAt"
+          :trial-hours="trialHours"
+          @expired="handleTrialExpiry"
+        />
         <main class="shell-content">
           <AppTopNav />
           <div class="shell-content-body">
@@ -424,14 +391,13 @@ onUnmounted(() => {
             />
             <HubTabBar />
             <RouterView v-slot="{ Component }">
-              <component :is="Component" :key="route.fullPath" />
+              <component :is="Component" :key="route.path" />
             </RouterView>
           </div>
         </main>
         <MobileBottomNav />
       </div>
     </template>
-
     <main
       v-else
       class="shell-main auth-main"
@@ -448,7 +414,7 @@ onUnmounted(() => {
         }"
       >
         <RouterView v-slot="{ Component }">
-          <component :is="Component" :key="route.fullPath" />
+          <component :is="Component" :key="route.path" />
         </RouterView>
       </div>
     </main>

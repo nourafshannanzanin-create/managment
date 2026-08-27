@@ -1,11 +1,12 @@
 <script setup>
 import IconlyIcon from './base/IconlyIcon.vue'
 import { computed, onMounted } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import UserAvatar from './UserAvatar.vue'
 import { buildMainNavItems, isNavItemActive } from '../config/appNav'
 import { unlockTicketAlerts } from '../utils/ticketAlert'
+import { prefetchRoute } from '../utils/prefetchRoute'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 defineProps({
@@ -14,6 +15,7 @@ defineProps({
 })
 
 const route = useRoute()
+const router = useRouter()
 const {
   state,
   logout,
@@ -32,8 +34,15 @@ const organizationTitle = computed(
 )
 
 onMounted(() => {
-  void loadChatUnreadConversations()
-  void loadTaskingDashboard(false).catch(() => {})
+  const warmBadges = () => {
+    void loadChatUnreadConversations()
+    void loadTaskingDashboard(false).catch(() => {})
+  }
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(warmBadges, { timeout: 2500 })
+  } else {
+    window.setTimeout(warmBadges, 400)
+  }
 })
 
 const badges = computed(() => ({
@@ -49,6 +58,10 @@ const navItems = computed(() => buildMainNavItems(state, badges.value))
 
 function navActive(item) {
   return isNavItemActive(item, route.path)
+}
+
+function warmNav(item) {
+  prefetchRoute(router, item?.to)
 }
 </script>
 
@@ -79,6 +92,8 @@ function navActive(item) {
         :to="item.to"
         :class="['nav-link', 'nav-link-luxe', navActive(item) && 'is-active']"
         :aria-current="navActive(item) ? 'page' : undefined"
+        @pointerenter="warmNav(item)"
+        @focusin="warmNav(item)"
         @click="mobileMenuOpen ? toggleSidebar() : undefined"
       >
         <span class="nav-link-icon-wrap" aria-hidden="true">

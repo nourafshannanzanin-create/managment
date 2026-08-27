@@ -508,12 +508,6 @@ watch(
   }
 }
 
-@media (max-width: 420px) {
-  .modal-grid.two-col {
-    grid-template-columns: 1fr;
-  }
-}
-
 .leave-hours-value {
   display: block;
   padding: 10px 12px;

@@ -330,213 +330,158 @@ watch(isTodayMode, (today) => {
     <div v-if="error || boardError" class="attendance-alert is-danger">{{ error || boardError }}</div>
     <div v-else-if="boardNotice" class="attendance-alert is-success">{{ boardNotice }}</div>
 
-    <div v-if="isTodayMode" class="attendance-board-wrap">
-      <table class="attendance-split-table">
-        <thead>
-          <tr>
-            <th class="is-in">
-              <span>
-                <IconlyIcon name="login" decorative />
-                ورودها
-              </span>
-            </th>
-            <th class="is-out">
-              <span>
-                <IconlyIcon name="logout" decorative />
-                خروج‌ها
-              </span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in todayPairs" :key="row.id">
-            <td class="is-in">
-              <div v-if="row.inEvent" class="punch-cell">
-                <UserAvatar
-                  :name="row.userName"
-                  :avatar="row.userAvatar"
-                  :avatar-url="row.userAvatarUrl || row.avatarUrl"
-                  size="sm"
-                />
-                <div class="punch-copy">
-                  <strong>{{ row.userName }}</strong>
-                  <small>{{ personMetaLine(row) || '—' }}</small>
-                </div>
-                <div class="punch-time-edit">
-                  <template v-if="canEditTimes">
-                    <TimePicker
-                      class="pair-time-picker is-inline"
-                      :model-value="drafts[row.inEvent.id] || eventTimeOf(row.inEvent)"
-                      :minute-step="1"
-                      :clearable="false"
-                      @update:model-value="drafts[row.inEvent.id] = $event"
-                    />
-                    <button
-                      v-if="isDirty(row.inEvent.id)"
-                      class="pair-save-btn is-inline"
-                      type="button"
-                      :disabled="isSaving(row.inEvent.id)"
-                      @click="saveEvent(row.inEvent, { surface: 'board' })"
-                    >
-                      {{ isSaving(row.inEvent.id) ? '…' : 'ذخیره' }}
-                    </button>
-                  </template>
-                  <time v-else>{{ fa(eventTimeOf(row.inEvent) || '—') }}</time>
-                </div>
-              </div>
-              <div v-else class="punch-empty">
-                <span>بدون ورود</span>
-                <div v-if="canEditTimes" class="punch-add">
+    <div v-if="isTodayMode" class="attendance-card-list">
+      <article v-for="row in todayPairs" :key="row.id" class="attendance-entry-card">
+        <header class="attendance-card-identity">
+          <UserAvatar
+            :name="row.userName"
+            :avatar="row.userAvatar"
+            :avatar-url="row.userAvatarUrl || row.avatarUrl"
+            size="sm"
+          />
+          <div class="attendance-card-copy">
+            <strong>{{ row.userName }}</strong>
+            <small>{{ personMetaLine(row) || '—' }}</small>
+          </div>
+        </header>
+        <div class="attendance-card-punches">
+          <div class="punch-slot is-in">
+            <span>ورود</span>
+            <template v-if="row.inEvent">
+              <div class="punch-time-edit">
+                <template v-if="canEditTimes">
                   <TimePicker
                     class="pair-time-picker is-inline"
-                    :model-value="createDrafts[createDraftKey(row.userId, 'in', todayIsoDate())] || '08:30'"
+                    :model-value="drafts[row.inEvent.id] || eventTimeOf(row.inEvent)"
                     :minute-step="1"
                     :clearable="false"
-                    @update:model-value="createDrafts[createDraftKey(row.userId, 'in', todayIsoDate())] = $event"
+                    @update:model-value="drafts[row.inEvent.id] = $event"
                   />
                   <button
-                    class="pair-add-btn"
+                    v-if="isDirty(row.inEvent.id)"
+                    class="pair-save-btn is-inline"
                     type="button"
-                    :disabled="creatingKey === createDraftKey(row.userId, 'in', todayIsoDate())"
-                    @click="addMissingPunch({ userId: row.userId, eventType: 'in', date: todayIsoDate() })"
+                    :disabled="isSaving(row.inEvent.id)"
+                    @click="saveEvent(row.inEvent, { surface: 'board' })"
                   >
-                    افزودن
+                    {{ isSaving(row.inEvent.id) ? '…' : 'ذخیره' }}
                   </button>
-                </div>
+                </template>
+                <time v-else>{{ fa(eventTimeOf(row.inEvent) || '—') }}</time>
               </div>
-            </td>
-            <td class="is-out">
-              <div v-if="row.outEvent" class="punch-cell">
-                <UserAvatar
-                  :name="row.userName"
-                  :avatar="row.userAvatar"
-                  :avatar-url="row.userAvatarUrl || row.avatarUrl"
-                  size="sm"
+            </template>
+            <div v-else class="punch-empty">
+              <em>ثبت نشده</em>
+              <div v-if="canEditTimes" class="punch-add">
+                <TimePicker
+                  class="pair-time-picker is-inline"
+                  :model-value="createDrafts[createDraftKey(row.userId, 'in', todayIsoDate())] || '08:30'"
+                  :minute-step="1"
+                  :clearable="false"
+                  @update:model-value="createDrafts[createDraftKey(row.userId, 'in', todayIsoDate())] = $event"
                 />
-                <div class="punch-copy">
-                  <strong>{{ row.userName }}</strong>
-                  <small>{{ personMetaLine(row) || '—' }}</small>
-                </div>
-                <div class="punch-time-edit">
-                  <template v-if="canEditTimes">
-                    <TimePicker
-                      class="pair-time-picker is-inline"
-                      :model-value="drafts[row.outEvent.id] || eventTimeOf(row.outEvent)"
-                      :minute-step="1"
-                      :clearable="false"
-                      @update:model-value="drafts[row.outEvent.id] = $event"
-                    />
-                    <button
-                      v-if="isDirty(row.outEvent.id)"
-                      class="pair-save-btn is-inline"
-                      type="button"
-                      :disabled="isSaving(row.outEvent.id)"
-                      @click="saveEvent(row.outEvent, { surface: 'board' })"
-                    >
-                      {{ isSaving(row.outEvent.id) ? '…' : 'ذخیره' }}
-                    </button>
-                  </template>
-                  <time v-else>{{ fa(eventTimeOf(row.outEvent) || '—') }}</time>
-                </div>
+                <button
+                  class="pair-add-btn"
+                  type="button"
+                  :disabled="creatingKey === createDraftKey(row.userId, 'in', todayIsoDate())"
+                  @click="addMissingPunch({ userId: row.userId, eventType: 'in', date: todayIsoDate() })"
+                >
+                  افزودن
+                </button>
               </div>
-              <div v-else class="punch-empty is-open">
-                <span>بدون خروج</span>
-                <div v-if="canEditTimes" class="punch-add">
+            </div>
+          </div>
+          <div class="punch-slot is-out">
+            <span>خروج</span>
+            <template v-if="row.outEvent">
+              <div class="punch-time-edit">
+                <template v-if="canEditTimes">
                   <TimePicker
                     class="pair-time-picker is-inline"
-                    :model-value="createDrafts[createDraftKey(row.userId, 'out', eventDateOf(row.inEvent) || todayIsoDate())] || '17:00'"
+                    :model-value="drafts[row.outEvent.id] || eventTimeOf(row.outEvent)"
                     :minute-step="1"
                     :clearable="false"
-                    @update:model-value="createDrafts[createDraftKey(row.userId, 'out', eventDateOf(row.inEvent) || todayIsoDate())] = $event"
+                    @update:model-value="drafts[row.outEvent.id] = $event"
                   />
                   <button
-                    class="pair-add-btn"
+                    v-if="isDirty(row.outEvent.id)"
+                    class="pair-save-btn is-inline"
                     type="button"
-                    :disabled="creatingKey === createDraftKey(row.userId, 'out', eventDateOf(row.inEvent) || todayIsoDate())"
-                    @click="addMissingPunch({
-                      userId: row.userId,
-                      eventType: 'out',
-                      date: eventDateOf(row.inEvent) || todayIsoDate(),
-                    })"
+                    :disabled="isSaving(row.outEvent.id)"
+                    @click="saveEvent(row.outEvent, { surface: 'board' })"
                   >
-                    افزودن
+                    {{ isSaving(row.outEvent.id) ? '…' : 'ذخیره' }}
                   </button>
-                </div>
+                </template>
+                <time v-else>{{ fa(eventTimeOf(row.outEvent) || '—') }}</time>
               </div>
-            </td>
-          </tr>
-          <tr v-if="!todayPairs.length">
-            <td colspan="2" class="table-empty">
-              {{ loading ? 'در حال بارگذاری…' : 'ورود و خروجی برای امروز ثبت نشده است.' }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            </template>
+            <div v-else class="punch-empty is-open">
+              <em>ثبت نشده</em>
+              <div v-if="canEditTimes && row.inEvent" class="punch-add">
+                <TimePicker
+                  class="pair-time-picker is-inline"
+                  :model-value="createDrafts[createDraftKey(row.userId, 'out', eventDateOf(row.inEvent) || todayIsoDate())] || '17:00'"
+                  :minute-step="1"
+                  :clearable="false"
+                  @update:model-value="createDrafts[createDraftKey(row.userId, 'out', eventDateOf(row.inEvent) || todayIsoDate())] = $event"
+                />
+                <button
+                  class="pair-add-btn"
+                  type="button"
+                  :disabled="creatingKey === createDraftKey(row.userId, 'out', eventDateOf(row.inEvent) || todayIsoDate())"
+                  @click="addMissingPunch({
+                    userId: row.userId,
+                    eventType: 'out',
+                    date: eventDateOf(row.inEvent) || todayIsoDate(),
+                  })"
+                >
+                  افزودن
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+      <p v-if="!todayPairs.length" class="attendance-empty">
+        {{ loading ? 'در حال بارگذاری…' : 'ورود و خروجی برای امروز ثبت نشده است.' }}
+      </p>
     </div>
 
-    <div v-else class="attendance-board-wrap">
-      <table class="attendance-people-table">
-        <thead>
-          <tr>
-            <th>پرسنل</th>
-            <th>بخش</th>
-            <th>روزهای حضور</th>
-            <th>ورود</th>
-            <th>خروج</th>
-            <th>کارکرد</th>
-            <th>وضعیت</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="person in people"
-            :key="person.userId"
-            class="attendance-person-row"
-            role="button"
-            :aria-label="`مشاهده ورود و خروج ${person.userName}`"
-            tabindex="0"
-            @click="openPerson(person)"
-            @keydown.enter.prevent="openPerson(person)"
-            @keydown.space.prevent="openPerson(person)"
-          >
-            <td>
-              <div class="person-identity">
-                <UserAvatar
-                  :name="person.userName"
-                  :avatar="person.userAvatar"
-                  :avatar-url="person.userAvatarUrl || person.avatarUrl"
-                  size="sm"
-                />
-                <div>
-                  <strong>{{ person.userName }}</strong>
-                  <small>{{ person.userRole || '—' }}</small>
-                </div>
-              </div>
-            </td>
-            <td>{{ person.userDepartment || '—' }}</td>
-            <td>{{ fa(person.presentDays) }} روز</td>
-            <td>{{ fa(person.checkins) }}</td>
-            <td>{{ fa(person.checkouts) }}</td>
-            <td>{{ formatHours(person.workedMinutes) }}</td>
-            <td>
-              <span :class="['status-badge', person.hasOpenShift ? 'is-warning' : 'is-success']">
-                {{ person.hasOpenShift ? 'شیفت باز' : 'بسته' }}
-              </span>
-            </td>
-            <td class="person-open-cell" title="اطلاعات بیشتر">
-              <span class="person-open-btn" aria-hidden="true">
-                <IconlyIcon name="visibility" decorative />
-              </span>
-            </td>
-          </tr>
-          <tr v-if="!people.length">
-            <td colspan="8" class="table-empty">
-              {{ loading ? 'در حال بارگذاری…' : 'برای این بازه پرسنلی با رویداد ورود و خروج پیدا نشد.' }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <div v-else class="attendance-card-list">
+      <button
+        v-for="person in people"
+        :key="person.userId"
+        class="attendance-entry-card is-clickable"
+        type="button"
+        :aria-label="`مشاهده ورود و خروج ${person.userName}`"
+        @click="openPerson(person)"
+      >
+        <header class="attendance-card-identity">
+          <UserAvatar
+            :name="person.userName"
+            :avatar="person.userAvatar"
+            :avatar-url="person.userAvatarUrl || person.avatarUrl"
+            size="sm"
+          />
+          <div class="attendance-card-copy">
+            <strong>{{ person.userName }}</strong>
+            <small>{{ joinDisplayParts([person.userRole, person.userDepartment]) || '—' }}</small>
+          </div>
+          <span :class="['status-badge', person.hasOpenShift ? 'is-warning' : 'is-success']">
+            {{ person.hasOpenShift ? 'شیفت باز' : 'بسته' }}
+          </span>
+        </header>
+        <div class="attendance-card-stats">
+          <span><small>روز حضور</small><b>{{ fa(person.presentDays) }}</b></span>
+          <span><small>ورود</small><b>{{ fa(person.checkins) }}</b></span>
+          <span><small>خروج</small><b>{{ fa(person.checkouts) }}</b></span>
+          <span><small>کارکرد</small><b>{{ formatHours(person.workedMinutes) }}</b></span>
+        </div>
+      </button>
+      <p v-if="!people.length" class="attendance-empty">
+        {{ loading ? 'در حال بارگذاری…' : 'برای این بازه پرسنلی با رویداد ورود و خروج پیدا نشد.' }}
+      </p>
     </div>
   </section>
 
@@ -775,59 +720,143 @@ watch(isTodayMode, (today) => {
   font-size: 1.25rem;
 }
 
-.attendance-board-wrap {
-  overflow: auto;
-  border-radius: 14px;
-  border: 1px solid var(--line, rgba(36, 59, 107, 0.1));
-  background: rgba(255, 255, 255, 0.72);
+.attendance-card-list {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
 }
 
-.attendance-split-table,
-.attendance-people-table {
+.attendance-entry-card {
+  display: grid;
+  gap: 12px;
   width: 100%;
-  border-collapse: collapse;
-}
-
-.attendance-split-table {
-  min-width: 640px;
-}
-
-.attendance-people-table {
-  min-width: 780px;
-}
-
-.attendance-split-table th,
-.attendance-split-table td,
-.attendance-people-table th,
-.attendance-people-table td {
-  padding: 12px;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(52, 144, 139, 0.14);
+  background: #fff;
   text-align: right;
-  vertical-align: middle;
-  border-bottom: 1px solid rgba(36, 59, 107, 0.08);
+  font: inherit;
+  color: inherit;
 }
 
-.attendance-split-table th,
-.attendance-people-table th {
-  font-size: 12px;
-  color: var(--muted, #45605c);
-  background: rgba(220, 239, 236, 0.72);
+.attendance-entry-card.is-clickable {
+  cursor: pointer;
 }
 
-.attendance-split-table th span {
-  display: inline-flex;
+.attendance-entry-card.is-clickable:hover,
+.attendance-entry-card.is-clickable:focus-visible {
+  border-color: rgba(52, 144, 139, 0.32);
+  background: #f8fcfb;
+  outline: 0;
+}
+
+.attendance-card-identity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
   align-items: center;
+  min-width: 0;
+}
+
+.attendance-card-copy {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.attendance-card-copy strong,
+.attendance-person-title h2 {
+  display: block;
+  min-width: 0;
+  color: #152523;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.attendance-card-copy small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted, #45605c);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attendance-card-punches,
+.attendance-card-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.attendance-card-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.punch-slot,
+.attendance-card-stats span {
+  display: grid;
   gap: 6px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(228, 244, 242, 0.7);
+  border: 1px solid rgba(52, 144, 139, 0.12);
 }
 
-.attendance-split-table th.is-in,
-.attendance-split-table td.is-in {
-  width: 50%;
-  border-left: 1px solid rgba(52, 144, 139, 0.14);
+.punch-slot.is-out,
+.attendance-card-stats span:nth-child(2n) {
+  background: rgba(255, 248, 232, 0.65);
+  border-color: rgba(176, 122, 18, 0.16);
 }
 
-.attendance-split-table th.is-out,
-.attendance-split-table td.is-out {
-  width: 50%;
+.punch-slot > span,
+.attendance-card-stats small {
+  color: #5f7a76;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.attendance-card-stats b {
+  color: #1f5c59;
+  font-size: 0.92rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.punch-slot time {
+  display: block;
+  color: #1f5c59;
+  font-size: 1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.punch-slot.is-out time {
+  color: #8a5d0c;
+}
+
+.attendance-empty {
+  margin: 0;
+  padding: 22px 12px;
+  border-radius: 14px;
+  background: #eef6f4;
+  color: #45605c;
+  text-align: center;
+  font-weight: 700;
 }
 
 .punch-cell {
@@ -838,7 +867,8 @@ watch(isTodayMode, (today) => {
   min-width: 0;
 }
 
-.punch-copy {
+.punch-copy,
+.person-identity {
   min-width: 0;
 }
 
@@ -849,6 +879,8 @@ watch(isTodayMode, (today) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 
 .punch-copy small,
@@ -1260,9 +1292,14 @@ watch(isTodayMode, (today) => {
 
 @media (max-width: 760px) {
   .attendance-person-metrics,
-  .attendance-today-stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .attendance-today-stats,
+  .attendance-card-punches {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+  }
+
+  .attendance-card-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .attendance-today-stats article {
@@ -1285,81 +1322,15 @@ watch(isTodayMode, (today) => {
     width: 100%;
   }
 
-  .attendance-board-wrap {
-    overflow: visible;
-  }
-
-  .attendance-split-table,
-  .attendance-people-table {
-    display: block;
-    width: 100%;
-    min-width: 0;
-  }
-
-  .attendance-split-table thead,
-  .attendance-people-table thead {
-    display: none;
-  }
-
-  .attendance-split-table tbody,
-  .attendance-people-table tbody {
-    display: grid;
-    gap: 10px;
-  }
-
-  .attendance-split-table tbody tr,
-  .attendance-people-table tbody tr.attendance-person-row {
-    display: grid;
-    gap: 8px;
-    padding: 12px;
-    border: 1px solid rgba(52, 144, 139, 0.14);
-    border-radius: 16px;
-    background: #fff;
-    box-shadow: none;
-  }
-
-  .attendance-split-table tbody tr td {
-    display: block;
-    padding: 0;
-    border: 0;
-  }
-
-  .attendance-split-table tbody tr td.is-in::before,
-  .attendance-split-table tbody tr td.is-out::before {
-    content: attr(data-label, '');
-  }
-
-  .attendance-split-table tbody tr td.is-in::before {
-    content: 'ورود';
-    display: block;
-    margin-bottom: 6px;
-    color: #5f7a76;
-    font-size: 0.7rem;
-    font-weight: 800;
-  }
-
-  .attendance-split-table tbody tr td.is-out::before {
-    content: 'خروج';
-    display: block;
-    margin-bottom: 6px;
-    color: #5f7a76;
-    font-size: 0.7rem;
-    font-weight: 800;
-  }
-
-  .punch-cell,
-  .person-identity {
+  .attendance-card-identity {
     display: flex;
     align-items: center;
     gap: 10px;
   }
 
-  .punch-copy strong,
-  .person-identity strong {
-    display: block !important;
-    white-space: normal !important;
-    overflow: visible !important;
-    text-overflow: unset !important;
+  .attendance-card-identity .status-badge {
+    margin-inline-start: auto;
+    flex: 0 0 auto;
   }
 
   .punch-time-edit,
@@ -1367,16 +1338,61 @@ watch(isTodayMode, (today) => {
     width: 100%;
     justify-content: flex-start;
   }
-}
 
-@media (max-width: 560px) {
-  .attendance-split-table,
-  .attendance-people-table {
+  .pair-time-picker.is-inline {
+    flex: 1 1 auto;
     min-width: 0;
   }
 
+  .pair-time-picker.is-inline :deep(.time-picker-trigger) {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
   .attendance-pair-row {
     grid-template-columns: 1fr;
   }
+}
+</style>
+
+<style>
+/* Keep report/attendance identity text on one line across global overrides. */
+#app .app-shell:not(.is-auth-route) .attendance-board .attendance-card-copy,
+#app .app-shell:not(.is-auth-route) .attendance-board .attendance-card-copy strong,
+#app .app-shell:not(.is-auth-route) .attendance-board .attendance-card-copy small {
+  display: block !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  overflow-wrap: normal !important;
+  word-break: keep-all !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-board .attendance-entry-card {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-board .attendance-card-identity {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-width: 0 !important;
+  width: 100% !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-board .attendance-card-copy {
+  flex: 1 1 auto !important;
+}
+
+#app .app-shell:not(.is-auth-route) .attendance-board .attendance-card-stats b,
+#app .app-shell:not(.is-auth-route) .attendance-board .punch-slot time {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 </style>

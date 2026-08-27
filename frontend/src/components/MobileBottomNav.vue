@@ -1,13 +1,15 @@
 <script setup>
 import IconlyIcon from './base/IconlyIcon.vue'
 import { computed } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import { buildMobileNavItems, isNavItemActive } from '../config/appNav'
 import { unlockTicketAlerts } from '../utils/ticketAlert'
+import { prefetchRoute } from '../utils/prefetchRoute'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const route = useRoute()
+const router = useRouter()
 const {
   state,
   supportUnreadCount,
@@ -32,6 +34,10 @@ const items = computed(() => buildMobileNavItems(state, badges.value))
 function navActive(item) {
   return isNavItemActive(item, route.path)
 }
+
+function warmNav(item) {
+  prefetchRoute(router, item?.to)
+}
 </script>
 
 <template>
@@ -48,6 +54,8 @@ function navActive(item) {
         :to="item.to"
         :class="['mobile-bottom-link', navActive(item) && 'is-active']"
         :aria-current="navActive(item) ? 'page' : undefined"
+        @pointerenter="warmNav(item)"
+        @focusin="warmNav(item)"
       >
         <span class="mobile-bottom-icon-slot" aria-hidden="true">
           <IconlyIcon :name="item.icon" decorative />

@@ -1,12 +1,14 @@
 <script setup>
 import IconlyIcon from './base/IconlyIcon.vue'
 import { computed } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import { hubTabsForPath } from '../config/appNav'
+import { prefetchRoute } from '../utils/prefetchRoute'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const route = useRoute()
+const router = useRouter()
 const {
   state,
   supportUnreadCount,
@@ -33,6 +35,10 @@ const visible = computed(() => tabs.value.length > 1)
 function isActive(to) {
   return route.path === to || route.path.startsWith(`${to}/`)
 }
+
+function warmTab(to) {
+  prefetchRoute(router, to)
+}
 </script>
 
 <template>
@@ -44,6 +50,8 @@ function isActive(to) {
         :to="tab.to"
         :class="['hub-tab', isActive(tab.to) && 'is-active']"
         :aria-current="isActive(tab.to) ? 'page' : undefined"
+        @pointerenter="warmTab(tab.to)"
+        @focusin="warmTab(tab.to)"
       >
         <span class="hub-tab-icon" aria-hidden="true">
           <IconlyIcon :name="tab.icon" decorative />

@@ -102,5 +102,4 @@ function selectedNames() {
 .inline-error { margin: 0; color: #b42318; }
 .full-width-field { width: 100%; }
 @media (max-width: 760px) { .modal-grid.two-col { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 420px) { .modal-grid.two-col { grid-template-columns: 1fr; } }
 </style>

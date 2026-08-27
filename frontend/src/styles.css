@@ -958,6 +958,9 @@ a {
 .settings-access-card small {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 
 .pipeline-card,
@@ -1879,10 +1882,13 @@ a {
   .hero-panel,
   .hero-panel-modern,
   .dashboard-grid,
-  .detail-meta-grid,
+  .detail-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
   .modal-grid.two-col,
   .modal-grid.three-col {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .pipeline-grid,
@@ -3473,7 +3479,8 @@ body {
   .approval-lane-card p,
   .report-card-modern p,
   .detail-note-box p {
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+    word-break: normal;
   }
 }
 
@@ -6908,7 +6915,7 @@ body,
   .modal-shell .recipient-grid,
   .modal-shell .detail-summary-grid,
   .modal-shell .approval-meta-board {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   .modal-shell .filter-toolbar,
@@ -6944,7 +6951,7 @@ body,
   .modal-shell .request-composer-grid,
   .modal-shell .recipient-grid,
   .modal-shell .approval-meta-board {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   .modal-shell .detail-summary-grid {

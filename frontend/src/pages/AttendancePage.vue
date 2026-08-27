@@ -1395,11 +1395,23 @@ onMounted(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+  min-width: 0;
+}
+
+.report-event-card-head > div {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .report-event-card-head strong {
   display: block;
   color: var(--primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 
 .report-event-card-head small {
@@ -1407,6 +1419,9 @@ onMounted(() => {
   margin-top: 4px;
   color: var(--muted);
   font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .report-event-card-meta {
@@ -1572,6 +1587,8 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 
 .attendance-staff-copy strong {
@@ -2429,7 +2446,7 @@ onMounted(() => {
   .report-summary-grid-wide { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .report-hero { flex-direction: column; }
   .report-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .report-cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .report-cards-grid { grid-template-columns: 1fr; }
   .report-view-tab { flex: 0 0 auto; width: auto; white-space: nowrap; }
   .attendance-tab { flex: 0 0 auto; width: auto; white-space: nowrap; }
 }

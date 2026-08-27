@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from pathlib import Path
 
 import pymysql
@@ -31,7 +32,50 @@ def _allow_local_mariadb_104() -> None:
     DatabaseWrapper.check_database_version_supported = check_database_version_supported
 
 
+def _coerce_mysql_datetime(value):
+    if value is None or isinstance(value, datetime):
+        return value
+    if isinstance(value, (bytes, bytearray)):
+        value = value.decode("utf-8", "ignore")
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if not text or text.startswith("0000-00-00"):
+        return None
+    from django.utils.dateparse import parse_datetime
+
+    parsed = parse_datetime(text.replace(" ", "T", 1))
+    if parsed is not None:
+        return parsed
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        pass
+    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _patch_mysql_datetime_strings() -> None:
+    """PyMySQL can return DATETIME as str (zero dates / MariaDB). Django then crashes on utcoffset()."""
+    try:
+        from django.db.backends.mysql.operations import DatabaseOperations
+    except Exception:
+        return
+
+    original = DatabaseOperations.convert_datetimefield_value
+
+    def convert_datetimefield_value(self, value, expression, connection):  # type: ignore[no-untyped-def]
+        return original(self, _coerce_mysql_datetime(value), expression, connection)
+
+    DatabaseOperations.convert_datetimefield_value = convert_datetimefield_value
+
+
 _allow_local_mariadb_104()
+_patch_mysql_datetime_strings()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")

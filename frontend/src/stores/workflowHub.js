@@ -1855,10 +1855,8 @@ async function loadReports(force = false) {
   state.reportStatus = payload.requestStatus
   state.topSubmitters = payload.topSubmitters
   replaceItems(state.reports, (payload.reports || []).map(normalizeReport))
-  replaceItems(state.requests, (payload.requests || state.requests || []).map(normalizeRequest))
-  replaceItems(state.expenses, (payload.expenses || state.expenses || []).map(normalizeExpense))
-  replaceItems(state.approvals, (payload.approvals || state.approvals || []).map(normalizeApproval))
-  replaceItems(state.users, (payload.users || state.users || []).map(normalizeUser))
+  // Do not replace bootstrap collections here — rewriting requests/expenses/users
+  // on every reports visit freezes the shell and fights the live bootstrap cache.
 }
 
 async function loadSettings(force = false) {

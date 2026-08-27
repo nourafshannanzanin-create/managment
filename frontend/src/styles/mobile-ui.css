@@ -16,6 +16,32 @@
   --iconly-filter: brightness(0) invert(1) !important;
 }
 
+/* Wallet options: full details on desktop/Windows; compact tiles only on phone */
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-options-desktop {
+  display: grid !important;
+}
+
+#app .app-shell:not(.is-auth-route) .wallet-page .wallet-options-mobile {
+  display: none !important;
+}
+
+@media (max-width: 760px) {
+  #app .app-shell:not(.is-auth-route) .wallet-page .wallet-options-desktop,
+  #app .app-shell:not(.is-auth-route) .wallet-page .options-head-desktop-hint {
+    display: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .wallet-page .wallet-options-mobile {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .wallet-page .options-head-mobile-hint {
+    display: block !important;
+  }
+}
+
 @media (max-width: 760px) {
   /* —— Horizontal scroll tabs (never full-width stacked) —— */
   #app .app-shell:not(.is-auth-route) :where(
@@ -271,7 +297,7 @@
   #app .app-shell:not(.is-auth-route) .report-cards-grid,
   #app .app-shell:not(.is-auth-route) .mobile-data-cards {
     display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: 1fr !important;
     gap: 10px !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -293,10 +319,13 @@
     display: grid !important;
   }
 
-  /* —— Modal fields: modern, subtle separation —— */
+  /* —— Modal fields: modern, subtle separation; 2 fields per row on phone —— */
   #app .modal-shell .field-shell,
   #app .modal-shell .upload-pad,
-  #app .modal-shell .surface-inline {
+  #app .modal-shell .surface-inline,
+  .modal-layer .modal-shell .field-shell,
+  .modal-layer .modal-shell .upload-pad,
+  .modal-layer .modal-shell .surface-inline {
     padding: 12px 14px !important;
     border-radius: 14px !important;
     border: 1px solid rgba(52, 144, 139, 0.12) !important;
@@ -304,7 +333,8 @@
     box-shadow: none !important;
   }
 
-  #app .modal-shell .field-shell > span:first-child {
+  #app .modal-shell .field-shell > span:first-child,
+  .modal-layer .modal-shell .field-shell > span:first-child {
     display: block;
     margin-bottom: 6px;
     color: #45605c;
@@ -312,17 +342,29 @@
     font-weight: 700;
   }
 
-  #app .modal-shell .field-shell :where(input, select, textarea) {
+  #app .modal-shell .field-shell :where(input, select, textarea),
+  .modal-layer .modal-shell .field-shell :where(input, select, textarea) {
     border: 1px solid rgba(52, 144, 139, 0.1) !important;
     border-radius: 10px !important;
     background: #fff !important;
   }
 
-  #app .modal-shell .modal-grid.two-col {
-    grid-template-columns: 1fr !important;
+  .modal-layer .modal-shell .modal-grid,
+  .modal-layer .modal-shell .modal-grid.two-col,
+  .modal-layer .modal-shell .modal-grid.three-col,
+  .modal-layer .modal-shell .request-composer-grid,
+  .modal-layer .modal-shell .task-composer-grid,
+  .modal-layer .modal-shell .finance-duo,
+  #app .modal-shell .modal-grid.two-col,
+  #app .modal-shell .modal-grid.three-col {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 10px !important;
   }
 
+  .modal-layer .modal-shell .full-width-field,
+  .modal-layer .modal-shell .full,
+  .modal-layer .modal-shell [class*="full-width"],
   #app .modal-shell .full-width-field {
     grid-column: 1 / -1 !important;
   }
@@ -335,9 +377,9 @@
 }
 
 @media (max-width: 420px) {
-  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table tbody,
-  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table tbody {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  #app .app-shell:not(.is-auth-route) .report-cards-grid,
+  #app .app-shell:not(.is-auth-route) .mobile-data-cards {
+    grid-template-columns: 1fr !important;
   }
 }
 
@@ -545,13 +587,6 @@
   #app .app-shell:not(.is-auth-route) .tasking-toolbar .main-tab-strip {
     min-width: 0 !important;
     touch-action: pan-x !important;
-  }
-
-  #app .app-shell:not(.is-auth-route) .wallet-page .wallet-options-grid,
-  #app .app-shell:not(.is-auth-route) .wallet-page .wallet-options-mobile {
-    display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    gap: 8px !important;
   }
 
   #app .app-shell:not(.is-auth-route) .wallet-page .wallet-summary-icon .iconly-shell {
@@ -779,9 +814,11 @@
   #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table td.cell-mobile-primary strong,
   #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table td.cell-mobile-primary strong {
     display: block !important;
-    white-space: normal !important;
-    overflow: visible !important;
-    text-overflow: unset !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    overflow-wrap: normal !important;
+    word-break: keep-all !important;
     line-height: 1.45 !important;
     font-size: 0.92rem !important;
     font-weight: 800 !important;
@@ -810,34 +847,78 @@
   #app .app-shell:not(.is-auth-route) .attendance-staff-identity,
   #app .app-shell:not(.is-auth-route) .user-chip,
   #app .app-shell:not(.is-auth-route) .person-cell,
-  #app .app-shell:not(.is-auth-route) .punch-copy,
   #app .app-shell:not(.is-auth-route) .person-identity,
+  #app .app-shell:not(.is-auth-route) .attendance-card-identity,
   #app .app-shell:not(.is-auth-route) .attendance-staff-copy {
     display: flex !important;
     align-items: center !important;
     gap: 10px !important;
     min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-summary-identity > div,
+  #app .app-shell:not(.is-auth-route) .person-identity > div,
+  #app .app-shell:not(.is-auth-route) .attendance-card-copy,
+  #app .app-shell:not(.is-auth-route) .punch-copy {
+    display: block !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    overflow: hidden !important;
   }
 
   #app .app-shell:not(.is-auth-route) .tasking-summary-identity strong,
   #app .app-shell:not(.is-auth-route) .tasking-summary-identity b,
   #app .app-shell:not(.is-auth-route) .attendance-staff-identity strong,
   #app .app-shell:not(.is-auth-route) .attendance-staff-copy strong,
+  #app .app-shell:not(.is-auth-route) .attendance-card-copy strong,
   #app .app-shell:not(.is-auth-route) .person-cell strong,
   #app .app-shell:not(.is-auth-route) .punch-copy strong,
-  #app .app-shell:not(.is-auth-route) .person-identity strong {
+  #app .app-shell:not(.is-auth-route) .person-identity strong,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table td.cell-mobile-primary,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .report-table td.cell-mobile-primary strong,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table td.cell-mobile-primary,
+  #app .app-shell:not(.is-auth-route) :where(.table-shell, .report-table-wrap) .data-table td.cell-mobile-primary strong {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
-    max-width: none !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
     width: auto !important;
     height: auto !important;
-    white-space: normal !important;
-    overflow: visible !important;
-    text-overflow: unset !important;
-    line-height: 1.35 !important;
-    font-size: 0.88rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    overflow-wrap: normal !important;
+    word-break: keep-all !important;
+    line-height: 1.4 !important;
+    font-size: 0.9rem !important;
     color: #163532 !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .attendance-entry-card,
+  #app .app-shell:not(.is-auth-route) .tasking-summary-card {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .attendance-card-punches,
+  #app .app-shell:not(.is-auth-route) .attendance-card-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .attendance-card-stats b,
+  #app .app-shell:not(.is-auth-route) .punch-slot time,
+  #app .app-shell:not(.is-auth-route) .punch-slot > span {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .tasking-total-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   #app .app-shell:not(.is-auth-route) .archive-page .metric-grid {
@@ -926,5 +1007,48 @@
 
   #app .app-shell:not(.is-auth-route) .tasking-summary-grid {
     grid-template-columns: 1fr !important;
+  }
+}
+
+/* Teleported modals (body > .modal-layer): always 2 fields per row on phone */
+@media (max-width: 920px) {
+  body > .modal-layer .modal-shell .modal-grid,
+  body > .modal-layer .modal-shell .modal-grid.two-col,
+  body > .modal-layer .modal-shell .modal-grid.three-col,
+  body > .modal-layer .modal-shell .request-composer-grid,
+  body > .modal-layer .modal-shell .task-composer-grid,
+  body > .modal-layer .modal-shell .finance-duo,
+  body > .modal-layer .modal-shell .recipient-grid,
+  body > .modal-layer .modal-shell .detail-summary-grid,
+  body > .modal-layer .modal-shell .approval-meta-board,
+  body > .modal-layer .modal-shell .leave-summary-grid,
+  body > .modal-layer .modal-shell .user-meta-board,
+  body > .modal-layer .modal-shell .user-access-grid,
+  body > .modal-layer .modal-shell .access-check-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  body > .modal-layer .modal-shell .full-width-field,
+  body > .modal-layer .modal-shell .full,
+  body > .modal-layer .modal-shell .attachment-list,
+  body > .modal-layer .modal-shell .leave-summary-card,
+  body > .modal-layer .modal-shell .upload-pad,
+  body > .modal-layer .modal-shell .priority-strip,
+  body > .modal-layer .modal-shell .modal-actions {
+    grid-column: 1 / -1;
+  }
+
+  body > .modal-layer .modal-shell .modal-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  body > .modal-layer .modal-shell .field-shell,
+  body > .modal-layer .modal-shell label.field-shell,
+  body > .modal-layer .modal-shell .modal-grid > * {
+    min-width: 0 !important;
   }
 }

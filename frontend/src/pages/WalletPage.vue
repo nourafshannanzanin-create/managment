@@ -689,18 +689,23 @@ watch(
               {
                 active: option.isActive || option.is_active,
                 disabled: optionDisabled(option),
-                locked: option.installmentIsLocked || option.installment_is_locked,
+                locked: optionInstallmentLocked(option),
+                purchased: (option.isActive || option.is_active) && !optionCatalogDisabled(option),
               },
             ]"
-            :style="{ '--i': index }"
+            :style="{ '--i': index, '--option-accent': option.accent || '#34908b' }"
+            :aria-label="`جزئیات ${option.title}`"
             @click="openOptionDetail(option)"
           >
-            <span class="wallet-option-tile-icon">
+            <span class="wallet-option-tile-icon" aria-hidden="true">
               <IconlyIcon :name="optionIcon(option)" decorative />
             </span>
             <strong>{{ option.title }}</strong>
             <small class="wallet-option-tile-status">{{ optionStatus(option) }}</small>
-            <span class="wallet-option-tile-glow" aria-hidden="true"></span>
+            <span class="wallet-option-tile-cta">
+              جزئیات
+              <IconlyIcon name="chevron_left" decorative />
+            </span>
           </button>
         </div>
       </div>
@@ -1546,7 +1551,7 @@ watch(
 
 .wallet-options-section {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .wallet-section-head.options-head {
@@ -1558,7 +1563,7 @@ watch(
 
 .wallet-section-head.options-head > div {
   display: grid;
-  gap: 2px;
+  gap: 4px;
 }
 
 .wallet-section-head.options-head span {
@@ -1584,13 +1589,11 @@ watch(
 
 .wallet-options-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .wallet-options-desktop {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
 }
 
 .wallet-options-mobile {
@@ -1668,6 +1671,7 @@ watch(
   font-size: 1rem;
   font-weight: 850;
   color: var(--wallet-ink);
+  line-height: 1.4;
 }
 
 .wallet-option-card-titles em {
@@ -1829,60 +1833,66 @@ watch(
 }
 
 .wallet-option-tile {
+  --option-accent: #34908b;
   position: relative;
   overflow: hidden;
   display: grid;
   justify-items: center;
   gap: 10px;
-  min-height: 132px;
-  padding: 18px 14px 16px;
+  min-height: 148px;
+  padding: 16px 12px 14px;
   border: 1px solid rgba(52, 144, 139, 0.14);
-  border-radius: 22px;
+  border-radius: 18px;
   color: var(--wallet-ink);
-  background: #ffffff;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--option-accent) 6%, #fff) 0%, #ffffff 48%);
   cursor: pointer;
   text-align: center;
-  box-shadow: 0 10px 24px rgba(20, 70, 66, 0.06);
-  transition: transform 0.22s var(--wallet-ease), box-shadow 0.22s ease, border-color 0.22s ease;
-  animation: wallet-rise 0.5s var(--wallet-ease) both;
-  animation-delay: calc(var(--i, 0) * 55ms);
+  box-shadow: 0 8px 22px rgba(20, 70, 66, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  animation: wallet-rise 0.45s var(--wallet-ease) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
 }
 
-.wallet-option-tile:hover {
-  transform: translateY(-4px) scale(1.02);
-  border-color: rgba(52, 144, 139, 0.28);
-  box-shadow: 0 16px 32px rgba(20, 70, 66, 0.1);
+.wallet-option-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--option-accent);
 }
 
-.wallet-option-tile.software,
-.wallet-option-tile.cloud,
-.wallet-option-tile.attendance,
-.wallet-option-tile.accounting {
-  color: var(--wallet-ink);
-  background: #ffffff;
+.wallet-option-tile:hover,
+.wallet-option-tile:focus-visible {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--option-accent) 34%, transparent);
+  box-shadow: 0 14px 28px rgba(20, 70, 66, 0.1);
+  outline: 0;
 }
 
+.wallet-option-tile.purchased,
 .wallet-option-tile.active {
-  outline: 2px solid rgba(52, 144, 139, 0.45);
-  outline-offset: 2px;
-  border-color: rgba(52, 144, 139, 0.35);
+  border-color: rgba(22, 163, 74, 0.22);
+  background: linear-gradient(180deg, #f3fdf7 0%, #ffffff 50%);
 }
 
-.wallet-option-tile.disabled,
 .wallet-option-tile.locked {
+  border-color: rgba(185, 28, 28, 0.18);
+  background: linear-gradient(180deg, #fff5f5 0%, #ffffff 50%);
+}
+
+.wallet-option-tile.disabled {
   opacity: 0.72;
-  filter: grayscale(0.25);
 }
 
 .wallet-option-tile-icon {
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   display: grid;
   place-items: center;
-  border-radius: 16px;
-  color: #1f6f6a;
-  background: rgba(52, 144, 139, 0.1);
-  border: 1px solid rgba(52, 144, 139, 0.16);
+  border-radius: 14px;
+  color: var(--option-accent);
+  background: color-mix(in srgb, var(--option-accent) 12%, #fff);
+  border: 1px solid color-mix(in srgb, var(--option-accent) 20%, transparent);
 }
 
 .wallet-option-tile-icon :deep(.iconly-shell),
@@ -1898,10 +1908,15 @@ watch(
 }
 
 .wallet-option-tile strong {
+  display: -webkit-box;
+  min-width: 0;
   color: var(--wallet-ink);
-  font-size: 0.92rem;
-  font-weight: 820;
+  font-size: 0.9rem;
+  font-weight: 850;
   line-height: 1.35;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .wallet-option-tile-status {
@@ -1909,12 +1924,34 @@ watch(
   border-radius: 999px;
   color: #1f5c59;
   background: rgba(52, 144, 139, 0.1);
-  font-size: 10px;
+  font-size: 0.7rem;
   font-weight: 750;
 }
 
-.wallet-option-tile-glow {
-  display: none;
+.wallet-option-tile.purchased .wallet-option-tile-status,
+.wallet-option-tile.active .wallet-option-tile-status {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.wallet-option-tile.locked .wallet-option-tile-status {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.wallet-option-tile-cta {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #1f6f6a;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.wallet-option-tile-cta :deep(.iconly-shell) {
+  font-size: 14px;
+  --iconly-filter: brightness(0) saturate(100%) invert(36%) sepia(24%) saturate(980%) hue-rotate(131deg) brightness(92%) contrast(88%);
 }
 
 .option-detail-modal {
@@ -2685,9 +2722,8 @@ watch(
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .wallet-options-desktop,
-  .wallet-options-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+  .wallet-options-desktop {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -2700,43 +2736,30 @@ watch(
   .wallet-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .wallet-options-desktop {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 760px) {
   .wallet-options-desktop,
   .options-head-desktop-hint {
     display: none;
   }
 
   .wallet-options-mobile,
-  .wallet-options-grid,
   .options-head-mobile-hint {
     display: grid;
-  }
-
-  .wallet-options-mobile,
-  .wallet-options-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
   }
 
   .options-head-mobile-hint {
     display: block;
   }
 
-  .wallet-option-tile {
-    min-height: 0;
-    padding: 10px 6px 12px;
-    gap: 6px;
-  }
-
-  .wallet-option-tile strong {
-    font-size: 0.72rem;
-    line-height: 1.25;
-  }
-
-  .wallet-option-tile-status {
-    font-size: 0.62rem;
+  .wallet-options-mobile {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 }
 
@@ -2766,24 +2789,15 @@ watch(
     padding: 14px;
   }
 
-  .wallet-options-mobile,
-  .wallet-options-grid {
-    display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    gap: 8px;
-  }
-
-  .wallet-option-card,
-  .wallet-option-tile {
-    padding: 12px 10px;
-    border-radius: 14px;
+  .wallet-options-mobile {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 8px;
   }
 
   .wallet-option-tile {
     min-height: 0;
-    padding: 10px 6px 12px;
-    gap: 6px;
+    padding: 12px 10px;
+    gap: 8px;
     border-radius: 14px;
   }
 
@@ -2794,12 +2808,16 @@ watch(
   }
 
   .wallet-option-tile strong {
-    font-size: 0.72rem;
-    line-height: 1.25;
+    font-size: 0.78rem;
+    line-height: 1.3;
   }
 
   .wallet-option-tile-status {
     font-size: 0.62rem;
+  }
+
+  .wallet-option-tile-cta {
+    font-size: 0.68rem;
   }
 
   .ledger-row,

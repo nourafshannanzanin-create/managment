@@ -737,7 +737,10 @@ onMounted(() => {
             >
               <template v-if="activeTab === 'requests'">
                 <td class="cell-mobile-hide">{{ row.id }}</td>
-                <td class="cell-mobile-primary">{{ row.title }}</td>
+                <td class="cell-mobile-primary">
+                  <strong>{{ row.title }}</strong>
+                  <small>{{ joinDisplayParts([row.owner, row.department]) || '—' }}</small>
+                </td>
                 <td class="cell-mobile-hide">{{ row.owner }}</td>
                 <td class="cell-mobile-hide">{{ row.manager }}</td>
                 <td class="cell-mobile-hide">{{ row.department }}</td>
@@ -748,7 +751,10 @@ onMounted(() => {
               </template>
               <template v-else-if="activeTab === 'expenses'">
                 <td class="cell-mobile-hide">{{ row.id }}</td>
-                <td class="cell-mobile-primary">{{ row.description }}</td>
+                <td class="cell-mobile-primary">
+                  <strong>{{ row.description }}</strong>
+                  <small>{{ joinDisplayParts([row.owner, row.department, row.amount]) || '—' }}</small>
+                </td>
                 <td class="cell-mobile-hide">{{ row.owner }}</td>
                 <td data-label="مبلغ">{{ row.amount }}</td>
                 <td class="cell-mobile-hide">{{ row.department }}</td>
@@ -757,12 +763,32 @@ onMounted(() => {
                 <td class="cell-mobile-hide">{{ decisionText(row) }}</td>
               </template>
               <template v-else-if="activeTab === 'approvals'">
-                <td>{{ row.id }}</td><td>{{ row.title }}</td><td>{{ row.owner }}</td><td>{{ row.type }}</td><td>{{ row.department }}</td><td>{{ row.risk }}</td>
-                <td><span :class="['status-badge', toneForStatus(row.status)]">{{ row.status }}</span></td>
-                <td>{{ row.uploadedAt }}</td><td>{{ decisionText(row) }}</td>
+                <td class="cell-mobile-hide">{{ row.id }}</td>
+                <td class="cell-mobile-primary">
+                  <strong>{{ row.title }}</strong>
+                  <small>{{ joinDisplayParts([row.owner, row.type, row.department]) || '—' }}</small>
+                </td>
+                <td class="cell-mobile-hide">{{ row.owner }}</td>
+                <td class="cell-mobile-hide">{{ row.type }}</td>
+                <td class="cell-mobile-hide">{{ row.department }}</td>
+                <td class="cell-mobile-hide">{{ row.risk }}</td>
+                <td data-label="وضعیت"><span :class="['status-badge', toneForStatus(row.status)]">{{ row.status }}</span></td>
+                <td data-label="تاریخ">{{ row.uploadedAt }}</td>
+                <td class="cell-mobile-hide">{{ decisionText(row) }}</td>
               </template>
               <template v-else>
-                <td>{{ row.id }}</td><td>{{ row.name }}</td><td>{{ row.username }}</td><td>{{ row.role }}</td><td>{{ row.department }}</td><td>{{ row.manager }}</td><td>{{ row.bonusAmount }}</td><td>{{ row.penaltyAmount }}</td><td>{{ row.netAdjustment }}</td>
+                <td class="cell-mobile-hide">{{ row.id }}</td>
+                <td class="cell-mobile-primary">
+                  <strong>{{ row.name }}</strong>
+                  <small>{{ joinDisplayParts([row.role, row.department]) || '—' }}</small>
+                </td>
+                <td class="cell-mobile-hide">{{ row.username }}</td>
+                <td class="cell-mobile-hide">{{ row.role }}</td>
+                <td class="cell-mobile-hide">{{ row.department }}</td>
+                <td class="cell-mobile-hide">{{ row.manager }}</td>
+                <td data-label="پاداش">{{ row.bonusAmount }}</td>
+                <td data-label="جریمه">{{ row.penaltyAmount }}</td>
+                <td data-label="خالص">{{ row.netAdjustment }}</td>
               </template>
             </tr>
             <tr v-if="!activeRows.length">
@@ -940,8 +966,19 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.reports-page { gap: 16px; }
-.report-controls { display: grid; gap: 14px; }
+.reports-page {
+  gap: 16px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+}
+.report-controls {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
 .report-tabs {
   display: flex;
   align-items: center;
@@ -955,16 +992,18 @@ onMounted(() => {
 .report-tabs::-webkit-scrollbar { display: none; }
 .report-toolbar {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: end;
   gap: 12px;
   min-width: 0;
+  max-width: 100%;
 }
 .report-toolbar-block {
   display: grid;
   gap: 8px;
-  flex: 1 1 auto;
+  flex: 1 1 220px;
   min-width: 0;
+  max-width: 100%;
 }
 .report-toolbar-label {
   font-size: 11px;
@@ -975,9 +1014,10 @@ onMounted(() => {
   display: flex;
   align-items: end;
   gap: 10px;
-  flex-wrap: nowrap;
-  flex: 0 1 auto;
+  flex-wrap: wrap;
+  flex: 1 1 240px;
   min-width: 0;
+  max-width: 100%;
 }
 .report-tab {
   flex: 0 0 auto;
@@ -1022,12 +1062,14 @@ onMounted(() => {
   display: grid;
   grid-template-rows: 18px 40px;
   gap: 6px;
-  min-width: 180px;
+  min-width: 0;
+  flex: 1 1 140px;
+  max-width: 100%;
   margin: 0;
 }
 .report-person-field {
-  flex: 1 1 200px;
-  min-width: min(100%, 200px);
+  flex: 1 1 160px;
+  min-width: 0;
 }
 .report-filter-label {
   display: inline-flex;
@@ -1085,11 +1127,13 @@ onMounted(() => {
   background: #f3f9f7 !important;
 }
 .report-export-btn {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   height: 40px !important;
   min-height: 40px !important;
+  max-width: 100%;
   border-radius: 12px;
   align-self: end;
+  white-space: nowrap;
 }
 .compact-field { min-width: 190px; margin: 0; }
 .report-table-wrap { overflow-x: auto; }
@@ -1097,6 +1141,32 @@ onMounted(() => {
 .report-table th, .report-table td { padding: 12px 10px; border-bottom: 1px solid rgba(38,56,92,.08); text-align: right; vertical-align: top; }
 .report-table th { color: #52607a; font-size: 12px; }
 .report-table td { color: #203255; line-height: 1.7; }
+.report-table td.cell-mobile-primary {
+  min-width: 0;
+  max-width: 28rem;
+}
+.report-table td.cell-mobile-primary strong,
+.report-table td.cell-mobile-primary small {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.report-table td.cell-mobile-primary strong {
+  color: #163532;
+  font-weight: 800;
+  line-height: 1.45;
+}
+.report-table td.cell-mobile-primary small {
+  margin-top: 4px;
+  color: #5f7a76;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
 .report-click-row {
   cursor: pointer;
   outline: 0;
@@ -1145,12 +1215,14 @@ onMounted(() => {
 .report-detail-title h2 {
   font-size: clamp(22px, 2vw, 32px);
   line-height: 1.35;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 .report-detail-title p {
   color: rgba(255, 255, 255, 0.76);
   line-height: 1.9;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 .report-detail-code {
   padding: 8px 12px;
@@ -1194,7 +1266,8 @@ onMounted(() => {
 .report-detail-field strong {
   color: #203255;
   line-height: 1.7;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 .report-detail-field {
   display: grid;
@@ -1234,7 +1307,8 @@ onMounted(() => {
 .decision-step strong,
 .decision-step small {
   display: block;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 .decision-step small {
   margin-top: 4px;
@@ -1255,6 +1329,7 @@ onMounted(() => {
 .tasking-total-strip article {
   display: grid;
   gap: 6px;
+  min-width: 0;
   padding: 14px;
   border-radius: 14px;
   background: #eef6f4;
@@ -1263,12 +1338,20 @@ onMounted(() => {
   color: #45605c;
   font-size: 0.75rem;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .tasking-total-strip strong {
   color: #163532;
   font-size: 0.95rem;
   font-weight: 800;
   line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 .tasking-total-strip .is-deficit {
   background: #fff1f0;
@@ -1317,23 +1400,37 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-width: 0;
 }
 .tasking-summary-identity {
   display: flex;
   align-items: center;
   gap: 12px;
   min-width: 0;
+  flex: 1;
+}
+.tasking-summary-identity > div {
+  min-width: 0;
+  flex: 1;
 }
 .tasking-summary-identity strong {
   display: block;
   color: #163532;
   font-size: 0.98rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 .tasking-summary-identity small {
   display: block;
   margin-top: 4px;
   color: #607874;
   font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .tasking-status-pill {
   flex: 0 0 auto;
@@ -1707,15 +1804,26 @@ onMounted(() => {
   .tasking-summary-card {
     box-shadow: none;
   }
+  .tasking-total-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .tasking-summary-preview {
     flex-wrap: wrap;
     gap: 6px 8px;
     font-size: 0.78rem;
   }
   .tasking-summary-identity strong {
-    white-space: normal;
-    overflow: visible;
-    text-overflow: unset;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    overflow-wrap: normal;
+    word-break: keep-all;
+  }
+  .report-table {
+    min-width: 0;
+  }
+  .report-table td.cell-mobile-primary {
+    max-width: none;
   }
   .report-period-chips .filter-chip {
     min-height: 38px;
