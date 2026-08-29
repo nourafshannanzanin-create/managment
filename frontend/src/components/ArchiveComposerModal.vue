@@ -6,6 +6,7 @@ import BaseModal from './BaseModal.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
 import UserAvatar from './UserAvatar.vue'
+import VoiceDescriptionField from './VoiceDescriptionField.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 defineProps({
@@ -119,10 +120,15 @@ function isSelected(id) {
           <input v-model="form.title" type="text" placeholder="مثلاً قرارداد همکاری ۱۴۰۵" />
         </label>
 
-        <label class="field-shell full-span">
-          <span>توضیحات سند</span>
-          <textarea v-model="form.description" rows="3" placeholder="توضیح کوتاه درباره محتوا و کاربرد سند"></textarea>
-        </label>
+        <VoiceDescriptionField
+          class="full-span"
+          v-model="form.description"
+          v-model:voice-file="form.descriptionVoice"
+          label="توضیحات سند"
+          placeholder="توضیح کوتاه درباره محتوا و کاربرد سند"
+          :rows="3"
+          :disabled="submitting"
+        />
 
         <div :class="['field-shell', fieldHasError('documentDate') && 'has-error']">
           <span>تاریخ سند *</span>

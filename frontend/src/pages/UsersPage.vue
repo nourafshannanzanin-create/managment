@@ -10,7 +10,7 @@ import ProfileAvatarEditor from '../components/ProfileAvatarEditor.vue'
 import SectionHeading from '../components/SectionHeading.vue'
 import UserAvatar from '../components/UserAvatar.vue'
 import UserEntrustedPanel from '../components/UserEntrustedPanel.vue'
-import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
+import { formatAmountInput, formatMoneyWithUnit, normalizeAmountValue } from '../utils/amount'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 const { availableManagerDirectory, openUserComposer, state, updateUser, addUserEntrustedItem, removeUserEntrustedItem , loadMoreBootstrapCollection } = useWorkflowHub()
@@ -93,6 +93,13 @@ const categoryButtons = [
 ]
 
 const canManageUsers = computed(() => state.currentUser.canManageUsers)
+const isEditingSelf = computed(() => Number(selectedUserId.value) === Number(state.currentUser.id))
+const canEditSelectedUser = computed(() => canManageUsers.value || isEditingSelf.value)
+const canEditAdminFields = computed(() => canManageUsers.value)
+
+function formatFinanceAmount(value) {
+  return formatMoneyWithUnit(value)
+}
 
 const filteredUsers = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
@@ -181,7 +188,7 @@ function closeUserDetails() {
 }
 
 function onUserAvatarSelected(file) {
-  if (!canManageUsers.value || !file) return
+  if (!canEditSelectedUser.value || !file) return
   revokeAvatarDraftPreview()
   avatarDraftFile.value = markRaw(file)
   avatarDraftPreview.value = URL.createObjectURL(file)
@@ -189,7 +196,7 @@ function onUserAvatarSelected(file) {
 }
 
 function onUserAvatarCleared() {
-  if (!canManageUsers.value) return
+  if (!canEditSelectedUser.value) return
   revokeAvatarDraftPreview()
   avatarDraftFile.value = null
   avatarDraftPreview.value = ''
@@ -208,25 +215,35 @@ function handleMoneyInput(field, value) {
 }
 
 async function saveUserChanges() {
-  if (!selectedUser.value || savingUser.value || !canManageUsers.value) return
+  if (!selectedUser.value || savingUser.value || !canEditSelectedUser.value) return
   savingUser.value = true
   try {
-    await updateUser(selectedUser.value.id, {
-      fullName: editableUser.fullName,
-      username: editableUser.username,
-      password: editableUser.password,
-      phone: editableUser.phone,
-      accessRole: editableUser.accessRole,
-      department: editableUser.department,
-      managerId: editableUser.managerId || null,
-      jobTitle: editableUser.jobTitle,
-      isActive: editableUser.isActive,
-      sectionAccess: editableUser.sectionAccess,
-      avatarFile: avatarDraftFile.value || undefined,
-      clearAvatar: clearAvatarOnSave.value,
-    })
+    const payload = canManageUsers.value
+      ? {
+          fullName: editableUser.fullName,
+          username: editableUser.username,
+          password: editableUser.password,
+          phone: editableUser.phone,
+          accessRole: editableUser.accessRole,
+          department: editableUser.department,
+          managerId: editableUser.managerId || null,
+          jobTitle: editableUser.jobTitle,
+          isActive: editableUser.isActive,
+          sectionAccess: editableUser.sectionAccess,
+          avatarFile: avatarDraftFile.value || undefined,
+          clearAvatar: clearAvatarOnSave.value,
+        }
+      : {
+          fullName: editableUser.fullName,
+          username: editableUser.username,
+          password: editableUser.password,
+          phone: editableUser.phone,
+          avatarFile: avatarDraftFile.value || undefined,
+          clearAvatar: clearAvatarOnSave.value,
+        }
+    const updatedUser = await updateUser(selectedUser.value.id, payload)
     editableUser.password = ''
-    closeUserDetails()
+    syncEditableFromUser(updatedUser)
   } catch {
     // ErrorNotice renders the normalized backend/frontend error.
   } finally {
@@ -453,7 +470,7 @@ function userManagerOptions(userId) {
         :preview-url="avatarDraftPreview"
         size="lg"
         :busy="savingUser"
-        :disabled="!canManageUsers"
+        :disabled="!canEditSelectedUser"
         title="افزودن پروفایل"
         description="عکس انتخاب‌شده پس از ذخیره در فهرست کاربران، تنظیمات و ورود/خروج نمایش داده می‌شود."
         @select="onUserAvatarSelected"
@@ -498,12 +515,12 @@ function userManagerOptions(userId) {
         <div class="modal-grid two-col">
           <label class="field-shell">
             <span>نام کامل</span>
-            <input v-model="editableUser.fullName" type="text" :disabled="!canManageUsers" />
+            <input v-model="editableUser.fullName" type="text" :disabled="!canEditSelectedUser" />
           </label>
 
           <label class="field-shell">
             <span>نام کاربری</span>
-            <input v-model="editableUser.username" type="text" dir="ltr" :disabled="!canManageUsers" />
+            <input v-model="editableUser.username" type="text" dir="ltr" :disabled="!canEditSelectedUser" />
           </label>
 
           <label class="field-shell">
@@ -528,17 +545,17 @@ function userManagerOptions(userId) {
 
           <label class="field-shell">
             <span>رمز عبور جدید</span>
-            <input v-model="editableUser.password" type="password" placeholder="در صورت نیاز تغییر دهید" :disabled="!canManageUsers" />
+            <input v-model="editableUser.password" type="password" placeholder="در صورت نیاز تغییر دهید" :disabled="!canEditSelectedUser" />
           </label>
 
           <label class="field-shell">
             <span>موبایل</span>
-            <input v-model="editableUser.phone" type="text" dir="ltr" :disabled="!canManageUsers" />
+            <input v-model="editableUser.phone" type="text" dir="ltr" :disabled="!canEditSelectedUser" />
           </label>
 
           <label class="field-shell">
             <span>نوع دسترسی</span>
-            <select v-model="editableUser.accessRole" :disabled="!canManageUsers">
+            <select v-model="editableUser.accessRole" :disabled="!canEditAdminFields">
               <option value="admin">مدیرعامل</option>
               <option value="executive_manager">مدیر ارشد</option>
               <option value="manager">مدیر</option>
@@ -548,7 +565,7 @@ function userManagerOptions(userId) {
 
           <label class="field-shell">
             <span>بخش</span>
-            <select v-model="editableUser.department" :disabled="!canManageUsers">
+            <select v-model="editableUser.department" :disabled="!canEditAdminFields">
               <option value="">انتخاب بخش</option>
               <option v-for="item in state.directories.departments" :key="item.code" :value="item.code">{{ item.name }}</option>
             </select>
@@ -556,7 +573,7 @@ function userManagerOptions(userId) {
 
           <label class="field-shell">
             <span>مدیر مستقیم</span>
-            <select v-model="editableUser.managerId" :disabled="!canManageUsers">
+            <select v-model="editableUser.managerId" :disabled="!canEditAdminFields">
               <option value="">بدون مدیر</option>
               <option v-for="item in userManagerOptions(selectedUser.id)" :key="item.id" :value="item.id">{{ item.name }}</option>
             </select>
@@ -564,29 +581,29 @@ function userManagerOptions(userId) {
 
           <label class="field-shell">
             <span>عنوان شغلی</span>
-            <input v-model="editableUser.jobTitle" type="text" :disabled="!canManageUsers" />
+            <input v-model="editableUser.jobTitle" type="text" :disabled="!canEditAdminFields" />
           </label>
         </div>
 
-        <div class="user-finance-stack">
+        <div v-if="canManageUsers" class="user-finance-stack">
           <section class="surface-inline user-finance-panel">
             <div class="section-label-row">
               <SectionHeading
                 title="پاداش و جریمه"
-                description="ثبت یا تعدیل پاداش و جریمه برای کاربر انتخاب‌شده."
+                description="مبالغ به تومان ثبت می‌شوند. موجودی فعلی در بالای هر فیلد نمایش داده می‌شود."
               />
             </div>
 
             <div class="modal-grid two-col finance-duo">
               <div class="field-shell finance-field-shell is-bonus">
-                <span>پاداش</span>
-                <strong class="finance-current-value">{{ selectedUser.bonusAmount || '0' }}</strong>
+                <span>پاداش — موجودی فعلی: {{ formatFinanceAmount(selectedUser.bonusAmount) }}</span>
+                <label class="finance-input-label">افزودن به پاداش (تومان)</label>
                 <div class="finance-input-row">
                   <input
                     :value="editableUser.bonusDelta"
                     type="text"
                     inputmode="numeric"
-                    placeholder="مبلغ جدید"
+                    placeholder="۰"
                     :disabled="!canManageUsers || applyingBonus"
                     @input="handleMoneyInput('bonusDelta', $event.target.value)"
                   />
@@ -603,14 +620,14 @@ function userManagerOptions(userId) {
               </div>
 
               <div class="field-shell finance-field-shell is-penalty">
-                <span>جریمه</span>
-                <strong class="finance-current-value">{{ selectedUser.penaltyAmount || '0' }}</strong>
+                <span>جریمه — موجودی فعلی: {{ formatFinanceAmount(selectedUser.penaltyAmount) }}</span>
+                <label class="finance-input-label">افزودن به جریمه (تومان)</label>
                 <div class="finance-input-row">
                   <input
                     :value="editableUser.penaltyDelta"
                     type="text"
                     inputmode="numeric"
-                    placeholder="مبلغ جدید"
+                    placeholder="۰"
                     :disabled="!canManageUsers || applyingPenalty"
                     @input="handleMoneyInput('penaltyDelta', $event.target.value)"
                   />
@@ -676,7 +693,7 @@ function userManagerOptions(userId) {
         </button>
 
         <button
-          v-if="canManageUsers"
+          v-if="canEditSelectedUser"
           class="action-btn tone-primary"
           type="button"
           :disabled="savingUser"
@@ -1125,6 +1142,13 @@ function userManagerOptions(userId) {
   color: #45605c;
   font-size: 0.82rem;
   font-weight: 700;
+  line-height: 1.6;
+}
+
+.finance-input-label {
+  color: #5f7773;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .finance-field-shell.is-penalty > span {

@@ -10,6 +10,7 @@ const props = defineProps({
   startDate: { type: String, default: '' },
   endDate: { type: String, default: '' },
   status: { type: String, default: '' },
+  period: { type: String, default: 'all' },
   people: { type: Array, default: () => [] },
   dense: { type: Boolean, default: false },
   showStatusFilter: { type: Boolean, default: false },
@@ -24,10 +25,18 @@ const emit = defineEmits([
   'update:startDate',
   'update:endDate',
   'update:status',
+  'update:period',
   'reset',
 ])
 
 const isArchive = computed(() => props.variant === 'archive')
+
+const periodOptions = [
+  { key: 'today', label: 'امروز' },
+  { key: 'week', label: 'این هفته' },
+  { key: 'month', label: 'این ماه' },
+  { key: 'all', label: 'کل' },
+]
 
 const workflowStatusOptions = [
   { value: '', label: 'همه وضعیت‌ها' },
@@ -47,6 +56,20 @@ const workflowStatusOptions = [
       isArchive && 'is-archive-filters',
     ]"
   >
+    <div class="page-filters-period-row">
+      <div class="chip-row page-period-chips" role="group" aria-label="بازه زمانی">
+        <button
+          v-for="item in periodOptions"
+          :key="item.key"
+          type="button"
+          :class="['filter-chip', period === item.key && 'is-active']"
+          @click="emit('update:period', item.key)"
+        >
+          {{ item.label }}
+        </button>
+      </div>
+    </div>
+
     <label class="field-shell compact-field filter-field is-search">
       <span class="filter-field-label">
         <IconlyIcon :name="isArchive ? 'description' : 'search'" decorative />
@@ -172,6 +195,16 @@ const workflowStatusOptions = [
   background: transparent;
   border: 0;
   box-sizing: border-box;
+}
+
+.page-filters-period-row {
+  grid-column: 1 / -1;
+}
+
+.page-period-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .modern-page-filters.has-status-filter {

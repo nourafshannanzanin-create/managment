@@ -12,6 +12,7 @@ import { formatJalali, formatTehranDateTime, getTodayIso, getTodayJalali, isoToJ
 import { formatDurationFa, toPersianDigits } from '../utils/duration'
 import { exportAttendanceReportPdf } from '../utils/attendancePdfExport'
 import { useWorkflowHub } from '../stores/workflowHub'
+import { formatMoneyWithUnit } from '../utils/amount'
 import { joinDisplayParts } from '../utils/text'
 import { rowToneForStatus, toneForStatus } from '../utils/status'
 
@@ -19,6 +20,11 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000
 const TOKEN_KEY = 'workflow-hub-token'
 
 const { exportReport, loadReports, loadTaskingReports, state, updatePageFilter } = useWorkflowHub()
+
+function formatReportMoney(value) {
+  if (value === null || value === undefined || value === '' || value === '-') return '-'
+  return formatMoneyWithUnit(value)
+}
 
 const activeTab = ref('requests')
 const selectedReportRow = ref(null)
@@ -340,9 +346,9 @@ const selectedPrimaryMetrics = computed(() => {
   }
   if (selectedReportType.value === 'users') {
     return [
-      { label: 'پاداش', value: row.bonusAmount || '-', icon: 'award_star' },
-      { label: 'جریمه', value: row.penaltyAmount || '-', icon: 'gavel' },
-      { label: 'خالص', value: row.netAdjustment || '-', icon: 'balance' },
+      { label: 'پاداش', value: formatReportMoney(row.bonusAmount), icon: 'award_star' },
+      { label: 'جریمه', value: formatReportMoney(row.penaltyAmount), icon: 'gavel' },
+      { label: 'خالص', value: formatReportMoney(row.netAdjustment), icon: 'balance' },
     ]
   }
   if (selectedReportType.value === 'attendance') {
@@ -397,9 +403,9 @@ const selectedDetailFields = computed(() => {
       { label: 'وضعیت', value: row.status },
       { label: 'تاریخ عضویت', value: row.joinedAt },
       { label: 'آخرین بروزرسانی مالی', value: row.financeUpdatedAt || '-' },
-      { label: 'پاداش', value: row.bonusAmount },
-      { label: 'جریمه', value: row.penaltyAmount },
-      { label: 'خالص پاداش/جریمه', value: row.netAdjustment },
+      { label: 'پاداش', value: formatReportMoney(row.bonusAmount) },
+      { label: 'جریمه', value: formatReportMoney(row.penaltyAmount) },
+      { label: 'خالص پاداش/جریمه', value: formatReportMoney(row.netAdjustment) },
     ]
   }
   if (selectedReportType.value === 'attendance') {
@@ -429,7 +435,7 @@ const selectedDetailFields = computed(() => {
 })
 
 function decisionText(item) {
-  if (activeTab.value === 'users') return item.netAdjustment || '-'
+  if (activeTab.value === 'users') return formatReportMoney(item.netAdjustment)
   if (activeTab.value === 'attendance') return sourceLabel(item.source)
   const decisions = item.decisions || []
   return decisions.length ? decisions.map((row) => `${row.approver}: ${row.statusLabel}`).join(' | ') : '-'
@@ -786,9 +792,9 @@ onMounted(() => {
                 <td class="cell-mobile-hide">{{ row.role }}</td>
                 <td class="cell-mobile-hide">{{ row.department }}</td>
                 <td class="cell-mobile-hide">{{ row.manager }}</td>
-                <td data-label="پاداش">{{ row.bonusAmount }}</td>
-                <td data-label="جریمه">{{ row.penaltyAmount }}</td>
-                <td data-label="خالص">{{ row.netAdjustment }}</td>
+                <td data-label="پاداش">{{ formatReportMoney(row.bonusAmount) }}</td>
+                <td data-label="جریمه">{{ formatReportMoney(row.penaltyAmount) }}</td>
+                <td data-label="خالص">{{ formatReportMoney(row.netAdjustment) }}</td>
               </template>
             </tr>
             <tr v-if="!activeRows.length">

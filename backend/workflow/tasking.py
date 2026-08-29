@@ -899,6 +899,7 @@ def serialize_task(task: Task, current_user: User, *, include_detail: bool = Fal
         "code": task.code,
         "title": task.title,
         "description": task.description,
+        **description_voice_payload(getattr(task, "description_voice", "")),
         "priority": task.priority,
         "priorityLabel": PRIORITY_LABELS.get(task.priority, task.priority),
         "status": task.status,
@@ -1028,7 +1029,7 @@ def ensure_default_reviewer(task: Task, settings_obj: TaskingSettings):
 
 
 @transaction.atomic
-def create_task(actor: User, payload: dict, files=None) -> Task:
+def create_task(actor: User, payload: dict, files=None, voice_file=None) -> Task:
     organization = get_user_organization(actor)
     settings_obj = get_or_create_tasking_settings(organization)
     if not settings_obj.enabled:
@@ -1070,19 +1071,13 @@ def create_task(actor: User, payload: dict, files=None) -> Task:
             raise TaskingError("اجازه ساخت تسک برای این کاربر را ندارید.", status=403)
 
     requires_acceptance = settings_obj.assignment_requires_acceptance and for_other
-    # Self-created tasks complete without review; assigned tasks always need assigner review.
-    if for_other:
-        review_required = True
-    else:
-        review_required = False
+    review_required = False
     if "reviewRequired" in payload or "review_required" in payload:
         raw_review = payload.get("reviewRequired", payload.get("review_required"))
         if isinstance(raw_review, str):
             review_required = raw_review.strip().lower() in {"1", "true", "yes", "on"}
         elif raw_review is not None:
             review_required = bool(raw_review)
-        if not for_other:
-            review_required = False
     status = TaskStatus.PENDING_ACCEPTANCE if requires_acceptance else TaskStatus.SCHEDULED
 
     raw_department = payload.get("departmentId") if "departmentId" in payload else payload.get("department_id")
@@ -1104,6 +1099,7 @@ def create_task(actor: User, payload: dict, files=None) -> Task:
         code=next_code("TSK"),
         title=title,
         description=(payload.get("description") or "").strip(),
+        description_voice="",
         category=(payload.get("category") or "").strip()[:80],
         department_id=department_id,
         creator=actor,
@@ -1165,6 +1161,12 @@ def create_task(actor: User, payload: dict, files=None) -> Task:
 
     if review_required:
         ensure_default_reviewer(task, settings_obj)
+
+    if voice_file is not None:
+        from workflow.services import save_voice_note
+
+        task.description_voice = save_voice_note(voice_file)
+        task.save(update_fields=["description_voice"])
 
     if files:
         from workflow.services import save_uploaded_file, validate_upload_file
@@ -1674,6 +1676,12 @@ def _carry_forward_overdue_tasks(user: User, today: date) -> None:
 
 def dashboard_payload(user: User, focus_date: date | None = None, supervise_owner_id: int | None = None) -> dict:
     organization = get_user_organization(user)
+    from workflow.attendance_auto_checkout import auto_checkout_open_shifts
+    from workflow.cache_utils import cache_throttled
+
+    if cache_throttled(f"wf:attendance:auto_checkout:{organization.id}", 60):
+        auto_checkout_open_shifts(organization=organization)
+
     settings_obj = get_or_create_tasking_settings(organization)
     today = focus_date or local_today(settings_obj)
 

@@ -725,7 +725,22 @@ function quickStart(task, stopOther = false) {
     void openTask(task)
     return
   }
+  if (state.tasking.submitting) return
   void startTask(task.id, stopOther)
+}
+
+function isTaskActionBusy(taskId) {
+  return state.tasking.submitting && Number(state.tasking.actionTaskId) === Number(taskId)
+}
+
+function onPauseTask(taskId) {
+  if (state.tasking.submitting) return
+  void pauseTask(taskId)
+}
+
+function onSubmitTaskReview(taskId) {
+  if (state.tasking.submitting) return
+  void submitTaskReview(taskId)
 }
 </script>
 
@@ -992,9 +1007,15 @@ function quickStart(task, stopOther = false) {
                 <div class="task-card-actions">
                   <button v-if="task.canAccept" class="action-btn tone-primary" type="button" @click="quickAccept(task)">پذیرش</button>
                   <button v-if="task.canReject" class="action-btn tone-soft" type="button" @click="rejectTask(task.id, 'رد ارجاع')">رد</button>
-                  <button v-if="task.canStart" class="action-btn tone-primary" type="button" @click="quickStart(task)">شروع</button>
-                  <button v-if="task.canPause" class="action-btn tone-soft" type="button" @click="pauseTask(task.id)">توقف</button>
-                  <button v-if="task.canComplete || task.canSubmitReview" class="action-btn tone-primary" type="button" @click="submitTaskReview(task.id)">پایان</button>
+                  <button v-if="task.canStart" class="action-btn tone-primary" type="button" :disabled="isTaskActionBusy(task.id)" @click="quickStart(task)">
+                    {{ isTaskActionBusy(task.id) ? 'در حال پردازش...' : 'شروع' }}
+                  </button>
+                  <button v-if="task.canPause" class="action-btn tone-soft" type="button" :disabled="isTaskActionBusy(task.id)" @click="onPauseTask(task.id)">
+                    {{ isTaskActionBusy(task.id) ? 'در حال پردازش...' : 'توقف' }}
+                  </button>
+                  <button v-if="task.canComplete || task.canSubmitReview" class="action-btn tone-primary" type="button" :disabled="isTaskActionBusy(task.id)" @click="onSubmitTaskReview(task.id)">
+                    {{ isTaskActionBusy(task.id) ? 'در حال پردازش...' : 'پایان' }}
+                  </button>
                   <span v-if="task.activeTimer" class="timer-readout">{{ formatElapsed(task) }}</span>
                 </div>
               </div>
@@ -1042,9 +1063,15 @@ function quickStart(task, stopOther = false) {
             <div class="task-card-actions" @click.stop>
               <button v-if="task.canAccept" class="action-btn tone-primary" type="button" @click="quickAccept(task)">پذیرش</button>
               <button v-if="task.canReject" class="action-btn tone-soft" type="button" @click="rejectTask(task.id, 'رد ارجاع')">رد</button>
-              <button v-if="task.canStart && task.status !== 'in_progress'" class="action-btn tone-primary" type="button" @click="quickStart(task, true)">شروع</button>
-              <button v-if="task.canPause" class="action-btn tone-soft" type="button" @click="pauseTask(task.id)">توقف</button>
-              <button v-if="task.canComplete || task.canSubmitReview" class="action-btn tone-soft" type="button" @click="submitTaskReview(task.id)">پایان</button>
+              <button v-if="task.canStart && task.status !== 'in_progress'" class="action-btn tone-primary" type="button" :disabled="isTaskActionBusy(task.id)" @click="quickStart(task, true)">
+                {{ isTaskActionBusy(task.id) ? 'در حال پردازش...' : 'شروع' }}
+              </button>
+              <button v-if="task.canPause" class="action-btn tone-soft" type="button" :disabled="isTaskActionBusy(task.id)" @click="onPauseTask(task.id)">
+                {{ isTaskActionBusy(task.id) ? 'در حال پردازش...' : 'توقف' }}
+              </button>
+              <button v-if="task.canComplete || task.canSubmitReview" class="action-btn tone-soft" type="button" :disabled="isTaskActionBusy(task.id)" @click="onSubmitTaskReview(task.id)">
+                {{ isTaskActionBusy(task.id) ? 'در حال پردازش...' : 'پایان' }}
+              </button>
               <strong v-if="task.activeTimer" class="timer-readout">{{ formatElapsed(task) }}</strong>
             </div>
           </div>

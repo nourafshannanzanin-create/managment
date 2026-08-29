@@ -124,6 +124,7 @@ from workflow.services import (
     next_code,
     render_report_export,
     save_uploaded_file,
+    extract_description_voice,
     validate_upload_file,
     media_url,
     IMAGE_EXTENSIONS,
@@ -2171,10 +2172,11 @@ def parse_id_list(raw_value: str) -> list[int]:
     return [int(item) for item in str(raw_value or "").split(",") if item.strip().isdigit()]
 
 
-def request_referral_users(request: HttpRequest, manager_slug: str, manager_assignee_ids: list[int], employee_assignee_ids: list[int]) -> tuple[User | None, list[User], list[User]]:
-    manager = User.objects.filter(slug=manager_slug).first() if manager_slug else None
-    assigned_managers = list(User.objects.filter(pk__in=manager_assignee_ids)) if manager_assignee_ids else []
-    assigned_employees = list(User.objects.filter(pk__in=employee_assignee_ids)) if employee_assignee_ids else []
+def request_referral_users(actor: User, manager_slug: str, manager_assignee_ids: list[int], employee_assignee_ids: list[int]) -> tuple[User | None, list[User], list[User]]:
+    scope = organization_users(actor).filter(is_active=True)
+    manager = scope.filter(slug=manager_slug).first() if manager_slug else None
+    assigned_managers = list(scope.filter(pk__in=manager_assignee_ids)) if manager_assignee_ids else []
+    assigned_employees = list(scope.filter(pk__in=employee_assignee_ids)) if employee_assignee_ids else []
     if manager_assignee_ids and manager is None:
         raise ValueError("مدیر اصلی باید به درخواست ارجاع شود.")
     if manager_assignee_ids and (len(assigned_managers) != len(manager_assignee_ids) or any(not is_manager(item) for item in assigned_managers)):
@@ -2242,7 +2244,10 @@ def create_request_referrals(request_obj: Request, actor: User, manager: User | 
 
 def create_expense_referrals(expense: Expense, actor: User, manager_assignee_ids: list[int], employee_assignee_ids: list[int]) -> None:
     assignee_ids = manager_assignee_ids + employee_assignee_ids
-    assignees = list(User.objects.filter(pk__in=assignee_ids, organization_membership__organization=get_user_organization(actor)))
+    assignees = list(
+        organization_users(actor)
+        .filter(pk__in=assignee_ids, is_active=True)
+    )
     if not assignees or len(assignees) != len(assignee_ids):
         raise ValueError("حداقل یک ارجاع گیرنده معتبر انتخاب کنید.")
     new_assignment_created = False
@@ -3038,6 +3043,12 @@ def public_attendance_view(request: HttpRequest, token: str):
             )
         except AttendanceTransitionError as exc:
             return json_error(str(exc), status=409)
+
+    from workflow.attendance_auto_checkout import auto_checkout_open_shifts
+    from workflow.cache_utils import cache_throttled
+
+    if cache_throttled(f"wf:attendance:auto_checkout:{organization.id}", 60):
+        auto_checkout_open_shifts(organization=organization)
 
     user_payload = serialize_attendance_user(target_user, organization)
     today_start = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -4156,10 +4167,17 @@ def requests_view(request: HttpRequest):
         return json_error("بازه دورکاری الزامی است.", status=422)
     if request_type == RequestType.OVERTIME and not type_payload.get("overtimeDate"):
         return json_error("تاریخ اضافه‌کار الزامی است.", status=422)
+    try:
+        description_voice = extract_description_voice(request)
+    except ValueError as exc:
+        return json_error(str(exc), status=422)
+    if not description and not description_voice:
+        pass
     request_obj = Request.objects.create(
         code=next_code("REQ"),
         title=title or "درخواست جدید",
         description=description or "",
+        description_voice=description_voice,
         request_type=request_type,
         type_payload=type_payload,
         priority=priority,
@@ -4432,7 +4450,7 @@ def request_refer_view(request: HttpRequest, request_code: str):
     payload = parse_json(request)
     try:
         manager, assigned_managers, assigned_employees = request_referral_users(
-            request_obj,
+            request.current_user,
             (payload.get("manager") or "").strip(),
             [int(item) for item in payload.get("managerAssigneeIds", []) if str(item).isdigit()],
             [int(item) for item in payload.get("employeeAssigneeIds", []) if str(item).isdigit()],
@@ -4492,6 +4510,10 @@ def expenses_view(request: HttpRequest):
         except ValueError as exc:
             return json_error(str(exc), status=422)
         invoice_name = save_uploaded_file(invoice)
+    try:
+        description_voice = extract_description_voice(request)
+    except ValueError as exc:
+        return json_error(str(exc), status=422)
     department = Department.objects.exclude(code__in=["hq-control", "hq"]).filter(code=department_code).first() or request.current_user.department
     expense = Expense.objects.create(
         code=next_code("EXP"),
@@ -4502,6 +4524,7 @@ def expenses_view(request: HttpRequest):
         progress=10,
         expense_date=expense_date,
         notes=description,
+        description_voice=description_voice,
         department=department,
         owner=request.current_user,
         invoice_file_name=invoice_name,
@@ -4938,12 +4961,16 @@ def users_view(request: HttpRequest):
 @csrf_exempt
 @methods("PATCH")
 def user_detail_view(request: HttpRequest, user_id: int):
-    if not can_manage_users(request.current_user):
-        return json_error("دسترسی کافی ندارید.", status=403)
-
     allowed_ids = set(visible_users(request.current_user).values_list("id", flat=True))
     if user_id not in allowed_ids:
         return json_error("کاربر مورد نظر یافت نشد.", status=404)
+
+    is_self = request.current_user.id == user_id
+    can_manage = can_manage_users(request.current_user)
+    if not can_manage and not (is_self and can_access_users(request.current_user)):
+        return json_error("دسترسی کافی ندارید.", status=403)
+
+    profile_only_edit = is_self and not can_manage
 
     user = User.objects.select_related("department", "manager").filter(pk=user_id).first()
     if not user:
@@ -4967,68 +4994,82 @@ def user_detail_view(request: HttpRequest, user_id: int):
         if User.objects.exclude(pk=user.pk).filter(email=email).exists():
             return json_error("شناسه داخلی کاربر تکراری است.", status=409)
 
-        manager_id = payload.get("managerId")
-        manager = None
-        if manager_id not in (None, "", 0, "0"):
-            try:
-                manager_id = int(manager_id)
-            except (TypeError, ValueError):
-                return json_error("مدیر انتخاب شده معتبر نیست.", status=422)
-            manager = User.objects.filter(pk=manager_id).first()
-            if not manager or manager.id == user.id or manager.id not in allowed_ids:
-                return json_error("مدیر انتخاب شده معتبر نیست.", status=422)
+        manager = user.manager
+        if not profile_only_edit and "managerId" in payload:
+            manager_id = payload.get("managerId")
+            if manager_id in (None, "", 0, "0"):
+                manager = None
+            else:
+                try:
+                    manager_id = int(manager_id)
+                except (TypeError, ValueError):
+                    return json_error("مدیر انتخاب شده معتبر نیست.", status=422)
+                manager = User.objects.filter(pk=manager_id).first()
+                if not manager or manager.id == user.id or manager.id not in allowed_ids:
+                    return json_error("مدیر انتخاب شده معتبر نیست.", status=422)
 
         department = user.department
-        department_code = (payload.get("department") or payload.get("departmentCode") or "").strip()
-        if "department" in payload or "departmentCode" in payload:
+        if not profile_only_edit and ("department" in payload or "departmentCode" in payload):
+            department_code = (payload.get("department") or payload.get("departmentCode") or "").strip()
             department = Department.objects.filter(code=department_code).first() if department_code else None
 
-        role = payload.get("accessRole") or user.role
-        # Accept Persian labels if UI ever sends them
-        role_aliases = {
-            "مدیرعامل": UserRole.ADMIN,
-            "مدیر ارشد": UserRole.EXECUTIVE_MANAGER,
-            "مدیر": UserRole.MANAGER,
-            "کارمند": UserRole.EMPLOYEE,
-        }
-        role = role_aliases.get(str(role).strip(), role)
-        if role not in dict(UserRole.choices):
-            return json_error("نقش کاربر معتبر نیست.", status=422)
-        try:
-            bonus_delta = parse_user_amount(payload.get("bonusDelta", 0), "پاداش")
-            penalty_delta = parse_user_amount(payload.get("penaltyDelta", 0), "جریمه")
-        except ValueError as exc:
-            return json_error(str(exc), status=422)
+        role = user.role
+        if not profile_only_edit:
+            role = payload.get("accessRole") or user.role
+            role_aliases = {
+                "مدیرعامل": UserRole.ADMIN,
+                "مدیر ارشد": UserRole.EXECUTIVE_MANAGER,
+                "مدیر": UserRole.MANAGER,
+                "کارمند": UserRole.EMPLOYEE,
+            }
+            role = role_aliases.get(str(role).strip(), role)
+            if role not in dict(UserRole.choices):
+                return json_error("نقش کاربر معتبر نیست.", status=422)
+
+        bonus_delta = Decimal("0")
+        penalty_delta = Decimal("0")
+        if not profile_only_edit:
+            try:
+                bonus_delta = parse_user_amount(payload.get("bonusDelta", 0), "پاداش")
+                penalty_delta = parse_user_amount(payload.get("penaltyDelta", 0), "جریمه")
+            except ValueError as exc:
+                return json_error(str(exc), status=422)
 
         full_name = str(payload.get("fullName") or user.full_name or "").strip() or user.full_name
-        job_title = str(payload.get("jobTitle") if payload.get("jobTitle") is not None else (user.job_title or "")).strip() or (user.job_title or "کاربر")
+        if profile_only_edit:
+            job_title = user.job_title or "کاربر"
+        else:
+            job_title = str(payload.get("jobTitle") if payload.get("jobTitle") is not None else (user.job_title or "")).strip() or (user.job_title or "کاربر")
         phone = str(payload.get("phone") or "").strip() or None
 
         user.full_name = full_name
         user.slug = username
         user.email = email
         user.phone = phone
-        user.role = role
-        user.job_title = job_title[:120]
-        user.department = department
-        user.manager = manager
-        user.bonus_amount = Decimal(user.bonus_amount or 0) + bonus_delta
-        user.penalty_amount = Decimal(user.penalty_amount or 0) + penalty_delta
-        if bonus_delta or penalty_delta:
-            user.finance_updated_at = timezone.now()
-        if "isActive" in payload:
-            raw_active = payload.get("isActive")
-            if isinstance(raw_active, bool):
-                user.is_active = raw_active
-            else:
-                text = str(raw_active or "").strip().lower()
-                if text in {"1", "true", "yes", "on"}:
-                    user.is_active = True
-                elif text in {"0", "false", "no", "off"}:
-                    user.is_active = False
+        if not profile_only_edit:
+            user.role = role
+            user.job_title = job_title[:120]
+            user.department = department
+            user.manager = manager
+            user.bonus_amount = Decimal(user.bonus_amount or 0) + bonus_delta
+            user.penalty_amount = Decimal(user.penalty_amount or 0) + penalty_delta
+            if bonus_delta or penalty_delta:
+                user.finance_updated_at = timezone.now()
+            if "isActive" in payload:
+                raw_active = payload.get("isActive")
+                if isinstance(raw_active, bool):
+                    user.is_active = raw_active
+                else:
+                    text = str(raw_active or "").strip().lower()
+                    if text in {"1", "true", "yes", "on"}:
+                        user.is_active = True
+                    elif text in {"0", "false", "no", "off"}:
+                        user.is_active = False
         initials = "".join(ch for ch in (user.full_name or "") if not ch.isspace())[:2] or "NA"
         user.avatar = initials[:8]
-        update_fields = ["full_name", "slug", "email", "phone", "role", "job_title", "department", "manager", "bonus_amount", "penalty_amount", "is_active", "avatar"]
+        update_fields = ["full_name", "slug", "email", "phone", "avatar"]
+        if not profile_only_edit:
+            update_fields.extend(["role", "job_title", "department", "manager", "bonus_amount", "penalty_amount", "is_active"])
         if bonus_delta or penalty_delta:
             update_fields.append("finance_updated_at")
         if avatar_file is not None:
@@ -5058,10 +5099,11 @@ def user_detail_view(request: HttpRequest, user_id: int):
         except Exception as exc:
             return json_error(f"ذخیره کاربر ناموفق بود: {exc}", status=500)
 
-        try:
-            sync_user_section_access(request.current_user, user, section_access_payload(payload))
-        except Exception as exc:
-            return json_error(f"ذخیره دسترسی‌ها ناموفق بود: {exc}", status=500)
+        if not profile_only_edit:
+            try:
+                sync_user_section_access(request.current_user, user, section_access_payload(payload))
+            except Exception as exc:
+                return json_error(f"ذخیره دسترسی‌ها ناموفق بود: {exc}", status=500)
 
         user = User.objects.select_related("department", "manager").prefetch_related("entrusted_items").filter(pk=user.pk).first() or user
         try:
@@ -5263,11 +5305,17 @@ def documents_create_view(request: HttpRequest):
             return json_error(str(exc), status=422)
         stored_file_name = save_uploaded_file(file_obj)
 
+    try:
+        description_voice = extract_description_voice(request)
+    except ValueError as exc:
+        return json_error(str(exc), status=422)
+
     document = Document.objects.create(
         code=next_code("DOC"),
         title=title or "سند جدید",
         document_type=document_type,
         description=description,
+        description_voice=description_voice,
         status=DocumentStatus.PENDING,
         risk=risk,
         confidentiality=ConfidentialityLevel.INTERNAL,

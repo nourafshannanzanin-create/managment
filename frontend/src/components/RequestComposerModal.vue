@@ -7,6 +7,7 @@ import ErrorNotice from './ErrorNotice.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
 import TimePicker from './TimePicker.vue'
 import UserAvatar from './UserAvatar.vue'
+import VoiceDescriptionField from './VoiceDescriptionField.vue'
 import { formatFileSize } from '../utils/uploads'
 import {
   REQUEST_TYPE_OPTIONS,
@@ -364,10 +365,18 @@ watch(
           </article>
         </div>
 
-        <label :class="['field-shell full-width-field', fieldHasError('description') && 'has-error']">
-          <span>{{ typeConfig.descriptionLabel || 'توضیحات' }}</span>
-          <textarea v-model="form.description" rows="5" :placeholder="typeConfig.descriptionPlaceholder || ''" />
-        </label>
+        <VoiceDescriptionField
+          class="full-width-field"
+          :class="fieldHasError('description') && 'has-error'"
+          v-model="form.description"
+          v-model:voice-file="form.descriptionVoice"
+          :label="typeConfig.descriptionLabel || 'توضیحات'"
+          :placeholder="typeConfig.descriptionPlaceholder || ''"
+          :rows="5"
+          :disabled="submitting"
+          :required="Boolean(typeConfig.requiresDescription)"
+          :error="fieldHasError('description')"
+        />
       </div>
 
       <ErrorNotice :error="state.lastErrorDetails" compact />

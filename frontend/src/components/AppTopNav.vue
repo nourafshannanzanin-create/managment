@@ -20,6 +20,7 @@ const {
   openArchiveComposer,
   reportPeople,
   requestPeople,
+  applyListPeriod,
   resetPageFilters,
   selectHqOrganization,
   state,
@@ -122,6 +123,7 @@ const pageConfig = computed(() => {
       eyebrow: 'کارمندان',
       title: 'فهرست کاربران و نقش‌ها',
       description: 'مدیریت کاربران، نقش‌ها و دسترسی‌های اعضای مجموعه.',
+      filterPage: 'users',
     },
     settings: {
       eyebrow: 'تنظیمات',
@@ -163,6 +165,11 @@ const filterVariant = computed(() => pageConfig.value.filterVariant || 'default'
 function setFilter(key, value) {
   if (!activeFilterPage.value) return
   updatePageFilter(activeFilterPage.value, key, value)
+}
+
+function setPeriod(period) {
+  if (!activeFilterPage.value) return
+  applyListPeriod(activeFilterPage.value, period)
 }
 
 function resetFilters() {
@@ -239,6 +246,7 @@ function handleHqOrganizationChange(event) {
       :start-date="activeFilters.startDate"
       :end-date="activeFilters.endDate"
       :status="activeFilters.status || ''"
+      :period="activeFilters.period || 'all'"
       :show-status-filter="['requests', 'expenses', 'approvals'].includes(activeFilterPage)"
       :people="activePeople"
       @update:query="setFilter('query', $event)"
@@ -247,6 +255,7 @@ function handleHqOrganizationChange(event) {
       @update:start-date="setFilter('startDate', $event)"
       @update:end-date="setFilter('endDate', $event)"
       @update:status="setFilter('status', $event)"
+      @update:period="setPeriod"
       @reset="resetFilters"
     />
   </header>

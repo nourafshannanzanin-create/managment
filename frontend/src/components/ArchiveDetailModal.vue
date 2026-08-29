@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue'
 import BaseModal from './BaseModal.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import UserAvatar from './UserAvatar.vue'
+import VoiceNotePlayer from './VoiceNotePlayer.vue'
 import { isoToJalali } from '../utils/jalali'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -189,6 +190,11 @@ function openPreview() {
         <p class="page-eyebrow">{{ documentItem.code }}</p>
         <h2>{{ documentItem.title }}</h2>
         <p>{{ documentItem.description || 'بدون توضیحات' }}</p>
+        <VoiceNotePlayer
+          v-if="documentItem.hasDescriptionVoice"
+          :url="documentItem.descriptionVoiceUrl"
+          label="پیام صوتی توضیحات سند"
+        />
         <span :class="['archive-status-pill', `is-${documentItem.status || 'recorded'}`]">
           {{ documentItem.statusLabel || 'ثبت شده' }}
         </span>

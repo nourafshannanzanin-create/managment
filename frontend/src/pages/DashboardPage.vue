@@ -8,6 +8,7 @@ import NotificationsBell from '../components/NotificationsBell.vue'
 import PageHeader from '../components/PageHeader.vue'
 import ProfileAvatarEditor from '../components/ProfileAvatarEditor.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
+import { formatMoneyWithUnit } from '../utils/amount'
 import { isPendingWorkflowItem } from '../utils/status'
 import { notifyError, notifyInfo } from '../utils/notify'
 
@@ -33,8 +34,8 @@ const avatarBusy = ref(false)
 const currentRole = computed(() => String(state.currentUser.accessRole || ''))
 const isManagerDashboard = computed(() => ['admin', 'executive_manager', 'manager'].includes(currentRole.value))
 const currentUserName = computed(() => String(state.currentUser.name || '').trim())
-const currentUserBonus = computed(() => state.currentUser.bonusAmount || '0.00')
-const currentUserPenalty = computed(() => state.currentUser.penaltyAmount || '0.00')
+const currentUserBonus = computed(() => formatMoneyWithUnit(state.currentUser.bonusAmount))
+const currentUserPenalty = computed(() => formatMoneyWithUnit(state.currentUser.penaltyAmount))
 const attendanceToken = computed(() =>
   String(state.currentUser.attendanceToken || state.currentUser.attendance_token || '').trim(),
 )
@@ -226,6 +227,8 @@ const recentPendingRequests = computed(() =>
 )
 
 const pendingExpenseHighlights = computed(() => pendingExpenses.value.slice(0, 3))
+
+const operationalAlerts = computed(() => state.operationalAlerts || [])
 
 const actionCards = computed(() => {
   if (!isManagerDashboard.value && importantDocs.value.length) {
@@ -459,6 +462,33 @@ async function onOwnAvatarClear() {
       </article>
     </section>
 
+    <section v-if="isManagerDashboard && operationalAlerts.length" class="dashboard-actions-shell">
+      <article class="surface-block dashboard-alerts-panel">
+        <div class="dashboard-section-head dashboard-section-head-tight">
+          <div>
+            <h3>رویدادهای خودکار تیم</h3>
+            <p class="dashboard-alerts-lead">خروج یا توقف تسک ثبت‌نشده — برای اصلاح داده‌ها به تنظیمات بروید.</p>
+          </div>
+          <button class="action-btn tone-soft" type="button" @click="router.push('/settings')">
+            <IconlyIcon name="settings" decorative />
+            <span>تنظیمات</span>
+          </button>
+        </div>
+        <div class="dashboard-alerts-list">
+          <article v-for="item in operationalAlerts" :key="item.id" class="dashboard-alert-row">
+            <div class="dashboard-alert-icon">
+              <IconlyIcon :name="item.icon || 'logout'" decorative />
+            </div>
+            <div class="dashboard-alert-copy">
+              <strong>{{ item.userName }}</strong>
+              <p>{{ item.summary }}</p>
+              <small>{{ item.time }}</small>
+            </div>
+          </article>
+        </div>
+      </article>
+    </section>
+
     <section class="dashboard-actions-shell">
       <article class="surface-block dashboard-actions-panel">
         <div class="dashboard-section-head dashboard-section-head-tight">
@@ -528,6 +558,63 @@ async function onOwnAvatarClear() {
 .dashboard-page-premium > * {
   position: relative;
   z-index: 1;
+}
+
+.dashboard-alerts-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboard-alerts-lead {
+  margin: 6px 0 0;
+  color: #5c6780;
+  font-size: 0.82rem;
+}
+
+.dashboard-alerts-list {
+  display: grid;
+  gap: 10px;
+}
+
+.dashboard-alert-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(52, 144, 139, 0.14);
+}
+
+.dashboard-alert-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(52, 144, 139, 0.12);
+  color: #1f5c59;
+}
+
+.dashboard-alert-copy strong {
+  display: block;
+  color: #152523;
+  font-size: 0.92rem;
+}
+
+.dashboard-alert-copy p {
+  margin: 4px 0 0;
+  color: #45605c;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.dashboard-alert-copy small {
+  display: block;
+  margin-top: 6px;
+  color: #7a8a9a;
+  font-size: 0.75rem;
 }
 
 :deep(.page-header) {

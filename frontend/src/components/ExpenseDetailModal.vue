@@ -5,6 +5,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import BaseModal from './BaseModal.vue'
 import DecisionAssigneesList from './DecisionAssigneesList.vue'
 import UserAvatar from './UserAvatar.vue'
+import VoiceNotePlayer from './VoiceNotePlayer.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatTehranDateTime } from '../utils/jalali'
 
@@ -121,6 +122,11 @@ watch(
           <div><h3>شرح هزینه</h3></div>
         </div>
         <p class="long-text">{{ expense.description || '-' }}</p>
+        <VoiceNotePlayer
+          v-if="expense.hasDescriptionVoice"
+          :url="expense.descriptionVoiceUrl"
+          label="پیام صوتی شرح هزینه"
+        />
       </section>
 
       <section class="surface-inline detail-section expense-notes-panel">

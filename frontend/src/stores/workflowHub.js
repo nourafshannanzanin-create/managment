@@ -3,7 +3,7 @@ import { useRouter } from 'vue-router'
 
 import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { AppError, appErrorFromResponse, createValidationError, hasFieldError, normalizeError } from '../utils/errors'
-import { formatJalali, getTodayIso, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
+import { formatJalali, getTodayIso, getTodayJalali, isoToJalali, jalaliMonthStartIso, jalaliToIso, jalaliWeekStartIso } from '../utils/jalali'
 import { notifyNewChatMessages, notifyNewExpenses, notifyNewSupportTickets, notifyInboxGrowth, playInboxAlertSound, playTicketAlertSound } from '../utils/ticketAlert'
 import { notifyInfo, notifySuccess, notifyWarning } from '../utils/notify'
 import { repairPayload } from '../utils/stitch'
@@ -140,6 +140,7 @@ function createRequestForm() {
     estimatedAmount: '',
     deadline: formatJalali(getTodayJalali()),
     attachments: [],
+    descriptionVoice: null,
   }
 }
 
@@ -152,6 +153,7 @@ function createExpenseForm() {
     managerAssigneeIds: [],
     employeeAssigneeIds: [],
     invoice: null,
+    descriptionVoice: null,
   }
 }
 
@@ -186,6 +188,7 @@ function createDocumentForm() {
   return {
     title: '',
     description: '',
+    descriptionVoice: null,
     department: '',
     assigneeIds: [],
     documentType: 'سند',
@@ -198,6 +201,7 @@ function createArchiveForm() {
   return {
     title: '',
     description: '',
+    descriptionVoice: null,
     documentDate: getTodayIso(),
     departmentId: '',
     assigneeIds: [],
@@ -337,6 +341,7 @@ function createTaskingState() {
     loaded: false,
     loading: false,
     submitting: false,
+    actionTaskId: null,
     error: '',
     date: '',
     settings: null,
@@ -455,6 +460,7 @@ const state = reactive({
   reportStatus: {},
   topSubmitters: [],
   activities: [],
+  operationalAlerts: [],
   insights: [],
   expenseSummary: [],
   approvalMetrics: { pending: 0, approved: 0, rejected: 0 },
@@ -483,12 +489,12 @@ const state = reactive({
   archiveSubmitting: false,
   fileUploadPreparing: false,
   filters: {
-    requests: { query: '', person: '', startDate: '', endDate: '', status: '' },
-    expenses: { query: '', person: '', startDate: '', endDate: '', status: '' },
-    approvals: { query: '', person: '', startDate: '', endDate: '', status: '' },
-    reports: { query: '', person: '', startDate: '', endDate: '' },
-    users: { query: '', person: '', startDate: '', endDate: '' },
-    archive: { query: '', description: '', person: '', startDate: '', endDate: '' },
+    requests: { query: '', person: '', startDate: '', endDate: '', status: '', period: 'all' },
+    expenses: { query: '', person: '', startDate: '', endDate: '', status: '', period: 'all' },
+    approvals: { query: '', person: '', startDate: '', endDate: '', status: '', period: 'all' },
+    reports: { query: '', person: '', startDate: '', endDate: '', period: 'all' },
+    users: { query: '', person: '', startDate: '', endDate: '', period: 'all' },
+    archive: { query: '', description: '', person: '', startDate: '', endDate: '', period: 'all' },
   },
 })
 
@@ -588,6 +594,8 @@ function normalizeArchiveDocument(item = {}) {
     code: cleanDisplayText(item?.code),
     title: cleanDisplayText(item?.title),
     description: cleanDisplayText(item?.description),
+    descriptionVoiceUrl: resolveAssetUrl(item?.descriptionVoiceUrl || item?.description_voice_url || ''),
+    hasDescriptionVoice: Boolean(item?.hasDescriptionVoice || item?.descriptionVoiceUrl || item?.description_voice_url),
     documentDate: item?.documentDate || item?.document_date || '',
     ownerName: cleanDisplayText(item?.ownerName || item?.owner?.name),
     department: cleanDisplayText(item?.department),
@@ -750,18 +758,26 @@ function syncUserAcrossState(userPayload, options = {}) {
   const normalizedUser = normalizeUser(userPayload)
   upsertById(state.users, normalizedUser)
   upsertById(state.settings.organizationUsers || [], normalizedUser)
-  upsertById(state.directories.users || [], normalizedUser)
 
-  const managerEntry = {
-    id: Number(normalizedUser.id),
-    slug: normalizedUser.username,
-    name: normalizedUser.name,
-    role: normalizedUser.role,
-    accessRole: normalizedUser.accessRole,
+  if (!normalizedUser.isActive) {
+    removeById(state.directories.users || [], userId)
+    removeById(state.directories.managers || [], userId)
+  } else {
+    upsertById(state.directories.users || [], normalizedUser)
+
+    const managerEntry = {
+      id: Number(normalizedUser.id),
+      slug: normalizedUser.username,
+      name: normalizedUser.name,
+      role: normalizedUser.role,
+      accessRole: normalizedUser.accessRole,
+      isActive: normalizedUser.isActive,
+      status: normalizedUser.status,
+    }
+    const isManagerRole = ['admin', 'executive_manager', 'manager'].includes(normalizedUser.accessRole)
+    if (isManagerRole) upsertById(state.directories.managers || [], managerEntry)
+    else removeById(state.directories.managers || [], normalizedUser.id)
   }
-  const isManagerRole = ['admin', 'executive_manager', 'manager'].includes(normalizedUser.accessRole)
-  if (isManagerRole) upsertById(state.directories.managers || [], managerEntry)
-  else removeById(state.directories.managers || [], normalizedUser.id)
 
   if (Number(state.currentUser.id) === Number(normalizedUser.id)) {
     Object.assign(state.currentUser, {
@@ -780,6 +796,7 @@ function syncUserAcrossState(userPayload, options = {}) {
       penaltyAmountRaw: normalizedUser.penaltyAmountRaw,
       netAdjustment: normalizedUser.netAdjustment,
       netAdjustmentRaw: normalizedUser.netAdjustmentRaw,
+      currentPassword: normalizedUser.currentPassword,
     })
   }
 }
@@ -802,6 +819,8 @@ function normalizeRequest(item) {
       originalName: cleanDisplayText(attachment?.originalName),
       fileUrl: resolveAssetUrl(attachment.fileUrl),
     })),
+    descriptionVoiceUrl: resolveAssetUrl(item?.descriptionVoiceUrl || item?.description_voice_url || ''),
+    hasDescriptionVoice: Boolean(item?.hasDescriptionVoice || item?.descriptionVoiceUrl || item?.description_voice_url),
   }
 }
 
@@ -817,6 +836,8 @@ function normalizeExpense(item) {
     amount: formatNumber(item?.amountRaw ?? item?.amount),
     submittedAt: normalizeDisplayDate(item?.submittedAt),
     invoiceUrl: resolveAssetUrl(item?.invoiceUrl),
+    descriptionVoiceUrl: resolveAssetUrl(item?.descriptionVoiceUrl || item?.description_voice_url || ''),
+    hasDescriptionVoice: Boolean(item?.hasDescriptionVoice || item?.descriptionVoiceUrl || item?.description_voice_url),
     notes: (item?.notes || []).map((note) => ({
       ...note,
       body: cleanDisplayText(note?.body),
@@ -861,6 +882,8 @@ function normalizeApproval(item) {
     uploadedAt: normalizeDisplayDate(item?.uploadedAt),
     previewUrl: resolveAssetUrl(item?.previewUrl),
     downloadUrl: resolveAssetUrl(`${item?.downloadUrl || ''}${hqDownloadQuery}`),
+    descriptionVoiceUrl: resolveAssetUrl(item?.descriptionVoiceUrl || item?.description_voice_url || ''),
+    hasDescriptionVoice: Boolean(item?.hasDescriptionVoice || item?.descriptionVoiceUrl || item?.description_voice_url),
   }
 }
 
@@ -1077,6 +1100,7 @@ function clearSessionState() {
   replaceItems(state.users, [])
   replaceItems(state.reports, [])
   replaceItems(state.activities, [])
+  replaceItems(state.operationalAlerts, [])
   replaceItems(state.expenseSummary, [])
   replaceItems(state.settingsCards, [])
   resetSettingsState()
@@ -1286,10 +1310,16 @@ function managerLabel(value) {
   return state.directories.managers.find((item) => item.slug === value)?.name || 'تعیین نشده'
 }
 
+function isActiveDirectoryUser(item) {
+  if (!item) return false
+  if (item.isActive === false) return false
+  return !String(item.status || '').includes('غیرفعال')
+}
+
 function availableManagerDirectory(excludeId = null) {
   const seen = new Set()
   return [...state.directories.managers, ...state.users
-    .filter((item) => ['admin', 'executive_manager', 'manager'].includes(item.accessRole))
+    .filter((item) => isActiveDirectoryUser(item) && ['admin', 'executive_manager', 'manager'].includes(item.accessRole))
     .map((item) => ({ id: Number(item.id), slug: item.username, name: item.name, role: item.role }))]
     .filter((item) => {
       const id = Number(item?.id)
@@ -1300,9 +1330,10 @@ function availableManagerDirectory(excludeId = null) {
 }
 
 function availableRecipientUsers() {
-  return Array.isArray(state.directories.users) && state.directories.users.length
+  const source = Array.isArray(state.directories.users) && state.directories.users.length
     ? state.directories.users
     : state.users
+  return source.filter(isActiveDirectoryUser)
 }
 
 const requestManagerAssigneeOptions = computed(() => {
@@ -1398,6 +1429,7 @@ function hydrateBootstrap(payload, options = {}) {
   }
   replaceItems(state.reports, (payload.reports || []).map(normalizeReport))
   replaceItems(state.activities, payload.activities)
+  replaceItems(state.operationalAlerts, payload.operationalAlerts || [])
   replaceItems(state.insights, payload.insights)
   replaceItems(state.expenseSummary, payload.expenseSummary)
   replaceItems(state.settingsCards, payload.settingsCards)
@@ -2740,11 +2772,37 @@ export function useWorkflowHub() {
   function updatePageFilter(page, key, value) {
     if (!state.filters[page]) return
     state.filters[page][key] = value
+    if ((key === 'startDate' || key === 'endDate') && 'period' in state.filters[page]) {
+      state.filters[page].period = 'custom'
+    }
+  }
+
+  function applyListPeriod(page, period) {
+    if (!state.filters[page]) return
+    const today = getTodayIso()
+    state.filters[page].period = period
+    if (period === 'today') {
+      state.filters[page].startDate = today
+      state.filters[page].endDate = today
+      return
+    }
+    if (period === 'week') {
+      state.filters[page].startDate = jalaliWeekStartIso(today)
+      state.filters[page].endDate = today
+      return
+    }
+    if (period === 'month') {
+      state.filters[page].startDate = jalaliMonthStartIso(today)
+      state.filters[page].endDate = today
+      return
+    }
+    state.filters[page].startDate = ''
+    state.filters[page].endDate = ''
   }
 
   function resetPageFilters(page) {
     if (!state.filters[page]) return
-    const reset = { query: '', person: '', startDate: '', endDate: '' }
+    const reset = { query: '', person: '', startDate: '', endDate: '', period: 'all' }
     if ('status' in state.filters[page]) reset.status = ''
     if ('description' in state.filters[page]) reset.description = ''
     Object.assign(state.filters[page], reset)
@@ -2993,8 +3051,8 @@ export function useWorkflowHub() {
 
       const requestType = state.requestForm.requestType || 'general'
       const typeConfig = requestTypeConfig(requestType)
-      if (typeConfig.requiresDescription && !String(state.requestForm.description || '').trim()) {
-        throw createValidationError('شرح درخواست الزامی است.', [{ field: 'description', message: `${typeConfig.descriptionLabel} را وارد کنید.` }])
+      if (typeConfig.requiresDescription && !String(state.requestForm.description || '').trim() && !(state.requestForm.descriptionVoice instanceof File)) {
+        throw createValidationError('شرح درخواست الزامی است.', [{ field: 'description', message: `${typeConfig.descriptionLabel} را وارد کنید یا پیام صوتی ضبط کنید.` }])
       }
       if ((requestType === 'work_report' || requestType === 'mission' || requestType === 'remote') && (!state.requestForm.periodStartDate || !state.requestForm.periodEndDate)) {
         throw createValidationError('بازه تاریخ الزامی است.', [{ field: 'periodStartDate', message: 'بازه تاریخ را مشخص کنید.' }])
@@ -3010,6 +3068,9 @@ export function useWorkflowHub() {
         .filter((item) => item && item !== Number(primaryManagerId))
       formData.append('title', state.requestForm.title)
       formData.append('description', state.requestForm.description)
+      if (state.requestForm.descriptionVoice instanceof File) {
+        formData.append('descriptionVoice', state.requestForm.descriptionVoice)
+      }
       formData.append('department', state.requestForm.department)
       formData.append('manager', state.requestForm.manager)
       formData.append('managerAssigneeIds', managerAssigneeIds.join(','))
@@ -3061,6 +3122,9 @@ export function useWorkflowHub() {
       }
       const formData = new FormData()
       formData.append('description', state.expenseForm.description)
+      if (state.expenseForm.descriptionVoice instanceof File) {
+        formData.append('descriptionVoice', state.expenseForm.descriptionVoice)
+      }
       formData.append('amount', amountValue)
       formData.append('expenseDate', jalaliToIso(state.expenseForm.expenseDate))
       formData.append('department', state.expenseForm.department)
@@ -3216,6 +3280,9 @@ export function useWorkflowHub() {
       const formData = new FormData()
       formData.append('title', state.documentForm.title)
       formData.append('description', state.documentForm.description)
+      if (state.documentForm.descriptionVoice instanceof File) {
+        formData.append('descriptionVoice', state.documentForm.descriptionVoice)
+      }
       formData.append('department', state.documentForm.department)
       formData.append('documentType', state.documentForm.documentType)
       formData.append('risk', state.documentForm.risk)
@@ -3599,13 +3666,14 @@ async function updateUser(userId, payload) {
       state.currentUser.avatar = updatedUser.avatar || state.currentUser.avatar
       state.currentUser.avatarUrl = updatedUser.avatarUrl || ''
       state.currentUser.avatarFileName = updatedUser.avatarFileName || ''
+      state.currentUser.username = updatedUser.username
+      state.currentUser.name = updatedUser.name
+      state.currentUser.currentPassword = updatedUser.currentPassword
     }
-    if (state.currentUser.canAccessSettings || state.currentUser.canManageUsers) {
-      try {
-        await loadSettings(true)
-      } catch (error) {
-        setLastError(error, 'کاربر ذخیره شد اما تازه‌سازی تنظیمات انجام نشد.')
-      }
+    try {
+      await loadBootstrapData(true, { soft: true })
+    } catch (error) {
+      setLastError(error, 'کاربر ذخیره شد اما تازه‌سازی فهرست‌ها انجام نشد.')
     }
     return updatedUser
   } catch (error) {
@@ -3749,6 +3817,15 @@ async function removeUserEntrustedItem(userId, itemId) {
     try {
       const response = await authorizedFetch(`/tasking/tasks/${taskId}`)
       state.tasking.selectedTask = repairPayload(await response.json())
+      if (state.tasking.selectedTask) {
+        state.tasking.selectedTask.descriptionVoiceUrl = resolveAssetUrl(
+          state.tasking.selectedTask.descriptionVoiceUrl || state.tasking.selectedTask.description_voice_url || '',
+        )
+        state.tasking.selectedTask.hasDescriptionVoice = Boolean(
+          state.tasking.selectedTask.hasDescriptionVoice
+          || state.tasking.selectedTask.descriptionVoiceUrl,
+        )
+      }
       modalState.taskDetail = true
       return state.tasking.selectedTask
     } catch (error) {
@@ -3807,7 +3884,9 @@ async function removeUserEntrustedItem(userId, itemId) {
         delete safePayload.departmentId
       }
 
-      const hasFiles = Array.isArray(files) && files.length > 0
+      const voiceFile = safePayload.descriptionVoice instanceof File ? safePayload.descriptionVoice : null
+      delete safePayload.descriptionVoice
+      const hasFiles = (Array.isArray(files) && files.length > 0) || Boolean(voiceFile)
       let response
       if (hasFiles) {
         const formData = new FormData()
@@ -3823,7 +3902,8 @@ async function removeUserEntrustedItem(userId, itemId) {
           }
           formData.append(key, String(value))
         })
-        files.forEach((file) => formData.append('attachments', file))
+        ;(files || []).forEach((file) => formData.append('attachments', file))
+        if (voiceFile) formData.append('descriptionVoice', voiceFile)
         response = await authorizedFetch('/tasking/tasks', { method: 'POST', body: formData, timeout: 60000 })
       } else {
         response = await authorizedFetch('/tasking/tasks', {
@@ -3853,6 +3933,7 @@ async function removeUserEntrustedItem(userId, itemId) {
   async function taskingAction(taskId, action, body = {}) {
     clearLastError()
     state.tasking.submitting = true
+    state.tasking.actionTaskId = Number(taskId) || null
     try {
       const response = await authorizedFetch(`/tasking/tasks/${taskId}/${action}`, {
         method: 'POST',
@@ -3868,6 +3949,7 @@ async function removeUserEntrustedItem(userId, itemId) {
       throw error
     } finally {
       state.tasking.submitting = false
+      state.tasking.actionTaskId = null
     }
   }
 
@@ -4103,6 +4185,9 @@ async function removeUserEntrustedItem(userId, itemId) {
       const formData = new FormData()
       formData.append('title', title)
       formData.append('description', String(state.archiveForm.description || '').trim())
+      if (state.archiveForm.descriptionVoice instanceof File) {
+        formData.append('descriptionVoice', state.archiveForm.descriptionVoice)
+      }
       formData.append('documentDate', documentDate)
       if (state.archiveForm.departmentId) {
         formData.append('departmentId', String(state.archiveForm.departmentId))
@@ -4248,6 +4333,7 @@ async function removeUserEntrustedItem(userId, itemId) {
     navigateTo,
     toggleSidebar,
     updatePageFilter,
+    applyListPeriod,
     resetPageFilters,
     clearLastError,
     setLastError,

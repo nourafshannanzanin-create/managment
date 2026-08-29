@@ -45,3 +45,14 @@ export function formatMoneyDisplay(value) {
   if (!raw) return '0'
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Number(raw))
 }
+
+export const MONEY_UNIT_LABEL = 'تومان'
+
+export function formatMoneyWithUnit(value, options = {}) {
+  const unit = options.unit || MONEY_UNIT_LABEL
+  const formatted = formatMoneyDisplay(value)
+  if (!formatted || formatted === '0') {
+    return options.zeroLabel || `۰ ${unit}`
+  }
+  return `${formatted} ${unit}`
+}

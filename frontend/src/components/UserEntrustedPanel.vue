@@ -3,7 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 
 import IconlyIcon from './base/IconlyIcon.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
-import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
+import { formatAmountInput, formatMoneyWithUnit, normalizeAmountValue } from '../utils/amount'
 import { formatJalali, getTodayJalali, isoToJalali, jalaliToIso } from '../utils/jalali'
 
 const props = defineProps({
@@ -30,10 +30,9 @@ const localError = ref('')
 
 const displayItems = computed(() => (Array.isArray(props.items) ? props.items : []))
 
-const totalAmountLabel = computed(() => {
-  const total = displayItems.value.reduce((sum, item) => sum + Number(item.amountRaw || normalizeAmountValue(item.amount) || 0), 0)
-  return new Intl.NumberFormat('fa-IR').format(Math.round(total))
-})
+const totalAmountLabel = computed(() => formatMoneyWithUnit(
+  displayItems.value.reduce((sum, item) => sum + Number(item.amountRaw || normalizeAmountValue(item.amount) || 0), 0),
+))
 
 watch(
   () => props.items,
@@ -70,8 +69,8 @@ function displayDate(item) {
 
 function formatListedAmount(item) {
   const raw = Number(item?.amountRaw || normalizeAmountValue(item?.amount) || 0)
-  if (!Number.isFinite(raw)) return item?.amount || '۰'
-  return new Intl.NumberFormat('fa-IR').format(Math.round(raw))
+  if (!Number.isFinite(raw)) return item?.amount || '۰ تومان'
+  return formatMoneyWithUnit(raw)
 }
 
 function buildPayload() {
@@ -187,7 +186,7 @@ defineExpose({ resetDraft, onDraftAddedExternally, open: () => { isOpen.value = 
               </div>
               <span class="entrusted-summary-divider" aria-hidden="true"></span>
               <div class="entrusted-summary-item">
-                <span>جمع مبلغ</span>
+                <span>جمع مبلغ (تومان)</span>
                 <strong>{{ totalAmountLabel }}</strong>
               </div>
             </div>
@@ -207,7 +206,7 @@ defineExpose({ resetDraft, onDraftAddedExternally, open: () => { isOpen.value = 
               </label>
 
               <label class="field-shell">
-                <span>مبلغ</span>
+                <span>مبلغ (تومان)</span>
                 <input
                   :value="draft.amount"
                   type="text"

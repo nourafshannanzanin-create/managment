@@ -212,6 +212,42 @@ def relative_time(value: datetime) -> str:
     return as_local_date(value).isoformat()
 
 
+def build_manager_operational_alerts(user: User, limit: int = 12) -> list[dict]:
+    if not is_manager(user):
+        return []
+    team_ids = list(
+        visible_users(user)
+        .filter(manager_id=user.id, is_active=True, is_deleted=False)
+        .values_list("id", flat=True)
+    )
+    if not team_ids:
+        return []
+    logs = (
+        AuditLog.objects.filter(
+            action="attendance_auto_checkout",
+            entity_type="attendance",
+            entity_code__in=[str(item) for item in team_ids],
+        )
+        .order_by("-created_at")[:limit]
+    )
+    user_names = {
+        str(item.id): normalize_person_name(item.full_name)
+        for item in User.objects.filter(pk__in=team_ids).only("id", "full_name")
+    }
+    return [
+        {
+            "id": item.id,
+            "userId": int(item.entity_code) if str(item.entity_code or "").isdigit() else None,
+            "userName": user_names.get(str(item.entity_code), normalize_person_name(item.actor_name)),
+            "summary": item.detail,
+            "time": relative_time(item.created_at),
+            "icon": item.icon or "logout",
+            "settingsPath": "/settings",
+        }
+        for item in logs
+    ]
+
+
 def access_role_label(role: str) -> str:
     return {
         UserRole.ADMIN: "مدیرعامل",
@@ -224,7 +260,7 @@ def access_role_label(role: str) -> str:
 def normalize_person_name(value: str | None) -> str:
     if not value:
         return ""
-    return value.replace("آرمان کریمی", "امید کریمی")
+    return " ".join(str(value).replace("\u200c", " ").split()).strip()
 
 
 def priority_label(value: str) -> str:
@@ -320,7 +356,9 @@ def save_uploaded_file(file_obj) -> str:
 
 
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+MAX_VOICE_UPLOAD_BYTES = 12 * 1024 * 1024
 ALLOWED_UPLOAD_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".pdf"}
+ALLOWED_VOICE_EXTENSIONS = {".webm", ".ogg", ".mp3", ".m4a", ".wav", ".aac", ".mp4", ".mpeg"}
 
 
 def validate_upload_file(file_obj, *, max_bytes: int = MAX_UPLOAD_BYTES, allowed_extensions=None) -> None:
@@ -334,6 +372,56 @@ def validate_upload_file(file_obj, *, max_bytes: int = MAX_UPLOAD_BYTES, allowed
     allowed = allowed_extensions or ALLOWED_UPLOAD_EXTENSIONS
     if extension not in allowed:
         raise ValueError("نوع فایل مجاز نیست. فقط تصویر یا PDF قابل قبول است.")
+
+
+def validate_voice_upload(file_obj) -> None:
+    size = int(getattr(file_obj, "size", 0) or 0)
+    if size <= 0:
+        raise ValueError("فایل صوتی خالی است.")
+    if size > MAX_VOICE_UPLOAD_BYTES:
+        raise ValueError("حجم فایل صوتی نباید بیشتر از ۱۲ مگابایت باشد.")
+    name = str(getattr(file_obj, "name", "") or "")
+    extension = Path(name).suffix.lower()
+    content_type = str(getattr(file_obj, "content_type", "") or "").lower()
+    if extension not in ALLOWED_VOICE_EXTENSIONS and not content_type.startswith("audio/"):
+        raise ValueError("فرمت فایل صوتی معتبر نیست.")
+
+
+def save_voice_note(file_obj) -> str:
+    validate_voice_upload(file_obj)
+    original = Path(getattr(file_obj, "name", "") or "voice.webm").name
+    extension = Path(original).suffix.lower() or ".webm"
+    if extension not in ALLOWED_VOICE_EXTENSIONS:
+        extension = ".webm"
+    unique_name = f"voice-{uuid4().hex}{extension}"
+    destination = Path(settings.MEDIA_ROOT) / unique_name
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("wb") as stream:
+        for chunk in file_obj.chunks():
+            stream.write(chunk)
+    return unique_name
+
+
+def extract_description_voice(request_or_files) -> str:
+    """Accept multipart voice from request.FILES or a files-like mapping."""
+    files = getattr(request_or_files, "FILES", None) or request_or_files
+    voice = None
+    if hasattr(files, "get"):
+        voice = files.get("descriptionVoice") or files.get("description_voice") or files.get("voiceNote")
+    if voice is None:
+        return ""
+    return save_voice_note(voice)
+
+
+def description_voice_payload(stored_name: str | None) -> dict:
+    stored = str(stored_name or "").strip()
+    if not stored:
+        return {"descriptionVoice": "", "descriptionVoiceUrl": "", "hasDescriptionVoice": False}
+    return {
+        "descriptionVoice": stored,
+        "descriptionVoiceUrl": media_url(stored),
+        "hasDescriptionVoice": True,
+    }
 
 
 def next_code(prefix: str) -> str:
@@ -1244,6 +1332,7 @@ def serialize_request(request_obj: Request) -> dict:
         "createdAt": format_date(request_obj.created_at),
         "createdAtIso": format_date(request_obj.created_at),
         "description": request_obj.description or "",
+        **description_voice_payload(getattr(request_obj, "description_voice", "")),
         "attachments": [
             {
                 "id": item.id,
@@ -1371,6 +1460,7 @@ def serialize_expense(expense: Expense) -> dict:
         "id": expense.code,
         "title": expense.title,
         "description": expense.notes or expense.title,
+        **description_voice_payload(getattr(expense, "description_voice", "")),
         "amount": format_money(expense.amount),
         "amountRaw": float(expense.amount),
         "category": expense_category_label(expense.category),
@@ -1721,6 +1811,7 @@ def serialize_approval(document: Document, current_user: User | None = None) -> 
         "risk": document_risk_label(document.risk),
         "riskValue": document.risk,
         "summary": document.description or "",
+        **description_voice_payload(getattr(document, "description_voice", "")),
         "assignees": [normalize_person_name(assignment.approver.full_name) for assignment in document.approval_assignments.all()],
         "previewUrl": media_url(document.file_name),
         "downloadUrl": f"/api/v1/approvals/{document.code}/download" if document.file_name else "",
@@ -2350,7 +2441,7 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None, *, m
         # Keep summary payload lean — full user directory comes from /bootstrap/collections.
         directory_users_qs = list(
             organization_users(user)
-            .filter(role__in=[UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER, UserRole.MANAGER])
+            .filter(role__in=[UserRole.ADMIN, UserRole.EXECUTIVE_MANAGER, UserRole.MANAGER], is_active=True)
             .select_related("department", "manager", "organization_membership__organization")
             .order_by("created_at")[:100]
         )
@@ -2358,6 +2449,7 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None, *, m
     else:
         directory_users_qs = list(
             organization_users(user)
+            .filter(is_active=True)
             .select_related("department", "manager", "organization_membership__organization")
             .prefetch_related("entrusted_items", "section_access_grants")
             .order_by("created_at")
@@ -2425,6 +2517,7 @@ def build_bootstrap_payload(user: User, organization_id: int | None = None, *, m
             }
             for item in activities
         ],
+        "operationalAlerts": build_manager_operational_alerts(user),
         "insights": [],
         "expenseSummary": [
             {"label": "امروز", "value": format_money(today_total)},

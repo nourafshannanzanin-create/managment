@@ -5,6 +5,7 @@ import { computed, ref } from 'vue'
 import BaseModal from './BaseModal.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import UserAvatar from './UserAvatar.vue'
+import VoiceDescriptionField from './VoiceDescriptionField.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
 defineProps({
@@ -103,10 +104,14 @@ function isSelected(id) {
         </label>
       </div>
 
-      <label class="field-shell full-width-field">
-        <span>توضیحات</span>
-        <textarea v-model="form.description" rows="4"></textarea>
-      </label>
+      <VoiceDescriptionField
+        class="full-width-field"
+        v-model="form.description"
+        v-model:voice-file="form.descriptionVoice"
+        label="توضیحات"
+        :rows="4"
+        :disabled="submitting"
+      />
 
       <div class="modal-grid two-col">
         <label class="field-shell">

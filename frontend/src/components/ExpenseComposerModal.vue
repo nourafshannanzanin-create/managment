@@ -6,6 +6,7 @@ import BaseModal from './BaseModal.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
 import UserAvatar from './UserAvatar.vue'
+import VoiceDescriptionField from './VoiceDescriptionField.vue'
 import { formatAmountInput } from '../utils/amount'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -69,7 +70,16 @@ function selectedNames() {
         <label class="field-shell"><span>ارجاع گیرنده</span><button class="action-btn tone-soft inline-open-btn" type="button" @click="referralOpen = true"><IconlyIcon name="group_add" decorative /><span>{{ selectedNames() }}</span></button></label>
       </div>
 
-      <label :class="['field-shell full-width-field', fieldHasError('description') && 'has-error']"><span>شرح</span><textarea v-model="form.description" rows="4" /></label>
+      <VoiceDescriptionField
+        class="full-width-field"
+        :class="fieldHasError('description') && 'has-error'"
+        v-model="form.description"
+        v-model:voice-file="form.descriptionVoice"
+        label="شرح"
+        :rows="4"
+        :disabled="submitting"
+        :error="fieldHasError('description')"
+      />
       <label class="upload-pad compact-upload full-width-field">
         <input
           type="file"

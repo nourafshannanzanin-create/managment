@@ -107,10 +107,12 @@ def tasking_tasks_view(request: HttpRequest):
             except Exception:
                 payload["observerIds"] = []
         files = request.FILES.getlist("attachments")
+        voice_file = request.FILES.get("descriptionVoice") or request.FILES.get("description_voice") or request.FILES.get("voiceNote")
     else:
         payload = parse_json(request)
+        voice_file = None
     try:
-        task = create_task(request.current_user, payload, files=files)
+        task = create_task(request.current_user, payload, files=files, voice_file=voice_file)
         return json_response(serialize_task(task, request.current_user, include_detail=True), status=201)
     except Exception as exc:
         return _handle_tasking_error(exc)

@@ -6,6 +6,7 @@ import DurationPicker from './DurationPicker.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import IconlyIcon from './base/IconlyIcon.vue'
 import UserAvatar from './UserAvatar.vue'
+import VoiceDescriptionField from './VoiceDescriptionField.vue'
 import { formatDurationFa } from '../utils/duration'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -25,13 +26,13 @@ const {
 const form = reactive({
   title: '',
   description: '',
+  descriptionVoice: null,
   assigneeId: '',
   priority: 'normal',
   estimatedMinutes: 60,
   category: '',
   departmentId: '',
   observerIds: [],
-  reviewRequired: true,
 })
 
 const files = ref([])
@@ -109,6 +110,7 @@ watch(
     if (!open) return
     form.title = ''
     form.description = ''
+    form.descriptionVoice = null
     form.assigneeId = String(state.currentUser.id || '')
     form.priority = 'normal'
     form.estimatedMinutes = 60
@@ -117,7 +119,6 @@ watch(
     form.observerIds = []
     selectedObservers.value = []
     observerPickerOpen.value = false
-    form.reviewRequired = true
     files.value = []
     preview.value = null
     localError.value = ''
@@ -199,13 +200,13 @@ async function submit() {
       {
         title: form.title,
         description: form.description,
+        descriptionVoice: form.descriptionVoice,
         assigneeId: Number(form.assigneeId),
         priority: form.priority,
         estimatedMinutes: estimatedMinutes.value,
         category: form.category,
         departmentId: form.departmentId || undefined,
         observerIds: form.observerIds,
-        reviewRequired: form.reviewRequired,
       },
       files.value,
     )
@@ -237,10 +238,15 @@ async function submit() {
         <input v-model="form.title" type="text" placeholder="مثلاً بررسی پیش‌فاکتور تجهیزات" />
       </label>
 
-      <label class="field-shell full-span">
-        <span>توضیحات</span>
-        <textarea v-model="form.description" rows="4" placeholder="جزئیات کار، خروجی مورد انتظار و نکات مهم"></textarea>
-      </label>
+      <VoiceDescriptionField
+        class="full-span"
+        v-model="form.description"
+        v-model:voice-file="form.descriptionVoice"
+        label="توضیحات"
+        placeholder="جزئیات کار، خروجی مورد انتظار و نکات مهم"
+        :rows="4"
+        :disabled="state.tasking.submitting"
+      />
 
       <label class="field-shell">
         <span>مسئول انجام *</span>
@@ -280,14 +286,6 @@ async function submit() {
       <label class="field-shell">
         <span>دسته‌بندی</span>
         <input v-model="form.category" type="text" placeholder="اختیاری" />
-      </label>
-
-      <label class="field-shell">
-        <span>نیازمند بررسی نهایی</span>
-        <select v-model="form.reviewRequired">
-          <option :value="true">بله</option>
-          <option :value="false">خیر</option>
-        </select>
       </label>
 
       <div class="field-shell full-span observer-field">

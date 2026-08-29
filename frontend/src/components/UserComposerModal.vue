@@ -160,7 +160,7 @@ function handleMoneyInput(field, value) {
           </div>
           <div class="modal-grid two-col finance-duo">
             <label class="field-shell finance-seed is-bonus">
-              <span>پاداش اولیه</span>
+              <span>پاداش اولیه (تومان)</span>
               <input
                 :value="form.bonusAmount"
                 type="text"
@@ -170,7 +170,7 @@ function handleMoneyInput(field, value) {
               />
             </label>
             <label class="field-shell finance-seed is-penalty">
-              <span>جریمه اولیه</span>
+              <span>جریمه اولیه (تومان)</span>
               <input
                 :value="form.penaltyAmount"
                 type="text"

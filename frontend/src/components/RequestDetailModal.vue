@@ -5,6 +5,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import BaseModal from './BaseModal.vue'
 import DecisionAssigneesList from './DecisionAssigneesList.vue'
 import UserAvatar from './UserAvatar.vue'
+import VoiceNotePlayer from './VoiceNotePlayer.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatTehranDateTime } from '../utils/jalali'
 import { typePayloadSummaryRows } from '../utils/requestTypeConfig'
@@ -240,6 +241,11 @@ async function submitNote() {
           <label class="field-shell"><span>توضیحات</span><textarea v-model="editForm.description" rows="5" /></label>
         </template>
         <p v-else class="long-text">{{ request.description || 'توضیحی ثبت نشده است.' }}</p>
+        <VoiceNotePlayer
+          v-if="!editing && request.hasDescriptionVoice"
+          :url="request.descriptionVoiceUrl"
+          label="پیام صوتی توضیحات"
+        />
       </section>
 
       <section class="surface-inline detail-section request-notes-panel">

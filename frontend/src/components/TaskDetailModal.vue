@@ -5,6 +5,7 @@ import BaseModal from './BaseModal.vue'
 import DurationPicker from './DurationPicker.vue'
 import ErrorNotice from './ErrorNotice.vue'
 import UserAvatar from './UserAvatar.vue'
+import VoiceNotePlayer from './VoiceNotePlayer.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 import { formatDurationFa } from '../utils/duration'
 import { formatTehranDate, formatTehranDateTime } from '../utils/jalali'
@@ -78,6 +79,10 @@ watch(
 )
 
 const task = computed(() => props.task || state.tasking.selectedTask)
+
+const taskActionBusy = computed(() =>
+  Boolean(state.tasking.submitting && Number(state.tasking.actionTaskId) === Number(task.value?.id)),
+)
 const mentionMembers = computed(() => {
   const me = Number(state.currentUser.id)
   const fromTasking = state.tasking.assigneeOptions || []
@@ -189,7 +194,7 @@ async function saveEdit() {
 }
 
 async function run(action, { close = false } = {}) {
-  if (!task.value?.id) return
+  if (!task.value?.id || state.tasking.submitting) return
   try {
     await action()
     emit('changed')
@@ -360,12 +365,18 @@ async function sendComment() {
       <div class="task-action-row">
         <button v-if="task.canAccept" class="action-btn tone-primary" type="button" @click="openActionModal('accept')">پذیرفتن ارجاع</button>
         <button v-if="task.canReject" class="action-btn tone-soft" type="button" @click="run(() => rejectTask(task.id, rejectReason || 'رد ارجاع'), { close: true })">رد ارجاع</button>
-        <button v-if="task.canStart && task.status !== 'in_progress'" class="action-btn tone-primary" type="button" @click="onStartClick">
-          {{ task.status === 'changes_requested' ? 'پذیرش اصلاح و شروع' : 'شروع' }}
+        <button v-if="task.canStart && task.status !== 'in_progress'" class="action-btn tone-primary" type="button" :disabled="taskActionBusy" @click="onStartClick">
+          {{ taskActionBusy ? 'در حال پردازش...' : (task.status === 'changes_requested' ? 'پذیرش اصلاح و شروع' : 'شروع') }}
         </button>
-        <button v-if="task.canPause" class="action-btn tone-soft" type="button" @click="run(() => pauseTask(task.id))">توقف</button>
-        <button v-if="task.status === 'paused'" class="action-btn tone-primary" type="button" @click="run(() => resumeTask(task.id))">ادامه</button>
-        <button v-if="task.canComplete" class="action-btn tone-primary" type="button" @click="run(() => submitTaskReview(task.id, deliveryNote), { close: true })">پایان و ارسال برای بررسی</button>
+        <button v-if="task.canPause" class="action-btn tone-soft" type="button" :disabled="taskActionBusy" @click="run(() => pauseTask(task.id))">
+          {{ taskActionBusy ? 'در حال پردازش...' : 'توقف' }}
+        </button>
+        <button v-if="task.status === 'paused'" class="action-btn tone-primary" type="button" :disabled="taskActionBusy" @click="run(() => resumeTask(task.id))">
+          {{ taskActionBusy ? 'در حال پردازش...' : 'ادامه' }}
+        </button>
+        <button v-if="task.canComplete" class="action-btn tone-primary" type="button" :disabled="taskActionBusy" @click="run(() => submitTaskReview(task.id, deliveryNote), { close: true })">
+          {{ taskActionBusy ? 'در حال پردازش...' : 'پایان و ارسال برای بررسی' }}
+        </button>
         <button v-if="task.canReview" class="action-btn tone-primary" type="button" @click="openActionModal('approve')">تأیید و بستن</button>
         <button v-if="task.canReview" class="action-btn tone-soft" type="button" @click="openActionModal('requestChanges')">درخواست اصلاح</button>
       </div>
@@ -475,6 +486,11 @@ async function sendComment() {
           <div class="field-shell">
             <span>توضیحات</span>
             <p class="task-description-text">{{ task.description || 'بدون توضیح' }}</p>
+            <VoiceNotePlayer
+              v-if="task.hasDescriptionVoice || task.descriptionVoiceUrl"
+              :url="task.descriptionVoiceUrl"
+              label="پیام صوتی توضیحات"
+            />
           </div>
         </template>
         <label v-if="task.canComplete" class="field-shell">

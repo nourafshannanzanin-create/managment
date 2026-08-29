@@ -12,7 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from workflow.access import can_access_archive, get_user_organization, is_manager, organization_users
 from workflow.models import ArchiveDocument, ArchiveReferral, AuditLog, Department, UserRole
-from workflow.services import media_url, next_code, preview_kind_for_file, save_uploaded_file, user_avatar_url, validate_upload_file
+from workflow.services import description_voice_payload, extract_description_voice, media_url, next_code, preview_kind_for_file, save_uploaded_file, user_avatar_url, validate_upload_file
 from workflow.views import json_error, json_response, methods, parse_json, require_auth
 
 ARCHIVE_UPLOAD_EXTENSIONS = {
@@ -112,6 +112,7 @@ def serialize_archive_document(doc: ArchiveDocument, current_user) -> dict:
         "code": doc.code,
         "title": doc.title,
         "description": doc.description or "",
+        **description_voice_payload(getattr(doc, "description_voice", "")),
         "documentDate": doc.document_date.isoformat() if doc.document_date else "",
         "createdAt": doc.created_at.isoformat() if doc.created_at else "",
         "updatedAt": doc.updated_at.isoformat() if doc.updated_at else "",
@@ -218,11 +219,16 @@ def archive_list_view(request: HttpRequest):
 
     try:
         stored = save_uploaded_file(file_obj)
+        try:
+            voice_stored = extract_description_voice(request)
+        except ValueError as exc:
+            return json_error(str(exc), status=422)
         doc = ArchiveDocument.objects.create(
             organization=organization,
             code=next_code("ARC"),
             title=title[:180],
             description=description,
+            description_voice=voice_stored,
             document_date=document_date,
             owner=request.current_user,
             department=department or request.current_user.department,
