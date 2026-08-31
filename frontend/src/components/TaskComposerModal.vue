@@ -3,10 +3,11 @@ import { computed, reactive, ref, watch } from 'vue'
 
 import BaseModal from './BaseModal.vue'
 import DurationPicker from './DurationPicker.vue'
-import ErrorNotice from './ErrorNotice.vue'
 import IconlyIcon from './base/IconlyIcon.vue'
+import SubmitAreaAlert from './SubmitAreaAlert.vue'
 import UserAvatar from './UserAvatar.vue'
 import VoiceDescriptionField from './VoiceDescriptionField.vue'
+import { createValidationError } from '../utils/errors'
 import { formatDurationFa } from '../utils/duration'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -21,6 +22,8 @@ const {
   createTaskingTask,
   previewTaskSchedule,
   closeTaskComposer,
+  setLastError,
+  clearLastError,
 } = useWorkflowHub()
 
 const form = reactive({
@@ -38,7 +41,6 @@ const form = reactive({
 const files = ref([])
 const preview = ref(null)
 const busyPreview = ref(false)
-const localError = ref('')
 const observerPickerOpen = ref(false)
 const selectedObservers = ref([])
 
@@ -121,7 +123,7 @@ watch(
     observerPickerOpen.value = false
     files.value = []
     preview.value = null
-    localError.value = ''
+    clearLastError()
   },
 )
 
@@ -181,17 +183,17 @@ function removeObserver(userId) {
 }
 
 async function submit() {
-  localError.value = ''
+  clearLastError()
   if (!String(form.title || '').trim()) {
-    localError.value = 'عنوان تسک الزامی است.'
+    setLastError(createValidationError('عنوان تسک الزامی است.', [{ field: 'title', message: 'عنوان تسک را وارد کنید.' }]))
     return
   }
   if (!Number(form.assigneeId)) {
-    localError.value = 'مسئول انجام را انتخاب کنید.'
+    setLastError(createValidationError('مسئول انجام الزامی است.', [{ field: 'assigneeId', message: 'مسئول انجام را انتخاب کنید.' }]))
     return
   }
   if (estimatedMinutes.value <= 0) {
-    localError.value = 'زمان تخمینی باید بیشتر از صفر باشد.'
+    setLastError(createValidationError('زمان تخمینی نامعتبر است.', [{ field: 'estimatedMinutes', message: 'زمان تخمینی باید بیشتر از صفر باشد.' }]))
     return
   }
   if (state.tasking.submitting) return
@@ -213,8 +215,8 @@ async function submit() {
     emit('created', task)
     closeTaskComposer()
     emit('close')
-  } catch (error) {
-    localError.value = error?.message || state.lastError || 'ثبت تسک ناموفق بود.'
+  } catch {
+    // SubmitAreaAlert reads state.lastErrorDetails
   }
 }
 </script>
@@ -228,9 +230,6 @@ async function submit() {
         <p>عنوان، مسئول، بخش، اولویت و زمان تخمینی را مشخص کنید. برنامه پیشنهادی قبل از ثبت نمایش داده می‌شود.</p>
       </div>
     </div>
-
-    <ErrorNotice v-if="state.lastErrorDetails" :error="state.lastErrorDetails" />
-    <p v-if="localError" class="form-inline-error">{{ localError }}</p>
 
     <div class="modal-grid two-col task-composer-grid">
       <label class="field-shell full-span">
@@ -352,6 +351,8 @@ async function submit() {
         </ul>
       </template>
     </article>
+
+    <SubmitAreaAlert />
 
     <div class="modal-actions">
       <button class="action-btn tone-soft" type="button" @click="emit('close')">انصراف</button>

@@ -10,7 +10,6 @@ import AppSidebar from './components/AppSidebar.vue'
 import AppTopNav from './components/AppTopNav.vue'
 import HubTabBar from './components/HubTabBar.vue'
 import DocumentComposerModal from './components/DocumentComposerModal.vue'
-import ErrorNotice from './components/ErrorNotice.vue'
 import ExpenseComposerModal from './components/ExpenseComposerModal.vue'
 import ExpenseDetailModal from './components/ExpenseDetailModal.vue'
 import MobileBottomNav from './components/MobileBottomNav.vue'
@@ -380,15 +379,10 @@ onUnmounted(() => {
         <main class="shell-content">
           <AppTopNav />
           <div class="shell-content-body">
-            <ToastHost />
             <div v-if="showSmsBalanceWarning" class="global-sms-warning">
               <IconlyIcon name="sms_failed" decorative />
               <strong>{{ smsBalanceWarningText }}</strong>
             </div>
-            <ErrorNotice
-              v-if="state.lastErrorDetails && !modalState.requestComposer && !modalState.expenseComposer && !modalState.userComposer && !modalState.documentComposer && !modalState.archiveComposer"
-              :error="state.lastErrorDetails"
-            />
             <HubTabBar />
             <RouterView v-slot="{ Component }">
               <component :is="Component" :key="route.path" />
@@ -484,6 +478,8 @@ onUnmounted(() => {
       @updated="(item) => item && openArchiveDetail(item)"
       @deleted="closeArchiveDetail"
     />
+
+    <ToastHost />
 
     <Teleport to="body">
       <div

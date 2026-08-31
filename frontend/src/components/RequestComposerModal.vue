@@ -3,10 +3,10 @@ import IconlyIcon from './base/IconlyIcon.vue'
 import { computed, ref, watch } from 'vue'
 
 import BaseModal from './BaseModal.vue'
-import ErrorNotice from './ErrorNotice.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
 import TimePicker from './TimePicker.vue'
 import UserAvatar from './UserAvatar.vue'
+import SubmitAreaAlert from './SubmitAreaAlert.vue'
 import VoiceDescriptionField from './VoiceDescriptionField.vue'
 import { formatFileSize } from '../utils/uploads'
 import {
@@ -379,10 +379,12 @@ watch(
         />
       </div>
 
-      <ErrorNotice :error="state.lastErrorDetails" compact />
+
       <p class="request-flow-note">
         درخواست بعد از ثبت، برای گیرنده‌های انتخاب‌شده ارجاع می‌شود و تایید نهایی در این مرحله انجام نمی‌شود.
       </p>
+
+      <SubmitAreaAlert />
 
       <div class="action-group modal-actions">
         <button class="action-btn tone-soft" type="button" @click="$emit('close')">

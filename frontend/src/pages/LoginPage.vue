@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import BaseModal from '../components/BaseModal.vue'
-import ErrorNotice from '../components/ErrorNotice.vue'
+import SubmitAreaAlert from '../components/SubmitAreaAlert.vue'
 import { getCitiesByProvinceId, provinces } from '../data/iranLocations'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -183,7 +183,7 @@ watch(() => route.query.register, syncSignupQuery)
             <input id="login-password" v-model="form.password" autocomplete="current-password" dir="ltr" placeholder="••••••••" type="password" />
           </label>
 
-          <ErrorNotice :error="state.lastErrorDetails" compact />
+
           <p v-if="registrationSent" class="registration-success">درخواست ثبت‌نام و مدارک شما ارسال شد. پس از بررسی پشتیبانی، حساب مجموعه فعال می‌شود.</p>
 
           <div class="stitch-form-meta">
@@ -199,6 +199,8 @@ watch(() => route.query.register, syncSignupQuery)
               </span>
             </label>
           </div>
+
+          <SubmitAreaAlert />
 
           <button class="stitch-submit-btn" :disabled="state.loginPending" type="submit">
             <span>{{ state.loginPending ? 'در حال ورود...' : 'ورود به سیستم' }}</span>
@@ -241,7 +243,7 @@ watch(() => route.query.register, syncSignupQuery)
         <input type="file" accept="image/*,.pdf" multiple required @change="setRegistrationDocuments" />
         <small>{{ signup.documents.length ? `${signup.documents.length} فایل انتخاب شد` : 'حداقل یک فایل الزامی است' }}</small>
       </label>
-      <ErrorNotice :error="state.lastErrorDetails" compact />
+      <SubmitAreaAlert />
       <div class="modal-actions"><button class="action-btn tone-soft" type="button" @click="signupOpen = false">بستن</button><button class="action-btn tone-primary" type="button" :disabled="state.loginPending || !signup.documents.length" @click="handleSignup">{{ state.loginPending ? 'در حال ارسال...' : 'ارسال درخواست ثبت نام' }}</button></div>
     </div>
   </BaseModal>

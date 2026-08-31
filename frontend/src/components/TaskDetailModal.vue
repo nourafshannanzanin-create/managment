@@ -3,7 +3,6 @@ import { computed, reactive, ref, watch } from 'vue'
 
 import BaseModal from './BaseModal.vue'
 import DurationPicker from './DurationPicker.vue'
-import ErrorNotice from './ErrorNotice.vue'
 import UserAvatar from './UserAvatar.vue'
 import VoiceNotePlayer from './VoiceNotePlayer.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -360,7 +359,6 @@ async function sendComment() {
         </div>
       </div>
 
-      <ErrorNotice v-if="state.lastErrorDetails" :error="state.lastErrorDetails" />
 
       <div class="task-action-row">
         <button v-if="task.canAccept" class="action-btn tone-primary" type="button" @click="openActionModal('accept')">پذیرفتن ارجاع</button>

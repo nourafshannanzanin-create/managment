@@ -5,7 +5,7 @@ import { useInfiniteList } from '../composables/useInfiniteList'
 import { computed, markRaw, reactive, ref, watch } from 'vue'
 
 import BaseModal from '../components/BaseModal.vue'
-import ErrorNotice from '../components/ErrorNotice.vue'
+import SubmitAreaAlert from '../components/SubmitAreaAlert.vue'
 import ProfileAvatarEditor from '../components/ProfileAvatarEditor.vue'
 import SectionHeading from '../components/SectionHeading.vue'
 import UserAvatar from '../components/UserAvatar.vue'
@@ -672,7 +672,7 @@ function userManagerOptions(userId) {
         </div>
       </section>
 
-      <ErrorNotice :error="state.lastErrorDetails" compact />
+      <SubmitAreaAlert />
 
       <section class="user-modal-actions">
         <button class="action-btn tone-soft" type="button" @click="closeUserDetails">

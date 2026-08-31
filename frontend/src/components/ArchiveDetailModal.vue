@@ -3,7 +3,6 @@ import IconlyIcon from './base/IconlyIcon.vue'
 import { computed, ref, watch } from 'vue'
 
 import BaseModal from './BaseModal.vue'
-import ErrorNotice from './ErrorNotice.vue'
 import UserAvatar from './UserAvatar.vue'
 import VoiceNotePlayer from './VoiceNotePlayer.vue'
 import { isoToJalali } from '../utils/jalali'
@@ -200,7 +199,6 @@ function openPreview() {
         </span>
       </div>
 
-      <ErrorNotice v-if="state.lastErrorDetails" :error="state.lastErrorDetails" />
       <p v-if="localError" class="form-inline-error">{{ localError }}</p>
 
       <div class="archive-meta-grid">

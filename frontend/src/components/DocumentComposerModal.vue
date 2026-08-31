@@ -3,8 +3,8 @@ import IconlyIcon from './base/IconlyIcon.vue'
 import { computed, ref } from 'vue'
 
 import BaseModal from './BaseModal.vue'
-import ErrorNotice from './ErrorNotice.vue'
 import UserAvatar from './UserAvatar.vue'
+import SubmitAreaAlert from './SubmitAreaAlert.vue'
 import VoiceDescriptionField from './VoiceDescriptionField.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -200,7 +200,8 @@ function isSelected(id) {
         </div>
       </section>
 
-      <ErrorNotice :error="state.lastErrorDetails" compact />
+
+      <SubmitAreaAlert />
 
       <div class="action-group modal-actions">
         <button class="action-btn tone-soft" type="button" @click="$emit('close')">

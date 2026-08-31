@@ -1,7 +1,7 @@
 <script setup>
 import IconlyIcon from './base/IconlyIcon.vue'
 import BaseModal from './BaseModal.vue'
-import ErrorNotice from './ErrorNotice.vue'
+import SubmitAreaAlert from './SubmitAreaAlert.vue'
 import UserAvatar from './UserAvatar.vue'
 import UserEntrustedPanel from './UserEntrustedPanel.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -213,7 +213,8 @@ function handleMoneyInput(field, value) {
         </div>
       </section>
 
-      <ErrorNotice :error="state.lastErrorDetails" compact />
+
+      <SubmitAreaAlert />
 
       <div class="action-group modal-actions">
         <button class="action-btn tone-soft" type="button" @click="$emit('close')">

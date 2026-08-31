@@ -3,9 +3,9 @@ import IconlyIcon from './base/IconlyIcon.vue'
 import { computed, ref } from 'vue'
 
 import BaseModal from './BaseModal.vue'
-import ErrorNotice from './ErrorNotice.vue'
 import ShamsiDatePicker from './ShamsiDatePicker.vue'
 import UserAvatar from './UserAvatar.vue'
+import SubmitAreaAlert from './SubmitAreaAlert.vue'
 import VoiceDescriptionField from './VoiceDescriptionField.vue'
 import { formatAmountInput } from '../utils/amount'
 import { useWorkflowHub } from '../stores/workflowHub'
@@ -91,7 +91,7 @@ function selectedNames() {
         <strong>{{ state.fileUploadPreparing ? 'در حال آماده‌سازی فایل...' : (form.invoice?.name || 'افزودن فاکتور') }}</strong>
         <small>اختیاری — حداکثر ۸ مگابایت</small>
       </label>
-      <ErrorNotice :error="state.lastErrorDetails" compact />
+      <SubmitAreaAlert />
       <div class="modal-actions"><button class="action-btn tone-soft" type="button" @click="$emit('close')"><IconlyIcon name="close" decorative /><span>بستن</span></button><button class="action-btn tone-primary" :disabled="submitting || state.fileUploadPreparing" type="button" @click="submitExpense('refer')"><IconlyIcon name="send" decorative /><span>{{ submitting ? 'در حال ثبت...' : 'ثبت و ارجاع' }}</span></button></div>
     </div>
   </BaseModal>

@@ -6,12 +6,12 @@ const props = defineProps({
   voiceFile: { type: [File, Object, null], default: null },
   voiceUrl: { type: String, default: '' },
   label: { type: String, default: 'توضیحات' },
-  placeholder: { type: String, default: 'متن را بنویسید یا با میکروفون ضبط کنید...' },
+  placeholder: { type: String, default: 'متن را بنویسید یا پیام صوتی ضبط کنید.' },
   rows: { type: Number, default: 4 },
   disabled: { type: Boolean, default: false },
   required: { type: Boolean, default: false },
   error: { type: Boolean, default: false },
-  hint: { type: String, default: 'می‌توانید به‌جای تایپ، پیام صوتی ضبط کنید.' },
+  hint: { type: String, default: 'می‌توانید متن بنویسید یا پیام صوتی ضبط کنید.' },
 })
 
 const emit = defineEmits(['update:modelValue', 'update:voiceFile', 'clear-voice-url'])
@@ -28,8 +28,6 @@ const durationMs = ref(0)
 const playProgress = ref(0)
 const localError = ref('')
 const localPreviewUrl = ref('')
-const speechSupported = ref(false)
-const speechListening = ref(false)
 
 let mediaRecorder = null
 let mediaStream = null
@@ -38,7 +36,6 @@ let analyser = null
 let rafId = 0
 let timerId = 0
 let chunks = []
-let recognition = null
 
 const hasLocalVoice = computed(() => Boolean(props.voiceFile || localPreviewUrl.value))
 const hasRemoteVoice = computed(() => Boolean(props.voiceUrl) && !hasLocalVoice.value)
@@ -285,42 +282,7 @@ function seekAudio(event) {
   playProgress.value = ratio * 100
 }
 
-function startSpeechToText() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-  if (!SpeechRecognition) {
-    localError.value = 'تبدیل گفتار به متن در این مرورگر پشتیبانی نمی‌شود.'
-    return
-  }
-  if (speechListening.value) {
-    recognition?.stop()
-    return
-  }
-  recognition = new SpeechRecognition()
-  recognition.lang = 'fa-IR'
-  recognition.continuous = true
-  recognition.interimResults = true
-  let finalText = props.modelValue || ''
-  recognition.onresult = (event) => {
-    let interim = ''
-    for (let i = event.resultIndex; i < event.results.length; i += 1) {
-      const chunk = event.results[i][0].transcript
-      if (event.results[i].isFinal) finalText = `${finalText} ${chunk}`.trim()
-      else interim += chunk
-    }
-    emit('update:modelValue', `${finalText}${interim ? ` ${interim}` : ''}`.trim())
-  }
-  recognition.onerror = () => {
-    speechListening.value = false
-  }
-  recognition.onend = () => {
-    speechListening.value = false
-  }
-  recognition.start()
-  speechListening.value = true
-}
-
 onMounted(() => {
-  speechSupported.value = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition)
   drawIdleWave()
 })
 
@@ -337,7 +299,6 @@ watch(
 onBeforeUnmount(() => {
   cancelRecording()
   revokePreview()
-  recognition?.stop?.()
 })
 </script>
 
@@ -349,17 +310,6 @@ onBeforeUnmount(() => {
         <em v-if="required" class="voice-required">*</em>
       </span>
       <span class="voice-field-actions">
-        <button
-          v-if="speechSupported"
-          class="voice-mini-btn"
-          type="button"
-          :disabled="disabled || recording"
-          :title="speechListening ? 'توقف تبدیل گفتار' : 'تبدیل گفتار به متن'"
-          @click.prevent="startSpeechToText"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h11v2H4V5zm0 6h16v2H4v-2zm0 6h9v2H4v-2z" fill="currentColor"/><path d="M17.5 14.5a2.5 2.5 0 0 0 2.45-2H22v-1h-2.05a2.5 2.5 0 0 0-4.9 0H13v1h2.05a2.5 2.5 0 0 0 2.45 2z" fill="currentColor"/></svg>
-          <span>{{ speechListening ? 'در حال شنیدن...' : 'به متن' }}</span>
-        </button>
         <button
           class="voice-mini-btn is-mic"
           type="button"

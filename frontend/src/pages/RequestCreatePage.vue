@@ -1,6 +1,7 @@
-﻿<script setup>
+<script setup>
 import IconlyIcon from '../components/base/IconlyIcon.vue'
 import PageHeader from '../components/PageHeader.vue'
+import SubmitAreaAlert from '../components/SubmitAreaAlert.vue'
 import ShamsiDatePicker from '../components/ShamsiDatePicker.vue'
 import { useWorkflowHub } from '../stores/workflowHub'
 
@@ -154,6 +155,8 @@ async function onAttachmentChange(event) {
             <strong>{{ priorityLabel(state.requestForm.priority) }}</strong>
           </div>
         </div>
+
+        <SubmitAreaAlert />
 
         <button class="action-btn tone-primary request-submit-btn" type="button" @click="submitRequest">
           <IconlyIcon name="send" decorative />

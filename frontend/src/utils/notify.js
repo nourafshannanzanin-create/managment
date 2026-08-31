@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import { normalizeError } from './errors'
 
 let nextId = 1
 const CENTER_LIMIT = 40
@@ -54,13 +55,16 @@ function pushToCenter(entry) {
 
 export function pushNotification(message, type = 'info', options = {}) {
   const text = String(message || '').trim()
-  if (!text) return null
+  const title = String(options.title || '').trim()
+  if (!text && !title) return null
   const item = {
     id: nextId += 1,
     type,
     message: text,
-    title: String(options.title || '').trim(),
-    duration: normalizeDuration(options.duration, type === 'error' ? 4800 : 3200),
+    title,
+    suggestion: String(options.suggestion || '').trim(),
+    fields: Array.isArray(options.fields) ? options.fields : [],
+    duration: normalizeDuration(options.duration, type === 'error' ? 5600 : 3600),
   }
   toastState.items.push(item)
   pushToCenter({
@@ -77,6 +81,16 @@ export function pushNotification(message, type = 'info', options = {}) {
 
 export function removeNotification(id) {
   toastState.items = toastState.items.filter((item) => item.id !== id)
+}
+
+export function notifyAppError(error, fallback = 'خطا در انجام عملیات') {
+  const normalized = normalizeError(error, fallback)
+  return pushNotification(normalized.message, 'error', {
+    title: normalized.title || 'خطا در انجام عملیات',
+    suggestion: normalized.suggestion || '',
+    fields: normalized.fields || [],
+    duration: normalized.status >= 500 ? 6400 : 5200,
+  })
 }
 
 export function markCenterRead(ids = null) {

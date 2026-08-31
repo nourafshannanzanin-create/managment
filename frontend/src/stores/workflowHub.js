@@ -5,7 +5,7 @@ import { formatAmountInput, normalizeAmountValue } from '../utils/amount'
 import { AppError, appErrorFromResponse, createValidationError, hasFieldError, normalizeError } from '../utils/errors'
 import { formatJalali, getTodayIso, getTodayJalali, isoToJalali, jalaliMonthStartIso, jalaliToIso, jalaliWeekStartIso } from '../utils/jalali'
 import { notifyNewChatMessages, notifyNewExpenses, notifyNewSupportTickets, notifyInboxGrowth, playInboxAlertSound, playTicketAlertSound } from '../utils/ticketAlert'
-import { notifyInfo, notifySuccess, notifyWarning } from '../utils/notify'
+import { notifyAppError, notifyInfo, notifySuccess, notifyWarning } from '../utils/notify'
 import { repairPayload } from '../utils/stitch'
 import { cleanDisplayText } from '../utils/text'
 import { prepareUploadFile, UPLOAD_LIMITS, validateUploadFile } from '../utils/uploads'
@@ -638,6 +638,12 @@ function setLastError(error, fallback = 'خطا در انجام عملیات') {
   const normalized = normalizeError(error, fallback)
   state.lastError = normalized.message
   state.lastErrorDetails = normalized
+  return normalized
+}
+
+function showGlobalError(error, fallback = 'خطا در انجام عملیات') {
+  const normalized = setLastError(error, fallback)
+  notifyAppError(normalized, fallback)
   return normalized
 }
 
@@ -1856,7 +1862,7 @@ async function loadBootstrapData(force = false, options = {}) {
     }
     void loadChatUnreadConversations()
   } catch (error) {
-    if (!soft) setLastError(error, 'خطا در بارگذاری')
+    if (!soft) showGlobalError(error, 'خطا در بارگذاری')
     if (error.status === 401) throw error
   } finally {
     if (!soft) state.appLoading = false
@@ -4337,6 +4343,7 @@ async function removeUserEntrustedItem(userId, itemId) {
     resetPageFilters,
     clearLastError,
     setLastError,
+    showGlobalError,
     fieldHasError,
     login,
     registerOrganization,
