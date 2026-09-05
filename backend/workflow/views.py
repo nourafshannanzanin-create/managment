@@ -635,7 +635,8 @@ ERROR_FIELD_PATTERNS = [
     ("description", "شرح", ("شرح", "توضیح")),
     ("manager", "ارجاع گیرنده", ("مدیر", "ارجاع", "گیرنده")),
     ("amount", "مبلغ", ("مبلغ", "هزینه")),
-    ("fullName", "نام کامل", ("نام کامل", "نام کاربر")),
+    ("fullName", "نام کامل", ("نام کامل", "نام و نام خانوادگی")),
+    ("username", "نام کاربری", ("نام کاربری",)),
     ("phone", "موبایل", ("موبایل", "شماره", "تلفن")),
     ("email", "ایمیل", ("ایمیل",)),
     ("password", "رمز عبور", ("رمز عبور",)),
@@ -644,9 +645,23 @@ ERROR_FIELD_PATTERNS = [
     ("organizationName", "نام سازمان", ("سازمان", "مجموعه")),
 ]
 
+AUTH_CREDENTIAL_MARKERS = (
+    "نام کاربری/ایمیل یا رمز عبور نادرست",
+    "رمز عبور نادرست",
+    "ورود ناموفق",
+    "اطلاعات ورود نادرست",
+)
 
-def error_title(status: int) -> str:
+
+def is_auth_credential_detail(detail: str) -> bool:
+    text = str(detail or "")
+    return any(marker in text for marker in AUTH_CREDENTIAL_MARKERS)
+
+
+def error_title(status: int, detail: str = "") -> str:
     if status == 401:
+        if is_auth_credential_detail(detail):
+            return "ورود ناموفق"
         return "نیاز به ورود مجدد"
     if status == 403:
         return "دسترسی کافی نیست"
@@ -661,21 +676,32 @@ def error_title(status: int) -> str:
     return "خطا در انجام عملیات"
 
 
-def infer_error_fields(detail: str) -> list[dict]:
+def infer_error_fields(detail: str, status: int = 0) -> list[dict]:
+    text = str(detail or "")
+    # Auth failures are not form-field validation errors.
+    if status == 401 or is_auth_credential_detail(text):
+        return []
     fields = []
     for key, label, patterns in ERROR_FIELD_PATTERNS:
-        if any(pattern in detail for pattern in patterns):
-            fields.append({"field": key, "label": label, "message": detail})
+        if any(pattern in text for pattern in patterns):
+            fields.append({"field": key, "label": label, "message": text})
     return fields
 
 
 def json_error(detail: str, status=400, fields=None, title: str | None = None, suggestion: str | None = None):
-    normalized_fields = fields if fields is not None else infer_error_fields(detail)
+    normalized_fields = fields if fields is not None else infer_error_fields(detail, status=status)
+    if suggestion is None:
+        if is_auth_credential_detail(detail) or (status == 401 and not normalized_fields):
+            suggestion = "نام کاربری/ایمیل و رمز عبور را بررسی کنید و دوباره تلاش کنید."
+        elif normalized_fields:
+            suggestion = "فیلدهای مشخص شده را اصلاح کنید و دوباره ثبت کنید."
+        else:
+            suggestion = "اطلاعات را بررسی کنید و دوباره تلاش کنید."
     payload = {
         "detail": detail,
-        "title": title or error_title(status),
+        "title": title or error_title(status, detail),
         "fields": normalized_fields,
-        "suggestion": suggestion or ("فیلدهای مشخص شده را اصلاح کنید و دوباره ثبت کنید." if normalized_fields else "اطلاعات را بررسی کنید و دوباره تلاش کنید."),
+        "suggestion": suggestion,
     }
     return json_response(payload, status=status)
 
@@ -1837,7 +1863,13 @@ def login_view(request: HttpRequest):
         user = User.objects.select_related("department").filter(email=f"{identifier_slug}@hq.local").first()
 
     if user is None or not user.is_active or getattr(user, "is_deleted", False) or not verify_password(password, user.password_hash):
-        return json_error("نام کاربری/ایمیل یا رمز عبور نادرست است.", status=401)
+        return json_error(
+            "نام کاربری/ایمیل یا رمز عبور نادرست است.",
+            status=401,
+            fields=[],
+            title="ورود ناموفق",
+            suggestion="نام کاربری/ایمیل و رمز عبور را بررسی کنید و دوباره تلاش کنید.",
+        )
     ensure_signature(user)
     user.last_login_at = timezone.now()
     update_fields = ["last_login_at"]

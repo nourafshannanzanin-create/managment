@@ -21,7 +21,7 @@ const FIELD_PATTERNS = [
   [/شرح|توضیح/, 'description'],
   [/مدیر|ارجاع|گیرنده/, 'manager'],
   [/مبلغ|هزینه/, 'amount'],
-  [/نام کامل|نام کاربر/, 'fullName'],
+  [/نام کامل|نام و نام خانوادگی/, 'fullName'],
   [/نام کاربری|username/i, 'username'],
   [/ایمیل/, 'email'],
   [/رمز عبور/, 'password'],
@@ -29,6 +29,13 @@ const FIELD_PATTERNS = [
   [/امضا/, 'signatureData'],
   [/سازمان|مجموعه/, 'organizationName'],
 ]
+
+const AUTH_CREDENTIAL_RE =
+  /نام کاربری\s*\/\s*ایمیل یا رمز عبور نادرست|رمز عبور نادرست|ورود ناموفق|اطلاعات ورود نادرست/
+
+function isAuthCredentialMessage(message = '') {
+  return AUTH_CREDENTIAL_RE.test(String(message || ''))
+}
 
 function normalizeFieldErrors(rawFields = {}) {
   if (Array.isArray(rawFields)) {
@@ -47,17 +54,23 @@ function normalizeFieldErrors(rawFields = {}) {
 }
 
 function inferFields(message = '') {
+  const text = String(message || '')
+  if (!text || isAuthCredentialMessage(text)) return []
+
   return FIELD_PATTERNS
-    .filter(([pattern]) => pattern.test(message))
+    .filter(([pattern]) => pattern.test(text))
     .map(([, field]) => ({
       field,
       label: FIELD_LABELS[field] || field,
-      message,
+      message: text,
     }))
 }
 
-function titleForStatus(status) {
-  if (status === 401) return 'نیاز به ورود مجدد'
+function titleForStatus(status, message = '') {
+  if (status === 401) {
+    if (isAuthCredentialMessage(message)) return 'ورود ناموفق'
+    return 'نیاز به ورود مجدد'
+  }
   if (status === 403) return 'دسترسی کافی نیست'
   if (status === 404) return 'موردی پیدا نشد'
   if (status === 409) return 'تداخل در اطلاعات'
@@ -66,7 +79,10 @@ function titleForStatus(status) {
   return 'خطا در انجام عملیات'
 }
 
-function suggestionForStatus(status, fields = []) {
+function suggestionForStatus(status, fields = [], message = '') {
+  if (isAuthCredentialMessage(message) || (status === 401 && !fields.length)) {
+    return 'نام کاربری/ایمیل و رمز عبور را بررسی کنید و دوباره تلاش کنید.'
+  }
   if (fields.length) return 'فیلدهای مشخص شده را اصلاح کنید و دوباره ثبت کنید.'
   if (status === 401) return 'دوباره وارد سامانه شوید.'
   if (status === 403) return 'اگر این دسترسی لازم است، از مدیر سامانه درخواست دسترسی کنید.'
@@ -76,14 +92,22 @@ function suggestionForStatus(status, fields = []) {
   return 'اطلاعات وارد شده را بررسی کنید و دوباره تلاش کنید.'
 }
 
+function resolveFields(payloadFields, message, status) {
+  const explicit = normalizeFieldErrors(payloadFields || {})
+  if (explicit.length) return explicit
+  // Never invent field errors for auth failures / 401 responses.
+  if (status === 401 || isAuthCredentialMessage(message)) return []
+  return inferFields(message)
+}
+
 export class AppError extends Error {
   constructor({ message, title = '', status = 0, fields = [], suggestion = '', payload = null } = {}) {
     super(message || 'خطا در انجام عملیات')
     this.name = 'AppError'
-    this.title = title || titleForStatus(status)
+    this.title = title || titleForStatus(status, message)
     this.status = status
     this.fields = normalizeFieldErrors(fields)
-    this.suggestion = suggestion || suggestionForStatus(status, this.fields)
+    this.suggestion = suggestion || suggestionForStatus(status, this.fields, message)
     this.payload = payload
   }
 }
@@ -101,26 +125,26 @@ export function normalizeError(error, fallback = 'خطا در انجام عمل�
   if (error instanceof AppError) return error
   const message = error?.message || fallback
   const status = error?.status || 0
-  const fields = normalizeFieldErrors(error?.fields || inferFields(message))
+  const fields = resolveFields(error?.fields, message, status)
   return new AppError({
-    title: error?.title || titleForStatus(status),
+    title: error?.title || titleForStatus(status, message),
     message,
     status,
     fields,
-    suggestion: error?.suggestion || suggestionForStatus(status, fields),
+    suggestion: error?.suggestion || suggestionForStatus(status, fields, message),
     payload: error?.payload || null,
   })
 }
 
 export function appErrorFromResponse(payload = {}, status = 0, fallback = '') {
   const detail = payload.detail || payload.message || fallback || `Request failed: ${status}`
-  const fields = normalizeFieldErrors(payload.fields || payload.errors || inferFields(detail))
+  const fields = resolveFields(payload.fields || payload.errors, detail, status)
   return new AppError({
-    title: payload.title || titleForStatus(status),
+    title: payload.title || titleForStatus(status, detail),
     message: detail,
     status,
     fields,
-    suggestion: payload.suggestion || suggestionForStatus(status, fields),
+    suggestion: payload.suggestion || suggestionForStatus(status, fields, detail),
     payload,
   })
 }

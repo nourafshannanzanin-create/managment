@@ -1525,13 +1525,16 @@ onMounted(() => {
   display: grid;
   gap: 14px;
   min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
   padding: 0;
   border-radius: 22px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(52, 144, 139, 0.12);
   box-shadow: none;
-  backdrop-filter: blur(8px);
+  backdrop-filter: none;
   transition: border-color 0.2s ease, background 0.2s ease;
 }
 
@@ -1555,7 +1558,6 @@ onMounted(() => {
 
 .attendance-staff-head,
 .attendance-staff-stats,
-.attendance-staff-linkbar,
 .attendance-staff-footer {
   padding-inline: 16px;
 }
@@ -1566,6 +1568,8 @@ onMounted(() => {
   justify-content: space-between;
   gap: 12px;
   padding-top: 14px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .attendance-staff-identity {
@@ -1573,6 +1577,7 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .attendance-staff-copy {
@@ -1608,11 +1613,14 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   flex: 0 0 auto;
+  max-width: 42%;
   padding: 7px 12px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .attendance-staff-status.is-success {
@@ -1718,6 +1726,9 @@ onMounted(() => {
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 8px;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 10px 12px;
   margin-inline: 16px;
   border-radius: 14px;
@@ -2569,14 +2580,19 @@ onMounted(() => {
   position: relative !important;
   display: grid !important;
   gap: 14px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
   padding: 0 !important;
   border-radius: 22px !important;
   overflow: hidden !important;
-  background: rgba(255, 255, 255, 0.72) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
   background-image: none !important;
   border: 1px solid rgba(52, 144, 139, 0.12) !important;
   box-shadow: none !important;
-  backdrop-filter: blur(8px) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 #app .app-shell:not(.is-auth-route) .attendance-staff-banner {

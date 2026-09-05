@@ -731,6 +731,8 @@ watch(isTodayMode, (today) => {
   gap: 12px;
   width: 100%;
   min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 14px;
   border-radius: 16px;
   border: 1px solid rgba(52, 144, 139, 0.14);
@@ -738,6 +740,7 @@ watch(isTodayMode, (today) => {
   text-align: right;
   font: inherit;
   color: inherit;
+  overflow: hidden;
 }
 
 .attendance-entry-card.is-clickable {
@@ -798,6 +801,12 @@ watch(isTodayMode, (today) => {
 
 .attendance-card-stats {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .attendance-card-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .punch-slot,

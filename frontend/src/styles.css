@@ -420,8 +420,8 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(226, 85, 99, 0.14);
-  color: #c23a48;
+  background: #e11d48;
+  color: #ffffff;
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
@@ -1843,12 +1843,14 @@ a {
   .shell-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(36, 59, 107, 0.22);
+    background: rgba(36, 59, 107, 0.38);
     z-index: 200;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.2s ease;
+    transition: opacity 140ms ease;
     display: block;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .shell-backdrop.is-open {
@@ -1861,13 +1863,15 @@ a {
     right: 0;
     top: 0;
     width: min(88vw, 340px);
-    transform: translateX(100%);
-    transition: transform 0.22s ease;
+    transform: translate3d(100%, 0, 0);
+    transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+    backface-visibility: hidden;
     z-index: 210;
   }
 
   .shell-sidebar.is-open {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 
   .mobile-toggle,
@@ -3312,8 +3316,8 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: rgba(226, 85, 99, 0.14);
-    color: #c23a48;
+    background: #e11d48;
+    color: #ffffff;
     box-shadow: none;
   }
 
@@ -4127,8 +4131,8 @@ body {
   position: static !important;
   border-radius: 999px !important;
   border: 0 !important;
-  background: rgba(226, 85, 99, 0.14) !important;
-  color: #c23a48 !important;
+  background: #e11d48 !important;
+  color: #ffffff !important;
   box-shadow: none !important;
   font-variant-numeric: tabular-nums !important;
 }
@@ -4816,9 +4820,9 @@ body:not(.landing-active),
 
 #app .nav-link-badge {
   position: static !important;
-  background: rgba(226, 85, 99, 0.14) !important;
+  background: #e11d48 !important;
   border-color: transparent !important;
-  color: #c23a48 !important;
+  color: #ffffff !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
   font-variant-numeric: tabular-nums !important;
@@ -5701,10 +5705,12 @@ body,
   padding-inline: 0 !important;
 }
 
-/* Count badges must keep a real pill — never flattened by the calm-design pass */
+/* Count badges must keep a real red pill — never flattened by the calm-design pass */
 #app .nav-link-badge,
 #app .app-shell:not(.is-auth-route) .nav-link-badge,
-#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-badge {
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-badge,
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe.is-active .nav-link-badge,
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe:not(.is-active) .nav-link-badge {
   position: static !important;
   inset: auto !important;
   margin-inline-start: auto !important;
@@ -5716,9 +5722,9 @@ body,
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  background: rgba(226, 85, 99, 0.14) !important;
+  background: #e11d48 !important;
   background-image: none !important;
-  color: #c23a48 !important;
+  color: #ffffff !important;
   border: 0 !important;
   box-shadow: none !important;
   font-size: 11px !important;
@@ -5726,11 +5732,6 @@ body,
   line-height: 1 !important;
   letter-spacing: 0 !important;
   font-variant-numeric: tabular-nums !important;
-}
-
-#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe.is-active .nav-link-badge {
-  background: rgba(255, 255, 255, 0.22) !important;
-  color: #ffffff !important;
 }
 
 #app .mobile-bottom-badge,
@@ -7231,8 +7232,8 @@ body,
 
 #app .app-shell:not(.is-auth-route) .nav-link-badge {
   position: static !important;
-  background: rgba(226, 85, 99, 0.14) !important;
-  color: #c23a48 !important;
+  background: #e11d48 !important;
+  color: #ffffff !important;
   border: 0 !important;
   border-radius: 999px !important;
   box-shadow: none !important;

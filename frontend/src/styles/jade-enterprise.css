@@ -296,8 +296,8 @@ body:has(.app-shell:not(.is-auth-route)),
   align-items:center !important;
   justify-content:center !important;
   border-radius:999px !important;
-  color:#c23a48 !important;
-  background:rgba(226, 85, 99, 0.14) !important;
+  color:#ffffff !important;
+  background:#e11d48 !important;
   font-size:0.72rem !important;
   font-weight:700 !important;
   font-variant-numeric: tabular-nums !important;
@@ -1164,14 +1164,16 @@ body:has(.app-shell:not(.is-auth-route)),
     bottom:0 !important;
     height:100dvh !important;
     max-height:100dvh !important;
-    transform:translateX(105%) !important;
-    transition:transform 180ms ease !important;
-    box-shadow:var(--shadow-strong) !important;
+    transform:translate3d(105%, 0, 0) !important;
+    transition:transform 140ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+    will-change:transform !important;
+    box-shadow: -8px 0 24px rgba(20, 70, 66, 0.12) !important;
+    backface-visibility:hidden !important;
     z-index:210 !important;
   }
 
   #app .app-shell:not(.is-auth-route) .shell-sidebar.is-open {
-    transform:translateX(0) !important;
+    transform:translate3d(0, 0, 0) !important;
   }
 
   #app .app-shell:not(.is-auth-route) .shell-backdrop {
@@ -1179,11 +1181,12 @@ body:has(.app-shell:not(.is-auth-route)),
     position:fixed !important;
     inset:0 !important;
     z-index:200 !important;
-    background:rgba(25, 28, 29, 0.32) !important;
+    background:rgba(25, 28, 29, 0.38) !important;
     opacity:0 !important;
     pointer-events:none !important;
-    transition:opacity 180ms ease !important;
-    backdrop-filter:blur(4px) !important;
+    transition:opacity 140ms ease !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
   }
 
   #app .app-shell:not(.is-auth-route) .shell-backdrop.is-open {
@@ -1838,8 +1841,8 @@ body:has(.app-shell:not(.is-auth-route)),
 }
 
 #app .app-shell:not(.is-auth-route) .nav-link-badge {
-  background: rgba(226, 85, 99, 0.14) !important;
-  color: #c23a48 !important;
+  background: #e11d48 !important;
+  color: #ffffff !important;
 }
 
 #app .app-shell:not(.is-auth-route) .table-click-row:hover,
@@ -4973,7 +4976,9 @@ body:has(.app-shell:not(.is-auth-route)),
   white-space: nowrap !important;
 }
 
-#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-badge {
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-badge,
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe.is-active .nav-link-badge,
+#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe:not(.is-active) .nav-link-badge {
   position: static !important;
   margin-inline-start: auto !important;
   flex: 0 0 auto !important;
@@ -4984,8 +4989,8 @@ body:has(.app-shell:not(.is-auth-route)),
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  background: rgba(226, 85, 99, 0.14) !important;
-  color: #c23a48 !important;
+  background: #e11d48 !important;
+  color: #ffffff !important;
   font-size: 0.72rem !important;
   font-weight: 700 !important;
   line-height: 1 !important;
@@ -4993,17 +4998,6 @@ body:has(.app-shell:not(.is-auth-route)),
   font-variant-numeric: tabular-nums !important;
   box-shadow: none !important;
   border: 0 !important;
-}
-
-#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe.is-active .nav-link-badge {
-  background: rgba(255, 255, 255, 0.22) !important;
-  color: #ffffff !important;
-}
-
-#app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe:not(.is-active) .nav-link-badge {
-  background: rgba(226, 85, 99, 0.14) !important;
-  color: #c23a48 !important;
-  box-shadow: none !important;
 }
 
 #app .app-shell:not(.is-auth-route) .sidebar-luxe .sidebar-footer-luxe {
@@ -5073,9 +5067,26 @@ body:has(.app-shell:not(.is-auth-route)),
   #app .app-shell:not(.is-auth-route) .shell-sidebar.sidebar-luxe {
     width: min(320px, 88vw) !important;
     padding: 16px 14px calc(16px + env(safe-area-inset-bottom, 0px)) !important;
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(246, 251, 250, 0.98) 100%) !important;
-    box-shadow: -12px 0 48px rgba(20, 70, 66, 0.14) !important;
+    background: #f7fbfa !important;
+    background-image: none !important;
+    box-shadow: -8px 0 24px rgba(20, 70, 66, 0.12) !important;
+    transform: translate3d(105%, 0, 0) !important;
+    transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+    will-change: transform !important;
+    backface-visibility: hidden !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .shell-sidebar.sidebar-luxe.is-open {
+    transform: translate3d(0, 0, 0) !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .sidebar-luxe .sidebar-brand-glow {
+    display: none !important;
+  }
+
+  #app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-luxe,
+  #app .app-shell:not(.is-auth-route) .sidebar-luxe .nav-link-icon-wrap {
+    transition: none !important;
   }
 
   #app .app-shell:not(.is-auth-route) .mobile-bottom-nav-luxe {
